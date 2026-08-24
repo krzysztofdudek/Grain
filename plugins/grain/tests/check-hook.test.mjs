@@ -47,6 +47,24 @@ test('a clean edit stays silent — no output at all, exit 0', () => {
   assert.equal(r.code, 0, r.err); assert.equal(r.out, '');
 });
 
+test('an UNCHANGED finding for the same file speaks once, not on every edit; after the TTL it reminds again', () => {
+  const seenPath0 = join(repo, '.grain', 'cache', 'hook-seen.json');
+  rmSync(seenPath0, { force: true }); // the first test emitted this same finding set — start from fresh state
+  const orig = readFileSync(join(repo, 'apps/a/main.ts'), 'utf8');
+  w('apps/a/main.ts', "import { db } from '../../packages/infra/db';\n" + orig.replace('util();', 'util() + db();'));
+  try {
+    const r1 = hook(join(repo, 'apps/a/main.ts'));
+    assert.match(r1.out, /FIRST edge/);
+    const r2 = hook(join(repo, 'apps/a/main.ts'));
+    assert.equal(r2.out, '', 'identical findings within the TTL must stay silent');
+    const seenPath = join(repo, '.grain', 'cache', 'hook-seen.json');
+    const seen = JSON.parse(readFileSync(seenPath, 'utf8'));
+    seen['apps/a/main.ts'].t = 1; writeFileSync(seenPath, JSON.stringify(seen)); // age the record past any TTL
+    const r3 = hook(join(repo, 'apps/a/main.ts'));
+    assert.match(r3.out, /FIRST edge/, 'an aged record reminds again');
+  } finally { w('apps/a/main.ts', orig); }
+});
+
 test('no payload, an unparseable file, and a repo with no index are all silence, never an error', () => {
   const r1 = spawnSync('node', [BIN, 'check-hook'], { cwd: repo, encoding: 'utf8', input: '' });
   assert.equal(r1.status, 0); assert.equal((r1.stdout || '').trim(), '');

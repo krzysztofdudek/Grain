@@ -324,6 +324,14 @@ export async function main(argv) {
       const lines = await cmdCheck({ model: model2, root: f.root, isGit: f.git, args: [rel], opts: {}, stamp: stamp2 });
       const speak = lines.filter(l => l.includes('[grain]')); // only findings — headers, conforms-to and the stamp stay in the direct command
       if (!speak.length) return 0;
+      // repeat suppression: an agent editing the same file five times must not read the same note five times — an
+      // UNCHANGED set of findings for a file repeats only after the TTL; any change in the findings speaks at once
+      const TTL = +(process.env.GRAIN_HOOK_TTL_MS || 15 * 60 * 1000);
+      const sig = createHash('sha256').update(rel + '\n' + speak.join('\n')).digest('hex').slice(0, 16);
+      const seenPath = join(st2.dir, 'hook-seen.json'); const seen = readJson(seenPath) || {};
+      const prev = seen[rel]; const now = Date.now();
+      if (prev && prev.h === sig && now - prev.t < TTL) return 0;
+      try { seen[rel] = { h: sig, t: now }; writeFileSync(seenPath, JSON.stringify(seen)); } catch { /* stateless is still correct, just louder */ }
       const text = [...speak.slice(0, 8), ...(speak.length > 8 ? [`  (+${speak.length - 8} more — run \`grain check ${rel}\`)`] : []), stamp2(true)].join('\n');
       console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text } })); }
     catch (e) { if (process.env.GRAIN_DEBUG) console.error('[grain] check-hook: ' + (e?.stack || e)); /* a hook never breaks an edit */ }
