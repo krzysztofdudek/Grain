@@ -1,0 +1,22 @@
+{
+  "name": "grain",
+  "version": "0.1.0",
+  "description": "Ask a repository about its own conventions before writing code: where <intent> (where such things live, what is expected there, exemplars to copy), check <file> (how a file sits against the local norm), spectrum <file>, status/report, export (the whole model as JSON for training pipelines), seed (a committed maintainer decision that steers a pattern). Statistical answers mined from the repo's syntax trees and full git history; no model calls, no network, never blocks.",
+  "author": {
+    "name": "Krzysztof Dudek",
+    "url": "https://github.com/krzysztofdudek"
+  },
+  "license": "MIT",
+  "homepage": "https://github.com/krzysztofdudek/Grain",
+  "repository": "https://github.com/krzysztofdudek/Grain.git",
+  "keywords": [
+    "conventions",
+    "codebase-analysis",
+    "tree-sitter",
+    "coding-agents",
+    "context-engineering",
+    "claude-code-plugin",
+    "repo-conventions"
+  ],
+  "displayName": "grain"
+}

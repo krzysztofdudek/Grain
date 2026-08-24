@@ -1,0 +1,16 @@
+{
+  "name": "grain",
+  "interface": {
+    "displayName": "grain"
+  },
+  "plugins": [
+    {
+      "name": "grain",
+      "source": {
+        "source": "local",
+        "path": "./plugins/grain"
+      },
+      "description": "Ask a repository about its own conventions before writing code: where <intent> (where such things live, what is expected there, exemplars to copy), check <file> (how a file sits against the local norm), spectrum <file>, status/report, export (the whole model as JSON for training pipelines), seed (a committed maintainer decision that steers a pattern). Statistical answers mined from the repo's syntax trees and full git history; no model calls, no network, never blocks."
+    }
+  ]
+}

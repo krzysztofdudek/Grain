@@ -1,0 +1,14 @@
+# Normalize line endings: every text file is LF in the repository and on every checkout, Windows included —
+# the hooks and the engine run the same bytes on macOS, Linux and Windows.
+* text=auto eol=lf
+
+# Binary assets shipped inside the plugin (never diffed, never normalized).
+*.wasm binary
+*.png binary
+*.zip binary
+*.bundle binary
+
+# Generated, vendored or bulky files: collapse them in diffs and language stats.
+plugins/grain/engine/vendor/** linguist-vendored
+plugins/grain/engine/grammars/** linguist-generated
+package-lock.json linguist-generated

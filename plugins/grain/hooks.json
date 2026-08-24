@@ -1,0 +1,13 @@
+{
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "type": "command",
+        "bash": "node \"${PLUGIN_ROOT}/bin/grain.mjs\" session-context --mode copilot",
+        "powershell": "node \"${PLUGIN_ROOT}/bin/grain.mjs\" session-context --mode copilot",
+        "timeoutSec": 15
+      }
+    ]
+  }
+}
