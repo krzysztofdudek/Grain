@@ -1,0 +1,30 @@
+# The gate: the full conformance suite (engine + relations + CLI e2e + hooks) on every push and PR.
+# Tests need no npm install — the tree-sitter runtime and grammars are vendored; the suite drives the real CLI.
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    name: tests (node ${{ matrix.node }})
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: git identity for test fixtures
+        run: |
+          git config --global user.name ci
+          git config --global user.email ci@invalid
+          git config --global init.defaultBranch main
+      - name: run suite
+        working-directory: plugins/grain
+        run: npm test
