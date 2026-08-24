@@ -4,7 +4,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ENGINE_VERSION = '0.1.0';
-export const EXTR_V = 'g20';
+export const EXTR_V = 'g21';
 export const HIST_V = 'h2';
 export const MODEL_V = 'm3'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
 // a call that IS a test case: its string argument names the callback scope (it/test/specify, Go's t.Run) — the one piece of

@@ -117,11 +117,12 @@ export function extractScopes(rel, tree, b, grammar = null) {
       // decoration attribution: the stack of decoration siblings directly above this scope (any height, comments allowed in
       // between) plus decorations inside the scope's own pre-body subtree (Java/C# modifiers, parameter annotations). Never a
       // preceding member's stack (the walk stops at the first real sibling) and never anything inside the body.
-      const decos = [];
+      const decos = []; const decoLits = []; // string-literal ARGUMENTS of the decorations: routes, event names, DI tokens — the marker's meaning
       if (b.deco.size) { // linear: walk back over decoration/comment siblings (the stack), then scan the scope's own pre-body subtree
         const decoTypes = [...b.deco]; const limit = bodyN ? bodyN.startIndex : ch.endIndex;
         // the sigil travels with the name: `[Test]` (C#) and `@Test` (Java/Kotlin) are different tokens and render as written
-        const take = d => { const t = d.text.trimStart(); if (/^[@[]/.test(t)) { const m = t.match(/^[@[]\s*([\w.]+)/); if (m) decos.push(t[0] === '[' ? '[' + m[1] + ']' : m[1]); } };
+        const take = d => { const t = d.text.trimStart(); if (/^[@[]/.test(t)) { const m = t.match(/^[@[]\s*([\w.]+)/); if (m) { decos.push(t[0] === '[' ? '[' + m[1] + ']' : m[1]);
+        if (decoLits.length < 12) for (const lm of t.matchAll(/["'`]([^"'`\n]{1,60})["'`]/g)) decoLits.push(lm[1]); } } };
         let sib = ch.previousNamedSibling;
         while (sib && (b.deco.has(sib.type) || sib.type === 'comment')) { if (b.deco.has(sib.type)) take(sib); sib = sib.previousNamedSibling; }
         for (const d of ch.descendantsOfType(decoTypes)) if (d.startIndex < limit) take(d);
@@ -144,6 +145,7 @@ export function extractScopes(rel, tree, b, grammar = null) {
       let docText = ''; { let sib = ch.previousNamedSibling, hops = 0; while (sib && hops++ < 6 && (b.deco.has(sib.type) || /comment/.test(sib.type))) { if (/comment/.test(sib.type)) { docText = sib.text; break; } sib = sib.previousNamedSibling; }
         if (!docText && stmts.length && stmts[0].type === 'expression_statement' && stmts[0].namedChildCount === 1 && /string/.test(stmts[0].namedChildren[0].type)) docText = stmts[0].namedChildren[0].text; }
       const doc = docTokens(docText);
+      if (decoLits.length) for (const t of docTokens(decoLits.slice(0, 12).join(' '))) if (!doc.includes(t)) doc.push(t);
       if (noBody) { scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, noBody: true, sup: [...new Set(sup)], decos: [...new Set(decos)], rets, calls: new Set(), seen: new Set(), shapes: new Set(), preds: Object.assign({}, name !== '<anon>' ? { 'auto.nameshape': nameShape(name) } : {}) }); walk(ch); continue; }
       const seen = new Set(); const calls = new Set(); const varNames = []; const stack = [...stmts]; let g = 0;
       while (stack.length && g++ < 4000) { const n = stack.pop(); seen.add(n.type);
