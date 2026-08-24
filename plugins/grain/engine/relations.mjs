@@ -60,8 +60,44 @@ export function wsResolverFor({ workspaces, fileSet }) {
         return w.entry; } }
     return undefined; }; }
 
+// tsconfig/jsconfig files are JSONC in the wild: comments and trailing commas everywhere — strip them string-aware
+export function parseJsonc(text) {
+  let out = '', i = 0, inStr = false;
+  while (i < text.length) { const c = text[i];
+    if (inStr) { out += c; if (c === '\\') { out += text[i + 1] ?? ''; i += 2; continue; } if (c === '"') inStr = false; i++; continue; }
+    if (c === '"') { inStr = true; out += c; i++; continue; }
+    if (c === '/' && text[i + 1] === '/') { while (i < text.length && text[i] !== '\n') i++; continue; }
+    if (c === '/' && text[i + 1] === '*') { i += 2; while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++; i += 2; continue; }
+    out += c; i++; }
+  return JSON.parse(out.replace(/,\s*([}\]])/g, '$1'));
+}
+
+// tsconfig `paths` aliases (`@/*` → `src/*`): the OTHER channel a TS repo's internal architecture flows through as bare
+// specifiers. Configs come pre-resolved to root-relative targets (core reads the files, follows `extends`); the NEAREST
+// config above the importing file decides — an outer config never falls through, exactly as tsc resolves. A specifier no
+// pattern matches stays what it was: external, silent.
+export function aliasResolverFor({ tsAliases, fileSet }) {
+  if (!tsAliases || !tsAliases.length) return () => undefined;
+  const cfgs = [...tsAliases].sort((a, b) => b.dir.length - a.dir.length || (a.dir < b.dir ? -1 : 1)); // deepest first
+  const EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '/index.ts', '/index.tsx', '/index.js'];
+  const hit = base => { for (const ext of EXTS) { const c = base + ext; if (fileSet.has(c)) return c; } return undefined; };
+  return (specifier, language, fromFile) => {
+    if (!/^(typescript|tsx|javascript)$/.test(language) || specifier.startsWith('.') || specifier.startsWith('/')) return undefined;
+    for (const cfg of cfgs) {
+      if (cfg.dir !== '.' && !((fromFile + '/').startsWith(cfg.dir + '/'))) continue;
+      for (const [pat, targets] of cfg.patterns || []) {
+        const star = pat.indexOf('*'); let cap = null;
+        if (star < 0) { if (specifier !== pat) continue; }
+        else { const pre = pat.slice(0, star), suf = pat.slice(star + 1);
+          if (!(specifier.startsWith(pre) && specifier.endsWith(suf) && specifier.length >= pre.length + suf.length)) continue;
+          cap = specifier.slice(pre.length, specifier.length - suf.length); }
+        for (const t of targets) { const r = hit(cap === null ? t : t.replace('*', cap)); if (r) return r; } }
+      if (cfg.base != null) { const r = hit((cfg.base === '.' ? '' : cfg.base + '/') + specifier); if (r) return r; }
+      return undefined; }
+    return undefined; }; }
+
 // the shared edge resolver: the full pass and the single-file `check` path resolve through the SAME machinery
-export function makeEdgeResolver({ root, fileSet, table, workspaces = [], pkgs = [], csGlobal = { usings: [], aliases: [] } }) {
+export function makeEdgeResolver({ root, fileSet, table, workspaces = [], pkgs = [], tsAliases = [], csGlobal = { usings: [], aliases: [] } }) {
   const ownerOf = f => (fileSet.has(f) ? f : undefined);
   // package-level splits (a Go package / Java wildcard import spanning several owners → silence) are decided at MODULE
   // granularity: with per-file owners every multi-file package would read as split and the whole language would go silent
@@ -69,7 +105,8 @@ export function makeEdgeResolver({ root, fileSet, table, workspaces = [], pkgs =
   const isExcluded = f => !fileSet.has(f);
   const base = makeResolvePathToFile(root, modOwner, isExcluded);
   const ws = wsResolverFor({ workspaces, fileSet });
-  const resolvePathToFile = (specifier, fromFile, language, isPackage) => base(specifier, fromFile, language, isPackage) ?? ws(specifier, language);
+  const alias = aliasResolverFor({ tsAliases, fileSet });
+  const resolvePathToFile = (specifier, fromFile, language, isPackage) => base(specifier, fromFile, language, isPackage) ?? alias(specifier, language, fromFile) ?? ws(specifier, language);
   const resolver = makeResolver({ ownerIndex: { ownerOf }, symbolTable: table, resolvePathToFile });
   return (rel, f) => { // one file's resolved out-edges (deduplicated, deterministic)
     if (!f) return [];
@@ -104,10 +141,10 @@ export function hydrateTable(relDecls) {
   return table; }
 
 // ---- resolution over the whole indexed tree → deduplicated file→file edges ----
-export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [] }) {
+export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], tsAliases = [] }) {
   const fileSet = new Set(files);
   const { table, csGlobal } = tableFrom(files, relFacts);
-  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, csGlobal });
+  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, tsAliases, csGlobal });
   const edges = [];
   for (const rel of files) edges.push(...resolve(rel, relFacts[rel]));
   return edges.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? -1 : a.to > b.to ? 1 : a.kind < b.kind ? -1 : 1));
