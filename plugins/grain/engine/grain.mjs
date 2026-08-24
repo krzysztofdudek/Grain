@@ -8,7 +8,7 @@
 //
 // Every answer ends with `as of <sha>[+dirty]`. The index lives in <repo>/.grain/cache/ (gitignored, disposable).
 // Uncommitted changes never feed the norm — only `check`/`spectrum` read the worktree version of the one file asked about.
-import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, readdirSync, appendFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, readdirSync, appendFileSync, realpathSync } from 'node:fs';
 import { join, relative, resolve, isAbsolute, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
@@ -281,7 +281,7 @@ export function sessionContext({ root, isGit, store, mode }) {
   const text = [
     `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence — then open that exemplar. Run from the repo root via Bash; every answer ends with \`as of <sha>\`.`,
     `  ${bin} where <intent words>   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms. Hits only in tests/ for a source change = a miss, not freedom.`,
-    `  ${bin} check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.`,
+    `  ${bin} check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''}`,
     `  ${bin} status | report        — size, freshness, top conventions.`,
     `Index: ${state}.`,
     ...(model && model.moduleGraph && model.moduleGraph.edges.length ? [(() => { const mg = model.moduleGraph;
@@ -307,6 +307,26 @@ export async function main(argv) {
     try { let r = { root, isGit, store }; const cwd = hookCwd(); if (cwd && cwd !== process.cwd()) { const f = findRoot({ repo: cwd }); r = { root: f.root, isGit: f.git, store: storeFor(f.root) }; }
       console.log(JSON.stringify(sessionContext({ ...r, mode: opts.mode || args[0] || 'claude' }))); }
     catch (e) { console.error('[grain] session-context failed: ' + e.message); }
+    return 0; }
+  if (cmd === 'check-hook') { // PostToolUse hook: grain comes to the agent after every edit — speaks ONLY when it has
+    // findings on the touched lines (deviations, maintainer decisions, architecture), never builds or refreshes, never blocks
+    try {
+      let payload = null; try { if (!process.stdin.isTTY) { const raw = readFileSync(0, 'utf8'); if (raw.trim()) payload = JSON.parse(raw); } } catch { /* no payload → nothing to check */ }
+      const fp = payload?.tool_input?.file_path || payload?.tool_input?.filePath || payload?.file_path;
+      if (!fp) return 0;
+      const f = findRoot({ repo: typeof payload?.cwd === 'string' ? payload.cwd : process.cwd() }); const st2 = storeFor(f.root);
+      let fpr = fp; try { fpr = realpathSync(fp); } catch { /* not on disk yet — existsSync below decides */ }
+      const meta2 = readJson(st2.metaPath); const model2 = meta2 && existsSync(st2.modelPath) ? readJson(st2.modelPath) : null;
+      if (!model2 || meta2.engine !== ENGINE_VERSION || meta2.extractor !== EXTR_V || (meta2.model || '') !== MODEL_V) return 0; // stale schema: silence, the next real query rebuilds
+      const rel = relPath(f.root, fpr);
+      if (!EXT2GRAMMAR[extname(rel)] || !existsSync(join(f.root, rel))) return 0;
+      const stamp2 = d => `as of ${short(meta2.headSha)}${d ? '+dirty' : ''}`;
+      const lines = await cmdCheck({ model: model2, root: f.root, isGit: f.git, args: [rel], opts: {}, stamp: stamp2 });
+      const speak = lines.filter(l => l.includes('[grain]')); // only findings — headers, conforms-to and the stamp stay in the direct command
+      if (!speak.length) return 0;
+      const text = [...speak.slice(0, 8), ...(speak.length > 8 ? [`  (+${speak.length - 8} more — run \`grain check ${rel}\`)`] : []), stamp2(true)].join('\n');
+      console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text } })); }
+    catch (e) { if (process.env.GRAIN_DEBUG) console.error('[grain] check-hook: ' + (e?.stack || e)); /* a hook never breaks an edit */ }
     return 0; }
   if (cmd === 'version') { console.log(`grain ${ENGINE_VERSION} · extractor ${EXTR_V} · grammars ${GRAMMARS.join(', ')}`); return 0; }
   const want = cmd === 'refresh' ? 'force' : (opts['no-refresh'] || process.env.GRAIN_NO_REFRESH ? 'none' : 'refresh');
