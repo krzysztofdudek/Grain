@@ -74,8 +74,10 @@ matching functions inside it). Source hits rank above tests/examples unless you 
   lattice with no acceptance cut (`NORM` = accepted, `obs` = below the gate). Large; not for a small edit.
 - `status` / `report [--top N]` — model size, freshness, a signal verdict ("sparse model — expect placement, not
   shape"), top conventions with trends, and the **measured architecture**: modules, directed dependencies, cycles
-  (`where` directory cards carry `depends on:` / `used by:`). Before adding a cross-module import, check the graph —
-  a dependency edge that does not exist yet is a boundary someone may be keeping.
+  (`where` directory cards carry `depends on:` / `used by:`). `check` now enforces this at edit time: an import that
+  creates the FIRST edge between two modules, closes a dependency cycle, or crosses a committed boundary decision
+  (`grain seed add-boundary <from> --never-imports <to>`) is said with the established alternative path. Treat a
+  `[grain] architecture:` line as a design question to raise, not a lint error to silence.
 - `refresh [--full]` — rebuild now (queries already auto-refresh).
 - `check <file> --json` / `where --json` / `report --json` / `status --json` / `export --out <file>` — the same answers
   as data (for harnesses and training pipelines, not for a conversation).

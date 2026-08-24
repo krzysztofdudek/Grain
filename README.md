@@ -96,6 +96,11 @@ $ grain report
   cycle: src/core ↔ src/relations ↔ src/structure
 ```
 
+`check` enforces it at edit time: an import creating the FIRST edge between two modules, closing a cycle, or crossing
+a committed boundary decision (`grain seed add-boundary apps/frontend --never-imports packages/infra --note "ADR-3"`)
+is reported with the established path (`today apps/frontend reaches packages/infra via packages/core`). Existing
+crossings stay silent — practice already speaks there.
+
 `status` carries the counts, the session hook announces the shape (`Architecture (measured): 25 modules, 31
 dependencies, 0 cycles; most depended-on: packages/core/`), `where` directory cards say `depends on:` / `used by:`,
 and `export` ships every edge. Resolution covers 13 languages (TS/TSX/JS incl. workspace-package specifiers, Python,

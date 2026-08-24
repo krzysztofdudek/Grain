@@ -12,7 +12,7 @@ import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSyn
 import { join, relative, resolve, isAbsolute, dirname, extname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { ENGINE_VERSION, EXTR_V, GRAMMAR_DIR, GRAMMARS, EXCL, EXT2GRAMMAR } from './config.mjs';
+import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, EXCL, EXT2GRAMMAR } from './config.mjs';
 import { learn, checkFile, spectrum, whereCmd, report, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, isAuxPartition, factLabel } from './core.mjs';
 import { loadHistory, headSha, headTree, gitOk } from './history.mjs';
 import { exportModel } from './export.mjs';
@@ -27,7 +27,7 @@ export function parseArgv(argv) {
   const opts = {}; const args = [];
   for (let i = 0; i < argv.length; i++) { const a = argv[i];
     if (a === '--') { args.push(...argv.slice(i + 1)); break; }
-    if (a.startsWith('--')) { const [k, ...v] = a.slice(2).split('='); if (v.length) opts[k] = v.join('='); else if (['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'weight', 'topic', 'note', 'author'].includes(k) && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--')) opts[k] = argv[++i]; else opts[k] = true; }
+    if (a.startsWith('--')) { const [k, ...v] = a.slice(2).split('='); if (v.length) opts[k] = v.join('='); else if (['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'never-imports', 'weight', 'topic', 'note', 'author'].includes(k) && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--')) opts[k] = argv[++i]; else opts[k] = true; }
     else args.push(a); }
   return { cmd: args[0], args: args.slice(1), opts }; }
 
@@ -66,8 +66,8 @@ const log = (...a) => console.error('[grain]', ...a);
 async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }) {
   const head = isGit ? headSha(root) : null;
   const meta = readJson(store.metaPath); const model = existsSync(store.modelPath) ? readJson(store.modelPath) : null;
-  const versionOk = meta && meta.engine === ENGINE_VERSION && meta.extractor === EXTR_V && meta.grammars === grammarStamp();
-  const seeds = readSeeds(store); const seedsHash = hashSeeds(seeds);
+  const versionOk = meta && meta.engine === ENGINE_VERSION && meta.extractor === EXTR_V && (meta.model || '') === MODEL_V && meta.grammars === grammarStamp();
+  const { seeds, boundaries } = readSeeds(store); const seedsHash = hashSeeds({ seeds, boundaries });
   const sig = isGit ? null : treeSig(root);
   const fresh = model && versionOk && (meta.seedsHash || '') === seedsHash && (isGit ? meta.headSha === head : meta.treeSig === sig); // a changed seeds file re-mines like a new commit would
   const banner = [];
@@ -84,10 +84,10 @@ async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }) {
   log(`indexing ${root} (${hist.mode === 'incremental' ? 'incremental' : hist.mode === 'unchanged' ? 'history unchanged' : hist.mode === 'full' ? 'full history' : 'no history'})`);
   const treeCache = versionOk ? readJson(store.treePath) : null; // (blob sha, path) → extracted scopes, from the previous index
   const tree = isGit && head ? headTree(root, { skip: (rel, sha) => !!(treeCache && treeCache[sha + '|' + rel]) }) : null;
-  const { model: m2, ms, scopes, rawScopes, treeCacheOut } = await learn({ root, H, log, tree, treeCache, seeds });
+  const { model: m2, ms, scopes, rawScopes, treeCacheOut } = await learn({ root, H, log, tree, treeCache, seeds, boundaries });
   atomicWrite(store.modelPath, JSON.stringify(m2));
   if (tree) atomicWrite(store.treePath, JSON.stringify(treeCacheOut)); else atomicWrite(store.scopesPath, JSON.stringify(rawScopes));
-  const meta2 = { engine: ENGINE_VERSION, extractor: EXTR_V, grammars: grammarStamp(), headSha: head, treeSig: sig, seedsHash, historyMode: hist.mode, historyReason: hist.reason || null,
+  const meta2 = { engine: ENGINE_VERSION, extractor: EXTR_V, model: MODEL_V, grammars: grammarStamp(), headSha: head, treeSig: sig, seedsHash, historyMode: hist.mode, historyReason: hist.reason || null,
     builtAt: new Date().toISOString(), buildMs: Date.now() - t0, scopes };
   atomicWrite(store.metaPath, JSON.stringify(meta2, null, 1));
   log(`indexed in ${((Date.now() - t0) / 1000).toFixed(1)}s: ${m2.partitions.reduce((a, p) => a + p.facts.length, 0)} conventions, ${scopes} scopes, learn ${ms}ms`);
@@ -129,7 +129,8 @@ async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
   const r = await checkFile({ model, root, rel, content, asPath: opts.as, exemplarOk: existsMemo(root) });
   const dirty = content ? true : fileDirty(root, rel, isGit);
   const lines = [];
-  if (!r.partition) return [`check ${rel}: ${r.reason} — grain has no norm to hold this file against`, stamp(dirty)];
+  if (!r.partition) { const arch = (r.archHits || []).map(h => h.text);
+    return [`check ${rel}: ${r.reason} — grain has no norm to hold this file against`, ...arch, stamp(dirty)]; }
   const scopesN = r.scopes.filter(s => s.kind !== 'file').length;
   if (!r.scopes.length) return [`check ${rel}: no scopes extracted (unsupported language or parse failure)`, stamp(dirty)];
   const govFacts = new Map(); for (const g of r.governed) { const k = g.fact.cid + '|' + g.pid; const e = govFacts.get(k) || { g, n: 0, ok: 0 }; e.n++; if (g.conforms) e.ok++; govFacts.set(k, e); }
@@ -141,11 +142,15 @@ async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
     const dev = g => ({ convention: r.partition + '::' + g.factKey.split('|')[0] + '::' + g.pid, label: g.label, pid: g.pid, expected: g.exp, observed: g.obs, gapBits: g.delta,
       statement: g.text.split('\n')[0].replace(/^\[grain\] /, ''), hits: g.hits.map(h => ({ scope: h.scope, kind: h.kind, line: h.line, inChange: h.touched })) });
     return [JSON.stringify({ file: rel, partition: r.partition, label: scopeLabel(r.partition), scopes: scopesN, dirty, governed: [...govFacts.values()].map(e => ({ convention: r.partition + '::' + e.g.fact.cid + '::' + e.g.pid, label: e.g.label, statement: verbalize(e.g.fact, e.g.fact.exemplars.map(x => x.name)), established: e.g.fact.sraw, share: e.g.fact.share, scopes: e.n, conforming: e.ok })),
-      deviationsInChange: inChange.map(dev), deviationsPreExisting: preOnly.map(dev), steers: (r.steerHits || []).map(h => ({ seed: h.id, pid: h.pid, expected: h.exp, observed: h.obs, scope: h.scope, kind: h.kind, line: h.line, inChange: !touched || touched(h.line, h.endLine) })), asOf: stamp(dirty).replace(/^as of /, '') })]; }
+      deviationsInChange: inChange.map(dev), deviationsPreExisting: preOnly.map(dev), steers: (r.steerHits || []).map(h => ({ seed: h.id, pid: h.pid, expected: h.exp, observed: h.obs, scope: h.scope, kind: h.kind, line: h.line, inChange: !touched || touched(h.line, h.endLine) })), architecture: (r.archHits || []).map(h => ({ kind: h.kind, to: h.to, line: h.line, seed: h.id || null, inChange: !touched || touched(h.line, h.line) })), asOf: stamp(dirty).replace(/^as of /, '') })]; }
   const steerIn = (r.steerHits || []).filter(h => !touched || touched(h.line, h.endLine)), steerPre = (r.steerHits || []).filter(h => touched && !touched(h.line, h.endLine));
   lines.push(`check ${rel} — ${scopeLabel(r.partition)} · ${scopesN} scopes + file · governed by ${govFacts.size} convention(s) · ${inChange.length} deviation(s) in your change, ${preOnly.length} pre-existing${steerIn.length ? ` · ${steerIn.length} maintainer decision(s) your change departs from` : ''}`);
   if (steerPre.length && !steerIn.length) lines.push(`  (${steerPre.length} existing ${steerPre.length > 1 ? 'scopes are' : 'scope is'} still on a pattern a maintainer decision retires — a transition in progress, not yours to fix; \`--all\` lists)`);
   for (const h of steerIn) lines.push(h.text);
+  const archIn = (r.archHits || []).filter(h => !touched || touched(h.line, h.line)), archPre = (r.archHits || []).filter(h => touched && !touched(h.line, h.line));
+  for (const h of archIn) lines.push(h.text);
+  if (archPre.length) lines.push(`  (${archPre.length} architecture note(s) on lines you did not touch — \`--all\` shows${opts.all ? ':' : ''})`);
+  if (archPre.length && opts.all) for (const h of archPre) lines.push(h.text);
   if (steerPre.length && steerIn.length) lines.push(`  (${steerPre.length} more existing ${steerPre.length > 1 ? 'scopes' : 'scope'} still on the retired pattern — a transition in progress, not yours to fix)`);
   if (steerPre.length && opts.all) for (const h of steerPre) lines.push(h.text);
   if (!govFacts.size) lines.push('  no strong convention governs this file — grain has nothing certified for this kind of file here; that is not approval, open the nearest neighbour and copy it');
@@ -165,12 +170,14 @@ async function cmdSpectrum({ model, root, isGit, args, opts, stamp, store }) {
   const r = await spectrum({ model, root, rel, minBits: opts.minbits !== undefined ? +opts.minbits : 0, top: +opts.top || 0, scopesAll });
   return [...r.lines, stamp(fileDirty(root, rel, isGit))]; }
 // ----- seeds (steering): .grain/seeds.jsonl, committed; one maintainer decision per line -----
-function readSeeds(store) { if (!existsSync(store.seedsPath)) return [];
-  const out = []; for (const line of readFileSync(store.seedsPath, 'utf8').split('\n')) { const t = line.trim(); if (!t || t.startsWith('#')) continue;
-    try { const j = JSON.parse(t); if (j && j.scope && j.scope.path && Array.isArray(j.surfaces) && j.surfaces.length) out.push({ id: j.id, path: j.scope.path, name: j.scope.name, pids: j.surfaces.concat(j.retired || []), retired: j.retired || [], weight: +j.weight || 8, topic: j.topic || '', note: j.note || '', author: j.author || '', createdAt: j.createdAt || '' }); }
+function readSeeds(store) { const out = []; const boundaries = [];
+  if (existsSync(store.seedsPath)) for (const line of readFileSync(store.seedsPath, 'utf8').split('\n')) { const t = line.trim(); if (!t || t.startsWith('#')) continue;
+    try { const j = JSON.parse(t);
+      if (j && j.boundary && j.boundary.from && j.boundary.to) boundaries.push({ id: j.id, boundary: { from: j.boundary.from.replace(/\/$/, ''), to: j.boundary.to.replace(/\/$/, '') }, note: j.note || '', author: j.author || '', createdAt: j.createdAt || '' });
+      else if (j && j.scope && j.scope.path && Array.isArray(j.surfaces) && j.surfaces.length) out.push({ id: j.id, path: j.scope.path, name: j.scope.name, pids: j.surfaces.concat(j.retired || []), retired: j.retired || [], weight: +j.weight || 8, topic: j.topic || '', note: j.note || '', author: j.author || '', createdAt: j.createdAt || '' }); }
     catch { log(`seeds.jsonl: skipped an unparsable line: ${t.slice(0, 60)}`); } }
-  return out; }
-const hashSeeds = seeds => seeds.length ? createHash('sha256').update(JSON.stringify(seeds)).digest('hex').slice(0, 16) : '';
+  return { seeds: out, boundaries }; }
+const hashSeeds = ({ seeds, boundaries }) => (seeds.length || boundaries.length) ? createHash('sha256').update(JSON.stringify([seeds, boundaries])).digest('hex').slice(0, 16) : '';
 function appendDecision(store, rec) { appendFileSync(join(store.base, 'decisions.jsonl'), JSON.stringify(rec) + '\n'); }
 function ensureSeedAttrs(store) { const p = join(store.base, '.gitattributes'); if (existsSync(p)) return;
   writeFileSync(p, '# generated by grain: decisions from two branches merge line by line\nseeds.jsonl merge=union\ndecisions.jsonl merge=union\n'); log('created .grain/.gitattributes (merge=union for seeds.jsonl and decisions.jsonl)'); }
@@ -187,8 +194,9 @@ async function scopeSurfaces({ model, store, rel, name, root, isGit, opts }) {
   return { scope: s, surfaces: positive.map(([pid, v]) => ({ pid, value: v, statement: verb2({ pid, exp: v, kind: s.kind }, [s.name]) })) }; }
 async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
   const sub = args[0];
-  if (sub === 'list') { const seeds = readSeeds(store); if (!seeds.length) return ['no seeds — `grain seed add <path>#<name> --surfaces <pid,…> --note "…"` records a maintainer decision in .grain/seeds.jsonl', stamp()];
-    return [...seeds.map(sd => `${sd.id}  ${sd.path}#${sd.name}  ${sd.pids.join(',')}  weight ${sd.weight}${sd.topic ? `  topic "${sd.topic}"` : ''}${sd.note ? `  — ${sd.note}` : ''}  (${[sd.author, sd.createdAt].filter(Boolean).join(' ')})`), stamp()]; }
+  if (sub === 'list') { const { seeds, boundaries } = readSeeds(store); if (!seeds.length && !boundaries.length) return ['no seeds — `grain seed add <path>#<name> --surfaces <pid,…> --note "…"` (pattern) or `grain seed add-boundary <from> --never-imports <to> --note "…"` (architecture) records a maintainer decision in .grain/seeds.jsonl', stamp()];
+    return [...seeds.map(sd => `${sd.id}  ${sd.path}#${sd.name}  ${sd.pids.join(',')}  weight ${sd.weight}${sd.topic ? `  topic "${sd.topic}"` : ''}${sd.note ? `  — ${sd.note}` : ''}  (${[sd.author, sd.createdAt].filter(Boolean).join(' ')})`),
+      ...boundaries.map(bd => `${bd.id}  boundary: ${bd.boundary.from}/ never imports ${bd.boundary.to}/${bd.note ? `  — ${bd.note}` : ''}  (${[bd.author, bd.createdAt].filter(Boolean).join(' ')})`), stamp()]; }
   if (sub === 'rm') { const id = args[1]; if (!id) throw new Error('usage: grain seed rm <id>');
     const lines = existsSync(store.seedsPath) ? readFileSync(store.seedsPath, 'utf8').split('\n') : []; const kept = lines.filter(l => { try { return l.trim() && JSON.parse(l).id !== id; } catch { return !!l.trim(); } });
     if (kept.length === lines.filter(l => l.trim()).length) throw new Error(`no seed with id ${id}`);
@@ -207,12 +215,23 @@ async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
     const badR = retire.filter(pid => r.scope.preds[pid] !== 'false'); if (badR.length) throw new Error(`--instead-of ${badR.join(', ')}: the exemplar ${r.scope.name} ${r.scope.preds[badR[0]] === undefined ? 'has no such surface' : 'itself carries that value'} — name a surface the exemplar has retired (its value on the exemplar is 'false')`);
     const createdAt = new Date().toISOString().slice(0, 10); const author = opts.author || process.env.USER || '';
     const id = createHash('sha256').update([rel, r.scope.name, want.concat(retire).join(','), author, createdAt].join('|')).digest('hex').slice(0, 8);
-    if (readSeeds(store).some(sd => sd.id === id)) return [`seed ${id} already exists for ${rel}#${r.scope.name} on ${want.join(',')} — \`grain seed rm ${id}\` first to change it`, stamp()];
+    if (readSeeds(store).seeds.some(sd => sd.id === id)) return [`seed ${id} already exists for ${rel}#${r.scope.name} on ${want.join(',')} — \`grain seed rm ${id}\` first to change it`, stamp()];
     const rec = { id, scope: { path: rel, name: r.scope.name }, surfaces: want, retired: retire, weight: +opts.weight || 8, topic: opts.topic || '', note: opts.note || '', author, createdAt };
     mkdirSync(store.base, { recursive: true }); ensureSeedAttrs(store);
     appendFileSync(store.seedsPath, JSON.stringify(rec) + '\n'); appendDecision(store, { action: 'add', id, at: createdAt, by: author, note: rec.note });
     return [`recorded seed ${id} in .grain/seeds.jsonl — ${want.map(pid => verb2({ pid, exp: r.scope.preds[pid], kind: r.scope.kind }, [r.scope.name])).join('; ')} (weight ${rec.weight}, capped at half the real population of each cell). Commit .grain/seeds.jsonl and .grain/decisions.jsonl; the next query re-mines with it.`, stamp()]; }
-  throw new Error('usage: grain seed add|list|rm …'); }
+  if (sub === 'add-boundary') { const from = args[1]; const to = opts['never-imports'];
+    if (!from || !to) throw new Error('usage: grain seed add-boundary <fromDir> --never-imports <toDir> --note "…" [--author X]');
+    const fromDir = String(from).replace(/\/$/, ''), toDir = String(to).replace(/\/$/, '');
+    const createdAt = new Date().toISOString().slice(0, 10); const author = opts.author || process.env.USER || '';
+    const id = createHash('sha256').update(['boundary', fromDir, toDir, author, createdAt].join('|')).digest('hex').slice(0, 8);
+    if (readSeeds(store).boundaries.some(bd => bd.id === id)) return [`boundary ${id} already exists — \`grain seed rm ${id}\` first to change it`, stamp()];
+    const mg = model.moduleGraph; const existing = (mg?.edges || []).filter(e => (e.from + '/').startsWith(fromDir + '/') && (e.to + '/').startsWith(toDir + '/'));
+    mkdirSync(store.base, { recursive: true }); ensureSeedAttrs(store);
+    appendFileSync(store.seedsPath, JSON.stringify({ id, boundary: { from: fromDir, to: toDir }, note: opts.note || '', author, createdAt }) + '\n');
+    appendDecision(store, { action: 'add-boundary', id, at: createdAt, by: author, note: opts.note || '' });
+    return [`recorded boundary ${id} in .grain/seeds.jsonl — ${fromDir}/ never imports ${toDir}/. ${existing.length ? `NOTE: the graph already holds ${existing.length} module edge(s) crossing it (${existing.slice(0, 3).map(e => `${e.from}→${e.to} ×${e.n}`).join(' · ')}) — existing code is a transition, new code will be flagged by \`check\`.` : 'No existing edges cross it.'} Commit .grain/seeds.jsonl and .grain/decisions.jsonl.`, stamp()]; }
+  throw new Error('usage: grain seed add|add-boundary|list|rm …'); }
 // the indexed scopes of HEAD (tree cache, or the scope snapshot of a git-less repo); a missing cache is rebuilt once
 async function loadScopes({ root, isGit, store, opts }) {
   let treeCache = readJson(store.treePath); let snap = treeCache ? null : readJson(store.scopesPath);
@@ -320,6 +339,7 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh]
   export [--out <file>] [--max-sites N]   the whole model as JSON: every convention with all its sites, anchors, trends,
                                           groups, markers, directories, co-change (for training pipelines and audits)
   seed add <path>#<name> --surfaces <pid,…> [--instead-of <pid,…>] --note "…"   record a maintainer decision (.grain/seeds.jsonl, committed)
+  seed add-boundary <from> --never-imports <to> --note "…"   an architecture decision: new imports crossing it are flagged
   seed list | seed rm <id>                the decisions in force / withdraw one
   refresh [--full]                        rebuild the index now (every query already auto-refreshes)
   version                                 engine, extractor and grammar versions

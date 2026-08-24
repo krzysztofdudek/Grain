@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 export const ENGINE_VERSION = '0.1.0';
 export const EXTR_V = 'g20';
 export const HIST_V = 'h2';
+export const MODEL_V = 'm2'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
 // a call that IS a test case: its string argument names the callback scope (it/test/specify, Go's t.Run) — the one piece of
 // ecosystem vocabulary grain allows itself beside the test-path patterns above; a new test body is otherwise anonymous and
 // ungoverned (measured: `check` on a new test file said `0 scopes` in three review rounds)

@@ -83,7 +83,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
       calibration: 'available only when the history holds >= calibMinEv value-transition events inside the horizon — rare on ordinary repos; trend/lifecycle do not depend on it.' },
     indexedAt: meta?.builtAt || null, history: model.historyStats ? { ...model.historyStats, mode: meta?.historyMode || null, agentShare: model.agentShare } : null,
     summary: { files: model.files, partitions: model.partitions.length, groups: 0, conventions: 0, scopes: 0, deviations: 0, calibrationAvailable: 0, trendAvailable: 0 },
-    steers: (model.steers || []).map(st => ({ ...st })), edges: model.edges || [], edgesTruncated: model.edgesTruncated || 0, moduleGraph: model.moduleGraph || { nodes: [], edges: [], cycles: [] }, partitions: [], conventions: [], cochange: [] };
+    steers: (model.steers || []).map(st => ({ ...st })), boundaries: model.boundaries || [], edges: model.edges || [], edgesTruncated: model.edgesTruncated || 0, moduleGraph: model.moduleGraph || { nodes: [], edges: [], cycles: [] }, partitions: [], conventions: [], cochange: [] };
   const lcOf = key => H ? H.lc.get(key) || null : null;
   for (const part of model.partitions) {
     const fileSet = new Set(part.files || []);

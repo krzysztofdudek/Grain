@@ -60,15 +60,8 @@ export function wsResolverFor({ workspaces, fileSet }) {
         return w.entry; } }
     return undefined; }; }
 
-// ---- resolution over the whole indexed tree → deduplicated file→file edges ----
-export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [] }) {
-  const fileSet = new Set(files);
-  const table = new SymbolTable();
-  const globalUsings = new Set(); const globalAliases = new Map();
-  for (const rel of files) { const f = relFacts[rel]; if (!f) continue;
-    for (const d of f.d || []) table.declare(f.l, d.symbolKey, rel);
-    if (f.c) { for (const p of f.c.scope.globalPrefixes || []) globalUsings.add(p);
-      for (const [n, fqn] of f.c.scope.globalAliases || []) globalAliases.set(n, fqn); } }
+// the shared edge resolver: the full pass and the single-file `check` path resolve through the SAME machinery
+export function makeEdgeResolver({ root, fileSet, table, workspaces = [], pkgs = [], csGlobal = { usings: [], aliases: [] } }) {
   const ownerOf = f => (fileSet.has(f) ? f : undefined);
   // package-level splits (a Go package / Java wildcard import spanning several owners → silence) are decided at MODULE
   // granularity: with per-file owners every multi-file package would read as split and the whole language would go silent
@@ -78,17 +71,46 @@ export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [] }
   const ws = wsResolverFor({ workspaces, fileSet });
   const resolvePathToFile = (specifier, fromFile, language, isPackage) => base(specifier, fromFile, language, isPackage) ?? ws(specifier, language);
   const resolver = makeResolver({ ownerIndex: { ownerOf }, symbolTable: table, resolvePathToFile });
-  const seen = new Map(); // from\0to\0kind → { line, n }
-  for (const rel of files) { const f = relFacts[rel]; if (!f) continue;
-    const uses = f.c ? assembleCsharpCandidates(deserCs(f.c), { projectGlobalUsings: [...globalUsings], projectGlobalUsingAliases: [...globalAliases.entries()] }) : (f.u || []);
+  return (rel, f) => { // one file's resolved out-edges (deduplicated, deterministic)
+    if (!f) return [];
+    const uses = f.c ? assembleCsharpCandidates(deserCs(f.c), { projectGlobalUsings: csGlobal.usings, projectGlobalUsingAliases: csGlobal.aliases }) : (f.u || []);
+    const seen = new Map();
     for (const dep of uses) {
       const to = resolveCandidateGroup(dep.candidates, resolver, rel, f.l);
       if (!to || to === rel) continue;
-      const k = rel + SEP + to + SEP + dep.kind;
-      const e = seen.get(k); if (e) { e.n++; if (dep.line < e.line) e.line = dep.line; } else seen.set(k, { line: dep.line, n: 1 }); } }
-  const edges = [...seen].map(([k, v]) => { const [from, to, kind] = k.split(SEP); return { from, to, kind, line: v.line, n: v.n }; })
-    .sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? -1 : a.to > b.to ? 1 : a.kind < b.kind ? -1 : 1));
-  return edges;
+      const k = to + SEP + dep.kind;
+      const e = seen.get(k); if (e) { e.n++; if (dep.line < e.line) e.line = dep.line; } else seen.set(k, { line: dep.line, n: 1 }); }
+    return [...seen].map(([k, v]) => { const [to, kind] = k.split(SEP); return { from: rel, to, kind, line: v.line, n: v.n }; })
+      .sort((a, b) => (a.to < b.to ? -1 : a.to > b.to ? 1 : a.kind < b.kind ? -1 : 1)); }; }
+
+export function tableFrom(files, relFacts) {
+  const table = new SymbolTable(); const usings = new Set(); const aliases = new Map();
+  for (const rel of files) { const f = relFacts[rel]; if (!f) continue;
+    for (const d of f.d || []) table.declare(f.l, d.symbolKey, rel);
+    if (f.c) { for (const p of f.c.scope.globalPrefixes || []) usings.add(p);
+      for (const [n, fqn] of f.c.scope.globalAliases || []) aliases.set(n, fqn); } }
+  return { table, csGlobal: { usings: [...usings], aliases: [...aliases.entries()] } }; }
+
+// the symbol table, compact enough to live in the model (check-time resolution of an edited file): up to 3 defining
+// files per key — 0/1/≥2 classification and the nested-split distinct-file rule survive the cap
+export function compactDecls(files, relFacts) {
+  const out = {};
+  for (const rel of files) { const f = relFacts[rel]; if (!f) continue;
+    for (const d of f.d || []) { const byLang = (out[f.l] ||= {}); const arr = (byLang[d.symbolKey] ||= []); if (arr.length < 3 && !arr.includes(rel)) arr.push(rel); } }
+  return out; }
+export function hydrateTable(relDecls) {
+  const table = new SymbolTable();
+  for (const [lang, keys] of Object.entries(relDecls || {})) for (const [key, files] of Object.entries(keys)) for (const f of files) table.declare(lang, key, f);
+  return table; }
+
+// ---- resolution over the whole indexed tree → deduplicated file→file edges ----
+export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [] }) {
+  const fileSet = new Set(files);
+  const { table, csGlobal } = tableFrom(files, relFacts);
+  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, csGlobal });
+  const edges = [];
+  for (const rel of files) edges.push(...resolve(rel, relFacts[rel]));
+  return edges.sort((a, b) => (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? -1 : a.to > b.to ? 1 : a.kind < b.kind ? -1 : 1));
 }
 
 // ---- the module graph: directories at layout depth ≤ 2 as nodes, edge counts, cycles ----
