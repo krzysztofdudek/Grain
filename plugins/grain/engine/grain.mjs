@@ -130,7 +130,7 @@ async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
   const dirty = content ? true : fileDirty(root, rel, isGit);
   const lines = [];
   if (!r.partition) { const arch = (r.archHits || []).map(h => h.text);
-    return [`check ${rel}: ${r.reason} — grain has no norm to hold this file against`, ...arch, stamp(dirty)]; }
+    return [`check ${rel}: ${r.reason} — grain has no norm to hold this file against`, ...(r.placeHit ? [r.placeHit.text] : []), ...arch, stamp(dirty)]; }
   const scopesN = r.scopes.filter(s => s.kind !== 'file').length;
   if (!r.scopes.length) return [`check ${rel}: no scopes extracted (unsupported language or parse failure)`, stamp(dirty)];
   const govFacts = new Map(); for (const g of r.governed) { const k = g.fact.cid + '|' + g.pid; const e = govFacts.get(k) || { g, n: 0, ok: 0 }; e.n++; if (g.conforms) e.ok++; govFacts.set(k, e); }
@@ -142,11 +142,12 @@ async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
     const dev = g => ({ convention: r.partition + '::' + g.factKey.split('|')[0] + '::' + g.pid, label: g.label, pid: g.pid, expected: g.exp, observed: g.obs, gapBits: g.delta,
       statement: g.text.split('\n')[0].replace(/^\[grain\] /, ''), hits: g.hits.map(h => ({ scope: h.scope, kind: h.kind, line: h.line, inChange: h.touched })) });
     return [JSON.stringify({ file: rel, partition: r.partition, label: scopeLabel(r.partition), scopes: scopesN, dirty, governed: [...govFacts.values()].map(e => ({ convention: r.partition + '::' + e.g.fact.cid + '::' + e.g.pid, label: e.g.label, statement: verbalize(e.g.fact, e.g.fact.exemplars.map(x => x.name)), established: e.g.fact.sraw, share: e.g.fact.share, scopes: e.n, conforming: e.ok })),
-      deviationsInChange: inChange.map(dev), deviationsPreExisting: preOnly.map(dev), steers: (r.steerHits || []).map(h => ({ seed: h.id, pid: h.pid, expected: h.exp, observed: h.obs, scope: h.scope, kind: h.kind, line: h.line, inChange: !touched || touched(h.line, h.endLine) })), architecture: (r.archHits || []).map(h => ({ kind: h.kind, to: h.to, line: h.line, seed: h.id || null, inChange: !touched || touched(h.line, h.line) })), asOf: stamp(dirty).replace(/^as of /, '') })]; }
+      deviationsInChange: inChange.map(dev), deviationsPreExisting: preOnly.map(dev), steers: (r.steerHits || []).map(h => ({ seed: h.id, pid: h.pid, expected: h.exp, observed: h.obs, scope: h.scope, kind: h.kind, line: h.line, inChange: !touched || touched(h.line, h.endLine) })), architecture: (r.archHits || []).map(h => ({ kind: h.kind, to: h.to, line: h.line, seed: h.id || null, inChange: !touched || touched(h.line, h.line) })), placement: r.placeHit ? { token: r.placeHit.token, dir: r.placeHit.dir, statement: r.placeHit.text.replace(/^\[grain\] /, '') } : null, asOf: stamp(dirty).replace(/^as of /, '') })]; }
   const steerIn = (r.steerHits || []).filter(h => !touched || touched(h.line, h.endLine)), steerPre = (r.steerHits || []).filter(h => touched && !touched(h.line, h.endLine));
   lines.push(`check ${rel} — ${scopeLabel(r.partition)} · ${scopesN} scopes + file · governed by ${govFacts.size} convention(s) · ${inChange.length} deviation(s) in your change, ${preOnly.length} pre-existing${steerIn.length ? ` · ${steerIn.length} maintainer decision(s) your change departs from` : ''}`);
   if (steerPre.length && !steerIn.length) lines.push(`  (${steerPre.length} existing ${steerPre.length > 1 ? 'scopes are' : 'scope is'} still on a pattern a maintainer decision retires — a transition in progress, not yours to fix; \`--all\` lists)`);
   for (const h of steerIn) lines.push(h.text);
+  if (r.placeHit) lines.push(r.placeHit.text);
   const archIn = (r.archHits || []).filter(h => !touched || touched(h.line, h.line)), archPre = (r.archHits || []).filter(h => touched && !touched(h.line, h.line));
   for (const h of archIn) lines.push(h.text);
   if (archPre.length) lines.push(`  (${archPre.length} architecture note(s) on lines you did not touch — \`--all\` shows${opts.all ? ':' : ''})`);

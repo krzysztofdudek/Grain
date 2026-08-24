@@ -918,6 +918,51 @@ export const serializeScope = s => ({ kind: s.kind, name: s.name, rel: s.rel, li
 export const hydrateScope = r => ({ ...r, calls: new Set(r.calls), seen: new Set(r.seen), shapes: new Set(r.shapes), preds: { ...r.preds } });
 
 // ===== CHECK (verdict for one file against the model; hermetic — same input ⇒ same answer, no session state) =====
+// ===== PLACEMENT ON CREATE: a NEW file whose name-kin already live in one place — path evidence only, no parse.
+// The replay trials' measured failure class: both arms filed admin e2e specs beside navigation specs while
+// `admin-panel/` sat one directory over, and line-level checks were structurally silent. This speaks at creation,
+// from the accepted tree alone, and never commands — deliberate placement is explicitly left alone.
+const QSTOP = new Set(['a', 'an', 'the', 'to', 'for', 'of', 'in', 'on', 'with', 'and', 'or', 'my', 'our', 'this', 'that', 'it', 'is', 'are', 'be', 'do', 'doe', 'can', 'should', 'would', 'i', 'we', 'you', 'how', 'what', 'where', 'when', 'so', 'via', 'from', 'into', 'onto', 'up', 'out', 'new', 'some', 'any', 'all']);
+const PL_STOP = new Set(['index', 'main', 'mod', 'util', 'utils', 'helper', 'helpers', 'common', 'shared', 'core', 'base',
+  'type', 'types', 'test', 'tests', 'spec', 'specs', 'lib', 'libs', 'app', 'apps', 'src', 'file', 'files', 'data',
+  'component', 'components', 'page', 'pages', 'view', 'views', 'service', 'services', 'controller', 'controllers',
+  'module', 'modules', 'model', 'models', 'config', 'get', 'set', 'add', 'the',
+  'does', 'not', 'non', 'see', 'sees', 'has', 'have', 'had', 'was', 'will', 'then', 'than', 'its', 'each', 'every',
+  'before', 'after', 'between', 'without', 'within', 'still', 'also', 'only', 'their', 'them', 'they']);
+export function placementHit(model, rel) {
+  const files = model.filesAll || []; if (files.length < 20 || files.includes(rel)) return null;
+  const sufOf = f => { const ps2 = basename(f).split('.'); return ps2.length >= 3 ? ps2.slice(-2).join('.').toLowerCase() : (ps2[1] || '').toLowerCase(); };
+  const suf = sufOf(rel); if (!suf) return null;
+  const dir = dirname(rel);
+  const cands = files.filter(f => sufOf(f) === suf);
+  if (cands.length < 3) return null;
+  const toks = [...new Set(tokenize(basename(rel).split('.')[0]))].filter(t => t.length >= 3 && !PL_STOP.has(t) && !QSTOP.has(t));
+  let best = null;
+  for (const t of toks) { // name-kin: same-suffix files carrying this token in their basename or a directory segment
+    const T = cands.filter(f => tokenize(basename(f).split('.')[0]).includes(t) || dirname(f).split('/').some(sg => tokenize(sg).includes(t)));
+    if (T.length < 2 || T.length > cands.length * 0.5) continue; // absent, or too generic to place anything
+    if (T.some(f => dirname(f) === dir)) continue;               // the chosen directory DOES keep such files — nothing to say
+    const byDir = new Map(); for (const f of T) byDir.set(dirname(f), (byDir.get(dirname(f)) || 0) + 1);
+    const [topDir, n] = [...byDir].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
+    if (topDir === dir || n < 2 || n / T.length < 2 / 3) continue;
+    const share = n / T.length;
+    if (!best || n > best.n || (n === best.n && (share > best.share || (share === best.share && t < best.t)))) best = { t, n, of: T.length, topDir, share }; }
+  if (best) return { kind: 'placement', token: best.t, dir: best.topDir,
+    text: `[grain] placement: \`*.${suf}\` files named like \`${best.t}\` live in \`${best.topDir}/\` — ${best.n} of ${best.of}; \`${dir}/\` holds none. Deliberate placement is fine — but if you guessed, ask \`grain where ${best.t} ${suf.split('.')[0]}\` first.` };
+  if (cands.length >= 5) { // fallback: the suffix itself is kept in one subtree and this file is outside it
+    const cnt = new Map();
+    for (const f of cands) { const segs = dirname(f).split('/'); for (let k = 1; k <= segs.length; k++) { const p2 = segs.slice(0, k).join('/'); cnt.set(p2, (cnt.get(p2) || 0) + 1); } }
+    let node = null; for (const [p2, c] of cnt) if (c / cands.length >= 0.8 && p2 !== '.' && (!node || p2.length > node.p.length)) node = { p: p2, c };
+    if (node && !(dir + '/').startsWith(node.p + '/'))
+      return { kind: 'placement', token: null, dir: node.p,
+        text: `[grain] placement: ${node.c} of ${cands.length} \`*.${suf}\` files live under \`${node.p}/\`; this one is outside it (\`${dir}/\`). Deliberate is fine — if you guessed, look there first.` };
+    if (node && dir === node.p && !cands.some(f => dirname(f) === node.p)) { // everyone lives one level deeper — the root holds none
+      const subs = new Map(); for (const f of cands) if ((f + '/').startsWith(node.p + '/')) { const nxt = f.slice(node.p.length + 1).split('/')[0]; if (f.slice(node.p.length + 1).includes('/')) subs.set(nxt, (subs.get(nxt) || 0) + 1); }
+      const top3 = [...subs].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3).map(([d2, c2]) => `\`${d2}/\` (${c2})`);
+      if (subs.size) return { kind: 'placement', token: null, dir: node.p,
+        text: `[grain] placement: every \`*.${suf}\` file under \`${node.p}/\` lives in a named subdirectory — ${top3.join(' · ')}${subs.size > 3 ? ` · +${subs.size - 3} more` : ''}; none sit at the root, where this file is. Deliberate is fine — if you guessed, pick the closest subdirectory.` }; } }
+  return null; }
+
 export async function checkFile({ model, root, rel, content, asPath, exemplarOk = () => true }) {
   const effRel = asPath || rel;
   const src = content ?? readFileSync(join(root, rel), 'utf8');
@@ -926,7 +971,8 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   const scopes = extractScopes(effRel, tr, b, p._g).filter(s => s.name !== '<anon>');
   const relFact = relFactsFor(effRel, src, tr, p._g); tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
-  if (!part) return { scopes: [], governed: [], msgs: [], archHits, partition: null, reason: isTestPath(effRel) ? 'test files here are too few to have norms of their own' : 'no partition covers this file' };
+  const placeHit = placementHit(model, effRel);
+  if (!part) return { scopes: [], governed: [], msgs: [], archHits, placeHit, partition: null, reason: isTestPath(effRel) ? 'test files here are too few to have norms of their own' : 'no partition covers this file' };
   for (const s of scopes) applyVocab(s, part.vocab);
   const medoids = part.medoids;
   const { assign, amb } = assignAll(scopes, medoids);
@@ -994,7 +1040,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
           : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}`;
         steerHits.push({ scope: s.name, kind: s.kind, line: s.line, endLine: s.endLine || s.line, id: st.id, pid: sf.pid, exp: sf.value, obs: v,
           text: `[grain] maintainer decision (${[st.author, st.createdAt].filter(Boolean).join(' ')}): ${head2}.${st.note ? `\n  ${st.note}` : ''}\n  Copy: ${st.path}:${st.line} \`${st.name}\`` }); } }); }
-  return { scopes, governed, msgs, steerHits, archHits, partition: part.name }; }
+  return { scopes, governed, msgs, steerHits, archHits, placeHit, partition: part.name }; }
 // architecture: the file's CURRENT out-edges resolved against the accepted tree — a reference that creates the FIRST
 // edge between two modules is a boundary crossing worth saying at edit time; one whose reverse already exists closes a
 // cycle. Existing crossings (the module pair already has edges at HEAD) stay silent — practice already speaks there.
@@ -1207,7 +1253,6 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
   // instruction fillers never count; a DOMAIN word no card carries stays in the denominator at full weight — the repo not
   // speaking of it must lower the score ("add rate limiting" scored 100% on the word `add` alone when unmatched words were
   // dropped; now it scores what it deserves and the weak-match banner fires)
-  const QSTOP = new Set(['a', 'an', 'the', 'to', 'for', 'of', 'in', 'on', 'with', 'and', 'or', 'my', 'our', 'this', 'that', 'it', 'is', 'are', 'be', 'do', 'doe', 'can', 'should', 'would', 'i', 'we', 'you', 'how', 'what', 'where', 'when', 'so', 'via', 'from', 'into', 'onto', 'up', 'out', 'new', 'some', 'any', 'all']);
   for (const t of [...qt]) if (QSTOP.has(t)) qt.delete(t);
   const maxIdf = Math.log2(1 + cards.length);
   const idf = new Map(); for (const t of qt) idf.set(t, df.get(t) ? Math.log2(1 + cards.length / df.get(t)) : maxIdf);
