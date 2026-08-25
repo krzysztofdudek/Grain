@@ -13,7 +13,7 @@ import { Parser, Language } from './vendor/web-tree-sitter/web-tree-sitter.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { basename, dirname, extname, join as pjoin, normalize as pnormalize } from 'node:path/posix'; // repo-relative paths are POSIX everywhere (model keys, git output, regexes) — also on Windows
-import { GRAMMAR_DIR, EXT2GRAMMAR, CFG, SUP, TOPK, EXCL, MINE_EXCL, NCAP } from './config.mjs';
+import { GRAMMAR_DIR, EXT2GRAMMAR, CFG, SUP, TOPK, EXCL, MINE_EXCL, NCAP, HARD_EXCL } from './config.mjs';
 import { relFactsFor, buildEdges, moduleGraph, moduleOf, compactDecls, hydrateTable, tableFrom, makeEdgeResolver, parseJsonc } from './relations.mjs';
 
 const S = '\u0001';      // cell-key separator (was a literal SOH byte in the prototype)
@@ -47,6 +47,7 @@ export async function getParser(ext) {
   if (!g) throw new Error(`no grammar for extension "${ext}"`);
   if (!parsers[g]) { const lang = await Language.load(join(GRAMMAR_DIR, `tree-sitter-${g}.wasm`)); const p = new Parser(); p.setLanguage(lang); parsers[g] = p; p._g = g; }
   return parsers[g]; }
+// no-git fallback walk ONLY — in git mode the universe is the HEAD tree and gitignore already held (see config EXCL note)
 export function* walkFiles(dir, root) {
   let es; try { es = readdirSync(dir, { withFileTypes: true }); } catch { return; }
   for (const e of es) { const full = join(dir, e.name); const rel = toPosix(relative(root, full));
@@ -637,8 +638,11 @@ export function deviationPhrase(f, obs) {
 
 // ===== CURRENT-TREE EXTRACTION + PARTITIONING (shared by learn and spectrum) =====
 const PKG_ROOT_RE = /^(package\.json|pyproject\.toml|go\.mod|pom\.xml|Cargo\.toml|setup\.cfg)$|\.(csproj|sln)$/;
-export function findPackageRoots(root) {
-  const pkgs = []; (function fp(d) { let es; try { es = readdirSync(d, { withFileTypes: true }); } catch { return; }
+export function findPackageRoots(root, allPaths = null) {
+  const pkgs = [];
+  if (allPaths) { for (const rel of allPaths) { if (HARD_EXCL.test(rel)) continue; // git mode: the tracked tree IS the universe
+      if (PKG_ROOT_RE.test(basename(rel))) { const d2 = dirname(rel); const p = d2 === '.' ? '.' : d2; if (!pkgs.includes(p)) pkgs.push(p); } } return pkgs.sort(); }
+  (function fp(d) { let es; try { es = readdirSync(d, { withFileTypes: true }); } catch { return; }
     for (const e of es) { const full = join(d, e.name); const rel = toPosix(relative(root, full)); if (EXCL.test(rel + '/')) continue;
       if (e.isDirectory()) fp(full); else if (PKG_ROOT_RE.test(e.name)) { const p = toPosix(relative(root, d)) || '.'; if (!pkgs.includes(p)) pkgs.push(p); } } })(root);
   return pkgs.sort(); }
@@ -717,7 +721,7 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
   // "methods" were mostly arrow callbacks; "methods here take 0 parameters — 85% of 163" on axum tests was closures
   for (let i = all.length - 1; i >= 0; i--) if (all[i].name === '<anon>') all.splice(i, 1);
   const rawScopes = all.map(serializeScope); // pre-vocabulary snapshot: lets spectrum skip re-parsing the tree
-  const pkgs = findPackageRoots(root);
+  const pkgs = findPackageRoots(root, tree ? tree.allPaths : null);
   const merged = groupPartitions(all, pkgs);
   const { wfn: baseW, ageFn: ageFnH, get: lcGet } = mkWeightFn(H);
   // Without history NOTHING is established (fail-closed, §9.4c degenerate case / §21.1): the prototype marked every instance
@@ -847,11 +851,13 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
     // tolerated), targets pre-resolved to root-relative — the resolver, and `check` from the model, never re-read them
     const tsAliases = [];
     try { const cfgDirs = new Map(); // dir → config name; tsconfig.json wins over a sibling jsconfig.json
-      (function fc(d) { let es; try { es = readdirSync(d, { withFileTypes: true }); } catch { return; }
+      const addCfg = (dd, name) => { if (name === 'tsconfig.json' || !cfgDirs.has(dd)) cfgDirs.set(dd, name); };
+      if (tree && tree.allPaths) { for (const rel2 of tree.allPaths) { const bn2 = basename(rel2);
+          if ((bn2 === 'tsconfig.json' || bn2 === 'jsconfig.json') && !HARD_EXCL.test(rel2)) addCfg(dirname(rel2), bn2); } }
+      else (function fc(d) { let es; try { es = readdirSync(d, { withFileTypes: true }); } catch { return; }
         for (const e of es) { const full = join(d, e.name); if (EXCL.test(toPosix(relative(root, full)) + '/')) continue;
           if (e.isDirectory()) fc(full);
-          else if (e.name === 'tsconfig.json' || e.name === 'jsconfig.json') { const dd = toPosix(relative(root, d)) || '.';
-            if (e.name === 'tsconfig.json' || !cfgDirs.has(dd)) cfgDirs.set(dd, e.name); } } })(root);
+          else if (e.name === 'tsconfig.json' || e.name === 'jsconfig.json') addCfg(toPosix(relative(root, d)) || '.', e.name); } })(root);
       const readCfg = (cfgRel, depth) => { if (depth > 3) return null;
         let j; try { j = parseJsonc(readFileSync(join(root, cfgRel), 'utf8')); } catch { return null; }
         const dir = dirname(cfgRel); const norm = q => (pnormalize(pjoin(dir, q)).replace(/\/+$/, '') || '.');

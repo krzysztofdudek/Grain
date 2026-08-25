@@ -10,7 +10,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
 import { getParser, bindingFor, extractScopes, hashStr, CODE_RE } from './core.mjs';
-import { EXCL, MINE_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, FIX_RE } from './config.mjs';
+import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, FIX_RE } from './config.mjs';
 
 const PAIR = '\u0001'; // co-change pair-key separator (a control byte — never inside a path; '' split every pair into characters)
 
@@ -26,7 +26,7 @@ export const isAncestor = (gitdir, a, b) => gitOk(gitdir, ['merge-base', '--is-a
 export function headTree(gitdir, { skip = () => false } = {}) {
   const shas = new Map();
   for (const line of git(gitdir, ['ls-tree', '-r', '-z', 'HEAD']).split('\0')) { const m = line.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/); if (m) shas.set(m[2], m[1]); }
-  const files = [...shas.keys()].filter(p => !EXCL.test(p) && CODE_RE.test(p) && !MINE_EXCL.test(p.split('/').pop()) && EXT2GRAMMAR[extname(p)]).sort();
+  const files = [...shas.keys()].filter(p => !HARD_EXCL.test(p) && CODE_RE.test(p) && EXT2GRAMMAR[extname(p)]).sort(); // tracked ⇒ code: gitignore already held at add time
   const contents = new Map();
   // only the files the caller cannot serve from its extraction cache are fetched — a refresh after one commit reads one blob
   const need = files.filter(f => !skip(f, shas.get(f)));
@@ -38,7 +38,7 @@ export function headTree(gitdir, { skip = () => false } = {}) {
       const hdr = out.slice(off, nl).toString().split(' ');
       if (hdr[1] === 'missing' || hdr[1] === 'ambiguous') { off = nl + 1; k++; continue; }
       const size = +hdr[2]; contents.set(chunk[k], out.slice(nl + 1, nl + 1 + size).toString('utf8')); off = nl + 1 + size + 1; k++; } }
-  return { files, sha: rel => shas.get(rel), read: rel => contents.get(rel) ?? null }; }
+  return { files, allPaths: [...shas.keys()].sort(), sha: rel => shas.get(rel), read: rel => contents.get(rel) ?? null }; }
 
 function atomicWrite(path, data) { const tmp = path + '.tmp-' + process.pid; writeFileSync(tmp, data); renameSync(tmp, path); }
 
@@ -72,7 +72,7 @@ async function walk(gitdir, range) {
     if (!m || !cur) continue;
     const st = m[2][0]; let path = m[3], oldPath = null;
     if (st === 'R') { const [o, n] = m[3].split('\t'); oldPath = o; path = n; }
-    if (EXCL.test(path)) continue;               // built-in exclusions gate every surface: no blob fetch, no lifecycle row, no co-change
+    if (HARD_EXCL.test(path)) continue;          // only grain's own store is invisible — a path committed at the time was the repo's code at the time
     if (!CODE_RE.test(path)) { cur.files.push(path); continue; }
     cur.files.push(path);
     events.push({ sha: st === 'D' ? null : m[1], st, path, oldPath, c: cur });
@@ -130,7 +130,7 @@ function replay(state, events, commits, cache) {
         if (JSON.stringify(pv.val) !== JSON.stringify(s.val)) state.vev[key].push({ ts: e.c.ts, author: e.c.author, agent: e.c.agent, val: s.val }); } }
     state.prevState[e.path] = curM; }
   // co-change (mega-commit cap excludes mass refactors and lockfile sweeps that would couple everything to everything)
-  for (const c of commits) { const fs2 = [...new Set(c.files)].filter(f => !EXCL.test(f)).sort();
+  for (const c of commits) { const fs2 = [...new Set(c.files)].filter(f => !HARD_EXCL.test(f)).sort();
     if (fs2.length < 2 || fs2.length > CFG.megaCap) continue;
     for (const f of fs2) state.fileCommits[f] = (state.fileCommits[f] || 0) + 1;
     for (let i = 0; i < fs2.length; i++) for (let j = i + 1; j < fs2.length; j++) {

@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 export const ENGINE_VERSION = '0.1.0';
 export const EXTR_V = 'g22';
 export const HIST_V = 'h2';
-export const MODEL_V = 'm4'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
+export const MODEL_V = 'm5'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Grammar assets (`tree-sitter-<g>.wasm` + `tree-sitter-<g>.node-types.json`) live inside the plugin by default;
@@ -24,8 +24,11 @@ export const EXT2GRAMMAR = Object.fromEntries(Object.entries(ALL_EXT2GRAMMAR).fi
   existsSync(join(GRAMMAR_DIR, `tree-sitter-${g}.wasm`)) && existsSync(join(GRAMMAR_DIR, `tree-sitter-${g}.node-types.json`))));
 export const GRAMMARS = [...new Set(Object.values(EXT2GRAMMAR))].sort();
 
-// Built-in exclusions (§6.8): EXCL gates every surface; MINE_EXCL gates convention mining only — test files stay
-// fully counted in lifecycle, value events and co-change.
+// EXCLUSION RULING (maintainer, 2026-08-25): git decides what is not the repo's code — anything gitignored is never
+// processed, anything TRACKED is code (a repo that commits vendor/ chose to). In git mode the universe is the HEAD
+// tree, where gitignore already holds, and only HARD_EXCL applies (grain's own store; .git for symmetry). The EXCL
+// name list below survives ONLY as the no-git fallback, where there is no gitignore to consult.
+export const HARD_EXCL = /(^|\/)\.(git|grain)(\/|$)/;
 export const EXCL = /(^|\/)(node_modules|dist|build|out|vendor|\.git|\.yggdrasil|\.grain|__pycache__|migrations|coverage|\.next|bin|obj|fixtures?|benchmarks?|__mocks__|target)(\/|$)|\.min\.|generated|\.d\.ts$/;
 // DESIGN RULING (maintainer, 2026-08-25): no semantic recognition of tests, examples or any other role by NAME —
 // "kod to kod": across this many languages a name-based test detector is a guess, and grain does not guess. Partitions
