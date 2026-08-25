@@ -106,7 +106,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
       const dirs = new Map(); const shapes = new Map();
       for (const k of members) { const rel = k.split('#')[0]; const d = dirname(rel); dirs.set(d, (dirs.get(d) || 0) + 1); const sh = nameShape(basename(rel, extname(rel))); shapes.set(sh, (shapes.get(sh) || 0) + 1); }
       const topShape = [...shapes].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
-      P.groups.push({ id: 'r' + r, label: md.label, size: members.length, lift: +(part.roleLift?.[r] || 0).toFixed(2), implied: (part.groupImplied || {})[r] || null,
+      P.groups.push({ id: 'r' + r, label: md.label, size: members.length, lift: +(part.roleLift?.[r] || 0).toFixed(2), implied: (part.groupImplied || {})[r] || null, profile: (part.profiles || {})[r] || null,
         markers: md.feats.filter(f => /^(dec|sup|ret):/.test(f)), nameTokens: md.feats.filter(f => f.startsWith('tok:')).map(f => f.slice(4)), imports: md.feats.filter(f => f.startsWith('imp:')).map(f => f.slice(4)),
         directories: [...dirs].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([dir, n]) => ({ dir, n })),
         fileNameShape: topShape ? { shape: topShape[0], words: shapeWords(topShape[0]), share: +(topShape[1] / members.length).toFixed(2) } : null,

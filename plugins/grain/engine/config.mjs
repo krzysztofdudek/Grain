@@ -4,9 +4,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ENGINE_VERSION = '0.1.0';
-export const EXTR_V = 'g22';
+export const EXTR_V = 'g23';
 export const HIST_V = 'h2';
-export const MODEL_V = 'm5'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
+export const MODEL_V = 'm6'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Grammar assets (`tree-sitter-<g>.wasm` + `tree-sitter-<g>.node-types.json`) live inside the plugin by default;

@@ -147,7 +147,7 @@ export function extractScopes(rel, tree, b, grammar = null) {
         if (!docText && stmts.length && stmts[0].type === 'expression_statement' && stmts[0].namedChildCount === 1 && /string/.test(stmts[0].namedChildren[0].type)) docText = stmts[0].namedChildren[0].text; }
       const doc = docTokens(docText);
       if (decoLits.length) for (const t of docTokens(decoLits.slice(0, 12).join(' '))) if (!doc.includes(t)) doc.push(t);
-      if (noBody) { scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, noBody: true, sup: [...new Set(sup)], decos: [...new Set(decos)], rets, calls: new Set(), seen: new Set(), shapes: new Set(), preds: Object.assign({}, name !== '<anon>' ? { 'auto.nameshape': nameShape(name) } : {}) }); walk(ch); continue; }
+      if (noBody) { scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, noBody: true, sup: [...new Set(sup)], decos: [...new Set(decos)], rets, calls: new Set(), seen: new Set(), shapes: new Set(), preds: Object.assign({}, name !== '<anon>' ? { 'auto.nameshape': nameShape(name) } : {}), sk: skelOf(ch, isScope) }); walk(ch); continue; }
       const seen = new Set(); const calls = new Set(); const varNames = []; const stack = [...stmts]; let g = 0;
       while (stack.length && g++ < 4000) { const n = stack.pop(); seen.add(n.type);
         if (/call/.test(n.type) && n.childForFieldName('function')) { const fn = n.childForFieldName('function'); if (fn.text.length <= 40 && !fn.text.includes('\n')) calls.add(fn.text); }
@@ -165,7 +165,7 @@ export function extractScopes(rel, tree, b, grammar = null) {
         if (stmts.length >= 1) preds['auto.first1'] = stmts[0].type;
         if (retStmts.length) preds['auto.ret'] = retStmts[retStmts.length - 1].namedChildren[0]?.type || 'bare';
         if (varNames.length >= 2) { const c = {}; for (const v of varNames.slice(0, 20)) { const sh = nameShape(v); c[sh] = (c[sh] || 0) + 1; } preds['auto.varshape'] = Object.entries(c).sort((a, x) => x[1] - a[1])[0][0]; } }
-      scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, sup: [...new Set(sup)], decos: [...new Set(decos)], rets, ptypes, calls, seen, shapes, preds, doc });
+      scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, sup: [...new Set(sup)], decos: [...new Set(decos)], rets, ptypes, calls, seen, shapes, preds, doc, sk: skelOf(ch, isScope) });
       // catch/finally micro-scopes: "catch blocks here call `logger.error`" is a convention no per-method surface carries
       // (a method's call bag cannot say WHERE the logging sits); the block is its own population, named after its owner
       if (bodyN) for (const blk of bodyN.descendantsOfType(['catch_clause', 'except_clause', 'rescue', 'finally_clause', 'ensure', 'defer_statement'])) {
@@ -225,6 +225,88 @@ export function extractScopes(rel, tree, b, grammar = null) {
     s.ownCount = new Set([...tokenize(s.name), ...s.sup, ...s.decos, ...(s.rets || [])]).size; }
   return scopes; }
 // a body-bearing sub-scope (catch/finally block, named callback): calls, node types and statement shapes, no identity surfaces
+// ===== SUPERPOSITION, stage 0 (design record: .temp/docs/math-constitution.md). The skeleton of a scope is its AST
+// with three normalizations: nested scopes become opaque leaves (a class profile does not drown in its methods'
+// bodies), identifiers stay LITERAL (an invariant identifier — `logger.error` in every catch — remains in the shared
+// template by itself; a per-instance one — each handler's own command — becomes a hole whose statistics say so), and
+// string/number payloads collapse to str/num. Anti-unification (Plotkin's LGG) folds a cluster's skeletons into ONE
+// template; the per-hole label distributions are the superposition statistics.
+const SK_CAP = 300;
+export function skelOf(node, isScope) {
+  let used = 0;
+  const go = (n, d) => {
+    if (used >= SK_CAP || d > 14) { used++; return n.type; }
+    used++;
+    const kids = (n.namedChildren || []).filter(c => !/comment/.test(c.type));
+    if (!kids.length) { const t = n.type;
+      if (/identifier|(^|_)name$/.test(t)) return 'id:' + n.text.slice(0, 24);
+      if (/string|char|template/.test(t)) return 'str';
+      if (/number|integer|float/.test(t)) return 'num';
+      return t; }
+    return [n.type, ...kids.map(c => (d > 0 && isScope(c)) ? c.type : go(c, d + 1))]; };
+  return go(node, 0); }
+const skLeaf = x => typeof x === 'string';
+const skSig = x => skLeaf(x) ? x : x[0];
+const skCount = t => skLeaf(t) ? (t.startsWith('?') ? 0 : 1) : (t[0] === '?' || t[0] === '?*' ? 0 : 1 + t.slice(1).reduce((a, k) => a + skCount(k), 0));
+function skAlign(ka, kb) { // deterministic LCS over root signatures; template holes match anything
+  const m = ka.length, n2 = kb.length; const eq = (x, y) => skSig(x) === skSig(y) || skSig(x) === '?' || skSig(x) === '?*';
+  const dp = Array.from({ length: m + 1 }, () => new Array(n2 + 1).fill(0));
+  for (let i = m - 1; i >= 0; i--) for (let j = n2 - 1; j >= 0; j--) dp[i][j] = eq(ka[i], kb[j]) ? dp[i + 1][j + 1] + 1 : Math.max(dp[i + 1][j], dp[i][j + 1]);
+  const out = []; let i = 0, j = 0; const gap = () => { if (!out.length || !(Array.isArray(out[out.length - 1]) && out[out.length - 1][0] === '?*')) out.push(['?*']); };
+  while (i < m && j < n2) { if (eq(ka[i], kb[j]) && dp[i][j] === dp[i + 1][j + 1] + 1) { out.push([ka[i], kb[j]]); i++; j++; }
+    else if (dp[i + 1][j] >= dp[i][j + 1]) { gap(); i++; } else { gap(); j++; } }
+  if (i < m || j < n2) gap();
+  return out; }
+export function skAu(a, b) { // least general generalization of two skeletons
+  if (skLeaf(a) && skLeaf(b)) return a === b ? a : ['?'];
+  if (Array.isArray(a) && (a[0] === '?' || a[0] === '?*')) return a;
+  if (skLeaf(a) || skLeaf(b) || a[0] !== b[0]) return ['?'];
+  const ka = a.slice(1), kb = b.slice(1);
+  const kids = ka.length === kb.length ? ka.map((x, i) => skAu(x, kb[i]))
+    : skAlign(ka, kb).map(pr => pr[0] === '?*' && pr.length === 1 ? pr : skAu(pr[0], pr[1]));
+  return [a[0], ...kids]; }
+function skNumber(t, holes = []) { // give every hole an id, in walk order
+  if (skLeaf(t)) return t;
+  if (t[0] === '?' || t[0] === '?*') { const h = [t[0], holes.length]; holes.push(h); return h; }
+  return [t[0], ...t.slice(1).map(k => skNumber(k, holes))]; }
+function skMatch(tpl, sk, stats) { // collect per-hole labels of ONE instance against the numbered template
+  if (skLeaf(tpl) || skLeaf(sk)) return;
+  if (tpl[0] === '?') { const c = stats[tpl[1]]; const l = skLeaf(sk) ? sk : sk[0]; c.set(l, (c.get(l) || 0) + 1); return; }
+  const walkKids = (tk, ik) => { let ii = 0;
+    for (const tkid of tk) {
+      if (Array.isArray(tkid) && tkid[0] === '?*') { const c = stats[tkid[1]]; c.set('…', (c.get('…') || 0) + 1); continue; }
+      while (ii < ik.length && skSig(ik[ii]) !== skSig(tkid) && !(Array.isArray(tkid) && tkid[0] === '?')) ii++;
+      if (ii >= ik.length) break;
+      if (Array.isArray(tkid) && tkid[0] === '?') { const c = stats[tkid[1]]; const l = skLeaf(ik[ii]) ? ik[ii] : ik[ii][0]; c.set(l, (c.get(l) || 0) + 1); ii++; continue; }
+      skMatch(tkid, ik[ii], stats); ii++; } };
+  if (tpl[0] === sk[0]) walkKids(tpl.slice(1), sk.slice(1)); }
+export function skRender(t, max = 220) {
+  const go = x => { if (skLeaf(x)) return x.startsWith('id:') ? x.slice(3) : x;
+    if (x[0] === '?') return '⟨·⟩'; if (x[0] === '?*') return '…';
+    const kids = x.slice(1).map(go); const out = []; // a run of identical children compresses to ×N — structure, not curation
+    for (const k of kids) { const last = out[out.length - 1];
+      if (last && last.s === k) last.n++; else out.push({ s: k, n: 1 }); }
+    return x[0] + '(' + out.map(e => e.n > 1 ? e.s + '×' + e.n : e.s).join(' ') + ')'; };
+  const r = go(t); if (r.length <= max) return r;
+  const cut = r.lastIndexOf(' ', max - 2); return r.slice(0, cut > max / 2 ? cut : max - 1) + '…'; }
+// fold a cluster's skeletons into template + per-hole statistics — the profile the group card and export speak
+export function profileOf(skels) {
+  if (skels.length < 4) return null;
+  let tpl = skels[0]; for (let i = 1; i < skels.length; i++) tpl = skAu(tpl, skels[i]);
+  const holes = []; tpl = skNumber(tpl, holes);
+  const shared = skCount(tpl); if (shared < 6) return null; // a template that is mostly holes says nothing
+  const avg = skels.reduce((a, k) => a + skCount(k), 0) / skels.length;
+  const stats = holes.map(() => new Map());
+  for (const sk of skels) skMatch(tpl, sk, stats);
+  const slots = stats.map((c, i) => { const total = [...c.values()].reduce((a, b) => a + b, 0); if (!total) return null;
+    const top = [...c].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3);
+    return { id: i, kind: holes[i][0], total, distinct: c.size, top: top.map(([l, k2]) => [skLeaf(l) && l.startsWith('id:') ? l.slice(3) : l, k2]) }; }).filter(Boolean);
+  const perInst = slots.filter(sl => sl.kind === '?' && sl.distinct >= Math.max(3, sl.total * 0.8));
+  const skewed = slots.filter(sl => sl.kind === '?' && sl.distinct >= 2 && sl.top[0][1] / sl.total >= 0.6 && sl.distinct < sl.total * 0.8);
+  return { n: skels.length, shared, coverage: +(Math.min(1, shared / Math.max(1, avg))).toFixed(2), skel: skRender(tpl),
+    perInstance: perInst.slice(0, 3).map(sl => ({ top: sl.top[0][0], distinct: sl.distinct, total: sl.total })),
+    slots: skewed.slice(0, 3).map(sl => ({ top: sl.top[0][0], k: sl.top[0][1], total: sl.total })) }; }
+
 function blockScope(node, kind, name, rel, grammar, isScope, line = null, endLine = null) {
   const seen = new Set(); const calls = new Set(); const stack = [node]; let g = 0;
   while (stack.length && g++ < 2000) { const n = stack.pop(); seen.add(n.type);
@@ -235,7 +317,7 @@ function blockScope(node, kind, name, rel, grammar, isScope, line = null, endLin
   for (const st of stmts.slice(0, 20)) shapes.add(ser(st, 2));
   const preds = {}; if (stmts.length) preds['auto.first1'] = stmts[0].type;
   dirname(rel).split('/').filter(sg => sg !== '.').slice(0, 3).forEach((sg, k) => preds['auto.dir' + (k + 1)] = sg);
-  return { kind, name, rel, line: line ?? node.startPosition.row + 1, endLine: endLine ?? node.endPosition.row + 1, g: grammar, nt: node.type, sup: [], decos: [], rets: [], calls, seen, shapes, preds, doc: [] }; }
+  return { kind, name, rel, line: line ?? node.startPosition.row + 1, endLine: endLine ?? node.endPosition.row + 1, g: grammar, nt: node.type, sup: [], decos: [], rets: [], calls, seen, shapes, preds, doc: [], sk: skelOf(node, isScope) }; }
 // how the module exports (JS/TS families; elsewhere the surface never appears): a fastify-style repo's strongest identity
 export function exportShape(tree) {
   const c = Object.create(null);
@@ -783,6 +865,12 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
       const dc = new Map(); for (const key of markers[k]) { const d = dirname(key.split('#')[0]); dc.set(d, (dc.get(d) || 0) + 1); }
       // dominant directory first; within it the most FOCUSED file (fewest scopes) — a 16 KB god-file is a worse thing to copy
       markers[k] = markers[k].sort((a, b) => dc.get(dirname(b.split('#')[0])) - dc.get(dirname(a.split('#')[0])) || (scopesInFile.get(a.split('#')[0]) || 0) - (scopesInFile.get(b.split('#')[0]) || 0) || (a < b ? -1 : a > b ? 1 : 0)).slice(0, 60); }
+    // superposition per role: the cluster IS the candidate generator; anti-unification folds it into one template
+    const profiles = {};
+    { const byRoleSk = new Map();
+      [...ri.assign].sort((a, b) => a[0] - b[0]).forEach(([i, r]) => { if (ri.amb.has(i)) return; const s = ps[i];
+        if (s.kind === 'file' || s.kind === 'module' || !s.sk) return; (byRoleSk.get(r) || byRoleSk.set(r, []).get(r)).push(s.sk); });
+      for (const [r, arr] of byRoleSk) { if (arr.length < 4) continue; const pf = profileOf(arr); if (pf) profiles[r] = pf; } }
     const byKey = new Map(); for (const s of ps) byKey.set(skeyR(s.rel, s), s);
     const markerObs = {}; const markerImplied = {};
     for (const [mk, keys] of Object.entries(markers)) { const cs = keys.map(k => byKey.get(k)).filter(Boolean); const n = cs.length; if (n < 3) continue;
@@ -804,7 +892,7 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
     for (const rel of Object.keys(fileDocs)) fileDocs[rel] = [...fileDocs[rel]].sort();
     for (const rel of Object.keys(fileScopes)) fileScopes[rel] = fileScopes[rel].sort((a, b) => a[2] - b[2]).slice(0, 200);
     model.partitions.push({ name: pname, scopes: ps.length, files: [...new Set(ps.filter(s => s.kind === 'file').map(s => s.rel))].sort(), fileScopes, fileDocs, fileSups, vocab, assignments, roleLift: lifts, markers, markerObs, markerImplied,
-      medoids: ri.medoids.map(m => ({ feats: m.feats, label: m.label })), facts: exportFacts }); }
+      medoids: ri.medoids.map(m => ({ feats: m.feats, label: m.label })), profiles, facts: exportFacts }); }
   // steers: every seed, resolved against the current tree — the exemplar's line, each seeded surface with its value and the
   // measured share of that value in the exemplar's partition today (decided vs practiced, side by side)
   model.steers = (seeds || []).map(sd => { let found = null, pname = null;
@@ -923,7 +1011,7 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
   model.files = files.length;
   return { model, ms: Date.now() - t0, scopes: all.length, rawScopes, treeCacheOut }; }
 // scope records round-trip through JSON (sets → sorted arrays) for the current-tree scope cache
-export const serializeScope = s => ({ kind: s.kind, name: s.name, rel: s.rel, line: s.line, endLine: s.endLine || s.line, ord: s.ord, g: s.g || null, nt: s.nt || null, noBody: !!s.noBody, doc: s.doc || [], sup: s.sup, decos: s.decos, rets: s.rets || [], ptypes: s.ptypes || [], calls: [...s.calls].sort(), seen: [...s.seen].sort(), shapes: [...s.shapes].sort(), preds: { ...s.preds }, imports: s.imports, feats: s.feats, ownCount: s.ownCount });
+export const serializeScope = s => ({ kind: s.kind, name: s.name, rel: s.rel, line: s.line, endLine: s.endLine || s.line, ord: s.ord, g: s.g || null, nt: s.nt || null, noBody: !!s.noBody, doc: s.doc || [], sk: s.sk || null, sup: s.sup, decos: s.decos, rets: s.rets || [], ptypes: s.ptypes || [], calls: [...s.calls].sort(), seen: [...s.seen].sort(), shapes: [...s.shapes].sort(), preds: { ...s.preds }, imports: s.imports, feats: s.feats, ownCount: s.ownCount });
 export const hydrateScope = r => ({ ...r, calls: new Set(r.calls), seen: new Set(r.seen), shapes: new Set(r.shapes), preds: { ...r.preds } });
 
 // ===== CHECK (verdict for one file against the model; hermetic — same input ⇒ same answer, no session state) =====
@@ -1327,7 +1415,12 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
         lines.push(`  - ${verbalize(own, best.exemplars.map(e => e.name))} — ${Math.round(best.share * 100)}% of ${best.sraw}${own !== best ? ` (with: ${verbalize(best, best.exemplars.map(e => e.name)).replace(/^\w+ here /, '')})` : ''}${factNotes(best)}`); }
       continue; }
     if (!h.facts.length) lines.push(`  - no convention certified here beyond placement (the group is small, not free-form) — open a member below and copy its shape`);
-    if (h.type === 'group' && h.roleIdx !== undefined) { const gi2 = (part(model, h.part).groupImplied || {})[h.roleIdx];
+    if (h.type === 'group' && h.roleIdx !== undefined) { const pf = (part(model, h.part).profiles || {})[h.roleIdx];
+      if (pf) { const bits = [`${pf.n} members share this skeleton (~${Math.round(pf.coverage * 100)}% of an average member): ${pf.skel}`];
+        for (const pi of pf.perInstance) bits.push(`one slot is per-instance (${pi.distinct} distinct values in ${pi.total} — e.g. \`${pi.top}\`)`);
+        for (const sl of pf.slots) bits.push(`slot usually \`${sl.top}\` (${sl.k}/${sl.total})`);
+        lines.push('  superposition: ' + bits.join(' · ')); }
+      const gi2 = (part(model, h.part).groupImplied || {})[h.roleIdx];
       if (gi2) { const bits = [];
         if (gi2.companion) bits.push(`a same-stem \`${gi2.companion.pattern}\` companion (${Math.round(gi2.companion.share * 100)}% of ${gi2.companion.n} have one, e.g. \`${gi2.companion.example}\`)`);
         if (gi2.importedBy) bits.push(`registration in \`${gi2.importedBy.file}\` (imports ${gi2.importedBy.n} of ${gi2.importedBy.of} members)`);
