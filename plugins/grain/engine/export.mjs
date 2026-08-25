@@ -16,7 +16,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dirname, basename, extname } from 'node:path/posix';
 import { CFG, ENGINE_VERSION, EXTR_V } from './config.mjs';
-import { hydrateScope, addModuleScopes, applyVocab, skeyR, isBool, kt, verbalize, deviationPhrase, unitOf, scopeLabel, auxSuffix, nameShape, valOf, shapeWords } from './core.mjs';
+import { hydrateScope, addModuleScopes, applyVocab, skeyR, isBool, kt, verbalize, deviationPhrase, unitOf, scopeLabel, nameShape, valOf, shapeWords } from './core.mjs';
 
 const UNSEEN = ' ';
 const iso = ts => ts ? new Date(ts * 1000).toISOString().slice(0, 10) : null;
@@ -95,8 +95,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
     const roleOfKey = k => { const r = part.assignments[k]; return r === undefined || r === -1 ? undefined : r; };
     const site = s => ({ key: keyOf(s), rel: s.rel, kind: s.kind, name: s.name, line: s.line, endLine: s.endLine || s.line, grammar: s.g || null, nodeType: s.nt || null });
     const lifecycleOf = key => { const L = lcOf(key); return L ? { firstSeen: iso(L.first), lastTouched: iso(L.last), modifications: L.mods, fixes: L.fix, churn: !!L.churn, lastByAgent: !!L.agentLast } : null; };
-    const suf = auxSuffix(part.name);
-    const P = { name: part.name, label: scopeLabel(part.name), kind: suf === '#tests' ? 'tests' : suf === '#examples' ? 'examples' : 'source', files: (part.files || []).length, scopes: part.scopes,
+    const P = { name: part.name, label: scopeLabel(part.name), kind: 'source', files: (part.files || []).length, scopes: part.scopes,
       groups: [], directories: [], markers: [], conventions: [] };
     // ---- groups: the directory grammar — who belongs, where they live, how their files are named, which markers define them
     const byRole = new Map(); for (const [k, r] of Object.entries(part.assignments)) { if (r === -1) continue; (byRole.get(r) || byRole.set(r, []).get(r)).push(k); }

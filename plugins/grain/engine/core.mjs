@@ -13,7 +13,7 @@ import { Parser, Language } from './vendor/web-tree-sitter/web-tree-sitter.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { basename, dirname, extname, join as pjoin, normalize as pnormalize } from 'node:path/posix'; // repo-relative paths are POSIX everywhere (model keys, git output, regexes) — also on Windows
-import { GRAMMAR_DIR, EXT2GRAMMAR, CFG, SUP, TOPK, EXCL, MINE_EXCL, NCAP, isTestPath, TESTS_SUFFIX, EXAMPLES_SUFFIX, auxOf, TEST_CASE_RE } from './config.mjs';
+import { GRAMMAR_DIR, EXT2GRAMMAR, CFG, SUP, TOPK, EXCL, MINE_EXCL, NCAP } from './config.mjs';
 import { relFactsFor, buildEdges, moduleGraph, moduleOf, compactDecls, hydrateTable, tableFrom, makeEdgeResolver, parseJsonc } from './relations.mjs';
 
 const S = '\u0001';      // cell-key separator (was a literal SOH byte in the prototype)
@@ -184,10 +184,11 @@ export function extractScopes(rel, tree, b, grammar = null) {
             sc2.nt = inner.type; sc2.preds['auto.nameshape'] = nameShape(nm);
             const prm = inner.childForFieldName('parameters'); sc2.preds['auto.arity'] = prm ? (prm.namedChildren.length >= 3 ? '3+' : String(prm.namedChildren.length)) : '0';
             scopes.push(sc2); } } }
-      // a named test case: `it('strips the prefix', fn)` / `t.Run("name", func…)` — the string names the callback, which is
-      // otherwise anonymous, so a NEW test body has a population to be governed by (calls, shapes, first statement)
+      // a named callback block, from the raw AST shape alone: a call carrying a string literal AND a function argument
+      // names the otherwise-anonymous callback — `it('strips the prefix', fn)`, `t.Run("name", func…)`, but equally
+      // `app.get('/health', handler)` or `on('close', fn)`. No callee vocabulary; the shape is the signal.
       if (/call/.test(ch.type)) { const fn2 = ch.childForFieldName('function') || ch.namedChildren[0];
-        if (fn2 && fn2.text.length <= 30 && TEST_CASE_RE.test(fn2.text)) {
+        if (fn2 && fn2.text.length <= 30) {
           const argsN = ch.childForFieldName('arguments') || ch;
           const strN = argsN.namedChildren.find(a => /^(string|string_literal|interpreted_string_literal|raw_string_literal)$/.test(a.type));
           const fnN = argsN.namedChildren.find(a => /function|arrow|lambda|func_literal|closure|do_block|^block$/.test(a.type));
@@ -222,7 +223,7 @@ export function extractScopes(rel, tree, b, grammar = null) {
       ...[...new Set(imports.filter(i => !i.startsWith('~/')).map(i => i.split('/').pop()))].slice(0, 5).map(x => 'imp:' + x)])];
     s.ownCount = new Set([...tokenize(s.name), ...s.sup, ...s.decos, ...(s.rets || [])]).size; }
   return scopes; }
-// a body-bearing sub-scope (catch/finally block, named test case): calls, node types and statement shapes, no identity surfaces
+// a body-bearing sub-scope (catch/finally block, named callback): calls, node types and statement shapes, no identity surfaces
 function blockScope(node, kind, name, rel, grammar, isScope, line = null, endLine = null) {
   const seen = new Set(); const calls = new Set(); const stack = [node]; let g = 0;
   while (stack.length && g++ < 2000) { const n = stack.pop(); seen.add(n.type);
@@ -576,7 +577,7 @@ export function calibrate(fact, ps, H) {
     tauC: p >= CFG.targetPrec ? CFG.tau : CFG.tau + 1.5, denyEligible: lb >= 0.9 && n >= CFG.denyMinEv }; }
 
 // ===== VERBALIZER =====
-export const unitOf = kind => ({ method: 'methods', type: 'types', file: 'files', module: 'directories', catch: 'catch blocks', finally: 'finally blocks', case: 'test cases' }[kind] || kind);
+export const unitOf = kind => ({ method: 'methods', type: 'types', file: 'files', module: 'directories', catch: 'catch blocks', finally: 'finally blocks', case: 'named callbacks' }[kind] || kind);
 // a statement shape cut at a node boundary, never mid-token: `expression_statement(call_expression(member_expression,…))`
 export const shapeShort = (sh, max = 64) => { if (sh.length <= max) return sh; let cut = sh.lastIndexOf(',', max); if (cut < max / 2) cut = sh.lastIndexOf('(', max); if (cut < 0) cut = max;
   const head = sh.slice(0, cut); const open = (head.match(/\(/g) || []).length - (head.match(/\)/g) || []).length; return head + ',…' + ')'.repeat(Math.max(0, open)); };
@@ -641,14 +642,11 @@ export function findPackageRoots(root) {
     for (const e of es) { const full = join(d, e.name); const rel = toPosix(relative(root, full)); if (EXCL.test(rel + '/')) continue;
       if (e.isDirectory()) fp(full); else if (PKG_ROOT_RE.test(e.name)) { const p = toPosix(relative(root, d)) || '.'; if (!pkgs.includes(p)) pkgs.push(p); } } })(root);
   return pkgs.sort(); }
-export const partOfFn = pkgs => rel => { let b = null; for (const d of pkgs) { if (d === '.') continue; if ((rel + '/').startsWith(d + '/')) if (!b || d.length > b.length) b = d; } return (b || '_root') + auxOf(rel, b ? rel.slice(b.length + 1) : rel); };
+export const partOfFn = pkgs => rel => { let b = null; for (const d of pkgs) { if (d === '.') continue; if ((rel + '/').startsWith(d + '/')) if (!b || d.length > b.length) b = d; } return b || '_root'; };
 // the partition a file is judged against: its own package (or the merged repo bucket); test files only ever against a tests
 // partition — a test suite too small to have norms of its own gets no partition (null), never the production norms
-export const partitionFor = (model, rel) => { const key = partOfFn(model.pkgs)(rel); const aux = auxSuffix(key);
-  return model.partitions.find(p => p.name === key) || model.partitions.find(p => p.name === '_repo' + aux) || (aux ? null : model.partitions.find(p => !auxSuffix(p.name)) || null); };
-export const auxSuffix = name => name.endsWith(TESTS_SUFFIX) ? TESTS_SUFFIX : name.endsWith(EXAMPLES_SUFFIX) ? EXAMPLES_SUFFIX : '';
-export const isTestsPartition = name => name.endsWith(TESTS_SUFFIX);
-export const isAuxPartition = name => !!auxSuffix(name);
+export const partitionFor = (model, rel) => { const key = partOfFn(model.pkgs)(rel);
+  return model.partitions.find(p => p.name === key) || model.partitions.find(p => p.name === '_repo') || model.partitions[0] || null; };
 export async function extractTree(root, files, onProgress, readSource = null, cached = null, relOut = null) {
   const all = []; let i = 0, reused = 0;
   for (const rel of files) {
@@ -692,14 +690,13 @@ export function lexDomain(ps) { const seen = new Map();
 export function groupPartitions(all, pkgs) {
   const partOf = partOfFn(pkgs); const byPart = new Map();
   for (const s of all) { const p = partOf(s.rel); (byPart.get(p) || byPart.set(p, []).get(p)).push(s); }
-  const merged = new Map(); const buckets = { '': [], [TESTS_SUFFIX]: [], [EXAMPLES_SUFFIX]: [] };
-  for (const [p, ss] of [...byPart].sort((a, b) => a[0] < b[0] ? -1 : 1)) (ss.length < 100 ? buckets[auxSuffix(p)].push(...ss) : merged.set(p, ss));
+  const merged = new Map(); const small = [];
+  for (const [p, ss] of [...byPart].sort((a, b) => a[0] < b[0] ? -1 : 1)) (ss.length < 100 ? small.push(...ss) : merged.set(p, ss));
   // the spec's 300-scope floor merges small packages into one repo bucket; grain keeps a smaller bucket (≥ 30 scopes) as a
   // partition rather than going silent — a 150-scope library (express's lib/) still has groups, markers, files and directories
   // to answer `where` with, and the MDL gates already keep a thin field from speaking conventions it cannot back
-  const bucketSrc = { '': new Set(), [TESTS_SUFFIX]: new Set(), [EXAMPLES_SUFFIX]: new Set() };
-  for (const [p, ss] of byPart) if (ss.length < 100) bucketSrc[auxSuffix(p)].add(p);
-  for (const [suf, ss] of Object.entries(buckets)) if (ss.length >= 30) merged.set((bucketSrc[suf].size === 1 ? [...bucketSrc[suf]][0].replace(/#.*$/, '') : '_repo') + suf, ss); // one small package is itself, not "small packages merged"
+  const smallSrc = new Set(); for (const [p, ss] of byPart) if (ss.length < 100) smallSrc.add(p);
+  if (small.length >= 30) merged.set(smallSrc.size === 1 ? [...smallSrc][0] : '_repo', small); // one small package is itself, not "small packages merged"
   return merged; }
 
 // ===== LEARN: current tree + history → model =====
@@ -880,18 +877,24 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
     model.csGlobal = tableFrom(files, relFacts).csGlobal;
     model.filesAll = files; }
   catch (e) { log('relation pass failed: ' + (e?.message || e)); model.edges = []; model.edgesTruncated = 0; model.moduleGraph = { nodes: [], edges: [], cycles: [] }; model.relDecls = null; }
-  // implications per group: what a new member COMES WITH — a same-stem test file, and the file that registers/imports
-  // the members (DI registration, a barrel) — computed over the whole tree once the edges exist
-  { const stem = rel => basename(rel).replace(/\.(test|spec|e2e-spec|test-d)(?=\.)/, '').replace(/\.[^.]+$/, '').replace(/^test_/, '').replace(/_test$/, '');
-    const byStem = new Map(); for (const f2 of files) if (isTestPath(f2)) (byStem.get(stem(f2)) || byStem.set(stem(f2), []).get(stem(f2))).push(f2);
+  // implications per group: what a new member COMES WITH — a same-stem companion file (whatever dotted suffix the repo
+  // pairs these files with: `*.test.tsx`, `*.stories.tsx`, `*.module.ts`), and the file that registers/imports the
+  // members (DI registration, a barrel) — raw path + edge evidence, no name semantics
+  { const stem0 = rel => basename(rel).split('.')[0];
+    const sufChain = rel => { const parts = basename(rel).split('.'); return parts.length >= 2 ? '*.' + parts.slice(1).join('.') : null; };
+    const byStem = new Map(); for (const f2 of files) (byStem.get(stem0(f2)) || byStem.set(stem0(f2), []).get(stem0(f2))).push(f2);
     const inEdges = new Map(); for (const e of model.edges || []) (inEdges.get(e.to) || inEdges.set(e.to, []).get(e.to)).push(e.from);
     const impliedOf = fileList => { const mf = [...new Set(fileList)]; if (mf.length < 4) return null; const fset = new Set(mf);
-      const withTest = mf.filter(f2 => !isTestPath(f2) && (byStem.get(stem(f2)) || []).length > 0);
-      const testable = mf.filter(f2 => !isTestPath(f2));
+      const compCnt = new Map(); const compEx = new Map(); let withComp = 0;
+      for (const f2 of mf) { const all2 = byStem.get(stem0(f2)) || []; if (all2.length > 6) continue; // `index`-like stems pair everything with everything — no evidence
+        const sibs = all2.filter(s2 => s2 !== f2 && !fset.has(s2) && sufChain(s2) !== sufChain(f2));
+        if (!sibs.length) continue; withComp++;
+        for (const sfx of new Set(sibs.map(sufChain).filter(Boolean))) { compCnt.set(sfx, (compCnt.get(sfx) || 0) + 1); if (!compEx.has(sfx)) compEx.set(sfx, sibs.find(s2 => sufChain(s2) === sfx)); } }
+      const topComp = [...compCnt].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
       const imp = new Map(); for (const f2 of mf) for (const src2 of inEdges.get(f2) || []) if (!fset.has(src2)) imp.set(src2, (imp.get(src2) || 0) + 1);
       const topImp = [...imp].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
       const out2 = {};
-      if (testable.length >= 4 && withTest.length / testable.length >= 0.6) out2.test = { share: +(withTest.length / testable.length).toFixed(2), n: testable.length, example: (byStem.get(stem(withTest[0])) || [])[0] };
+      if (topComp && topComp[1] / mf.length >= 0.6) out2.companion = { pattern: topComp[0], share: +(topComp[1] / mf.length).toFixed(2), n: mf.length, example: compEx.get(topComp[0]) };
       if (topImp && topImp[1] / mf.length >= 0.6 && topImp[1] >= 4) out2.importedBy = { file: topImp[0], n: topImp[1], of: mf.length };
       else { const suffixOf = f3 => { const parts = basename(f3).split('.'); return parts.length >= 3 ? '*.' + parts.slice(-2).join('.') : null; };
         const cnt2 = new Map();
@@ -972,7 +975,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   const relFact = relFactsFor(effRel, src, tr, p._g); tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
   const placeHit = placementHit(model, effRel);
-  if (!part) return { scopes: [], governed: [], msgs: [], archHits, placeHit, partition: null, reason: isTestPath(effRel) ? 'test files here are too few to have norms of their own' : 'no partition covers this file' };
+  if (!part) return { scopes: [], governed: [], msgs: [], archHits, placeHit, partition: null, reason: 'no partition covers this file' };
   for (const s of scopes) applyVocab(s, part.vocab);
   const medoids = part.medoids;
   const { assign, amb } = assignAll(scopes, medoids);
@@ -1086,7 +1089,7 @@ export function groupDeviations(msgs, touched = null) {
 // ===== SPECTRUM (solicited exploration: the full lattice for one file, no acceptance cut) =====
 export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesAll = null }) {
   const part = partitionFor(model, rel);
-  if (!part) return { lines: [`(no partition covers ${rel}: ${isTestPath(rel) ? 'the test tree is too small to have norms of its own' : 'nothing is mined here'})`], rows: [] };
+  if (!part) return { lines: [`(no partition covers ${rel}: nothing is mined here)`], rows: [] };
   const files = (part.files || []).slice();
   const fileSet = new Set(files);
   const ps = (scopesAll ? scopesAll.filter(s => fileSet.has(s.rel) && s.kind !== 'module').map(hydrateScope) : (await extractTree(root, files))).filter(s => s.name !== '<anon>');
@@ -1159,7 +1162,6 @@ export function buildCards(model) {
       const dirs = new Map(); for (const k of members) { const d = dirname(k.split('#')[0]); dirs.set(d, (dirs.get(d) || 0) + 1); }
       const topDirs = [...dirs].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3);
       for (const [d] of topDirs) for (const t of tokenize(d)) addTok(toks, t, TOKW.fact); // the directory a group lives in is context for it, not its name — a directory named `middleware` outranks a 4-member group that merely lives there
-      if (isTestsPartition(part.name)) { addTok(toks, 'test', TOKW.name); addTok(toks, 'tests', TOKW.name); addTok(toks, 'spec', TOKW.fact); }
       cards.push({ type: 'group', part: part.name, label: md.label, n: members.length, toks, facts, topDirs, members, roleIdx: r }); });
     // directory cards: every directory that holds enough scopes to be a place (the spec's dirContextMinScopes), whether or
     // not it carries an accepted local norm — placement is the first half of every `where` question
@@ -1174,7 +1176,6 @@ export function buildCards(model) {
       for (const t of tokenize(d)) addTok(toks, t, TOKW.fact);
       for (const f of facts) for (const t of tokenize(f.pid.replace(/^auto\.[a-z0-9]+:?@?/, ''))) addTok(toks, t, TOKW.fact);
       const files = (part.files || []).filter(f => f.startsWith(d + '/'));
-      if (isTestsPartition(part.name)) { addTok(toks, 'test', TOKW.name); addTok(toks, 'tests', TOKW.name); addTok(toks, 'spec', TOKW.fact); }
       cards.push({ type: 'directory', part: part.name, label: d + '/', n: facts.length ? Math.max(...facts.map(f => f.sraw)) : (dirScopes.get(d) || 0), toks, dirName, facts, topDirs: [[d, 1]], members: null, files }); }
     // marker cards: "@click.command — 8 carriers, lives in src/flask/" — for an intent that names a decorator, a base type or a
     // return type, this is the answer (measured on flask: `where click command` landed on cli.py's inner closures instead)
@@ -1186,7 +1187,6 @@ export function buildCards(model) {
       const dirs = new Map(); for (const k of keys) { const d = dirname(k.split('#')[0]); dirs.set(d, (dirs.get(d) || 0) + 1); }
       const topDirs = [...dirs].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3);
       for (const [d] of topDirs) for (const t of tokenize(d)) addTok(toks, t, TOKW.fact);
-      if (isTestsPartition(part.name)) { addTok(toks, 'test', TOKW.name); addTok(toks, 'tests', TOKW.name); }
       const carrierFiles = new Set(keys.map(k => k.split('#')[0])); const carrierNames = new Set(keys.map(k => k.split('#')[2]));
       for (const f of carrierFiles) for (const t of tokenize(f.split('/').pop().replace(/\.[^.]+$/, ''))) addTok(toks, t, TOKW.fact); // `cli command` reaches @click.command through cli.py
       const degenerate = carrierNames.size === 1 && keys.length > 1; // three fixtures all named `test` are not a pattern to copy (three commands in one cli.py are)
@@ -1206,7 +1206,6 @@ export function buildCards(model) {
       for (const t of (part.fileDocs?.[rel] || [])) addTok(toks, t, TOKW.doc); // what the doc comments say this file is for
       for (const x of (part.fileSups?.[rel] || [])) for (const t of tokenize(x)) addTok(toks, t, TOKW.name); // the interfaces its types implement ARE what the file is
       for (const m of members) for (const t of tokenize(m.name)) addTok(toks, t, TOKW.name);
-      if (isTestsPartition(part.name)) { addTok(toks, 'test', TOKW.name); addTok(toks, 'tests', TOKW.name); }
       const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '.';
       const dirFacts = part.facts.filter(f => f.cid.startsWith('d[') && (dir + '/').startsWith(f.cid.slice(2, f.cid.indexOf(']')) + '/')).sort((a, b) => b.cid.length - a.cid.length || b.sraw - a.sraw).slice(0, 3)
         .concat(part.facts.filter(f => f.cid === '_all:file' && f.exp !== 'false').slice(0, 2)); // what every file here does (imports, quotes, directive) — a new file copies that first
@@ -1234,13 +1233,11 @@ export function cochangePartners(model, dirs, max = 3, file = null) {
   return uniq; }
 // the practiced-by clause of a steer: same-denominator marker counts when the seed names what it retires, plain share otherwise
 export const practicedBy = sf => sf.rivals ? `adopted by ${sf.rivals.own} of ${sf.rivals.own + sf.rivals.alts.reduce((a, x) => a + x.n, 0)} (${sf.rivals.alts.map(x => `${x.name} ${x.n}`).join(' · ')}) in ${sf.context} today` : `practiced by ${Math.round((sf.share || 0) * 100)}% of ${sf.n} in ${sf.context} today`;
-export const scopeLabel = partName => { const suf = auxSuffix(partName); const base = suf ? partName.slice(0, -suf.length) : partName;
-  const where = base === '_root' ? 'repo-wide' : base === '_repo' ? 'repo-wide (small packages merged)' : `package ${base}`; return suf === TESTS_SUFFIX ? `tests, ${where}` : suf === EXAMPLES_SUFFIX ? `examples/templates/scripts, ${where}` : where; };
+export const scopeLabel = partName => partName === '_root' ? 'repo-wide' : partName === '_repo' ? 'repo-wide (small packages merged)' : `package ${partName}`;
 export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () => true }) {
   const q = query;
   const qt = new Set(tokenize(q).map(normTok));
   const cards = buildCards(model);
-  const asksTests = q.toLowerCase().split(/\s+/).some(w => /^(test|tests|spec|specs|fixture|fixtures|mock|mocks)$/.test(w.replace(/[^\w]/g, ''))); // raw words only: `testing utility` asks about the testing PACKAGE, `test for a route` asks for tests
   // exact-name hits come from the query's whole words (and the last segment of dotted ones: `res.json` → `json`), never from
   // camelCase fragments — `TestRoutes` must pin `TestRoutes`, not every scope named `test`
   // …and only identifiers, not plain words: `TestRoutes`, `routes_command`, `res.json` pin their scope; `handler` is a word that
@@ -1266,7 +1263,6 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
       c.score = cover >= 0.5 ? Math.max(c.score, 1) : Math.min(1, c.score + 0.25); }
     if (c.dirName) { const hit = [...qt].filter(t => c.dirName.has(t)); if (hit.length) { const cover = hit.length / Math.max(1, qt.size); c.score = cover >= 0.5 ? Math.max(c.score, 1) : Math.min(1, c.score + 0.25); } }
     c.score = Math.min(1, c.score);
-    if (isAuxPartition(c.part) && !asksTests) c.score *= 0.5; // tests/examples answer only when asked for — a source intent must land in source first
     if (c.degenerate) c.score *= 0.5; }
   const rank = c => (c.exact ? 4 : c.type === 'marker' ? 2 : c.type === 'file' ? 1 : 1.5) + (c.facts.length ? 0.25 : 0); // on a tie: pinned identifier > marker > group/directory > file (a file's local facts never lift it over a directory)
   const hits = cards.filter(c => c.score > 0).sort((a, b) => b.score - a.score || rank(b) - rank(a) || b.n - a.n || (a.label < b.label ? -1 : 1)).slice(0, top);
@@ -1283,7 +1279,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
     if (contributing.length <= 1 && !hits[0].exact) lines.push(`note: the top hit matches only «${contributing[0] || '?'}» of your ${qt.size} words — verify before building on it.`); }
   if (!hits.length) {
     lines.push(`no lexical match for "${q}" — compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`);
-    const sorted = cards.filter(c => c.type !== 'file' && !isAuxPartition(c.part)).sort((a, b) => b.n - a.n || (a.label < b.label ? -1 : 1));
+    const sorted = cards.filter(c => c.type !== 'file').sort((a, b) => b.n - a.n || (a.label < b.label ? -1 : 1));
     for (const c of sorted.slice(0, mapRows)) lines.push(`  [${c.type}] ${c.label} (${c.n}) → ${c.topDirs.map(([d]) => d + '/').join(' · ')}`);
     if (sorted.length > mapRows) lines.push(`  … and ${sorted.length - mapRows} more — re-run with --map-rows ${sorted.length} for all`);
     if (!cards.length) lines.push('  (the model holds no groups or directory norms — no strong conventions were found in this repository)');
@@ -1315,8 +1311,8 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
       const obs = (part(model, h.part).markerObs || {})[mkKey] || [];
       if (obs.length) lines.push(`  its carriers share (observed, not certified): ${obs.join(' · ')}`);
       const mi = (part(model, h.part).markerImplied || {})[mkKey];
-      if (mi && (mi.test || mi.importedBy || mi.importedByPattern)) { const bits = [];
-        if (mi.test) bits.push(`a same-stem test file (${Math.round(mi.test.share * 100)}% of ${mi.test.n} have one, e.g. \`${mi.test.example}\`)`);
+      if (mi && (mi.companion || mi.importedBy || mi.importedByPattern)) { const bits = [];
+        if (mi.companion) bits.push(`a same-stem \`${mi.companion.pattern}\` companion (${Math.round(mi.companion.share * 100)}% of ${mi.companion.n} have one, e.g. \`${mi.companion.example}\`)`);
         if (mi.importedBy) bits.push(`registration in \`${mi.importedBy.file}\` (imports ${mi.importedBy.n} of ${mi.importedBy.of} carriers)`);
         if (mi.importedByPattern) bits.push(`registration by its sibling \`${mi.importedByPattern.pattern}\` (${mi.importedByPattern.n} of ${mi.importedByPattern.of} carriers)`);
         lines.push(`  a new carrier comes with: ${bits.join(' · ')}`); }
@@ -1327,7 +1323,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
     if (!h.facts.length) lines.push(`  - no convention certified here beyond placement (the group is small, not free-form) — open a member below and copy its shape`);
     if (h.type === 'group' && h.roleIdx !== undefined) { const gi2 = (part(model, h.part).groupImplied || {})[h.roleIdx];
       if (gi2) { const bits = [];
-        if (gi2.test) bits.push(`a same-stem test file (${Math.round(gi2.test.share * 100)}% of ${gi2.test.n} have one, e.g. \`${gi2.test.example}\`)`);
+        if (gi2.companion) bits.push(`a same-stem \`${gi2.companion.pattern}\` companion (${Math.round(gi2.companion.share * 100)}% of ${gi2.companion.n} have one, e.g. \`${gi2.companion.example}\`)`);
         if (gi2.importedBy) bits.push(`registration in \`${gi2.importedBy.file}\` (imports ${gi2.importedBy.n} of ${gi2.importedBy.of} members)`);
         if (gi2.importedByPattern) bits.push(`registration by its sibling \`${gi2.importedByPattern.pattern}\` (${gi2.importedByPattern.n} of ${gi2.importedByPattern.of} members are imported by one)`);
         if (bits.length) lines.push(`  a new member comes with: ${bits.join(' · ')}`); } }
@@ -1351,7 +1347,7 @@ export function report(model, { top = 15 } = {}) {
     const defining = f => { if (!/^r\d/.test(f.cid)) return false; const md = p.medoids[+f.cid.slice(1).split(':')[0]]; if (!md) return false;
       const m = f.pid.match(/^auto\.(deco|extends|returns):@?(.+)$/); if (!m || f.exp !== 'true') return false; const pre = { deco: 'dec', extends: 'sup', returns: 'ret' }[m[1]];
       return md.feats.includes(pre + ':' + m[2]) || md.feats.includes(pre + ':' + m[2].replace(/^\[|\]$/g, '')); };
-    const shown = p.facts.filter(f => !defining(f) && !(f.pkgWide && isAuxPartition(p.name))); const taut = p.facts.filter(defining).length;
+    const shown = p.facts.filter(f => !defining(f)); const taut = p.facts.filter(defining).length;
     for (const f of shown.slice(0, top)) {
       const t = f.trend; const tr = t ? ` trend[${t.shares.map(s => Math.round(s.share * 100)).join('>')}%]${t.nucleating ? ` — a newer pattern is emerging here: ${t.nucleating}` : ''}` : '';
       lines.push(`  ${factLabel(p, f)}: ${verbalize(f, f.exemplars.map(e => e.name))} — ${Math.round(f.share * 100)}% of ${f.sraw} established${f.deviantsN ? `, ${f.deviantsN} deviant${f.deviantsN > 1 ? 's' : ''}` : ''}${tr}${f.held && f.held.since ? ` · held since ${f.held.since}` : ''}`); }

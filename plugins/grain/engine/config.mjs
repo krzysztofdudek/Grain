@@ -4,13 +4,9 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 export const ENGINE_VERSION = '0.1.0';
-export const EXTR_V = 'g21';
+export const EXTR_V = 'g22';
 export const HIST_V = 'h2';
-export const MODEL_V = 'm3'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
-// a call that IS a test case: its string argument names the callback scope (it/test/specify, Go's t.Run) — the one piece of
-// ecosystem vocabulary grain allows itself beside the test-path patterns above; a new test body is otherwise anonymous and
-// ungoverned (measured: `check` on a new test file said `0 scopes` in three review rounds)
-export const TEST_CASE_RE = /(^|\.)(it|xit|fit|test|xtest|specify|run)$/i; // replay-state version — bump when the persisted replay (lifecycle rows, co-change pairs) changes shape without the blobs changing // extractor version — bump on any extraction change; invalidates the blob cache and the replay state by key
+export const MODEL_V = 'm4'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Grammar assets (`tree-sitter-<g>.wasm` + `tree-sitter-<g>.node-types.json`) live inside the plugin by default;
@@ -31,27 +27,12 @@ export const GRAMMARS = [...new Set(Object.values(EXT2GRAMMAR))].sort();
 // Built-in exclusions (§6.8): EXCL gates every surface; MINE_EXCL gates convention mining only — test files stay
 // fully counted in lifecycle, value events and co-change.
 export const EXCL = /(^|\/)(node_modules|dist|build|out|vendor|\.git|\.yggdrasil|\.grain|__pycache__|migrations|coverage|\.next|bin|obj|fixtures?|benchmarks?|__mocks__|target)(\/|$)|\.min\.|generated|\.d\.ts$/;
-// Test code is MINED — in its own partition (`<pkg>#tests`), so test norms are queryable ("where do tests for X go",
-// "what does a test here look like") without ever feeding the production norm. A test tree below the partition floor is
-// simply not mined (it still counts for history and co-change). Detection is by path: directory names and the file-name
-// patterns the major ecosystems use.
-export const TEST_DIR_RE = /(^|\/)(tests?|__tests__|specs?|testing|e2e|integration-tests?|test-?utils?|__mocks__)(\/|$)/;
-export const TEST_FILE_RE = /(\.(test|spec|tst|e2e-spec|test-d)\.[^.]+$)|(_tests?\.(go|py|rb|rs|ts|js|php|ex|exs)$)|(^test_[^/]*\.py$)|(Tests?\.(java|kt|cs|scala|groovy)$)|(_spec\.rb$)|(^spec_[^/]*\.rb$)|(\.spec\.[a-z]+$)/;
-// directory names count only in the first two segments under the package root (`test/`, `src/test/`, `examples/`) — a deep
-// `…/samples/petclinic/` is a Java package, not an examples tree (measured: spring-petclinic's whole source became "examples")
-const layout = (rel, inPkg) => (inPkg ?? rel).split('/').slice(0, 2).join('/') + '/';
-// test DIRECTORIES count at any depth, but measured inside the package — a PACKAGE named `testing` (nest's shipped
-// packages/testing) is a product, not a test tree; axum's src/routing/tests/ still lands in the tests partition
-export const isTestPath = (rel, inPkg) => { const p2 = inPkg ?? rel; return TEST_DIR_RE.test(p2.slice(0, p2.lastIndexOf('/') + 1)) || TEST_FILE_RE.test(rel.split('/').pop()); };
-export const TESTS_SUFFIX = '#tests';
-// Examples, templates, scripts and docs are observed in their own partition, never authoritative for the product code:
-// measured, `examples/` outvoted `lib/` on express and a scaffold under `templates/` became the top naming exemplar of a
-// .NET repository.
-export const EXAMPLE_DIR_RE = /(^|\/)(examples?|samples?|demos?|templates?|scaffolds?|scripts?|tools?|docs?|playground|sandbox)(\/|$)/;
-export const EXAMPLES_SUFFIX = '#examples';
-export const auxOf = (rel, inPkg) => isTestPath(rel, inPkg) ? TESTS_SUFFIX : EXAMPLE_DIR_RE.test(layout(rel, inPkg)) ? EXAMPLES_SUFFIX : '';
-// kept for the history layer's compatibility; mining no longer excludes test files — it partitions them
-export const MINE_EXCL = /a^/;
+// DESIGN RULING (maintainer, 2026-08-25): no semantic recognition of tests, examples or any other role by NAME —
+// "kod to kod": across this many languages a name-based test detector is a guess, and grain does not guess. Partitions
+// come from directory structure (package roots); everything else must emerge from raw AST analysis. The measured
+// accidents the removed axes once fixed (express's examples/ outvoting lib/; a small test tree judged by production
+// norms) are accepted costs, to be re-measured, not silently re-patched with word lists.
+export const MINE_EXCL = /a^/; // kept for the history layer's compatibility; mining excludes nothing
 
 // Statistical constants (every one carries a config key in the spec §4.5; the values are the spec defaults)
 // minShare: the survived-raw share a spoken convention must show. The spec's 2/3 lets categorical facts speak at 80%

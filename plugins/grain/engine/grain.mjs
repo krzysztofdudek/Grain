@@ -13,7 +13,7 @@ import { join, relative, resolve, isAbsolute, dirname, extname } from 'node:path
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, EXCL, EXT2GRAMMAR } from './config.mjs';
-import { learn, checkFile, spectrum, whereCmd, report, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, isAuxPartition, factLabel } from './core.mjs';
+import { learn, checkFile, spectrum, whereCmd, report, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel } from './core.mjs';
 import { loadHistory, headSha, headTree, gitOk } from './history.mjs';
 import { exportModel } from './export.mjs';
 import { createHash } from 'node:crypto';
@@ -260,10 +260,10 @@ async function cmdReport({ model, meta, head, isGit, opts, stamp }) {
   if (opts.json) return [JSON.stringify({ repo: model.repo, partitions: model.partitions.map(p => ({ name: p.name, label: scopeLabel(p.name), conventions: p.facts.slice(0, +opts.top || 15).map(f => ({ id: p.name + '::' + f.cid + '::' + f.pid, context: factLabel(p, f), kind: f.kind, pid: f.pid, expected: f.exp, statement: verbalize(f, f.exemplars.map(e => e.name)), share: f.share, established: f.sraw, deviantsN: f.deviantsN, deviants: f.deviants || [], exemplars: f.exemplars, trend: f.trend ? { shares: f.trend.shares.map(x => x.share), nucleating: f.trend.nucleating } : null, held: f.held || null })), total: p.facts.length })), asOf: stamp().replace(/^as of /, '') })];
   return [...report(model, { top: +opts.top || 15 }), ...freshnessLines(meta, head, isGit), stamp()]; }
 
-// how much the model can say about source code: groups and spoken conventions outside tests/examples, as a verdict a reader
-// can calibrate on — "16 conventions over 150 files" is a sparse model and the agent cannot know that from the count alone
+// how much the model can say about the code, as a verdict a reader can calibrate on — "16 conventions over 150 files"
+// is a sparse model and the agent cannot know that from the count alone
 export function signal(model) {
-  const src = model.partitions.filter(p => !isAuxPartition(p.name));
+  const src = model.partitions;
   const facts = src.reduce((a, p) => a + p.facts.length, 0), groups = src.reduce((a, p) => a + p.medoids.length, 0), files = src.reduce((a, p) => a + (p.files || []).length, 0);
   const per100 = files ? facts / files * 100 : 0;
   const verdict = !src.length ? 'no source partition — nothing is spoken here' : facts === 0 ? 'an empty model — placement only, no shape; read an exemplar' : per100 < 8 ? 'a sparse model — expect placement, not shape; read an exemplar' : per100 < 25 ? 'a moderate model' : 'a rich model';
@@ -281,7 +281,7 @@ export function sessionContext({ root, isGit, store, mode }) {
   const bin = `node "${BIN}"`;
   const text = [
     `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence — then open that exemplar. Run from the repo root via Bash; every answer ends with \`as of <sha>\`.`,
-    `  ${bin} where <intent words>   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms. Hits only in tests/ for a source change = a miss, not freedom.`,
+    `  ${bin} where <intent words>   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms.`,
     `  ${bin} check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''}`,
     `  ${bin} status | report        — size, freshness, top conventions.`,
     `Index: ${state}.`,
