@@ -53,7 +53,7 @@ queries, an incremental refresh after one commit, a divergent checkout, and the 
 laptop, no parallelism.
 
 | repo | commits | cold build | peak RSS | median query | cache |
-|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- |
 | spring-petclinic | 1 040 | 5.9 s | 392 MB | 83 ms | 13 MB |
 | CleanArchitecture | 937 | 4.1 s | 298 MB | 94 ms | 6 MB |
 | chi | 823 | 7.1 s | 292 MB | 107 ms | 6 MB |
@@ -80,7 +80,7 @@ member sits outside role governance by design) counts unsupported; and the firin
 accusation prints.
 
 | repo | detected | missed | false fires |
-|---|---|---|---|
+| --- | --- | --- | --- |
 | nest | 26 | 2 | 0 |
 | flask | 13 | 0 | 0 |
 | typeorm | 13 | 1 | 0 |

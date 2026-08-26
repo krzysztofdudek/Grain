@@ -15,7 +15,7 @@ speaks at all, so multiple comparisons are paid for inside the objective rather 
 Everything the tool prints is a special case:
 
 | Artifact | What it is mathematically |
-|---|---|
+| --- | --- |
 | a convention | a cell whose codelength gain is positive |
 | a group (role) | a mixture component that compresses the scope population (greedy MDL agglomeration over feature bags) |
 | a template | a shared subtree with holes whose instances anti-unify (Plotkin's least general generalization) |

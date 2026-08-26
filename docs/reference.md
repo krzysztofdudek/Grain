@@ -10,7 +10,7 @@ stale one carries a STALE banner). Every answer ends with `as of <sha>`, plus `+
 uncommitted worktree.
 
 | command | flags | answer |
-|---|---|---|
+| --- | --- | --- |
 | `where <intent words>` | `--top N`, `--map-rows N`, `--json` | ranked cards (group, marker, directory, file) with conventions, exemplars, superposition, co-change; a compact map when nothing matches lexically; a history bridge line for words only the commits know |
 | `check <file>` | `--as <path>`, `--content <file>`, `--all`, `--json` | deviations in your change with evidence and exemplars, pre-existing ones folded (`--all` lists), maintainer decisions departed from, architecture notes, a placement note for a file the tree does not know. `--as` judges content as if it lived at another path; `--content` reads the body from elsewhere |
 | `spectrum <file>` | `--minbits N`, `--top N` | the full local to global lattice around one file, accepted NORM rows and below gate obs rows |
@@ -42,7 +42,7 @@ macOS `/var` and `/private/var` symlinks cannot put a file outside its own repos
 
 ## The store
 
-```
+```text
 <repo>/.grain/
   .gitignore        created by grain; ignores cache/
   .gitattributes    merge=union for the two decision files
@@ -63,7 +63,7 @@ Deleting `cache/` is always safe; the next query rebuilds the same bytes.
 From `.env.example` and the engine:
 
 | variable | effect |
-|---|---|
+| --- | --- |
 | `GRAIN_V8=off` | disable the `--liftoff-only` re-exec; long builds get V8's optimiser and roughly 500 MB more RSS |
 | `GRAIN_NO_REFRESH=1` | never auto-rebuild; stale answers carry a STALE banner |
 | `GRAIN_DEBUG=1` | full stack traces on errors |
@@ -77,7 +77,7 @@ From `.env.example` and the engine:
 `meta.json` carries four keys; a mismatch on any of them invalidates exactly the layer it names.
 
 | key | invalidates | bump when |
-|---|---|---|
+| --- | --- | --- |
 | `engine` | everything | the engine version changes |
 | `extractor` (EXTR_V) | the per blob extraction cache and the history replay | anything about extraction changes |
 | `model` (MODEL_V) | the mined model only (a re-learn, not a re-parse) | the model gains fields queries depend on |
