@@ -23,6 +23,19 @@
           }
         ]
       }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"${PLUGIN_ROOT}/bin/grain.mjs\" check-hook --pre",
+            "timeout": 15,
+            "commandWindows": "node \"${PLUGIN_ROOT}\\\\bin\\\\grain.mjs\" check-hook --pre"
+          }
+        ]
+      }
     ]
   }
 }

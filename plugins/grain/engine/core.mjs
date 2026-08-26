@@ -1125,18 +1125,26 @@ export function placementHit(model, rel) {
   const cands = files.filter(f => sufOf(f) === suf);
   if (cands.length < 3) return null;
   const toks = [...new Set(tokenize(basename(rel).split('.')[0]))].filter(t => t.length >= 3 && !PL_STOP.has(t) && !QSTOP.has(t));
-  let best = null;
-  for (const t of toks) { // name-kin: same-suffix files carrying this token in their basename or a directory segment
-    const T = cands.filter(f => tokenize(basename(f).split('.')[0]).includes(t) || dirname(f).split('/').some(sg => tokenize(sg).includes(t)));
+  const hits = [];
+  for (const t of toks) { // name-kin: same-suffix files carrying this token in their BASENAME; directory segments only
+    // as a fallback when basenames are silent — a directory named after the token otherwise inflates T past the
+    // too-generic gate and mutes exactly the strongest signal (measured: `admin` vanished behind admin-panel/'s own files)
+    let T = cands.filter(f => tokenize(basename(f).split('.')[0]).includes(t));
+    if (T.length < 2) T = cands.filter(f => dirname(f).split('/').some(sg => tokenize(sg).includes(t)));
     if (T.length < 2 || T.length > cands.length * 0.5) continue; // absent, or too generic to place anything
     if (T.some(f => dirname(f) === dir)) continue;               // the chosen directory DOES keep such files — nothing to say
     const byDir = new Map(); for (const f of T) byDir.set(dirname(f), (byDir.get(dirname(f)) || 0) + 1);
     const [topDir, n] = [...byDir].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
     if (topDir === dir || n < 2 || n / T.length < 2 / 3) continue;
-    const share = n / T.length;
-    if (!best || n > best.n || (n === best.n && (share > best.share || (share === best.share && t < best.t)))) best = { t, n, of: T.length, topDir, share }; }
-  if (best) return { kind: 'placement', token: best.t, dir: best.topDir,
-    text: `[grain] placement: \`*.${suf}\` files named like \`${best.t}\` live in \`${best.topDir}/\` — ${best.n} of ${best.of}; \`${dir}/\` holds none. Deliberate placement is fine — but if you guessed, ask \`grain where ${best.t} ${suf.split('.')[0]}\` first.` };
+    hits.push({ t, n, of: T.length, topDir, share: n / T.length }); }
+  hits.sort((a, b) => b.n - a.n || b.share - a.share || (a.t < b.t ? -1 : 1));
+  if (hits.length) { const best = hits[0];
+    // competing name-kin are ARBITRATED in one note, strongest count first — measured (replay-3): sequential
+    // contradictory notes made the worker follow the weaker statistic and sunk-cost past the stronger one
+    const alts = hits.slice(1, 3).filter(h => h.topDir !== best.topDir);
+    const rivalBit = alts.length ? ` Weaker name-kin point elsewhere: ${alts.map(h => `\`${h.t}\` → \`${h.topDir}/\` (${h.n} of ${h.of})`).join(' · ')} — the leading count is the one to argue with.` : '';
+    return { kind: 'placement', token: best.t, dir: best.topDir,
+      text: `[grain] placement: \`*.${suf}\` files named like \`${best.t}\` live in \`${best.topDir}/\` — ${best.n} of ${best.of}; \`${dir}/\` holds none.${rivalBit} Deliberate placement is fine — but if you guessed, ask \`grain where ${best.t} ${suf.split('.')[0]}\` first.` }; }
   if (cands.length >= 5) { // fallback: the suffix itself is kept in one subtree and this file is outside it
     const cnt = new Map();
     for (const f of cands) { const segs = dirname(f).split('/'); for (let k = 1; k <= segs.length; k++) { const p2 = segs.slice(0, k).join('/'); cnt.set(p2, (cnt.get(p2) || 0) + 1); } }

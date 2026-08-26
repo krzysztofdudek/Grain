@@ -55,6 +55,19 @@ test('a suffix kept only in named subdirectories flags a file at the root of tha
   assert.match(c.out, /\[grain\] placement: every `\*\.spec\.ts` file under `tests\/` lives in a named subdirectory — `alpha\/` \(3\) · `beta\/` \(3\); none sit at the root/);
 });
 
+test('the PRE-write hook names the kin directory from the path alone, and the post-write hook does not repeat it', () => {
+  const fp = join(repo, 'src/stray/order-voided.handler.ts'); // not written yet
+  rmSync(join(repo, '.grain', 'cache', 'hook-seen.json'), { force: true });
+  const pre = spawnSync('node', [BIN, 'check-hook', '--pre'], { cwd: repo, encoding: 'utf8', input: JSON.stringify({ cwd: repo, tool_name: 'Write', tool_input: { file_path: fp } }) });
+  const j = JSON.parse(pre.stdout);
+  assert.equal(j.hookSpecificOutput.hookEventName, 'PreToolUse');
+  assert.equal(j.hookSpecificOutput.permissionDecision, 'allow');
+  assert.match(j.hookSpecificOutput.additionalContext, /placement: `\*\.handler\.ts` files named like `order` live in `src\/orders\/`/);
+  w('src/stray/order-voided.handler.ts', 'export function hv() { return 0; }\n');
+  const post = spawnSync('node', [BIN, 'check-hook'], { cwd: repo, encoding: 'utf8', input: JSON.stringify({ cwd: repo, tool_name: 'Write', tool_input: { file_path: fp } }) });
+  assert.equal((post.stdout || '').trim(), '', 'the identical placement note must not arrive twice');
+});
+
 test('the hook carries the placement note for a freshly WRITTEN file', () => {
   w('src/misc2/order-disputed.handler.ts', 'export function hz() { return 0; }\n');
   const out = hook('src/misc2/order-disputed.handler.ts');

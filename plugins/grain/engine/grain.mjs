@@ -9,11 +9,11 @@
 // Every answer ends with `as of <sha>[+dirty]`. The index lives in <repo>/.grain/cache/ (gitignored, disposable).
 // Uncommitted changes never feed the norm — only `check`/`spectrum` read the worktree version of the one file asked about.
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, readdirSync, appendFileSync, realpathSync } from 'node:fs';
-import { join, relative, resolve, isAbsolute, dirname, extname } from 'node:path';
+import { join, relative, resolve, isAbsolute, dirname, extname, basename, dirname as pdirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, EXCL, EXT2GRAMMAR } from './config.mjs';
-import { learn, checkFile, spectrum, whereCmd, report, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel } from './core.mjs';
+import { learn, checkFile, spectrum, whereCmd, report, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel, placementHit } from './core.mjs';
 import { loadHistory, headSha, headTree, gitOk } from './history.mjs';
 import { exportModel } from './export.mjs';
 import { createHash } from 'node:crypto';
@@ -316,14 +316,25 @@ export async function main(argv) {
       const fp = payload?.tool_input?.file_path || payload?.tool_input?.filePath || payload?.file_path;
       if (!fp) return 0;
       const f = findRoot({ repo: typeof payload?.cwd === 'string' ? payload.cwd : process.cwd() }); const st2 = storeFor(f.root);
-      let fpr = fp; try { fpr = realpathSync(fp); } catch { /* not on disk yet — existsSync below decides */ }
+      let fpr = fp; try { fpr = realpathSync(fp); } catch { // not on disk yet (a pre-write path): canonicalize through
+        // the deepest EXISTING ancestor, or /var-vs-/private/var symlinks put the path "outside" its own repository
+        let d2 = fp; const tail = []; while (!existsSync(d2)) { tail.unshift(basename(d2)); const nd = pdirname(d2); if (nd === d2) break; d2 = nd; }
+        try { fpr = join(realpathSync(d2), ...tail); } catch { /* keep raw */ } }
       const meta2 = readJson(st2.metaPath); const model2 = meta2 && existsSync(st2.modelPath) ? readJson(st2.modelPath) : null;
       if (!model2 || meta2.engine !== ENGINE_VERSION || meta2.extractor !== EXTR_V || (meta2.model || '') !== MODEL_V) return 0; // stale schema: silence, the next real query rebuilds
       const rel = relPath(f.root, fpr);
-      if (!EXT2GRAMMAR[extname(rel)] || !existsSync(join(f.root, rel))) return 0;
       const stamp2 = d => `as of ${short(meta2.headSha)}${d ? '+dirty' : ''}`;
-      const lines = await cmdCheck({ model: model2, root: f.root, isGit: f.git, args: [rel], opts: {}, stamp: stamp2 });
-      const speak = lines.filter(l => l.includes('[grain]')); // only findings — headers, conforms-to and the stamp stay in the direct command
+      let speak; let pre = false;
+      if (opts.pre) { // PreToolUse on Write: the file does not exist yet — placement speaks from the PATH alone, BEFORE
+        // the worker sinks cost into the wrong directory (measured, replay-3: a post-write note was followed only while
+        // moving was still cheap; the stronger, later note lost to sunk cost)
+        pre = true;
+        const ph = placementHit(model2, rel);
+        speak = ph ? [ph.text] : []; }
+      else {
+        if (!EXT2GRAMMAR[extname(rel)] || !existsSync(join(f.root, rel))) return 0;
+        const lines = await cmdCheck({ model: model2, root: f.root, isGit: f.git, args: [rel], opts: {}, stamp: stamp2 });
+        speak = lines.filter(l => l.includes('[grain]')); } // only findings — headers, conforms-to and the stamp stay in the direct command
       if (!speak.length) return 0;
       // repeat suppression: an agent editing the same file five times must not read the same note five times — an
       // UNCHANGED set of findings for a file repeats only after the TTL; any change in the findings speaks at once
@@ -334,7 +345,9 @@ export async function main(argv) {
       if (prev && prev.h === sig && now - prev.t < TTL) return 0;
       try { seen[rel] = { h: sig, t: now }; writeFileSync(seenPath, JSON.stringify(seen)); } catch { /* stateless is still correct, just louder */ }
       const text = [...speak.slice(0, 8), ...(speak.length > 8 ? [`  (+${speak.length - 8} more — run \`grain check ${rel}\`)`] : []), stamp2(true)].join('\n');
-      console.log(JSON.stringify({ hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text } })); }
+      console.log(JSON.stringify(pre
+        ? { hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'allow', additionalContext: text } }
+        : { hookSpecificOutput: { hookEventName: 'PostToolUse', additionalContext: text } })); }
     catch (e) { if (process.env.GRAIN_DEBUG) console.error('[grain] check-hook: ' + (e?.stack || e)); /* a hook never breaks an edit */ }
     return 0; }
   if (cmd === 'version') { console.log(`grain ${ENGINE_VERSION} · extractor ${EXTR_V} · grammars ${GRAMMARS.join(', ')}`); return 0; }

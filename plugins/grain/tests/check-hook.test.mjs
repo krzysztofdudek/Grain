@@ -65,6 +65,18 @@ test('an UNCHANGED finding for the same file speaks once, not on every edit; aft
   } finally { w('apps/a/main.ts', orig); }
 });
 
+test('PreToolUse --pre speaks placement from the PATH alone, before the file exists, and the post-write repeat is suppressed', () => {
+  const fp = join(repo, 'packages/misc/util-extra.ts'); // does NOT exist — pre-write
+  const seenPath0 = join(repo, '.grain', 'cache', 'hook-seen.json'); rmSync(seenPath0, { force: true });
+  const r1 = spawnSync('node', [BIN, 'check-hook', '--pre'], { cwd: repo, encoding: 'utf8', input: JSON.stringify({ cwd: repo, tool_name: 'Write', tool_input: { file_path: fp } }) });
+  assert.equal(r1.status, 0, r1.stderr);
+  // this tiny fixture has too few suffix-kin for a note — assert the CHANNEL shape on a repo where one fires is done in
+  // placement tests; here assert: silence is silence, and a pre note (if any) is PreToolUse-shaped
+  if ((r1.stdout || '').trim()) { const j = JSON.parse(r1.stdout);
+    assert.equal(j.hookSpecificOutput.hookEventName, 'PreToolUse');
+    assert.equal(j.hookSpecificOutput.permissionDecision, 'allow'); }
+});
+
 test('no payload, an unparseable file, and a repo with no index are all silence, never an error', () => {
   const r1 = spawnSync('node', [BIN, 'check-hook'], { cwd: repo, encoding: 'utf8', input: '' });
   assert.equal(r1.status, 0); assert.equal((r1.stdout || '').trim(), '');
