@@ -330,7 +330,7 @@ export function exportShape(tree) {
   return { 'auto.modexport': n2 >= tot * 0.8 ? k : 'mixed' }; }
 // doc comment → searchable tokens: first sentence only, comment sigils stripped, prose stopwords dropped (what a thing is FOR,
 // in the maintainers' words — the vocabulary an agent's intent is most likely phrased in)
-const DOC_STOP = new Set('the a an and or of to for in on at by with from as is are was were be been being this that these those it its into than then there their which who whom what when where how if not no nor do does did done can could will would should may might must also such via each per any all some more most other same new use used using return returns returned given like true false null none void only own just yet still very e g i e'.split(' '));
+export const DOC_STOP = new Set('the a an and or of to for in on at by with from as is are was were be been being this that these those it its into than then there their which who whom what when where how if not no nor do does did done can could will would should may might must also such via each per any all some more most other same new use used using return returns returned given like true false null none void only own just yet still very e g i e'.split(' '));
 export function docTokens(text) { if (!text) return [];
   const clean = text.replace(/^[\s/*#\-"'`!]+/, '').replace(/\*\/\s*$/, '').replace(/^\s*(\*|\/\/+|#+|--)\s?/gm, '').replace(/["'`]{3}$/, '');
   const first = clean.split(/(?<=[.!?])\s|\n\s*\n/)[0].slice(0, 200);
@@ -1007,6 +1007,16 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
     toLive: files.some(f => (f + '/').startsWith(b.boundary.to + '/')) }));
   model.agentShare = agentShareDen ? +(agentShareNum / agentShareDen).toFixed(2) : null;
   model.cochange = H ? [...H.cochange].sort((a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1)).slice(0, 5000) : []; // cap by descending support
+  // the language bridge: what files this repo touches when a commit message says <token> — pruned to living files,
+  // strongest tokens first; `where` cites it (with the example commit) for query words the code itself never says
+  model.msgAffinity = [];
+  if (H && H.msgAff) { const fset3 = new Set(files);
+    const filler = t => ((H.msgTokCommits || {})[t] || 0) > Math.max(8, (H.commitsN || 0) * 0.15); // a token most commits say (feat/fix/chore) translates nothing — df-demoted, no word list
+    const rows = Object.entries(H.msgAff).filter(([t]) => !filler(t)).map(([t, fm]) => { const fs3 = Object.entries(fm).filter(([f, n]) => n >= 2 && fset3.has(f))
+        .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 6);
+      const tot = fs3.reduce((a2, [, n]) => a2 + n, 0);
+      return tot >= 2 ? { t, files: fs3, ex: (H.msgAffEx || {})[t] || null } : null; }).filter(Boolean);
+    model.msgAffinity = rows.sort((a, b) => b.files.reduce((x, [, n]) => x + n, 0) - a.files.reduce((x, [, n]) => x + n, 0) || (a.t < b.t ? -1 : 1)).slice(0, 1500); }
   model.historyStats = H ? { commits: H.stats.commits, events: H.stats.events, blobs: H.stats.blobs } : null; // parsed/cached/mb are run diagnostics, not repo facts — they would break byte-identity across cache states
   model.files = files.length;
   return { model, ms: Date.now() - t0, scopes: all.length, rawScopes, treeCacheOut }; }
@@ -1019,7 +1029,17 @@ export const hydrateScope = r => ({ ...r, calls: new Set(r.calls), seen: new Set
 // The replay trials' measured failure class: both arms filed admin e2e specs beside navigation specs while
 // `admin-panel/` sat one directory over, and line-level checks were structurally silent. This speaks at creation,
 // from the accepted tree alone, and never commands — deliberate placement is explicitly left alone.
-const QSTOP = new Set(['a', 'an', 'the', 'to', 'for', 'of', 'in', 'on', 'with', 'and', 'or', 'my', 'our', 'this', 'that', 'it', 'is', 'are', 'be', 'do', 'doe', 'can', 'should', 'would', 'i', 'we', 'you', 'how', 'what', 'where', 'when', 'so', 'via', 'from', 'into', 'onto', 'up', 'out', 'new', 'some', 'any', 'all']);
+// «endpoint» in the query, never in the code: the commits that SAY the word show which files they touch — a learned,
+// per-repo, citable translation (never a global dictionary), consulted only for tokens no card carries
+function bridgeLines(model, qt, df) {
+  const out = [];
+  for (const t of qt) { if (df.get(t)) continue;
+    const row = (model.msgAffinity || []).find(r2 => normTok(r2.t) === t || r2.t === t); if (!row) continue;
+    const tot = row.files.reduce((a, [, n]) => a + n, 0);
+    out.push(`history bridge: «${row.t}» appears in no code card here, but commits saying it touched: ${row.files.slice(0, 3).map(([f, n]) => `\`${f}\` (${n})`).join(' · ')}${row.ex ? ` — e.g. "${row.ex[1]}" (${row.ex[0]})` : ''}`);
+    if (out.length >= 2) break; }
+  return out; }
+export const QSTOP = new Set(['a', 'an', 'the', 'to', 'for', 'of', 'in', 'on', 'with', 'and', 'or', 'my', 'our', 'this', 'that', 'it', 'is', 'are', 'be', 'do', 'doe', 'can', 'should', 'would', 'i', 'we', 'you', 'how', 'what', 'where', 'when', 'so', 'via', 'from', 'into', 'onto', 'up', 'out', 'new', 'some', 'any', 'all']);
 const PL_STOP = new Set(['index', 'main', 'mod', 'util', 'utils', 'helper', 'helpers', 'common', 'shared', 'core', 'base',
   'type', 'types', 'test', 'tests', 'spec', 'specs', 'lib', 'libs', 'app', 'apps', 'src', 'file', 'files', 'data',
   'component', 'components', 'page', 'pages', 'view', 'views', 'service', 'services', 'controller', 'controllers',
@@ -1308,7 +1328,7 @@ export function buildCards(model) {
   return cards; }
 // a light stemmer applied to BOTH sides of every match (query and card), so only consistency matters, not linguistics:
 // entities ≡ entity, classes ≡ class; extractor ≡ extract ≡ extraction, rejection ≡ reject, router ≡ route ≡ routing, handler ≡ handle
-const normTok = t => { t = t.toLowerCase(); if (t.length <= 3) return t;
+export const normTok = t => { t = t.toLowerCase(); if (t.length <= 3) return t;
   t = t.replace(/ies$/, 'y').replace(/(ses|xes|shes|ches)$/, m => m.slice(0, -2)).replace(/s$/, '');
   if (t.length >= 6) t = t.replace(/ation$/, 'ate').replace(/(tion|sion)$/, 't').replace(/ing$/, '').replace(/(er|or)$/, '');
   if (t.length >= 5) t = t.replace(/e$/, '');
@@ -1373,11 +1393,13 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
     if (contributing.length <= 1 && !hits[0].exact) lines.push(`note: the top hit matches only «${contributing[0] || '?'}» of your ${qt.size} words — verify before building on it.`); }
   if (!hits.length) {
     lines.push(`no lexical match for "${q}" — compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`);
+    lines.push(...bridgeLines(model, qt, df));
     const sorted = cards.filter(c => c.type !== 'file').sort((a, b) => b.n - a.n || (a.label < b.label ? -1 : 1));
     for (const c of sorted.slice(0, mapRows)) lines.push(`  [${c.type}] ${c.label} (${c.n}) → ${c.topDirs.map(([d]) => d + '/').join(' · ')}`);
     if (sorted.length > mapRows) lines.push(`  … and ${sorted.length - mapRows} more — re-run with --map-rows ${sorted.length} for all`);
     if (!cards.length) lines.push('  (the model holds no groups or directory norms — no strong conventions were found in this repository)');
     return { lines, hits: [], cards }; }
+  const bridged = bridgeLines(model, qt, df); // query words the code never says, translated by the commit history
   for (const h of hits) {
     const stLines = steers.filter(st => cardHit(st, h)).flatMap(steerLine); // decided, printed right under the card's header
     if (h.type === 'file') { const qs = [...qt];
@@ -1436,6 +1458,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
     else if (h.files?.length) lines.push(`  files to look at: ${h.files.slice(0, 3).join(' · ')}${h.files.length > 3 ? ` · +${h.files.length - 3} more` : ''}`);
     const cc = cochangePartners(model, h.topDirs.map(([d]) => d));
     if (cc.length) lines.push(`  historically co-changes with: ${cc.map(c => `${c.partner} (${c.sup}/${c.commits} commits)`).join(' · ')}`); }
+  lines.push(...bridged);
   return { lines, hits, cards }; }
 
 // ===== REPORT / STATUS / COMPLETENESS =====

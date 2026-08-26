@@ -11,6 +11,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, w
 import { extname, join } from 'node:path';
 import { getParser, bindingFor, extractScopes, hashStr, CODE_RE } from './core.mjs';
 import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, FIX_RE } from './config.mjs';
+import { tokenize, normTok, QSTOP, DOC_STOP } from './core.mjs';
 
 const PAIR = '\u0001'; // co-change pair-key separator (a control byte — never inside a path; '' split every pair into characters)
 
@@ -66,7 +67,7 @@ async function walk(gitdir, range) {
   const events = []; const commits = []; let cur = null; const blobExt = new Map();
   for await (const line of createInterface({ input: child.stdout, crlfDelay: Infinity })) {
     if (line.startsWith('\x01')) { const p = line.slice(1).split('\x00');
-      cur = { sha: p[0], ts: +p[1], agent: AGENT_AUTHOR_RE.test(p[2]), author: hashStr(p[2]), fix: FIX_RE.test(p[3] || ''), files: [] };
+      cur = { sha: p[0], ts: +p[1], agent: AGENT_AUTHOR_RE.test(p[2]), author: hashStr(p[2]), fix: FIX_RE.test(p[3] || ''), msg: (p[3] || '').slice(0, 120), files: [] };
       commits.push(cur); continue; }
     const m = line.match(/^:\d+ \d+ [0-9a-f]+ ([0-9a-f]+) ([AMD]|R\d+)\t(.+)$/);
     if (!m || !cur) continue;
@@ -104,7 +105,7 @@ async function parseBlobs(gitdir, cache, blobExt, log) {
   return { parsed, bytes, total: blobExt.size }; }
 
 // ----- replay state (persisted) -----
-const freshState = () => ({ x: EXTR_V, h: HIST_V, lastSha: null, commits: 0, events: 0, blobShas: Object.create(null), firstTs: null,
+const freshState = () => ({ x: EXTR_V, h: HIST_V, lastSha: null, commits: 0, events: 0, blobShas: Object.create(null), firstTs: null, msgAff: Object.create(null), msgAffEx: Object.create(null), msgTokCommits: Object.create(null),
   lc: Object.create(null), vev: Object.create(null), prevState: Object.create(null), pairSup: Object.create(null), fileCommits: Object.create(null) });
 function replay(state, events, commits, cache) {
   for (const e of events) {
@@ -131,6 +132,14 @@ function replay(state, events, commits, cache) {
     state.prevState[e.path] = curM; }
   // co-change (mega-commit cap excludes mass refactors and lockfile sweeps that would couple everything to everything)
   for (const c of commits) { const fs2 = [...new Set(c.files)].filter(f => !HARD_EXCL.test(f)).sort();
+    // commit-message affinity: every commit is a translation pair — natural language on one side, the touched files on
+    // the other. This is the repo teaching its own vocabulary ("endpoint" ↔ the controller files); a single-file commit
+    // is the SHARPEST pair there is, so the gate is only the bulk cap, not the co-change pair minimum
+    if (fs2.length >= 1 && fs2.length <= CFG.megaCap && c.msg) {
+      const toks = [...new Set(tokenize(c.msg).map(normTok))].filter(t2 => t2.length >= 3 && !QSTOP.has(t2) && !DOC_STOP.has(t2)).slice(0, 12);
+      for (const t2 of toks) { const m2 = (state.msgAff[t2] ||= Object.create(null)); for (const f of fs2) m2[f] = (m2[f] || 0) + 1;
+        state.msgTokCommits[t2] = (state.msgTokCommits[t2] || 0) + 1;
+        if (!state.msgAffEx[t2]) state.msgAffEx[t2] = [c.sha.slice(0, 7), c.msg.slice(0, 80)]; } }
     if (fs2.length < 2 || fs2.length > CFG.megaCap) continue;
     for (const f of fs2) state.fileCommits[f] = (state.fileCommits[f] || 0) + 1;
     for (let i = 0; i < fs2.length; i++) for (let j = i + 1; j < fs2.length; j++) {
@@ -149,7 +158,7 @@ function toH(state, gitdir) {
     cochange.push({ a, b, sup, conf: +ca.toFixed(2), commitsA, commitsB }); }
   cochange.sort((p, q) => q.sup - p.sup || (p.a < q.a ? -1 : p.a > q.a ? 1 : p.b < q.b ? -1 : 1));
   const lc = new Map(Object.entries(state.lc)); const vev = new Map(Object.entries(state.vev));
-  return { lc, vev, cochange, NOW: headTs(gitdir), firstTs: state.firstTs ?? 0,
+  return { lc, vev, cochange, msgAff: state.msgAff || {}, msgAffEx: state.msgAffEx || {}, msgTokCommits: state.msgTokCommits || {}, commitsN: state.commits, NOW: headTs(gitdir), firstTs: state.firstTs ?? 0,
     stats: { commits: state.commits, events: state.events, blobs: Object.keys(state.blobShas).length } }; }
 
 /**
