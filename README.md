@@ -1,6 +1,10 @@
 # Grain
 
-Ask your repository what its own conventions are, before the agent writes code.
+**The conventions nobody wrote down.**
+
+[![ci](https://github.com/krzysztofdudek/Grain/actions/workflows/ci.yml/badge.svg)](https://github.com/krzysztofdudek/Grain/actions/workflows/ci.yml)
+[![release](https://img.shields.io/github/v/release/krzysztofdudek/Grain)](https://github.com/krzysztofdudek/Grain/releases)
+[![license](https://img.shields.io/github/license/krzysztofdudek/Grain)](LICENSE)
 
 The grain of a piece of wood is the direction the material actually runs, not the direction you wish it ran. You can
 cut across it. You should know where it is first.
@@ -19,7 +23,140 @@ Grain reads that. It mines the conventions your repository actually holds, from 
 the whole git history, and answers questions about them. Grain asks; if you want conventions *enforced*, that is
 [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)'s job, and the two split exactly there.
 
-## What it does
+## Where it sits
+
+Every tool that enforces intent assumes somebody already knows what should be true and has written it down, and that
+assumption fails wherever the practiced norm was never legible. One tool enforces the architecture you declared;
+Grain surfaces the architecture the repository practices. You cannot legislate well over a codebase you cannot read,
+and this is the instrument that reads it.
+
+## Install
+
+Requires Node 22 or newer and git. The plugin is self-contained: the parser runtime and every grammar ship inside it,
+and nothing is downloaded at runtime.
+
+Claude Code:
+
+```
+/plugin marketplace add krzysztofdudek/Grain
+/plugin install grain@grain
+```
+
+That gives you:
+
+- a **skill** that teaches the agent when to ask, which matters more than the commands do: agents do not ask
+  questions they do not know they should ask;
+- a **session-start hook**: what grain answers here, and the live state of this repository's index;
+- the **pre-write and post-edit hooks**: placement advice before a file exists, findings after an edit, silence
+  otherwise;
+- slash commands for a human at the keyboard: `/grain:where`, `/grain:check`, `/grain:spectrum`, `/grain:status`,
+  `/grain:report`, `/grain:refresh`, `/grain:export`, and `/grain:steer`, which is the slash name for the CLI verb
+  `seed add`.
+
+Update with `claude plugin update grain@grain` and restart the session to apply. Codex CLI, Cursor and GitHub Copilot
+CLI are packaged from the same plugin directory but have not been smoke-tested against a live install; treat those
+three as unverified.
+
+For a human at a terminal, from any repository:
+
+```
+node /path/to/Grain/plugins/grain/bin/grain.mjs report
+node /path/to/Grain/plugins/grain/bin/grain.mjs where "background job"
+```
+
+The first query builds the index under `<repo>/.grain/cache/` (gitignored; `.grain/.gitignore` is created for you):
+full git history once, incremental afterwards. Delete the cache any time; the next query rebuilds the same bytes.
+
+## What it looks like
+
+Real output on the deterministic fixture repository the test suite builds; nothing below is mocked up. `grain report`
+needs no question. It prints what the repository already practices, a denominator on every claim:
+
+```
+$ grain report
+
+== package src/handlers — 12 conventions · 9 groups · 151 scopes · 30 files ==
+  package src/handlers: files here import `~/src/core/handler` — 100% of 29 established
+  package src/handlers: types here are annotated with `@Handler` — 100% of 29 established trend[100>100>97%] · held since 2024-02
+  group «handle»: methods here call `this.service.apply` — 100% of 29 established · held since 2024-02
+  template (unclustered methods ×30, ~89% of an average one): method_definition(constructor formal_parameters(…) statement_block)
+  …
+== architecture — 6 modules · 5 directed dependencies · 0 cycle(s) ==
+  src/handlers/ → src/core/ (30) · src/services/ (30)
+  test/handlers/ → src/handlers/ (29)
+as of 47da000
+```
+
+When you do have a question, `where` answers with places, expectations and the exemplar to copy:
+
+```
+$ grain where handler
+
+«handler» → marker @Handler — 29 carriers (package src/handlers, match 100%)
+  lives in: src/handlers/ (100%)
+  carriers to copy: src/handlers/address.handler.ts:7 `UpdateAddressHandler` (type) · …
+  a new carrier comes with: a same-stem `*.dto.ts` companion (100% of 29 have one) · registration by a `*.test.ts` file (29 of 29)
+«handler» → directory src/handlers/ — 30 files, 58 established (package src/handlers, match 100%)
+  depends on: src/core/ (30) · src/services/ (30)
+as of 47da000
+```
+
+The full cards, the `check` view and everything the hooks say unbidden are further down.
+
+## What it costs you
+
+1. It never blocks: no gate, no failing build, no policy file.
+2. Nothing leaves your machine: no model calls, no API keys, no network at runtime.
+3. It is silent when it has nothing certified to say, and a query answers in about a tenth of a second on a warm index.
+4. It will tell you a place has no convention rather than invent one.
+
+## Four results
+
+- On express, the compression cut over the directory tree rediscovered `examples/`, `lib/` and `test/` with no name
+  list anywhere in the product.
+- The express middleware signature `function(req res next)` emerged as a template thirty-two times, on its own.
+- The mutation harness across twelve repositories: 73 of 76 planted violations detected, zero false fires, and the
+  three misses sit at 7.0 to 7.8 : 1 odds, just under the 8 : 1 the loss constant demands before grain accuses an
+  instance.
+- In the third agent trial a worker moved four files it had misplaced, writing "Following grain's placement signal"
+  into its own transcript.
+
+## The questions
+
+| | |
+|---|---|
+| `grain where <intent words>` | where such things live (%), what is expected there (conventions with conformance %), the exemplar to copy, what historically co-changes with that place. No lexical hit → a compact map of the source groups, markers and directories, for the asking model to match itself. |
+| `grain check <file>` | how the file — its uncommitted version, marked `+dirty` — sits against the local norm: the conventions that govern it (group, directory, then package-wide; the most specific one wins), every deviation in your change with evidence and exemplars, pre-existing ones folded. |
+| `grain spectrum <file>` | the full local-to-global convention lattice around one file, with no acceptance cut — `NORM` rows are accepted conventions, `obs` rows are observations below the gate. |
+| `grain status` / `grain report` | model size, a signal verdict ("a sparse model — expect placement, not shape"), freshness, history, the top conventions with trends, deviant counts and age. |
+| `grain seed add <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/seeds.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `steer (maintainer decision, who when)`, beside how far practice has caught up. `seed list` / `seed rm <id>`; `.grain/decisions.jsonl` is the audit trail. |
+| `grain export --out model.json` | the whole model as data: every convention with its context, evidence, trend, lifecycle, every conforming and deviating site (with the lines where the convention manifests and the nearest conforming exemplar), a machine check per convention, groups with their templates, markers, directories, co-change and the commit-message affinity. The schema is a published interface with a downstream consumer (a fine-tuning pipeline cuts training samples from the anchor lines): it changes deliberately or not at all. `where`, `check`, `report` and `status` take `--json` too. |
+
+## The evidence
+
+Grain's own claims are held to grain's standard. What has actually been measured, negatives included:
+
+- **Truth audits** (independent sessions, no shared context, every claim re-verified with find/grep/git): audit #1 —
+  13/15 claims exactly true, 0 false; audit #2, after the mathematical rebuild — 39 claims: 28 exact, 8
+  true-but-imprecise, **1 false class** (deviant counts mixed populations with the percentage beside them — fixed at
+  the source the same day, and the audit is why). Once, grain out-verified the auditor (it named the one real deviant
+  where the auditor's grep was fooled by a comment).
+- **Three A/B agent trials** on a private, post-cutoff repository, scored against the diffs its author actually
+  shipped: trial 1 — the index was *right* (it named the exact directory and component both arms got wrong) and the
+  agent never asked; trial 2 — the edit-time hook delivered zero notes on 27 well-formed edits (correct silence, and
+  the lesson that line-level checks cannot catch placement); trial 3 — the placement hook carried four notes, the
+  worker moved four files citing grain by name (the first demonstrated effect on a diff), and the two defects that
+  kept the move off-target (post-write timing, sequential competing notes) are fixed in this build. A feature that
+  only extends existing modules draws no placement note — that boundary is structural and stated.
+- **The mutation harness** over the same 12-repo corpus plants a violation of a mined convention in a real file and
+  asks `check` to catch it: **73 of 76 detected, 0 false fires**. The 3 misses are the loss constant made visible,
+  not defects: all three cells sit at 7.0–7.8 : 1 odds, below the 8 : 1 that λ demands before grain accuses an
+  instance. 25 of 25 hostile repositories (empty, shallow, no-git, symlinks, non-UTF-8, mass renames, races)
+  degrade without a crash and with an honest stamp.
+- **Performance** (a private repo, 1 117 files, full history): cold build 18 s / 1.0 GB RSS; forced warm rebuild 6.3 s;
+  `check`/`where` 0.12 s on a warm index; the hook adds ~0.12 s to an edit. 916 tests, CI on node 22 and 24.
+
+## The answers, in detail
 
 Before creating a file, the agent asks where such things live and what is expected of them. This is real output on a
 small service repository (the test fixture in `tests/fixtures/`):
@@ -67,17 +204,6 @@ newer pattern is emerging: …`), which neighbours break it (`not to copy:`), an
 copy (`In this file, \`x\` (line 12) conforms.`). The vocabulary is not only syntax: the lexical layer sees quote
 style, `var`/`let`/`const`, the `'use strict'` directive, indentation, semicolons and a UTF-8 BOM — and speaks only where
 the repository shows a choice (double quotes in Go are the language, not a convention).
-
-The questions:
-
-| | |
-|---|---|
-| `grain where <intent words>` | where such things live (%), what is expected there (conventions with conformance %), the exemplar to copy, what historically co-changes with that place. No lexical hit → a compact map of the source groups, markers and directories, for the asking model to match itself. |
-| `grain check <file>` | how the file — its uncommitted version, marked `+dirty` — sits against the local norm: the conventions that govern it (group, directory, then package-wide; the most specific one wins), every deviation in your change with evidence and exemplars, pre-existing ones folded. |
-| `grain spectrum <file>` | the full local-to-global convention lattice around one file, with no acceptance cut — `NORM` rows are accepted conventions, `obs` rows are observations below the gate. |
-| `grain status` / `grain report` | model size, a signal verdict ("a sparse model — expect placement, not shape"), freshness, history, the top conventions with trends, deviant counts and age. |
-| `grain seed add <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/seeds.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `steer (maintainer decision, who when)`, beside how far practice has caught up. `seed list` / `seed rm <id>`; `.grain/decisions.jsonl` is the audit trail. |
-| `grain export --out model.json` | the whole model as data: every convention with its context, evidence, trend, lifecycle, every conforming and deviating site (with the lines where the convention manifests and the nearest conforming exemplar), a machine check per convention, groups with their templates, markers, directories, co-change and the commit-message affinity. The schema is a published interface with a downstream consumer (a fine-tuning pipeline cuts training samples from the anchor lines): it changes deliberately or not at all. `where`, `check`, `report` and `status` take `--json` too. |
 
 ## The measured architecture
 
@@ -232,46 +358,6 @@ explicit `grain refresh` keeps the optimiser. Measured across a 12-repository co
 okhttp, typeorm, …): warm queries 83–312 ms; cold full-history builds from 4 s (a 900-commit repo) to ~2.9 min at the
 extreme (okhttp, typeorm — 6 000+ commits, up to ~1.5 GB RSS during the explicit build).
 
-## Install
-
-Requires Node 22 or newer and git. The plugin is self-contained — the parser runtime and every grammar ship inside it;
-nothing is downloaded at runtime.
-
-Claude Code:
-
-```
-/plugin marketplace add krzysztofdudek/Grain
-/plugin install grain@grain
-```
-
-That gives you:
-
-- a **skill** that teaches the agent *when* to ask — before creating a source file, before introducing a pattern into an
-  existing file, after writing one. This matters more than the commands do: agents do not ask questions they do not
-  know they should ask;
-- a **session-start hook** that tells the agent, at the start of every session, that grain is available, what it
-  answers, why one query is cheaper than reading sibling files, and the live state of the index for this repository;
-- the **pre-write and post-edit hooks** described above — placement advice before a file exists, findings after an
-  edit, silence otherwise;
-- slash commands for a human at the keyboard: `/grain:where`, `/grain:check`, `/grain:spectrum`, `/grain:status`,
-  `/grain:report`, `/grain:refresh`, `/grain:export`, and `/grain:steer`, which is the slash name for the CLI verb
-  `seed add`: you steer, the record it writes is a seed.
-
-Codex CLI, Cursor and GitHub Copilot CLI are packaged from the same plugin directory (`.agents/plugins/marketplace.json`,
-`.cursor-plugin/marketplace.json`, `.github/plugin/marketplace.json`, and the per-runtime manifests under
-`plugins/grain/`). Those three are packaged the way their plugin docs prescribe but have not been smoke-tested against a
-live install here; treat them as unverified until they are.
-
-For a human at a terminal, from any repository:
-
-```
-node /path/to/Grain/plugins/grain/bin/grain.mjs where "background job"
-node /path/to/Grain/plugins/grain/bin/grain.mjs check src/some/file.ts
-```
-
-The first query builds the index under `<repo>/.grain/cache/` (gitignored; `.grain/.gitignore` is created for you) —
-full git history once, incremental afterwards. Delete the cache any time; the next query rebuilds the same bytes.
-
 ## What it is not
 
 It informs and it never blocks. There is no gate, no verdict that fails a build, no policy file.
@@ -281,34 +367,13 @@ what exists and lets the asking model close the semantic gap itself. That is a d
 
 It does not judge quality. A convention is a majority, not a virtue.
 
-## The evidence
-
-Grain's own claims are held to grain's standard. What has actually been measured, negatives included:
-
-- **Truth audits** (independent sessions, no shared context, every claim re-verified with find/grep/git): audit #1 —
-  13/15 claims exactly true, 0 false; audit #2, after the mathematical rebuild — 39 claims: 28 exact, 8
-  true-but-imprecise, **1 false class** (deviant counts mixed populations with the percentage beside them — fixed at
-  the source the same day, and the audit is why). Once, grain out-verified the auditor (it named the one real deviant
-  where the auditor's grep was fooled by a comment).
-- **Three A/B agent trials** on a private, post-cutoff repository, scored against the diffs its author actually
-  shipped: trial 1 — the index was *right* (it named the exact directory and component both arms got wrong) and the
-  agent never asked; trial 2 — the edit-time hook delivered zero notes on 27 well-formed edits (correct silence, and
-  the lesson that line-level checks cannot catch placement); trial 3 — the placement hook carried four notes, the
-  worker moved four files citing grain by name (the first demonstrated effect on a diff), and the two defects that
-  kept the move off-target (post-write timing, sequential competing notes) are fixed in this build. A feature that
-  only extends existing modules draws no placement note — that boundary is structural and stated.
-- **The mutation harness** over the same 12-repo corpus plants a violation of a mined convention in a real file and
-  asks `check` to catch it: **73 of 76 detected, 0 false fires**. The 3 misses are the loss constant made visible,
-  not defects: all three cells sit at 7.0–7.8 : 1 odds, below the 8 : 1 that λ demands before grain accuses an
-  instance. 25 of 25 hostile repositories (empty, shallow, no-git, symlinks, non-UTF-8, mass renames, races)
-  degrade without a crash and with an honest stamp.
-- **Performance** (a private repo, 1 117 files, full history): cold build 18 s / 1.0 GB RSS; forced warm rebuild 6.3 s;
-  `check`/`where` 0.12 s on a warm index; the hook adds ~0.12 s to an edit. 916 tests, CI on node 22 and 24.
-
 ## Status
 
-0.1.0. The engine is the validated prototype vendored into this repository, made self-contained and incremental, then
-rebuilt on the single-objective mathematics above — with every rebuild measured on the corpus before it was kept.
+0.1.0. The number describes the age of the interfaces, not the weight of the evidence above: this is the first
+published version, the export schema is already treated as a stable contract, and nothing has yet earned the right to
+break compatibility. The engine is the validated prototype vendored into this repository, made self-contained and
+incremental, then rebuilt on the single-objective mathematics above, with every rebuild measured on the corpus before
+it was kept.
 
 ## Developing
 
