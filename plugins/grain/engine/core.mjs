@@ -307,6 +307,30 @@ export function profileOf(skels) {
     perInstance: perInst.slice(0, 3).map(sl => ({ top: sl.top[0][0], distinct: sl.distinct, total: sl.total })),
     slots: skewed.slice(0, 3).map(sl => ({ top: sl.top[0][0], k: sl.top[0][1], total: sl.total })) }; }
 
+// stage 1 of the template search: the scopes the clustering leaves behind (plain functions without markers, catch
+// blocks) still repeat shapes. Coarse buckets — same kind, same depth-2 silhouette with identifiers folded — feed the
+// same anti-unification; a bucket whose template does not pay (few members, thin shared core, low coverage) says
+// nothing. The silhouette is a partition of the hypothesis space, not a judgment: identifiers fold so that a
+// per-instance name cannot split a bucket the way it splits a feature bag.
+export function skSil(t, d = 2) {
+  if (skLeaf(t)) return t.startsWith('id:') ? 'id' : t;
+  if (t[0] === '?' || t[0] === '?*') return '?';
+  if (d <= 0) return t[0];
+  return t[0] + '(' + t.slice(1).map(k => skSil(k, d - 1)).join(' ') + ')'; }
+export function mineTemplates(ps, covered) {
+  const buckets = new Map();
+  ps.forEach((s, i) => { if (s.kind === 'file' || s.kind === 'module' || !s.sk || covered.has(i)) return;
+    const key = s.kind + '\u0001' + skSil(s.sk); (buckets.get(key) || buckets.set(key, []).get(key)).push(s); });
+  const out = [];
+  for (const [key, ms] of [...buckets].sort((a, b) => b[1].length - a[1].length || (a[0] < b[0] ? -1 : 1))) {
+    if (ms.length < 5) continue;
+    const sorted = [...ms].sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : a.line - b.line));
+    const pf = profileOf(sorted.map(s => s.sk));
+    if (!pf || pf.shared < 8 || pf.coverage < 0.5) continue; // no cluster prior behind it — the template alone must carry the claim
+    out.push({ kind: key.split('\u0001')[0], ...pf, exemplars: sorted.slice(0, 3).map(s => ({ rel: s.rel, line: s.line, name: s.name })) });
+    if (out.length >= 12) break; }
+  return out; }
+
 function blockScope(node, kind, name, rel, grammar, isScope, line = null, endLine = null) {
   const seen = new Set(); const calls = new Set(); const stack = [node]; let g = 0;
   while (stack.length && g++ < 2000) { const n = stack.pop(); seen.add(n.type);
@@ -871,6 +895,8 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
       [...ri.assign].sort((a, b) => a[0] - b[0]).forEach(([i, r]) => { if (ri.amb.has(i)) return; const s = ps[i];
         if (s.kind === 'file' || s.kind === 'module' || !s.sk) return; (byRoleSk.get(r) || byRoleSk.set(r, []).get(r)).push(s.sk); });
       for (const [r, arr] of byRoleSk) { if (arr.length < 4) continue; const pf = profileOf(arr); if (pf) profiles[r] = pf; } }
+    const covered = new Set(); [...ri.assign].forEach(([i]) => { if (!ri.amb.has(i)) covered.add(i); });
+    const templates = mineTemplates(ps, covered);
     const byKey = new Map(); for (const s of ps) byKey.set(skeyR(s.rel, s), s);
     const markerObs = {}; const markerImplied = {};
     for (const [mk, keys] of Object.entries(markers)) { const cs = keys.map(k => byKey.get(k)).filter(Boolean); const n = cs.length; if (n < 3) continue;
@@ -892,7 +918,7 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
     for (const rel of Object.keys(fileDocs)) fileDocs[rel] = [...fileDocs[rel]].sort();
     for (const rel of Object.keys(fileScopes)) fileScopes[rel] = fileScopes[rel].sort((a, b) => a[2] - b[2]).slice(0, 200);
     model.partitions.push({ name: pname, scopes: ps.length, files: [...new Set(ps.filter(s => s.kind === 'file').map(s => s.rel))].sort(), fileScopes, fileDocs, fileSups, vocab, assignments, roleLift: lifts, markers, markerObs, markerImplied,
-      medoids: ri.medoids.map(m => ({ feats: m.feats, label: m.label })), profiles, facts: exportFacts }); }
+      medoids: ri.medoids.map(m => ({ feats: m.feats, label: m.label })), profiles, templates, facts: exportFacts }); }
   // steers: every seed, resolved against the current tree — the exemplar's line, each seeded surface with its value and the
   // measured share of that value in the exemplar's partition today (decided vs practiced, side by side)
   model.steers = (seeds || []).map(sd => { let found = null, pname = null;
@@ -1474,7 +1500,11 @@ export function report(model, { top = 15 } = {}) {
       const t = f.trend; const tr = t ? ` trend[${t.shares.map(s => Math.round(s.share * 100)).join('>')}%]${t.nucleating ? ` — a newer pattern is emerging here: ${t.nucleating}` : ''}` : '';
       lines.push(`  ${factLabel(p, f)}: ${verbalize(f, f.exemplars.map(e => e.name))} — ${Math.round(f.share * 100)}% of ${f.sraw} established${f.deviantsN ? `, ${f.deviantsN} deviant${f.deviantsN > 1 ? 's' : ''}` : ''}${tr}${f.held && f.held.since ? ` · held since ${f.held.since}` : ''}`); }
     if (shown.length > top) lines.push(`  … and ${shown.length - top} more — run with --top ${shown.length} for all`);
-    if (taut) lines.push(`  (${taut} group-defining marker${taut > 1 ? 's' : ''} not listed — a group selected by its decorator/supertype restating it is not news; \`where\` still uses them)`); }
+    if (taut) lines.push(`  (${taut} group-defining marker${taut > 1 ? 's' : ''} not listed — a group selected by its decorator/supertype restating it is not news; \`where\` still uses them)`);
+    for (const t of (p.templates || []).slice(0, 6)) { const bits = [];
+      for (const pi of t.perInstance) bits.push(`one slot per-instance (${pi.distinct}/${pi.total}, e.g. \`${pi.top}\`)`);
+      for (const sl of t.slots) bits.push(`slot usually \`${sl.top}\` (${sl.k}/${sl.total})`);
+      lines.push(`  template (unclustered ${t.kind}s ×${t.n}, ~${Math.round(t.coverage * 100)}% of an average one): ${t.skel}${bits.length ? ' · ' + bits.join(' · ') : ''} — e.g. ${t.exemplars[0].rel}:${t.exemplars[0].line}`); } }
   if (model.moduleGraph && model.moduleGraph.nodes.length > 1) {
     const mg = model.moduleGraph;
     lines.push(`== architecture — ${mg.nodes.length} modules · ${mg.edges.length} directed dependencies · ${mg.cycles.length} cycle(s) ==`);

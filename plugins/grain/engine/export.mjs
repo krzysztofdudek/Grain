@@ -96,7 +96,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
     const site = s => ({ key: keyOf(s), rel: s.rel, kind: s.kind, name: s.name, line: s.line, endLine: s.endLine || s.line, grammar: s.g || null, nodeType: s.nt || null });
     const lifecycleOf = key => { const L = lcOf(key); return L ? { firstSeen: iso(L.first), lastTouched: iso(L.last), modifications: L.mods, fixes: L.fix, churn: !!L.churn, lastByAgent: !!L.agentLast } : null; };
     const P = { name: part.name, label: scopeLabel(part.name), kind: 'source', files: (part.files || []).length, scopes: part.scopes,
-      groups: [], directories: [], markers: [], conventions: [] };
+      groups: [], directories: [], markers: [], conventions: [], templates: (part.templates || []) };
     // ---- groups: the directory grammar — who belongs, where they live, how their files are named, which markers define them
     const byRole = new Map(); for (const [k, r] of Object.entries(part.assignments)) { if (r === -1) continue; (byRole.get(r) || byRole.set(r, []).get(r)).push(k); }
     // scope key → line: fileScopes is in line order, so the k-th same-named scope of a kind in a file is ordinal k (overloads, repeated nested classes)
