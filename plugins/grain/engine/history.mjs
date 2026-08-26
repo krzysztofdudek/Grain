@@ -140,8 +140,8 @@ function replay(state, events, commits, cache) {
       for (const t2 of toks) { const m2 = (state.msgAff[t2] ||= Object.create(null)); for (const f of fs2) m2[f] = (m2[f] || 0) + 1;
         state.msgTokCommits[t2] = (state.msgTokCommits[t2] || 0) + 1;
         if (!state.msgAffEx[t2]) state.msgAffEx[t2] = [c.sha.slice(0, 7), c.msg.slice(0, 80)]; } }
+    if (fs2.length >= 1 && fs2.length <= CFG.megaCap) for (const f of fs2) state.fileCommits[f] = (state.fileCommits[f] || 0) + 1; // the denominator a reader can reproduce: every non-bulk commit touching the file, single-file ones included
     if (fs2.length < 2 || fs2.length > CFG.megaCap) continue;
-    for (const f of fs2) state.fileCommits[f] = (state.fileCommits[f] || 0) + 1;
     for (let i = 0; i < fs2.length; i++) for (let j = i + 1; j < fs2.length; j++) {
       const k = fs2[i] + PAIR + fs2[j]; state.pairSup[k] = (state.pairSup[k] || 0) + 1; } }
   state.commits += commits.length; state.events += events.length;

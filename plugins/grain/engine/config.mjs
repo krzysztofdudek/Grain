@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 
 export const ENGINE_VERSION = '0.1.0';
 export const EXTR_V = 'g23';
-export const HIST_V = 'h4';
+export const HIST_V = 'h5';
 export const MODEL_V = 'm10'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
 
 const here = dirname(fileURLToPath(import.meta.url));

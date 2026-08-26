@@ -455,7 +455,8 @@ export function induceRoles(ps) {
     // label (display only): the three name/decorator/supertype features most shared across the cluster, not the medoid's
     // first three — a medoid named `AddressGuard` would otherwise label the whole guard role "address+guard+CanActivate"
     const fc = new Map(); for (const i of m) for (const f of SA[i].feats) if (/^(tok|dec|sup):/.test(f)) fc.set(f, (fc.get(f) || 0) + W[i]);
-    const label = [...fc].sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1)).slice(0, 3).map(([f]) => f.slice(4)).join('+') || 'group';
+    const wTot = m.reduce((a, x) => a + W[x], 0); // the label may only name what a MAJORITY carries — 3 of 9 members' @UseGuards must not baptize the group
+    const label = [...fc].filter(([, w2]) => w2 >= wTot / 2).sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1)).slice(0, 3).map(([f]) => f.slice(4)).join('+') || 'group';
     return { feats: SA[b].feats, label }; });
   const { assign, amb } = assignAll(ps, medoids);
   return { assign, amb, medoids }; }
@@ -907,7 +908,8 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
         trend: trend && trend.shares.length ? trend : undefined, calib,
         suppressedValue: f.contested ? f.contested.v : (trend ? trend.nucleating : null), denyEligible: !!(calib.available && calib.denyEligible),
         seeded: f.seeded && f.seeded.length ? f.seeded : undefined, contested: f.contested ? f.contested.id : undefined,
-        exemplars: exs.map(gi => ({ rel: ps[gi].rel, line: ps[gi].line, name: ps[gi].name })), deviantsN: f.deviants.length,
+        exemplars: exs.map(gi => ({ rel: ps[gi].rel, line: ps[gi].line, name: ps[gi].name })), deviantsN: Math.max(0, Math.round(f.sraw * (1 - f.srawShare))), // same population as the printed share — raw-only young deviants still ride in `deviants` for check
+
         deviants: topDeviants(f, ps), held: H ? heldSummary(f, ps, H) : null,
         C }; });
     const pl = pkgLexFacts.get(pkgOf(pname));
@@ -916,7 +918,7 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
       const exs = [...f.conform].sort((a, b) => (own.has(pl.ps[b].rel) ? 1 : 0) - (own.has(pl.ps[a].rel) ? 1 : 0) || a - b).slice(0, 3);
       exportFacts.push({ cid: f.cid, kind: f.kind, pid: f.pid, exp: f.exp, parentExp: f.parentExp, counts: f.counts, alphabet: f.alphabet, raw: f.raw, sraw: f.sraw, share: +f.srawShare.toFixed(3), bpi: +f.bpi.toFixed(2), tau: f.tau,
         nSurfaces: f.nSurfaces, siblings: f.siblings, trend: undefined, calib: { available: false, reason: 'lexical' }, suppressedValue: null, denyEligible: false,
-        exemplars: exs.map(gi => ({ rel: pl.ps[gi].rel, line: pl.ps[gi].line, name: pl.ps[gi].name })), deviantsN: f.deviants.length, deviants: topDeviants(f, pl.ps), held: H ? heldSummary(f, pl.ps, H) : null, pkgWide: true, C }); }
+        exemplars: exs.map(gi => ({ rel: pl.ps[gi].rel, line: pl.ps[gi].line, name: pl.ps[gi].name })), deviantsN: Math.max(0, Math.round(f.sraw * (1 - f.srawShare))), deviants: topDeviants(f, pl.ps), held: H ? heldSummary(f, pl.ps, H) : null, pkgWide: true, C }); }
     // markers: every decorator / supertype / declared return type with ≥ 3 carriers → where it lives and who carries it
     const markers = {}; for (const s of ps) { if (s.kind === 'file' || s.kind === 'module') continue;
       for (const [pre, xs] of [['deco', s.decos], ['sup', s.kind === 'type' ? s.sup : []], ['ret', s.rets || []]]) for (const x of xs) (markers[pre + ':' + x] ||= []).push(skeyR(s.rel, s)); }
@@ -1502,7 +1504,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
       if (mi && (mi.companion || mi.importedBy || mi.importedByPattern)) { const bits = [];
         if (mi.companion) bits.push(`a same-stem \`${mi.companion.pattern}\` companion (${Math.round(mi.companion.share * 100)}% of ${mi.companion.n} have one, e.g. \`${mi.companion.example}\`)`);
         if (mi.importedBy) bits.push(`registration in \`${mi.importedBy.file}\` (imports ${mi.importedBy.n} of ${mi.importedBy.of} carriers)`);
-        if (mi.importedByPattern) bits.push(`registration by its sibling \`${mi.importedByPattern.pattern}\` (${mi.importedByPattern.n} of ${mi.importedByPattern.of} carriers)`);
+        if (mi.importedByPattern) bits.push(`registration by a \`${mi.importedByPattern.pattern}\` file (${mi.importedByPattern.n} of ${mi.importedByPattern.of} carriers)`);
         lines.push(`  a new carrier comes with: ${bits.join(' · ')}`); }
       const best = [...h.facts].sort((a, b) => b.sraw - a.sraw)[0];
       if (best) { const own = best.pid === h.mpid ? best : { ...((best.siblings || []).find(sb => sb.pid === h.mpid) || best), kind: best.kind };
@@ -1519,7 +1521,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
       if (gi2) { const bits = [];
         if (gi2.companion) bits.push(`a same-stem \`${gi2.companion.pattern}\` companion (${Math.round(gi2.companion.share * 100)}% of ${gi2.companion.n} have one, e.g. \`${gi2.companion.example}\`)`);
         if (gi2.importedBy) bits.push(`registration in \`${gi2.importedBy.file}\` (imports ${gi2.importedBy.n} of ${gi2.importedBy.of} members)`);
-        if (gi2.importedByPattern) bits.push(`registration by its sibling \`${gi2.importedByPattern.pattern}\` (${gi2.importedByPattern.n} of ${gi2.importedByPattern.of} members are imported by one)`);
+        if (gi2.importedByPattern) bits.push(`registration by a \`${gi2.importedByPattern.pattern}\` file (${gi2.importedByPattern.n} of ${gi2.importedByPattern.of} members are imported by one)`);
         if (bits.length) lines.push(`  a new member comes with: ${bits.join(' · ')}`); } }
     let dlShown = false; // the first fact that HAS deviants names them — what not to copy
     h.facts.slice(0, 6).forEach(f => { lines.push(`  - ${verbalize(f, f.exemplars.map(e => e.name))} — ${Math.round(f.share * 100)}% of ${f.sraw}${factNotes(f)}`); if (!dlShown) { const dl = deviantLine(f); if (dl) { lines.push(dl); dlShown = true; } } });
@@ -1572,13 +1574,13 @@ export function report(model, { top = 15 } = {}) {
     for (const st of model.steers) { if (!st.found) { lines.push(`  ${st.id}: exemplar ${st.path}#${st.name} not found in HEAD — inert (edit or remove it)`); continue; }
       for (const sf of st.surfaces) { if (sf.retires) continue; lines.push(`  ${st.id}: ${sf.value === null ? `${sf.pid} is not a surface of ${st.name}` : verbalize({ pid: sf.pid, exp: sf.value, kind: st.kind }, [st.name]) + ' — ' + practicedBy(sf)} · weight ${st.weight}${st.note ? ' · ' + st.note : ''}${st.author ? ' · ' + st.author : ''} ${st.createdAt || ''}`);
         for (const rp of st.surfaces.filter(x => x.retires)) lines.push(`    retires: ${verbalize({ pid: rp.pid, exp: 'true', kind: st.kind }, [])}`); } } }
-  lines.push(`agent-authored share of recent code: ${model.agentShare == null ? 'n/a' : Math.round(model.agentShare * 100) + '%'} · co-change pairs: ${model.cochange.length} (bulk commits touching >30 files excluded from pairing)`);
+  lines.push(`agent-authored share of code younger than ${CFG.survDays} days: ${model.agentShare == null ? 'n/a' : Math.round(model.agentShare * 100) + '%'} · co-change pairs: ${model.cochange.length} (bulk commits touching >30 files excluded from pairing)`);
   return lines; }
 export function statusLines(model) {
   const nf = model.partitions.reduce((a, p) => a + p.facts.length, 0);
   const ng = model.partitions.reduce((a, p) => a + p.medoids.length, 0);
   return [`model: ${model.repo} · ${model.partitions.length} partition(s) · ${ng} groups · ${nf} conventions · ${model.files} files${!model.historyStats ? ' — no git history: nothing counts as established, so no convention is spoken (groups and placement still answer `where`)' : ''}`,
-    `agent-authored share of recent code: ${model.agentShare == null ? 'n/a (no history)' : Math.round(model.agentShare * 100) + '%'}${model.agentShare >= 0.85 ? ' ⚠ ALARM — the norm is being written by agents faster than humans review it' : ''}`,
+    `agent-authored share of code younger than ${CFG.survDays} days: ${model.agentShare == null ? 'n/a (no history)' : Math.round(model.agentShare * 100) + '%'}${model.agentShare >= 0.85 ? ' ⚠ ALARM — the norm is being written by agents faster than humans review it' : ''}`,
     `nucleating stand-downs: ${model.partitions.reduce((a, p) => a + p.facts.filter(f => f.suppressedValue).length, 0)}`,
     `co-change pairs: ${model.cochange.length} · history: ${model.historyStats ? model.historyStats.commits + ' commits, ' + model.historyStats.blobs + ' blobs' : 'none (degraded weights)'}`,
     `architecture: ${model.moduleGraph?.nodes.length ?? 0} modules · ${(model.edges || []).length} file edges${model.edgesTruncated ? ' (+' + model.edgesTruncated + ' truncated)' : ''} · ${model.moduleGraph?.edges.length ?? 0} module edges · ${model.moduleGraph?.cycles.length ?? 0} cycle(s)`,
