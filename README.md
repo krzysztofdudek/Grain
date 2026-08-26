@@ -27,37 +27,38 @@ small service repository (the test fixture in `tests/fixtures/`):
 ```
 $ grain where handler
 
-«handler» → marker @Handler — 29 carriers (repo-wide, match 100%)
+«handler» → marker @Handler — 29 carriers (package src/handlers, match 100%)
   lives in: src/handlers/ (100%)
   carriers to copy: src/handlers/address.handler.ts:7 `UpdateAddressHandler` (type) · src/handlers/audit.handler.ts:7 `CancelAuditHandler` (type) · …
-  - types here are annotated with `@Handler` — 100% of 29
-«handler» → directory src/handlers/ — 30 files, 58 established (repo-wide, match 100%)
-  - files here import `~/src/core/handler` — 100% of 29
+  a new carrier comes with: a same-stem `*.dto.ts` companion (100% of 29 have one, e.g. `src/dto/address.dto.ts`) · registration by a `*.test.ts` file (29 of 29)
   - types here are annotated with `@Handler` — 100% of 29 · held since 2024-02, last reinforced 2024-07
-  not to copy: src/handlers/dispute.handler.ts:6 `CreateDisputeHandler` (is not annotated with `@Handler`)
-  pattern to copy: src/handlers/address.handler.ts:7 `UpdateAddressHandler` · src/handlers/audit.handler.ts:7 `CancelAuditHandler` · …
-as of 47da000
+«handler» → directory src/handlers/ — 30 files, 58 established (package src/handlers, match 100%)
+  depends on: src/core/ (30) · src/services/ (30)
+  used by: test/handlers/ (29)
+  - files here import `~/src/core/handler` — 100% of 29
+  - types here extend `Command` — 100% of 29 · held since 2024-02, last reinforced 2024-10
+  pattern to copy: src/handlers/address.handler.ts:4 `UpdateAddressCommand` · src/handlers/audit.handler.ts:4 `CancelAuditCommand` · …
+as of the fixture's pinned HEAD
 ```
 
 A hit is one of four kinds: a **group** of similar code with its conventions, a **marker** (`@decorator`,
 `extends X`, `returns X`) with the code that carries it, a **directory**, or a **file** with the functions in it that
-match the words you used. Tests and examples live in their own partitions and rank below source unless you ask for
-tests.
+match the words you used. There is no test/example special-casing anywhere: code is code, and the partitions a file is
+judged against are cut from the directory tree by compression alone (see below) — on express that cut rediscovers
+`examples/ · lib/ · test/` by itself.
 
 After writing, it asks how the change sits against the local norm — deviations in the agent's own change first,
 pre-existing ones folded into a count:
 
 ```
-$ grain check src/handlers/dispute.handler.ts
+$ grain check src/handlers/dispute.handler.ts --all
 
-check src/handlers/dispute.handler.ts — repo-wide · 5 scopes + file · governed by 9 convention(s) · 1 deviation(s) in your change, 1 pre-existing
-[grain] local (src/handlers/) convention: types here are annotated with `@Handler`
-    29/29 established types conform. Your type `Extra` (line 15) is not annotated with `@Handler`.
+check src/handlers/dispute.handler.ts — package src/handlers · 4 scopes + file · governed by 12 convention(s) · 0 deviation(s) in your change, 3 pre-existing
+[grain] package src/handlers convention: types here are annotated with `@Handler`
+    29/29 established types conform. Pre-existing: 1 type not touched by your change (`CreateDisputeHandler` (line 6)) is not annotated with `@Handler`.
   See: src/handlers/address.handler.ts:7 `UpdateAddressHandler` · src/handlers/audit.handler.ts:7 `CancelAuditHandler` · …
   (preference gap 5.73 bits)
-pre-existing (not in your change, not yours to fix — `--all` to list): handle: methods call `validate` ×1
-conforms to: repo-wide: types here are named PascalCase (`Command`, `AddressDto`, `AuditDto`) (100% of 149) · …
-as of 47da000+dirty
+as of the fixture's pinned HEAD+dirty
 ```
 
 The answers are percentages with denominators and paths you can open. There is no essay, because the answer goes into
@@ -107,6 +108,48 @@ and `export` ships every edge. Resolution covers 13 languages (TS/TSX/JS incl. w
 Go via go.mod, Java, C#, Ruby, Rust via the crate tree, PHP via PSR-4, C, C++, Kotlin); the other shipped grammars
 keep the conventions layer only — `status` says so rather than guessing. Conformance is pinned by one test file per
 case under `plugins/grain/tests/relations/`, ported from the Yggdrasil e2e suites.
+
+## The superposition
+
+Similar code, laid on top of itself, is a statistic. A cluster's members anti-unify (Plotkin's least general
+generalization) into ONE template with counted holes: the elements every instance shares stay in the skeleton
+literally (`validate(cmd)` in every handler), a slot each instance fills differently is named as such (each handler's
+own command type — "9 distinct values in 9"), a merely skewed slot gets its distribution (`Get` 6/9). Group cards say
+it (`superposition: 9 members share this skeleton (~7% of an average member): …`), and the code the clustering leaves
+behind — plain functions with no markers, `catch` blocks, route callbacks — is swept by the same machinery into
+standalone templates ("catch always logs" falls out mechanically, with `logger.error` literally in the skeleton;
+express's `function(req res next)` middleware signature emerges ×32). Every template carries its arrival process:
+`held since 2026-06 · 8 new in 180d`.
+
+## The language bridge
+
+Every commit is a translation pair — natural language in the message, code in the touched files. When a query word
+appears in no code card, grain consults the commits that say it and cites them:
+
+```
+history bridge: «endpoint» appears in no code card here, but commits saying it
+touched: `src/health/controller.ts` (2) — e.g. "add health endpoint liveness probe" (a1b2c3d)
+```
+
+Never a global dictionary: a repo whose history never says the word stays silent, and repo fillers (`feat`, `fix`)
+are demoted by document frequency over that repo's own commits, not by a word list.
+
+## Placement, before the write
+
+The agent hooks do not wait to be asked. On Claude Code and Codex the plugin registers three hooks: session start
+(what grain is, the live index state), **PreToolUse on Write** — before a new file exists, its *path* is checked
+against where its name-kin already live, and the note arrives while changing the directory is still free:
+
+```
+[grain] placement: `*.spec.ts` files named like `admin` live in `apps/e2e/tests/admin-panel/` — 13 of 17;
+`apps/e2e/tests/sign-in/` holds none. Weaker name-kin point elsewhere: `header` → `…/onboarding-and-navigation/`
+(2 of 3) — the leading count is the one to argue with. Deliberate placement is fine — but if you guessed, ask first.
+```
+
+— and **PostToolUse on Edit/Write**: the edited file is re-checked against the index and grain speaks ONLY when it
+has findings on the touched lines (deviations, maintainer decisions, architecture crossings, capped at 8; identical
+findings repeat at most once per 15 minutes). A clean edit, a foreign repo, a missing index: silence, exit 0, never a
+build step, never a block.
 
 ## Decided, beside practiced
 
@@ -161,9 +204,19 @@ the warm blob cache; `--no-refresh` answers from the old index with a `STALE` ba
 
 Tree-sitter parses every file. The engine derives what a "scope", an "import", a "decorator" or a "supertype" is from
 each grammar's own metadata, enumerates features generically from the syntax trees and paths, induces groups of similar
-code from what it finds rather than from a list somebody configured, keeps a convention only when describing it
-separately compresses the repository better than leaving it out (an MDL criterion with a multiple-comparison cost), and
-weights every instance by how long it has survived in git history, who wrote it, and whether it was rewritten early.
+code from what it finds rather than from a list somebody configured, and weights every instance by how long it has
+survived in git history, who wrote it, and whether it was rewritten early.
+
+One principle carries the whole thing: **a claim exists iff stating it compresses the repository** (two-part
+codelength, with a multiple-comparison cost inside). Everything else is a special case of that. The decision to *speak*
+is one loss constant, λ = 8: grain names an expected value only when the posterior predictive bounds the error at one
+wrong steer per eight followed ones — there is no tuned margin, no share threshold, no per-family tau. What counts as
+the repository is git's own answer: anything gitignored is never processed, anything tracked is code (name lists like
+`node_modules|dist|fixtures` gate nothing on tracked paths). And the partitions a file is judged against are cut from
+the directory tree by the same compression criterion — the deleted test/example name-heuristics re-emerged as
+mathematics on the measurement corpus (express: `examples/ · lib/ · test/`; flask: `docs/ · examples/ · src/ ·
+tests/`). Manifests (`package.json`, `go.mod`) are read for *resolution* — workspaces, the module graph — never as a
+statistical prior.
 
 There are no model calls anywhere in the engine, no API keys, and no network access at runtime. Your code stays on your
 machine. Nothing about a language, a framework or a coding style is written down in the product: the language bindings
@@ -200,6 +253,8 @@ That gives you:
   know they should ask;
 - a **session-start hook** that tells the agent, at the start of every session, that grain is available, what it
   answers, why one query is cheaper than reading sibling files, and the live state of the index for this repository;
+- the **pre-write and post-edit hooks** described above — placement advice before a file exists, findings after an
+  edit, silence otherwise;
 - slash commands for a human at the keyboard: `/grain:where`, `/grain:check`, `/grain:spectrum`, `/grain:status`,
   `/grain:report`, `/grain:refresh`.
 
@@ -227,14 +282,29 @@ what exists and lets the asking model close the semantic gap itself. That is a d
 
 It does not judge quality. A convention is a majority, not a virtue.
 
+## The evidence
+
+Grain's own claims are held to grain's standard. What has actually been measured, negatives included:
+
+- **Truth audits** (independent sessions, no shared context, every claim re-verified with find/grep/git): audit #1 —
+  13/15 claims exactly true, 0 false; audit #2, after the mathematical rebuild — 39 claims: 28 exact, 8
+  true-but-imprecise, **1 false class** (deviant counts mixed populations with the percentage beside them — fixed at
+  the source the same day, and the audit is why). Once, grain out-verified the auditor (it named the one real deviant
+  where the auditor's grep was fooled by a comment).
+- **Three A/B agent trials** on a private, post-cutoff repository, scored against the diffs its author actually
+  shipped: trial 1 — the index was *right* (it named the exact directory and component both arms got wrong) and the
+  agent never asked; trial 2 — the edit-time hook delivered zero notes on 27 well-formed edits (correct silence, and
+  the lesson that line-level checks cannot catch placement); trial 3 — the placement hook carried four notes, the
+  worker moved four files citing grain by name (the first demonstrated effect on a diff), and the two defects that
+  kept the move off-target (post-write timing, sequential competing notes) are fixed in this build. A feature that
+  only extends existing modules draws no placement note — that boundary is structural and stated.
+- **Performance** (a private repo, 1 117 files, full history): cold build 18 s / 1.0 GB RSS; forced warm rebuild 6.3 s;
+  `check`/`where` 0.12 s on a warm index; the hook adds ~0.12 s to an edit. 916 tests, CI on node 22 and 24.
+
 ## Status
 
-Early. The engine is the validated prototype vendored into this repository, made self-contained and incremental, with
-the corrections its second implementation found folded in. Measured on `fastify/fastify` and `encode/starlette` at
-pinned commits: a cold index of the full history takes tens of seconds, every query on a warm index answers well under
-a second, one new commit costs exactly its new file versions, and the mutation harness detects every planted deviation
-it can plant with zero false fires — the exact numbers and their caveats travel with the maintainers' notes rather than
-with this repository.
+0.1.0. The engine is the validated prototype vendored into this repository, made self-contained and incremental, then
+rebuilt on the single-objective mathematics above — with every rebuild measured on the corpus before it was kept.
 
 ## Developing
 
