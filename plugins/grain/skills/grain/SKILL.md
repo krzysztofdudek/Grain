@@ -30,9 +30,19 @@ commit the model was computed from); `+dirty` means the file you asked about was
 |---|---|
 | about to create a source file, or unsure where something belongs | `where <intent>` — **once**, with the repo's own words |
 | about to trust your prior about a familiar framework or template | `where <the marker you expect>` — grain's job is to tell you how *this* copy differs from the one you remember |
-| you wrote or edited a file | `check <file>` — deviations in your change, with evidence and the exemplar to compare against |
+| you wrote or edited a file | usually nothing: grain checked it already (see the hooks below) — run `check <file>` yourself only for `--all`, `--json`, or when you need the full picture including pre-existing deviations |
 
 Not a trigger: reading, investigating, answering questions, touching config or docs.
+
+## grain also speaks unbidden
+
+Two hooks run without being asked. **Before you `Write` a new file**, its path is checked against where its
+name-kin already live — a `[grain] placement:` note names the kin directory with counts, and weaker rival kin with
+theirs ("the leading count is the one to argue with"). It arrives while changing the directory is still free: weigh
+it before writing, and if you place deliberately elsewhere, say so in one line. **After every edit**, the file is
+re-checked and grain injects `[grain]` findings ONLY when it has something on the lines you touched — deviations,
+maintainer decisions, architecture crossings. **Silence after an edit is not approval** — it means nothing
+certified was violated; it is not a review. Never re-run `check` just to confirm a silent edit.
 
 ## How to phrase `where`
 
@@ -40,12 +50,20 @@ Use the repository's own vocabulary, not yours: the decorator you expect (`click
 type (`MethodView`, `IRequest`), the file or function name you would look for (`response json`, `cli routes`), the
 directory word (`middleware`, `extract`). Hits come in four kinds — **group** (similar code, with its conventions),
 **marker** (`@decorator` / `extends X` / `returns X` — where its carriers live), **directory**, **file** (with the
-matching functions inside it). Source hits rank above tests/examples unless you ask for tests.
+matching functions inside it). There is no test/example special-casing: code is code, and a test file CAN out-rank the
+source it tests when it matches your words better — for a source change, take the source hit even when it sits second
+or third.
 
 - **One `where` per intent.** If it prints the compact map, grain has no lexical hit: pick the closest entry
   yourself and open its files. Do not re-ask with synonyms.
-- **`weak match:` at the top** means the best hit covers under half of the query's weight — a hint to verify, not a
-  place to build on.
+- **`note: the top hit matches only «word» of your N words`** at the top means the ranking is driven by a fraction of
+  your query — verify before building on it.
+- A **`superposition:`** line on a group card is the members laid on top of each other: the skeleton they share, the
+  slot each fills differently (`one slot is per-instance — e.g. \`AdminController\``), the skewed ones (`Get` 6/9),
+  and the fleet's age (`held since … · N new in 180d`). `a new member comes with:` names what to create alongside
+  (a same-stem companion, the registering file).
+- A **`history bridge:`** line means your word never appears in the code, but commits that say it touched the listed
+  files — cited with an example subject and sha. Follow the files, not the word.
 - **Retrieval miss ≠ freedom.** If every hit lands somewhere unrelated to what you are writing (all in `tests/`
   for a source change, all in one odd file), that is a miss. Re-ask once with an exact identifier or decorator from
   the file you expect to edit; if that misses too, open the nearest sibling of that file and copy it.
@@ -65,8 +83,10 @@ matching functions inside it). Source hits rank above tests/examples unless you 
   user as "verified against the repository's conventions".
 - "This is the local default of this directory — the wider package's norm differs here" means a neighbourhood
   habit, not a package-wide law.
-- Exemplars under `examples/`, `templates/`, `scripts/` or a test tree are observations, not the house style;
-  grain keeps them in their own partition, but if one is all you get, prefer a sibling in source.
+- Partitions are style regions cut from the directory tree by compression, not by names — `examples/` or a test tree
+  usually ends up its own region and its facts stay scoped there (`local (examples/)`), but nothing is filtered by
+  name. If the only exemplar you get lives in an examples or test region and you are writing product code, prefer a
+  sibling in source and say so.
 
 ## The other commands
 
