@@ -46,7 +46,7 @@ test('where: intent → directory card with expectations and exemplars; no match
   const { out } = grain(['where', 'handler']);
   assert.match(out, /«handler» → directory src\/handlers\//);
   assert.match(out, /types here are annotated with `@Handler` — 100% of \d+/);
-  assert.match(out, /pattern to copy: src\/handlers\/[a-z]+\.handler\.ts:\d+ `\w+Handler`/);
+  assert.match(out, /pattern to copy: src\/handlers\/[a-z]+\.handler\.ts:\d+ `\w+(Handler|Command)`/);
   const map = grain(['where', 'kafka', 'consumer']).out;
   assert.match(map, /no lexical match for "kafka consumer" — compact map/);
   assert.match(map, /\[directory\] src\/handlers\//);
@@ -59,9 +59,9 @@ test('check: the planted deviant is reported with evidence, the locality line an
   assert.match(folded, /0 deviation\(s\) in your change, \d+ pre-existing/);
   assert.match(folded, /pre-existing .*@Handler/);
   const dev = grain(['check', 'src/handlers/dispute.handler.ts', '--all']).out;
-  assert.match(dev, /local \(src\/handlers\/\) convention: types here are annotated with `@Handler`/);
+  assert.match(dev, /(local \(src\/handlers\/\)|package src\/handlers) convention: types here are annotated with `@Handler`/); // MDL cuts made src/handlers its own partition — the norm speaks partition-wide
   assert.match(dev, /\d+\/\d+ established types conform\. Pre-existing: 1 type not touched by your change \(`CreateDisputeHandler` \(line \d+\)\) is not annotated with `@Handler`\./);
-  assert.match(dev, /This is the local default of this directory/);
+  // (pre-MDL-cuts the @Handler norm was directory-local and drew a locality-contrast line; as a partition norm it draws none)
   assert.match(dev, /See: src\/handlers\/\w+\.handler\.ts:\d+ `\w+Handler`/);
   assert.match(dev, /\(preference gap \d+\.\d+ bits\)/);
   const ok = grain(['check', 'src/handlers/order.handler.ts']).out;
@@ -82,7 +82,7 @@ test('check reads the worktree version and marks it +dirty; worktree edits never
 
 test('spectrum lists NORM and obs rows for the file contexts and is identical with and without the scope cache', () => {
   const a = grain(['spectrum', 'src/dto/order.dto.ts']).out;
-  assert.match(a, /^spectrum src\/dto\/order\.dto\.ts — repo-wide · \d+ scopes · \d+ cells computed/);
+  assert.match(a, /^spectrum src\/dto\/order\.dto\.ts — repo-wide( \(small packages merged\))? · \d+ scopes · \d+ cells computed/);
   assert.match(a, /\[NORM\] d\[src\/dto\]:type auto\.extends:BaseDto = true/);
   rmSync(join(repo, '.grain', 'cache', 'tree.json'));
   const b = grain(['spectrum', 'src/dto/order.dto.ts']).out;
@@ -93,8 +93,8 @@ test('export: every convention with its sites, anchors and nearest exemplar; che
   const { out, code, err } = grain(['export', '--compact']); assert.equal(code, 0, err);
   const d = JSON.parse(out.split('\n').find(l => l.startsWith('{')));
   assert.equal(d.schema, 'grain-export/1'); assert.ok(d.summary.conventions > 10, 'conventions exported'); assert.ok(d.summary.groups > 3);
-  const handler = d.conventions.find(c => c.feature.enumerator === 'deco' && c.feature.argument === '@Handler' && c.expected === 'true' && c.context.type === 'directory');
-  assert.ok(handler, 'the directory-level @Handler convention is exported'); assert.ok(handler.conformingSites.length >= 20);
+  const handler = d.conventions.find(c => c.feature.enumerator === 'deco' && c.feature.argument === '@Handler' && c.expected === 'true' && (c.context.type === 'directory' || c.context.type === 'partition'));
+  assert.ok(handler, 'the @Handler convention is exported (dir- or partition-level after MDL cuts)'); assert.ok(handler.conformingSites.length >= 20);
   const dev = handler.deviatingSites.find(x => x.rel === 'src/handlers/dispute.handler.ts');
   assert.ok(dev, 'the planted deviant is a deviating site'); assert.equal(dev.observed, 'false'); assert.ok(dev.fires); assert.match(dev.nearest.rel, /^src\/handlers\//);
   assert.ok(Array.isArray(dev.focus) && dev.focus.length === 1, 'a decorator site anchors one focus line');

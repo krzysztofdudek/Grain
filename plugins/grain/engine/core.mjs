@@ -582,8 +582,10 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     if (kept.some(kd => d.startsWith(kd + '/'))) return false;
     kept.push(d); keptDirs.set(k, kept); return true; });
   const groups = [];
+  const famOf = pid => pid.slice(0, pid.indexOf(':') + 1 || pid.length); // same-family only: an identical conform set across
+  // DIFFERENT families (a pure region where every file obeys everything) is independent claims, not restatement
   for (const c of pruned.sort((a, b) => b.bpi - a.bpi || (a.pid < b.pid ? -1 : a.pid > b.pid ? 1 : 0))) { let pl = false;
-    for (const g of groups) if (g.cid === c.cid && jac(new Set(g.lead.conform), new Set(c.conform)) >= 0.9) { g.surfaces.push(c); pl = true; break; }
+    for (const g of groups) if (g.cid === c.cid && famOf(g.lead.pid) === famOf(c.pid) && jac(new Set(g.lead.conform), new Set(c.conform)) >= 0.9) { g.surfaces.push(c); pl = true; break; }
     if (!pl) groups.push({ cid: c.cid, lead: c, surfaces: [c] }); }
   // sibling surfaces (same conform set, deduped out of speech) travel with the lead so `check` can still see a deviation on
   // any of them — "returns boolean" and "returns the literal true" share a conform set, but only the second catches `return false`
@@ -748,10 +750,47 @@ export function findPackageRoots(root, allPaths = null) {
     for (const e of es) { const full = join(d, e.name); const rel = toPosix(relative(root, full)); if (EXCL.test(rel + '/')) continue;
       if (e.isDirectory()) fp(full); else if (PKG_ROOT_RE.test(e.name)) { const p = toPosix(relative(root, d)) || '.'; if (!pkgs.includes(p)) pkgs.push(p); } } })(root);
   return pkgs.sort(); }
+// ===== MDL PARTITIONING (constitution: the directory tree is cut where cutting compresses) =====
+// Per-file categorical features — grammar and the LEXICAL layer only: a partition means "an independent style
+// population", so the features are exactly what style is. Directory signatures (file-name shape, kind mix) are
+// deliberately NOT here — they belong to the dir cells inside a partition, and cutting on them shreds the tree
+// into per-directory slivers (measured on the planted fixture). A post-order
+// DP over the directory tree: a directory either codes its whole subtree as one region, or splits — paying, per new
+// region, the bits to name its root. Manifests (package.json, go.mod) are NOT consulted here: they remain resolution
+// artifacts (workspaces, module graph); the statistical partition is earned by compression alone.
+export function mdlCuts(all) {
+  const feat = new Map();
+  for (const s of all) { if (s.kind !== 'file') continue;
+    feat.set(s.rel, [s.g || '?', s.preds['auto.lex:quote'] || '?', s.preds['auto.lex:semi'] || '?', s.preds['auto.lex:indent'] || '?', s.preds['auto.lex:decl'] || '?']); }
+  const F = 5;
+  const kids = new Map(); const own = new Map();
+  for (const rel of feat.keys()) { const segs = rel.split('/'); let d = '.';
+    for (let i = 0; i < segs.length - 1; i++) { const nd = d === '.' ? segs[i] : d + '/' + segs[i]; (kids.get(d) || kids.set(d, new Set()).get(d)).add(nd); d = nd; }
+    (own.get(d) || own.set(d, []).get(d)).push(rel); }
+  let nd = 1; for (const st of kids.values()) nd += st.size;
+  const CUT = Math.log2(Math.max(2, nd));
+  const code = counts => { let c = 0; for (const cnt of counts) { const vs = Object.keys(cnt); const n = vs.reduce((a, v) => a + cnt[v], 0); if (!n) continue;
+      for (const v of vs) c += cnt[v] * Math.log2(n / cnt[v]); c += 0.5 * Math.max(0, vs.length - 1) * Math.log2(Math.max(n, 2)); } return c; };
+  const mk = () => Array.from({ length: F }, () => ({}));
+  const addRels = (counts, rels) => { for (const r of rels || []) { const fv = feat.get(r); for (let i = 0; i < F; i++) counts[i][fv[i]] = (counts[i][fv[i]] || 0) + 1; } };
+  const best = new Map(); const regions = new Map(); const subCounts = new Map();
+  const dfs = d => { const cs = [...(kids.get(d) || [])].sort();
+    const counts = mk(); addRels(counts, own.get(d));
+    const ownCost = code(counts);
+    let splitCost = ownCost + ((own.get(d) || []).length ? CUT : 0); const cuts = (own.get(d) || []).length ? [d] : [];
+    for (const c of cs) { dfs(c);
+      splitCost += best.get(c) + CUT; cuts.push(...regions.get(c));
+      const sc = subCounts.get(c); for (let i = 0; i < F; i++) for (const v of Object.keys(sc[i])) counts[i][v] = (counts[i][v] || 0) + sc[i][v]; }
+    subCounts.set(d, counts);
+    const mergedCost = code(counts);
+    if (cs.length && splitCost < mergedCost) { best.set(d, splitCost); regions.set(d, cuts); }
+    else { best.set(d, mergedCost + CUT); regions.set(d, [d]); } };
+  dfs('.');
+  return regions.get('.').filter(d => d !== '.').sort(); }
 export const partOfFn = pkgs => rel => { let b = null; for (const d of pkgs) { if (d === '.') continue; if ((rel + '/').startsWith(d + '/')) if (!b || d.length > b.length) b = d; } return b || '_root'; };
 // the partition a file is judged against: its own package (or the merged repo bucket); test files only ever against a tests
 // partition — a test suite too small to have norms of its own gets no partition (null), never the production norms
-export const partitionFor = (model, rel) => { const key = partOfFn(model.pkgs)(rel);
+export const partitionFor = (model, rel) => { const key = partOfFn(model.cuts || model.pkgs)(rel);
   return model.partitions.find(p => p.name === key) || model.partitions.find(p => p.name === '_repo') || model.partitions[0] || null; };
 export async function extractTree(root, files, onProgress, readSource = null, cached = null, relOut = null) {
   const all = []; let i = 0, reused = 0;
@@ -823,14 +862,15 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
   // "methods" were mostly arrow callbacks; "methods here take 0 parameters — 85% of 163" on axum tests was closures
   for (let i = all.length - 1; i >= 0; i--) if (all[i].name === '<anon>') all.splice(i, 1);
   const rawScopes = all.map(serializeScope); // pre-vocabulary snapshot: lets spectrum skip re-parsing the tree
-  const pkgs = findPackageRoots(root, tree ? tree.allPaths : null);
-  const merged = groupPartitions(all, pkgs);
+  const pkgs = findPackageRoots(root, tree ? tree.allPaths : null); // manifests: resolution + architecture, never the partition
+  const cuts = mdlCuts(all);
+  const merged = groupPartitions(all, cuts);
   const { wfn: baseW, ageFn: ageFnH, get: lcGet } = mkWeightFn(H);
   // Without history NOTHING is established (fail-closed, §9.4c degenerate case / §21.1): the prototype marked every instance
   // survived when it had no history, which inverted the gate. A history-less repository therefore yields groups and
   // placement but no spoken conventions — `status` says why.
   const ageFn = ageFnH || (() => 0);
-  const model = { engine: 'grain', repo: basename(root), pkgs, generatedAt: 0, partitions: [] };
+  const model = { engine: 'grain', repo: basename(root), pkgs, cuts, generatedAt: 0, partitions: [] };
   let agentShareNum = 0, agentShareDen = 0;
   // pass 1: vocabularies, roles and the repo-wide candidate count; pass 2: mining with one shared index cost
   const prepared = [];
@@ -1313,7 +1353,10 @@ export function buildCards(model) {
     const byDir = new Map();
     for (const f of part.facts) if (f.cid.startsWith('d[')) { const d = f.cid.slice(2, f.cid.indexOf(']')); let a = byDir.get(d); if (!a) { a = []; byDir.set(d, a); } a.push(f); }
     for (const [d, n] of dirScopes) if (n >= 8 && !byDir.has(d)) byDir.set(d, []); // every directory that is a place (≥ 8 scopes), not only the ones that carry a local norm
-    for (const [d, facts] of [...byDir].sort((a, b) => a[0] < b[0] ? -1 : 1)) { const toks = new Map();
+    for (const [d, dfacts] of [...byDir].sort((a, b) => a[0] < b[0] ? -1 : 1)) { const toks = new Map();
+      // a directory that IS the partition's cut root owns the partition-wide facts too — they are exactly this
+      // directory's norms, and without them the card of an MDL-cut package says "no convention" while seven exist
+      const facts = d === part.name ? [...dfacts, ...part.facts.filter(f => f.cid.startsWith('_all'))] : dfacts;
       const dirName = new Set([normTok(d.split('/').pop().toLowerCase())]); // `testing utility` must reach packages/testing/ even though `test` is the most common token in the model
       for (const t of tokenize(d.split('/').pop())) addTok(toks, t, TOKW.dir);
       for (const t of tokenize(d)) addTok(toks, t, TOKW.fact);
