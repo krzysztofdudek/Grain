@@ -83,6 +83,7 @@ $ grain report
   …
 == architecture — 6 modules · 5 directed dependencies · 0 cycle(s) ==
   src/handlers/ → src/core/ (30) · src/services/ (30)
+  …
   test/handlers/ → src/handlers/ (29)
 as of 47da000
 ```
@@ -95,9 +96,10 @@ $ grain where handler
 «handler» → marker @Handler — 29 carriers (package src/handlers, match 100%)
   lives in: src/handlers/ (100%)
   carriers to copy: src/handlers/address.handler.ts:7 `UpdateAddressHandler` (type) · …
-  a new carrier comes with: a same-stem `*.dto.ts` companion (100% of 29 have one) · registration by a `*.test.ts` file (29 of 29)
+  a new carrier comes with: a same-stem `*.dto.ts` companion (100% of 29 have one) · registration by a `*.test.ts` file (29 of 29 carriers)
 «handler» → directory src/handlers/ — 30 files, 58 established (package src/handlers, match 100%)
   depends on: src/core/ (30) · src/services/ (30)
+  …
 as of 47da000
 ```
 
@@ -107,7 +109,7 @@ The full cards, the `check` view and everything the hooks say unbidden are furth
 
 1. It never blocks: no gate, no failing build, no policy file.
 2. Nothing leaves your machine: no model calls, no API keys, no network at runtime.
-3. It is silent when it has nothing certified to say, and a query answers in about a tenth of a second on a warm index.
+3. It is silent when it has nothing certified to say, and a warm query answers in 0.08 to 0.31 s across the corpus.
 4. It will tell you a place has no convention rather than invent one.
 
 ## Four results
@@ -138,12 +140,12 @@ Grain's own claims are held to grain's standard. What has actually been measured
 
 - **Truth audits** (independent sessions, no shared context, every claim re-verified with find/grep/git): audit #1 —
   13/15 claims exactly true, 0 false; audit #2, after the mathematical rebuild — 39 claims: 28 exact, 8
-  true-but-imprecise, **1 false class** (deviant counts mixed populations with the percentage beside them — fixed at
+  true-but-imprecise, 2 unverifiable, **1 false class** (deviant counts mixed populations with the percentage beside them — fixed at
   the source the same day, and the audit is why). Once, grain out-verified the auditor (it named the one real deviant
   where the auditor's grep was fooled by a comment).
 - **Three A/B agent trials** on a private, post-cutoff repository, scored against the diffs its author actually
   shipped: trial 1 — the index was *right* (it named the exact directory and component both arms got wrong) and the
-  agent never asked; trial 2 — the edit-time hook delivered zero notes on 27 well-formed edits (correct silence, and
+  agent never asked; trial 2 — the edit-time hook delivered zero notes on 27 edited files (correct silence, and
   the lesson that line-level checks cannot catch placement); trial 3 — the placement hook carried four notes, the
   worker moved four files citing grain by name (the first demonstrated effect on a diff), and the two defects that
   kept the move off-target (post-write timing, sequential competing notes) are fixed in this build. A feature that
@@ -153,7 +155,7 @@ Grain's own claims are held to grain's standard. What has actually been measured
   not defects: all three cells sit at 7.0–7.8 : 1 odds, below the 8 : 1 that λ demands before grain accuses an
   instance. 25 of 25 hostile repositories (empty, shallow, no-git, symlinks, non-UTF-8, mass renames, races)
   degrade without a crash and with an honest stamp.
-- **Performance** (a private repo, 1 117 files, full history): cold build 18 s / 1.0 GB RSS; forced warm rebuild 6.3 s;
+- **Performance** (the private trial monorepo, 1 117 files, full history): cold build 18 s / 1.0 GB RSS; forced warm rebuild 6.3 s;
   `check`/`where` 0.12 s on a warm index; the hook adds ~0.12 s to an edit. 916 tests, CI on node 22 and 24.
 
 ## The answers, in detail
@@ -210,7 +212,8 @@ the repository shows a choice (double quotes in Go are the language, not a conve
 The same parse that mines conventions binds cross-file references — per-language extractors and a tri-state resolver
 (resolved / ambiguous / absent: silence instead of a false edge) vendored from the battle-tested Yggdrasil relation
 machinery (same author, MIT; regenerate with `npm run build:relations`). The result is file→file edges and their
-module-level aggregation: which modules exist, who depends on whom, where the cycles are.
+module-level aggregation: which modules exist, who depends on whom, where the cycles are. Real output on
+[Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil), elided rows marked:
 
 ```
 $ grain report
@@ -265,12 +268,14 @@ The agent hooks do not wait to be asked. On Claude Code and Codex the plugin reg
 against where its name-kin already live, and the note arrives while changing the directory is still free:
 
 ```
-[grain] placement: `*.spec.ts` files named like `admin` live in `apps/e2e/tests/admin-panel/` — 13 of 17;
-`apps/e2e/tests/sign-in/` holds none. Weaker name-kin point elsewhere: `header` → `…/onboarding-and-navigation/`
-(2 of 3) — the leading count is the one to argue with. Deliberate placement is fine — but if you guessed, ask first.
+[grain] placement: 30 of 30 `*.handler.ts` files live under `src/handlers/`; this one is outside it (`src/misc/`).
+Deliberate is fine — if you guessed, look there first.
 ```
 
-— and **PostToolUse on Edit/Write**: the edited file is re-checked against the index and grain speaks ONLY when it
+(Real output on the fixture again. When several name-kin point different ways, they argue inside one note, strongest
+count first, with the weaker rivals named beside their counts.)
+
+— and **PostToolUse on Edit, Write and MultiEdit**: the edited file is re-checked against the index and grain speaks ONLY when it
 has findings on the touched lines (deviations, maintainer decisions, architecture crossings, capped at 8; identical
 findings repeat at most once per 15 minutes). A clean edit, a foreign repo, a missing index: silence, exit 0, never a
 build step, never a block.
@@ -347,8 +352,8 @@ are derived from the tree-sitter grammars it ships with.
 Languages today, all analysed by the same rules: TypeScript, TSX, JavaScript, Python, Go, Java, C#, Ruby, Rust, PHP,
 C, C++, Kotlin, Scala, Groovy, Bash, Lua, Zig, Solidity. A language is in when its tree-sitter grammar ships a prebuilt
 parser and exposes the name-and-body structure the generic rules read; Dart, Elixir, Haskell, OCaml, Julia,
-PowerShell and F# were tried and left out for one of those two reasons (see `plugins/grain/scripts/build-grammars.mjs`),
-Swift ships no prebuilt parser.
+PowerShell and F# were tried and left out (`plugins/grain/scripts/build-grammars.mjs` records each reason: a wasm
+that does not load, or grammars exposing no name-and-body structure), and Swift ships no prebuilt parser.
 
 ## Memory and speed
 

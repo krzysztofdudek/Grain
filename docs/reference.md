@@ -5,8 +5,9 @@ store on disk, the environment switches, the cache version keys, and the export 
 
 ## Commands
 
-All commands accept `--repo <path>` (act on another checkout) and `--no-refresh` (answer from the existing index; a
-stale one carries a STALE banner). Every answer ends with `as of <sha>`, plus `+dirty` when the file was read from an
+All commands accept `--repo <path>` (act on another checkout), `--no-refresh` (answer from the existing index; a
+stale one carries a STALE banner) and `--no-history` (skip the history layer for this invocation: no lifecycle
+weights, no co-change, faster on a huge repository; nothing counts as established). Every answer ends with `as of <sha>`, plus `+dirty` when the file was read from an
 uncommitted worktree.
 
 | command | flags | answer |
@@ -25,14 +26,16 @@ uncommitted worktree.
 
 ## Hooks
 
-Registered by `hooks/hooks.json` (Claude Code) and `hooks/codex-hooks.json` (Codex). All three are silent on any
-failure and never block; the hook path never builds or refreshes an index.
+Registered by `hooks/hooks.json` (Claude Code) and `hooks/codex-hooks.json` (Codex). Two more registrations exist
+and carry ONLY the session start hook: `hooks/cursor-hooks.json` (Cursor, which also uses a relative command path)
+and the plugin root `hooks.json` (Copilot); a Cursor or Copilot user therefore gets no placement and no post edit
+hook today. All hooks are silent on any failure and never block; the hook path never builds or refreshes an index.
 
 - **SessionStart** runs `grain session-context`: what grain answers, the live index state, the architecture shape,
   the maintainer decisions in force.
 - **PreToolUse on Write** runs `grain check-hook --pre`: placement from the intended path alone, before the file
   exists, injected as additional context with an explicit allow decision.
-- **PostToolUse on Edit and Write** runs `grain check-hook`: the edited file is re-checked and grain speaks only when
+- **PostToolUse on Edit, Write and MultiEdit** runs `grain check-hook`: the edited file is re-checked and grain speaks only when
   it has findings on the touched lines (deviations, maintainer decisions, architecture crossings, a placement note),
   capped at eight lines. Identical findings for the same file repeat at most once per 15 minutes
   (`GRAIN_HOOK_TTL_MS` overrides; state in `.grain/cache/hook-seen.json`, safe to delete).
@@ -45,14 +48,15 @@ macOS `/var` and `/private/var` symlinks cannot put a file outside its own repos
 ```text
 <repo>/.grain/
   .gitignore        created by grain; ignores cache/
-  .gitattributes    merge=union for the two decision files
+  .gitattributes    created by the first seed command; merge=union for the two decision files
   seeds.jsonl       maintainer decisions, meant to be committed
   decisions.jsonl   the audit trail, meant to be committed
   cache/            disposable, rebuilt on demand
     model.json      the mined model (conventions, groups, templates, edges, affinity)
-    meta.json       version keys and the indexed HEAD
+    meta.json       the four version keys, the indexed HEAD and build metadata
     history.json    the resumable history replay state
-    tree.json       per blob extraction cache (scopes, skeletons, relation facts)
+    tree.json       HEAD's extraction cache, keyed by blob sha and path (scopes, skeletons, relation facts)
+    blobs/          sharded per blob payloads the history replay fetched
     hook-seen.json  repeat suppression state for the hooks
 ```
 
@@ -74,7 +78,8 @@ From `.env.example` and the engine:
 
 ## Cache version keys
 
-`meta.json` carries four keys; a mismatch on any of them invalidates exactly the layer it names.
+Among its build metadata `meta.json` carries four version keys; a mismatch on any of them invalidates exactly the
+layer it names.
 
 | key | invalidates | bump when |
 | --- | --- | --- |

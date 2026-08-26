@@ -68,7 +68,7 @@ laptop, no parallelism.
 | typeorm | 6 052 | 2.9 min | 1 483 MB | 312 ms | 117 MB |
 
 The cold build is the explicit `refresh`, which deliberately keeps V8's optimising compiler; queries re-run under the
-baseline compiler and stay around a tenth of a second. The post edit hook is one warm check, about 0.12 s.
+baseline compiler and answer in 0.08 to 0.31 s across the corpus. The post edit hook is one warm check, about 0.12 s.
 
 ## The mutation harness
 

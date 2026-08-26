@@ -373,14 +373,14 @@ export async function main(argv) {
   return 0; }
 
 const USAGE = `grain — ask a repository about its own conventions before writing code.
-usage: grain <command> [args] [--repo <path>] [--no-refresh]
-  where <intent words> [--top N] [--map-rows N]  intent → place + expectations + exemplars + co-change
-  check <file> [--as <path>] [--json]     how this file's worktree version sits against the local norm
+usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
+  where <intent words> [--top N] [--map-rows N] [--json]  intent → place + expectations + exemplars + co-change
+  check <file> [--as <path>] [--content <file>] [--all] [--json]  how this file's worktree version sits against the local norm
   spectrum <file> [--minbits N] [--top N] the full local→global convention lattice for one file
-  status | report [--top N]               model overview / top conventions, freshness
-  export [--out <file>] [--max-sites N]   the whole model as JSON: every convention with all its sites, anchors, trends,
+  status | report [--top N] [--json]      model overview / top conventions, freshness
+  export [--out <file>] [--max-sites N] [--compact] [--no-anchors]  the whole model as JSON: every convention with all its sites, anchors, trends,
                                           groups, markers, directories, co-change (for training pipelines and audits)
-  seed add <path>#<name> --surfaces <pid,…> [--instead-of <pid,…>] --note "…"   record a maintainer decision (.grain/seeds.jsonl, committed)
+  seed add <path>#<name> --surfaces <pid,…> [--instead-of <pid,…>] [--author <who>] --note "…"   record a maintainer decision (.grain/seeds.jsonl, committed)
   seed add-boundary <from> --never-imports <to> --note "…"   an architecture decision: new imports crossing it are flagged
   seed list | seed rm <id>                the decisions in force / withdraw one
   refresh [--full]                        rebuild the index now (every query already auto-refreshes)
