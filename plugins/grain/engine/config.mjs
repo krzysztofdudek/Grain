@@ -6,7 +6,7 @@ import { fileURLToPath } from 'node:url';
 export const ENGINE_VERSION = '0.1.0';
 export const EXTR_V = 'g23';
 export const HIST_V = 'h4';
-export const MODEL_V = 'm9'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
+export const MODEL_V = 'm10'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Grammar assets (`tree-sitter-<g>.wasm` + `tree-sitter-<g>.node-types.json`) live inside the plugin by default;
@@ -41,15 +41,18 @@ export const MINE_EXCL = /a^/; // kept for the history layer's compatibility; mi
 // minShare: the survived-raw share a spoken convention must show. The spec's 2/3 lets categorical facts speak at 80%
 // ("methods here start with an expression_statement — 80% of 367" fired nine times on one flask file); 0.85 is where a
 // reader stops arguing with the number.
-export const CFG = { margin: 4.0, minRaw: 5, minEff: 3, tau: 2.5, tauAbs: 3.5, minShare: 0.85, ambGap: 0.15, minMemb: 0.35,
+// THE decision constant (constitution stage 2): evidence is pure codelength — a fact exists iff bits > 0, where bits
+// already carries the KT code, the BIC penalty and the index cost. What used to be six tuned thresholds (margin, four
+// taus, minShare) is ONE loss ratio: λ = the cost of a wrong steer in silences — grain speaks an expected value only
+// when the KT posterior predictive says at most 1 wrong steer per λ followed ones, and a deviation fires only when the
+// deviant's pointwise excess costs ≥ log2(λ) bits. Vacuity ("always contains a member_expression") is not a threshold
+// problem and stays where it belongs: the structural-contrast null model. minRaw/minEff survive only as compute
+// short-circuits — below them bits > 0 is unreachable anyway.
+export const CFG = { lambda: 8, minRaw: 5, minEff: 3, ambGap: 0.15, minMemb: 0.35,
   survDays: 120, freshDays: 14, agentBase: 0.15, promoteDays: 180, floor: 0.05,
   calibHorizonDays: 365, calibSettleDays: 30, calibMinEv: 12, denyMinEv: 35, targetPrec: 0.8,
   cochangeMinSup: 8, cochangeMinConf: 0.75, megaCap: 30,
-  trendWinDays: 90, dirMin: 25, tauAbsStruct: 4.5,
-  // structural PRESENCE ("methods here always contain a <node type>") draws from the same huge family as structural absence:
-  // at 2.5 bits the corpus produced "always contain a member_expression — 90% of 1758" on express and "always contain an
-  // expression_list — 87% of 1014" on gin, both trivially true of most code. 3.5 bits (share ≈ 0.92) rejects those.
-  tauHasPresence: 3.5 };
+  trendWinDays: 90, dirMin: 25 };
 export const NCAP = 700;                                                   // role clustering: distinct-feature-bag sample cap
 export const SUP = { nodeType: 20, call: 8, imp: 5, ext: 4, shape: 15, deco: 8, ret: 4, pt: 4 }; // vocabulary support floors per enumerator
 export const TOPK = { nodeType: 30, call: 80, imp: 60, ext: 30, shape: 40, deco: 40, ret: 30, pt: 30 }; // vocabulary top-K per enumerator

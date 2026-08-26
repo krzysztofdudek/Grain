@@ -131,7 +131,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
         const st = site(s);
         if (v === f.exp) conforming.push(st);
         else { const known = f.alphabet.includes(v); const gap = Math.log2(kt(f.counts, K, f.exp, neff) / kt(f.counts, K, known ? v : UNSEEN, neff));
-          deviating.push({ ...st, observed: v, phrase: deviationPhrase(f, v), novel: !known, gapBits: +gap.toFixed(2), fires: gap >= (f.tau || CFG.tau), risingAlternative: !!(f.suppressedValue && v === f.suppressedValue) }); } }
+          deviating.push({ ...st, observed: v, phrase: deviationPhrase(f, v), novel: !known, gapBits: +gap.toFixed(2), fires: gap >= (f.tau || Math.log2(CFG.lambda)), risingAlternative: !!(f.suppressedValue && v === f.suppressedValue) }); } }
       const bySite = (a, b) => a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : a.line - b.line;
       conforming.sort(bySite); deviating.sort(bySite);
       const decorate = st => { const lines = linesOf(st.rel); const focus = focusLines(lines, st, f.pid, f.exp); const lc = lifecycleOf(st.key);

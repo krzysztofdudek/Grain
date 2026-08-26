@@ -536,19 +536,15 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     else for (const v of Vv) { const nv = cell.counts[v] || 0; if (nv) data += nv * Math.log2(kt(cell.counts, K, v, neff) / kt(allCell.counts, K, v, allN)); }
     const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(neff, 2)) - idxCost;
     if (dbg && pid.includes(dbg)) console.error(`[dbg] ${cid} ${pid} raw=${raw} neff=${neff.toFixed(1)} data=${data.toFixed(1)} bits=${bits.toFixed(1)} counts=${JSON.stringify(cell.counts)} sraw=${JSON.stringify(cell.sraw)}`);
-    if (bits < CFG.margin) continue;
+    if (bits <= 0) continue; // evidence = codelength gain, nothing else
     let exp = null, ne = -1; for (const v of Vv) { const c = cell.counts[v] || 0; if (c > ne) { exp = v; ne = c; } }
-    let nru = 0; for (const v of Vv) if (v !== exp) nru = Math.max(nru, cell.counts[v] || 0);
-    // structural absence ("never contains <node type>") is a far larger family than vocabulary absence — stricter bar
-    const tau = (bl && exp === 'false') ? (/^auto\.(has|stshape):/.test(pid) ? CFG.tauAbsStruct : CFG.tauAbs) : (/^auto\.has:/.test(pid) ? CFG.tauHasPresence : CFG.tau);
-    if (!((ne + 0.5) / (nru + 0.5) >= 2 ** tau)) continue;
+    // the DECISION: name `exp` only when the KT posterior predictive bounds the error at 1 in λ — the one loss constant
+    const tau = Math.log2(CFG.lambda);
+    if (!((ne + 0.5) / (neff + K / 2) >= 1 - 1 / CFG.lambda)) continue;
     const sraw = Object.values(cell.sraw).reduce((a, b) => a + b, 0);
     const srawShare = sraw >= CFG.minRaw ? (cell.sraw[exp] || 0) / sraw : -1;
-    if (srawShare < CFG.minShare) continue;                                     // survived-raw display+honesty gate
-    // the displayed evidence must itself clear the fire-ability ratio: survival weights can carry a fact past the gate while
-    // the raw "n of N established" it prints reads 85% — measured on flask ("files here do not import `functools` — 85% of 54")
-    let srawRu = 0; for (const v of Vv) if (v !== exp) srawRu = Math.max(srawRu, cell.sraw[v] || 0);
-    if (!(((cell.sraw[exp] || 0) + 0.5) / (srawRu + 0.5) >= 2 ** tau)) continue;
+    // the PRINTED population must clear the same bound: survival weights must not carry a claim its own display denies
+    if (sraw < CFG.minRaw || !(((cell.sraw[exp] || 0) + 0.5) / (sraw + K / 2) >= 1 - 1 / CFG.lambda)) continue;
     if (bl && isAll && exp === 'false' && !(cell.raw['true'] > 0)) continue;   // vacuous (§9.4d): "never X" when nothing here ever X-ed is a non-choice; an all-true fact is a real convention
     if (/^auto\.dir\d/.test(pid) && !/^r\d/.test(cid)) continue;                // placement is group-only (a dir context "predicting" its own path is tautology)
     if (!bl && ['other', 'none', 'mixed', '?'].includes(exp)) continue;         // fallback buckets never expected
@@ -681,7 +677,7 @@ export function calibrate(fact, ps, H) {
   const p = evts.filter(e => e.repaired).length / evts.length;
   const z = 1.96, n = evts.length, lb = (p + z * z / (2 * n) - z * Math.sqrt(p * (1 - p) / n + z * z / (4 * n * n))) / (1 + z * z / n);
   return { available: true, events: n, precision: +p.toFixed(2), wilsonLB: +lb.toFixed(2),
-    tauC: p >= CFG.targetPrec ? CFG.tau : CFG.tau + 1.5, denyEligible: lb >= 0.9 && n >= CFG.denyMinEv }; }
+    tauC: p >= CFG.targetPrec ? Math.log2(CFG.lambda) : Math.log2(CFG.lambda) + 1.5, denyEligible: lb >= 0.9 && n >= CFG.denyMinEv }; }
 
 // ===== VERBALIZER =====
 export const unitOf = kind => ({ method: 'methods', type: 'types', file: 'files', module: 'directories', catch: 'catch blocks', finally: 'finally blocks', case: 'named callbacks' }[kind] || kind);
@@ -1158,7 +1154,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         const K = isBool(sf.pid) ? 2 : sf.alphabet.length + 1;
         const known = sf.alphabet.includes(v);
         const d = Math.log2(kt(sf.counts, K, sf.exp, neff) / kt(sf.counts, K, known ? v : UNSEEN, neff));
-        if (d < (sf.tau || CFG.tau)) continue;
+        if (d < (sf.tau || Math.log2(CFG.lambda))) continue;
         const isDir = f.cid.startsWith('d[');
         const contrast = (isRole || isDir) && f.parentExp != null && f.parentExp !== f.exp
           ? `\n  This is the local default ${isDir ? 'of this directory' : 'of this group'} — the wider package's norm differs here.` : '';
