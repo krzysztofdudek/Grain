@@ -367,6 +367,13 @@ what exists and lets the asking model close the semantic gap itself. That is a d
 
 It does not judge quality. A convention is a majority, not a virtue.
 
+## Documentation
+
+Three documents carry the depth this file only gestures at: [docs/mathematics.md](docs/mathematics.md), the single
+objective and its special cases with the honest residue; [docs/validation.md](docs/validation.md), every measurement
+with its method, the corpus tables and the known boundaries; [docs/reference.md](docs/reference.md), commands, hooks,
+the store, environment switches, cache version keys and the export schema contract.
+
 ## Status
 
 0.1.0. The number describes the age of the interfaces, not the weight of the evidence above: this is the first
