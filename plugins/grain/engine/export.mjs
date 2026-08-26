@@ -130,7 +130,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
         const v = s.preds[f.pid]; if (v === undefined) continue;
         const st = site(s);
         if (v === f.exp) conforming.push(st);
-        else { const known = f.alphabet.includes(v); const gap = Math.log2(kt(f.counts, K, f.exp, neff) / kt(f.counts, K, known ? v : UNSEEN, neff));
+        else { const gc = f.srawCounts || f.counts; const gn = Object.values(gc).reduce((a2, b2) => a2 + b2, 0); const known = f.alphabet.includes(v); const gap = Math.log2(kt(gc, K, f.exp, gn) / kt(gc, K, known ? v : UNSEEN, gn));
           deviating.push({ ...st, observed: v, phrase: deviationPhrase(f, v), novel: !known, gapBits: +gap.toFixed(2), fires: gap >= (f.tau || Math.log2(CFG.lambda)), risingAlternative: !!(f.suppressedValue && v === f.suppressedValue) }); } }
       const bySite = (a, b) => a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : a.line - b.line;
       conforming.sort(bySite); deviating.sort(bySite);

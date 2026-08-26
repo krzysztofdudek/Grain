@@ -553,7 +553,7 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     if (!isAll && allCell) { let pe = null, pn = -1; for (const v of Object.keys(allCell.counts)) { if (allCell.counts[v] > pn) { pe = v; pn = allCell.counts[v]; } } parentExp = pe; }
     const marks = seedMarks.get(key) || []; // a fact agreeing with a seed is `seeded`; one that a seed argues against is `contested` (its deviants toward the seeded value stand down)
     out.push({ cid, pid, exp, kind, bpi: data / neff, raw, sraw, srawShare, tau, parentExp, seeded: marks.filter(m => m.v === exp).map(m => m.id), contested: marks.find(m => m.v !== exp) || null,
-      counts: cell.counts, alphabet: Vv, conform: cell.members[exp] || [],
+      counts: cell.counts, srawCounts: cell.sraw, alphabet: Vv, conform: cell.members[exp] || [],
       deviants: Vv.filter(v => v !== exp).flatMap(v => (cell.members[v] || []).map(gi => ({ gi, v }))) }); }
   // structural facts (node-type presence, statement shapes, first statement, return shape, arity, local-variable shape) speak
   // only as a CONTRAST: in a group or directory whose default differs from the partition's. Repo-wide, "methods here always
@@ -590,12 +590,13 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     if (!pl) groups.push({ cid: c.cid, lead: c, surfaces: [c] }); }
   // sibling surfaces (same conform set, deduped out of speech) travel with the lead so `check` can still see a deviation on
   // any of them — "returns boolean" and "returns the literal true" share a conform set, but only the second catches `return false`
-  return { facts: groups.map(g => ({ ...g.lead, nSurfaces: g.surfaces.length, siblings: g.surfaces.slice(1).map(c => ({ pid: c.pid, exp: c.exp, counts: c.counts, alphabet: c.alphabet, tau: c.tau })) })), C, idxCost }; }
+  return { facts: groups.map(g => ({ ...g.lead, nSurfaces: g.surfaces.length, siblings: g.surfaces.slice(1).map(c => ({ pid: c.pid, exp: c.exp, counts: c.counts, srawCounts: c.srawCounts, alphabet: c.alphabet, tau: c.tau })) })), C, idxCost }; }
 // the deviants worth naming: largest preference gap first, at most five — `where` says what NOT to copy, `check` what the
 // neighbours got wrong, without loading every scope
 export function topDeviants(f, ps, max = 5) {
-  const neff = Object.values(f.counts).reduce((a, b) => a + b, 0); const K = isBool(f.pid) ? 2 : f.alphabet.length + 1;
-  return f.deviants.map(({ gi, v }) => { const known = f.alphabet.includes(v); const d = Math.log2(kt(f.counts, K, f.exp, neff) / kt(f.counts, K, known ? v : UNSEEN, neff)); return { rel: ps[gi].rel, line: ps[gi].line, name: ps[gi].name, obs: v, gap: +d.toFixed(2) }; })
+  const gc = f.srawCounts || f.counts;
+  const neff = Object.values(gc).reduce((a, b) => a + b, 0); const K = isBool(f.pid) ? 2 : f.alphabet.length + 1;
+  return f.deviants.map(({ gi, v }) => { const known = f.alphabet.includes(v); const d = Math.log2(kt(gc, K, f.exp, neff) / kt(gc, K, known ? v : UNSEEN, neff)); return { rel: ps[gi].rel, line: ps[gi].line, name: ps[gi].name, obs: v, gap: +d.toFixed(2) }; })
     .sort((a, b) => b.gap - a.gap || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : a.line - b.line)).slice(0, max); }
 // when the rule was born, when it was last reinforced, how often the history repaired toward it or departed from it
 export function heldSummary(f, ps, H) {
@@ -902,7 +903,7 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
       const unamb = f.conform.filter(gi => !ri.amb.has(gi)); const exs = (unamb.length ? unamb : f.conform).slice(0, 3);
       const trend = H ? trendsFor(f, ps, H) : null;
       const calib = H ? calibrate(f, ps, H) : { available: false, reason: 'no history' };
-      return { cid: f.cid, kind: f.kind, pid: f.pid, exp: f.exp, parentExp: f.parentExp, counts: f.counts, alphabet: f.alphabet,
+      return { cid: f.cid, kind: f.kind, pid: f.pid, exp: f.exp, parentExp: f.parentExp, counts: f.counts, srawCounts: f.srawCounts, alphabet: f.alphabet,
         raw: f.raw, sraw: f.sraw, share: +f.srawShare.toFixed(3), bpi: +f.bpi.toFixed(2), tau: calib.available ? calib.tauC : f.tau,
         nSurfaces: f.nSurfaces, siblings: f.siblings,
         trend: trend && trend.shares.length ? trend : undefined, calib,
@@ -916,7 +917,7 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
     if (pl) for (const f of pl.facts) { if (exportFacts.some(g => g.cid === f.cid && g.pid === f.pid)) continue;
       const own = new Set(ps.filter(s => s.kind === 'file').map(s => s.rel)); // exemplars from this partition first — a lib file is shown lib files, not tests
       const exs = [...f.conform].sort((a, b) => (own.has(pl.ps[b].rel) ? 1 : 0) - (own.has(pl.ps[a].rel) ? 1 : 0) || a - b).slice(0, 3);
-      exportFacts.push({ cid: f.cid, kind: f.kind, pid: f.pid, exp: f.exp, parentExp: f.parentExp, counts: f.counts, alphabet: f.alphabet, raw: f.raw, sraw: f.sraw, share: +f.srawShare.toFixed(3), bpi: +f.bpi.toFixed(2), tau: f.tau,
+      exportFacts.push({ cid: f.cid, kind: f.kind, pid: f.pid, exp: f.exp, parentExp: f.parentExp, counts: f.counts, srawCounts: f.srawCounts, alphabet: f.alphabet, raw: f.raw, sraw: f.sraw, share: +f.srawShare.toFixed(3), bpi: +f.bpi.toFixed(2), tau: f.tau,
         nSurfaces: f.nSurfaces, siblings: f.siblings, trend: undefined, calib: { available: false, reason: 'lexical' }, suppressedValue: null, denyEligible: false,
         exemplars: exs.map(gi => ({ rel: pl.ps[gi].rel, line: pl.ps[gi].line, name: pl.ps[gi].name })), deviantsN: Math.max(0, Math.round(f.sraw * (1 - f.srawShare))), deviants: topDeviants(f, pl.ps), held: H ? heldSummary(f, pl.ps, H) : null, pkgWide: true, C }); }
     // markers: every decorator / supertype / declared return type with ≥ 3 carriers → where it lives and who carries it
@@ -1200,10 +1201,11 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         const v = s.preds[sf.pid];
         if (v === undefined || v === sf.exp) continue;
         if (sf === f && f.suppressedValue && v === f.suppressedValue) continue;              // nucleation stand-down
-        const neff = Object.values(sf.counts).reduce((a2, b2) => a2 + b2, 0);
+        const gc = sf.srawCounts || sf.counts; // the accusation's odds run on the SAME population the message prints (n/N established)
+        const neff = Object.values(gc).reduce((a2, b2) => a2 + b2, 0);
         const K = isBool(sf.pid) ? 2 : sf.alphabet.length + 1;
         const known = sf.alphabet.includes(v);
-        const d = Math.log2(kt(sf.counts, K, sf.exp, neff) / kt(sf.counts, K, known ? v : UNSEEN, neff));
+        const d = Math.log2(kt(gc, K, sf.exp, neff) / kt(gc, K, known ? v : UNSEEN, neff));
         if (d < (sf.tau || Math.log2(CFG.lambda))) continue;
         const isDir = f.cid.startsWith('d[');
         const contrast = (isRole || isDir) && f.parentExp != null && f.parentExp !== f.exp
@@ -1636,8 +1638,12 @@ export async function mutateTest({ model, root }) { const res = { detected: 0, m
   for (const part of model.partitions) {
     const cands = part.facts.filter(f => /^auto\.(deco|extends|imp|call):|^auto\.nameshape$/.test(f.pid) && f.exemplars.length).slice(0, 16);
     for (const f of cands) { const ex = f.exemplars[0]; let src; try { src = readFileSync(join(root, ex.rel), 'utf8'); } catch { continue; }
-      const before = (await checkFile({ model, root, rel: ex.rel, content: src })).msgs;
+      const b0 = await checkFile({ model, root, rel: ex.rel, content: src });
+      const before = b0.msgs;
       if (before.some(m => m.pid === f.pid && m.scope === ex.name)) { res.falseFire++; res.cases.push({ FALSEFIRE: f.cid + ' ' + f.pid + '=' + f.exp, file: ex.rel, scope: ex.name }); continue; }
+      // the fact must actually GOVERN the exemplar before the mutation (an ambiguous member is outside role governance
+      // by the ambGap policy) — planting on an ungoverned scope measures that policy, not detection
+      if (f.kind !== 'file' && !b0.governed.some(g0 => g0.pid === f.pid && g0.scope === ex.name)) { res.unsupported++; continue; }
       res.silentOK++;
       let mut = mutate(src, f, ex); if (mut === null) { res.unsupported++; continue; }
       if (mut.candidates) { // injected mutations: keep the candidate where the planted artifact really lands (ground truth = extraction)
@@ -1646,6 +1652,17 @@ export async function mutateTest({ model, root }) { const res = { detected: 0, m
           const ok = mut.call ? ss.find(x => x.name === ex.name && x.calls.has(mut.call)) : ss.find(x => x.kind === 'file' && x.imports.includes(mut.imp));
           if (ok) { picked = cand; break; } }
         if (!picked) { res.unsupported++; continue; } mut = picked; }
+      // ground truth by re-extraction, as for injections: a mutation that breaks the parse (a multiline decorator's
+      // opening line removed) or fails to flip the surface measures ITSELF, not detection — count it unsupported
+      { const pp2 = await getParser(extname(ex.rel)); const bb2 = bindingFor(pp2._g);
+        const tr0 = pp2.parse(src); const ss0 = extractScopes(ex.rel, tr0, bb2); tr0.delete();
+        const orig = ss0.find(x => x.name === ex.name);
+        const tr3 = pp2.parse(mut); const ss3 = extractScopes(ex.rel, tr3, bb2); tr3.delete();
+        const still = ss3.find(x => x.name === ex.name || (f.pid === 'auto.nameshape' && x.name === tokenize(ex.name).join('_')));
+        const intact = still && (!orig || still.nt === orig.nt); // error recovery yielding a syntax wreck (nt degraded) measures the mutation, not detection
+        const flipped = f.pid.startsWith('auto.deco:') ? intact && !still.decos.includes(f.pid.slice(10).replace('@', ''))
+          : f.pid.startsWith('auto.extends:') ? intact && !still.sup.includes(f.pid.slice(13)) : !!intact;
+        if (!intact || !flipped) { res.unsupported++; continue; } }
       const after = (await checkFile({ model, root, rel: ex.rel, content: mut })).msgs;
       const hit = after.some(m => m.pid === f.pid && (m.scope === ex.name || (f.pid === 'auto.nameshape' && m.scope === tokenize(ex.name).join('_'))));
       res[hit ? 'detected' : 'missed']++;
