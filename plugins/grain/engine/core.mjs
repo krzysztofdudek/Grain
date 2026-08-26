@@ -327,7 +327,7 @@ export function mineTemplates(ps, covered) {
     const sorted = [...ms].sort((a, b) => (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : a.line - b.line));
     const pf = profileOf(sorted.map(s => s.sk));
     if (!pf || pf.shared < 8 || pf.coverage < 0.5) continue; // no cluster prior behind it — the template alone must carry the claim
-    out.push({ kind: key.split('\u0001')[0], ...pf, exemplars: sorted.slice(0, 3).map(s => ({ rel: s.rel, line: s.line, name: s.name })) });
+    out.push({ kind: key.split('\u0001')[0], ...pf, exemplars: sorted.slice(0, 3).map(s => ({ rel: s.rel, line: s.line, name: s.name })), _members: sorted });
     if (out.length >= 12) break; }
   return out; }
 
@@ -890,13 +890,20 @@ export async function learn({ root, H, seeds = [], boundaries = [], log = () => 
       // dominant directory first; within it the most FOCUSED file (fewest scopes) — a 16 KB god-file is a worse thing to copy
       markers[k] = markers[k].sort((a, b) => dc.get(dirname(b.split('#')[0])) - dc.get(dirname(a.split('#')[0])) || (scopesInFile.get(a.split('#')[0]) || 0) - (scopesInFile.get(b.split('#')[0]) || 0) || (a < b ? -1 : a > b ? 1 : 0)).slice(0, 60); }
     // superposition per role: the cluster IS the candidate generator; anti-unification folds it into one template
+    const ym2 = ts => new Date(ts * 1000).toISOString().slice(0, 7);
+    // a template's history is the ARRIVAL PROCESS of its instances: when the first one landed, how many are young —
+    // straight from the lifecycle rows, no re-extraction of old blobs
+    const heldOf = ms2 => { if (!H) return null; const fs3 = ms2.map(lcGet).filter(Boolean).map(L => L.first); if (!fs3.length) return null;
+      return { since: ym2(Math.min(...fs3)), fresh: fs3.filter(f => (H.NOW - f) / 86400 <= 180).length } };
     const profiles = {};
     { const byRoleSk = new Map();
       [...ri.assign].sort((a, b) => a[0] - b[0]).forEach(([i, r]) => { if (ri.amb.has(i)) return; const s = ps[i];
-        if (s.kind === 'file' || s.kind === 'module' || !s.sk) return; (byRoleSk.get(r) || byRoleSk.set(r, []).get(r)).push(s.sk); });
-      for (const [r, arr] of byRoleSk) { if (arr.length < 4) continue; const pf = profileOf(arr); if (pf) profiles[r] = pf; } }
+        if (s.kind === 'file' || s.kind === 'module' || !s.sk) return; (byRoleSk.get(r) || byRoleSk.set(r, []).get(r)).push(s); });
+      for (const [r, arr] of byRoleSk) { if (arr.length < 4) continue; const pf = profileOf(arr.map(s => s.sk));
+        if (pf) { pf.held = heldOf(arr); profiles[r] = pf; } } }
     const covered = new Set(); [...ri.assign].forEach(([i]) => { if (!ri.amb.has(i)) covered.add(i); });
     const templates = mineTemplates(ps, covered);
+    for (const t of templates) { t.held = heldOf(t._members); delete t._members; }
     const byKey = new Map(); for (const s of ps) byKey.set(skeyR(s.rel, s), s);
     const markerObs = {}; const markerImplied = {};
     for (const [mk, keys] of Object.entries(markers)) { const cs = keys.map(k => byKey.get(k)).filter(Boolean); const n = cs.length; if (n < 3) continue;
@@ -1467,6 +1474,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
       if (pf) { const bits = [`${pf.n} members share this skeleton (~${Math.round(pf.coverage * 100)}% of an average member): ${pf.skel}`];
         for (const pi of pf.perInstance) bits.push(`one slot is per-instance (${pi.distinct} distinct values in ${pi.total} — e.g. \`${pi.top}\`)`);
         for (const sl of pf.slots) bits.push(`slot usually \`${sl.top}\` (${sl.k}/${sl.total})`);
+        if (pf.held) bits.push(`held since ${pf.held.since}${pf.held.fresh ? ` · ${pf.held.fresh} new in 180d` : ''}`);
         lines.push('  superposition: ' + bits.join(' · ')); }
       const gi2 = (part(model, h.part).groupImplied || {})[h.roleIdx];
       if (gi2) { const bits = [];
@@ -1504,7 +1512,7 @@ export function report(model, { top = 15 } = {}) {
     for (const t of (p.templates || []).slice(0, 6)) { const bits = [];
       for (const pi of t.perInstance) bits.push(`one slot per-instance (${pi.distinct}/${pi.total}, e.g. \`${pi.top}\`)`);
       for (const sl of t.slots) bits.push(`slot usually \`${sl.top}\` (${sl.k}/${sl.total})`);
-      lines.push(`  template (unclustered ${t.kind}s ×${t.n}, ~${Math.round(t.coverage * 100)}% of an average one): ${t.skel}${bits.length ? ' · ' + bits.join(' · ') : ''} — e.g. ${t.exemplars[0].rel}:${t.exemplars[0].line}`); } }
+      lines.push(`  template (unclustered ${t.kind}s ×${t.n}, ~${Math.round(t.coverage * 100)}% of an average one): ${t.skel}${bits.length ? ' · ' + bits.join(' · ') : ''}${t.held ? ` · held since ${t.held.since}${t.held.fresh ? ` · ${t.held.fresh} new in 180d` : ''}` : ''} — e.g. ${t.exemplars[0].rel}:${t.exemplars[0].line}`); } }
   if (model.moduleGraph && model.moduleGraph.nodes.length > 1) {
     const mg = model.moduleGraph;
     lines.push(`== architecture — ${mg.nodes.length} modules · ${mg.edges.length} directed dependencies · ${mg.cycles.length} cycle(s) ==`);
