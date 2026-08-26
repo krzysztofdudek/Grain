@@ -1,4 +1,8 @@
 // grain export — the whole model as one machine-readable dump, for consumers that are not a querying agent:
+// THE SCHEMA IS A PUBLISHED INTERFACE. A separate fine-tuning pipeline consumes this output (conventions with
+// sites, machine checks, and the anchor lines its sample cutter masks for fill-in-the-middle examples). Field
+// renames and semantic changes here are breaking changes for that consumer: make them deliberately, version them
+// (schema: grain-export/1), and never as a side effect of an engine refactor.
 // training-data pipelines (LoRA / fine-tuning on a repository's conventions), dashboards, audits.
 //
 // `where`/`check` answer one question with a cut; `export` answers none and cuts nothing it holds:

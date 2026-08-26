@@ -77,7 +77,7 @@ The questions:
 | `grain spectrum <file>` | the full local-to-global convention lattice around one file, with no acceptance cut — `NORM` rows are accepted conventions, `obs` rows are observations below the gate. |
 | `grain status` / `grain report` | model size, a signal verdict ("a sparse model — expect placement, not shape"), freshness, history, the top conventions with trends, deviant counts and age. |
 | `grain seed add <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/seeds.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `steer (maintainer decision, who when)`, beside how far practice has caught up. `seed list` / `seed rm <id>`; `.grain/decisions.jsonl` is the audit trail. |
-| `grain export --out model.json` | the whole model as data: every convention with its context, evidence, trend, lifecycle, every conforming and deviating site (with the lines where the convention manifests and the nearest conforming exemplar), a machine check per convention, groups, markers, directories, co-change. For training-data pipelines (LoRA on a repository's conventions) and audits. `where`, `check`, `report` and `status` take `--json` too. |
+| `grain export --out model.json` | the whole model as data: every convention with its context, evidence, trend, lifecycle, every conforming and deviating site (with the lines where the convention manifests and the nearest conforming exemplar), a machine check per convention, groups with their templates, markers, directories, co-change and the commit-message affinity. The schema is a published interface with a downstream consumer (a fine-tuning pipeline cuts training samples from the anchor lines): it changes deliberately or not at all. `where`, `check`, `report` and `status` take `--json` too. |
 
 ## The measured architecture
 
@@ -254,7 +254,8 @@ That gives you:
 - the **pre-write and post-edit hooks** described above — placement advice before a file exists, findings after an
   edit, silence otherwise;
 - slash commands for a human at the keyboard: `/grain:where`, `/grain:check`, `/grain:spectrum`, `/grain:status`,
-  `/grain:report`, `/grain:refresh`.
+  `/grain:report`, `/grain:refresh`, `/grain:export`, and `/grain:steer`, which is the slash name for the CLI verb
+  `seed add`: you steer, the record it writes is a seed.
 
 Codex CLI, Cursor and GitHub Copilot CLI are packaged from the same plugin directory (`.agents/plugins/marketplace.json`,
 `.cursor-plugin/marketplace.json`, `.github/plugin/marketplace.json`, and the per-runtime manifests under
