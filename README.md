@@ -38,7 +38,7 @@ $ grain where handler
   - files here import `~/src/core/handler` — 100% of 29
   - types here extend `Command` — 100% of 29 · held since 2024-02, last reinforced 2024-10
   pattern to copy: src/handlers/address.handler.ts:4 `UpdateAddressCommand` · src/handlers/audit.handler.ts:4 `CancelAuditCommand` · …
-as of the fixture's pinned HEAD
+as of 47da000
 ```
 
 A hit is one of four kinds: a **group** of similar code with its conventions, a **marker** (`@decorator`,
@@ -51,14 +51,12 @@ After writing, it asks how the change sits against the local norm — deviations
 pre-existing ones folded into a count:
 
 ```
-$ grain check src/handlers/dispute.handler.ts --all
+$ grain check src/handlers/dispute.handler.ts
 
 check src/handlers/dispute.handler.ts — package src/handlers · 4 scopes + file · governed by 12 convention(s) · 0 deviation(s) in your change, 3 pre-existing
-[grain] package src/handlers convention: types here are annotated with `@Handler`
-    29/29 established types conform. Pre-existing: 1 type not touched by your change (`CreateDisputeHandler` (line 6)) is not annotated with `@Handler`.
-  See: src/handlers/address.handler.ts:7 `UpdateAddressHandler` · src/handlers/audit.handler.ts:7 `CancelAuditHandler` · …
-  (preference gap 5.73 bits)
-as of the fixture's pinned HEAD+dirty
+pre-existing (not in your change, not yours to fix — `--all` to list): handle: methods call `validate` ×1 · package src/handlers: types are annotated with `@Handler` ×1 · …
+conforms to: package src/handlers: types here extend `Command` (100% of 29) · types here are named PascalCase (…) (100% of 58) · handle: methods here call `this.service.apply` (100% of 29) · +5 more
+as of 47da000
 ```
 
 The answers are percentages with denominators and paths you can open. There is no essay, because the answer goes into
@@ -90,11 +88,11 @@ module-level aggregation: which modules exist, who depends on whom, where the cy
 
 ```
 $ grain report
-== architecture — 32 modules · 68 directed dependencies · 2 cycle(s) ==
-  src/cli/ → src/core/ (87) · src/io/ (69) · src/utils/ (37) · …
-  src/core/ → src/utils/ (69) · src/io/ (68) · …
-  cycle: src/cli ↔ src/portal
-  cycle: src/core ↔ src/relations ↔ src/structure
+== architecture — 35 modules · 81 directed dependencies · 2 cycle(s) ==
+  source/cli/src/cli/ → source/cli/src/core/ (87) · source/cli/src/io/ (69) · source/cli/src/utils/ (37) · …
+  source/cli/src/core/ → source/cli/src/utils/ (69) · source/cli/src/io/ (68) · …
+  cycle: source/cli/src/cli ↔ source/cli/src/portal
+  cycle: source/cli/src/core ↔ source/cli/src/relations ↔ source/cli/src/structure
 ```
 
 `check` enforces it at edit time: an import creating the FIRST edge between two modules, closing a cycle, or crossing
@@ -157,28 +155,26 @@ A repository is a majority vote, and sometimes the maintainers want to move it. 
 decision outrank the numbers, and it labels it as exactly that:
 
 ```
-$ grain seed add src/handlers/dispute.handler.ts#handle --surfaces auto.call:validate --note "validate() moves into the framework — ADR-7"
-recorded seed 2606adc3 in .grain/seeds.jsonl — methods here never call `validate` (weight 8, capped at half the real population of each cell) …
-
-# naming what a decision replaces makes it enforceable for new code:
-$ grain seed add tests/test_basic.py#do_get --surfaces auto.deco:@app.get --instead-of auto.deco:@app.route --note "New test routes use app.get — team decision"
-$ grain check tests/test_basic.py       # a new test written with @app.route
-… · 1 maintainer decision(s) your change departs from
-[grain] maintainer decision (maintainer 2026-08-23): methods here are annotated with `@app.get`, not `@app.route` — adopted by 11 of 235 (app.route 224) in tests/ today. Your method `ping` (line 1977) still carries `@app.route`.
-  Copy: tests/test_basic.py:244 `do_get`
-  (91 more existing scopes still on the retired pattern — a transition in progress, not yours to fix)
+$ grain seed add src/handlers/dispute.handler.ts#handle --surfaces auto.call:validate --note "validate() moves into the framework — ADR-7" --author kd
+recorded seed 95a3c9fc in .grain/seeds.jsonl — methods here never call `validate` (weight 8, capped at half the real population of each cell). Commit .grain/seeds.jsonl and .grain/decisions.jsonl; the next query re-mines with it.
 
 $ grain where handler validation
-«handler validation» → group handle — 30 members (repo-wide, match 100%)
-  steer (maintainer decision, kd 2026-08-23): methods here never call `validate` — practiced by 3% of 30 in group «handle» today · validate() moves into the framework — ADR-7 · copy src/handlers/dispute.handler.ts:9 `handle`
+«handler validation» → group handle — 30 members …
+  steer (maintainer decision, kd 2026-08-26): methods here never call `validate` — practiced by 3% of 30 in group «handle» today · validate() moves into the framework — ADR-7 · copy src/handlers/dispute.handler.ts:9 `handle`
   …
 
-$ grain check src/handlers/new.handler.ts          # written the old way
+$ grain check src/handlers/new.handler.ts          # a NEW file written the old way
 … · 1 maintainer decision(s) your change departs from
-[grain] maintainer decision (kd 2026-08-23): methods here never call `validate` — practiced by 3% of 30 in group «handle» today. Your method `handle` (line 10) calls `validate`.
+[grain] maintainer decision (kd 2026-08-26): methods here never call `validate` — practiced by 3% of 30 in group «handle» today. Your method `handle` (line 10) calls `validate`.
   validate() moves into the framework — ADR-7
   Copy: src/handlers/dispute.handler.ts:9 `handle`
+as of 47da000+dirty
 ```
+
+Naming what a decision replaces (`--instead-of auto.deco:@app.route`) makes the retirement enforceable for new code:
+`check` then flags a scope still written the old way against the decision, prints the live adoption count
+(`adopted by 11 of 235 (app.route 224)`), and folds the pre-existing carriers into one calm
+`transition in progress, not yours to fix` line — existing code is never blamed for a decision that postdates it.
 
 The seed is a pseudo-count on one exemplar's property, capped at half the real population of each cell, excluded from
 every `n of N` it prints, and carried along to the correlated surfaces of the same pattern. A retirement reaches every
@@ -232,7 +228,9 @@ Swift ships no prebuilt parser.
 
 A query parses one file and exits, so the binary re-runs itself under V8's baseline WASM compiler: `check` on a Kotlin
 file takes 80 MB instead of the 600 MB the optimising compiler would spend on a 3 MB grammar it will use once. An
-explicit `grain refresh` keeps the optimiser (a cold index of a 6 000-commit repository: ~12 s, ~400 MB).
+explicit `grain refresh` keeps the optimiser. Measured across a 12-repository corpus (express, flask, nest, axum, gin,
+okhttp, typeorm, …): warm queries 83–312 ms; cold full-history builds from 4 s (a 900-commit repo) to ~2.9 min at the
+extreme (okhttp, typeorm — 6 000+ commits, up to ~1.5 GB RSS during the explicit build).
 
 ## Install
 
@@ -298,6 +296,11 @@ Grain's own claims are held to grain's standard. What has actually been measured
   worker moved four files citing grain by name (the first demonstrated effect on a diff), and the two defects that
   kept the move off-target (post-write timing, sequential competing notes) are fixed in this build. A feature that
   only extends existing modules draws no placement note — that boundary is structural and stated.
+- **The mutation harness** over the same 12-repo corpus plants a violation of a mined convention in a real file and
+  asks `check` to catch it: **73 of 76 detected, 0 false fires**. The 3 misses are the loss constant made visible,
+  not defects: all three cells sit at 7.0–7.8 : 1 odds, below the 8 : 1 that λ demands before grain accuses an
+  instance. 25 of 25 hostile repositories (empty, shallow, no-git, symlinks, non-UTF-8, mass renames, races)
+  degrade without a crash and with an honest stamp.
 - **Performance** (a private repo, 1 117 files, full history): cold build 18 s / 1.0 GB RSS; forced warm rebuild 6.3 s;
   `check`/`where` 0.12 s on a warm index; the hook adds ~0.12 s to an edit. 916 tests, CI on node 22 and 24.
 
