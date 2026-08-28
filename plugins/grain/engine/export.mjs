@@ -84,10 +84,11 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
       evidence: '`established` = survived-raw evidence (scopes that lived >= freshDays of history; what every printed `n of N` uses) · `counts` = survival/provenance-WEIGHTED accumulators (non-integers; what the MDL gate saw) · `sites.conforming/deviating` = a plain enumeration of HEAD, no weighting. The three legitimately differ; cut samples from the sites, weight them by the evidence.',
       focus: 'the line(s) inside a site where the convention manifests. For `negated`/absence conventions there is no positive occurrence: focus is the declaration line by construction.',
       applicableNodeTypes: 'null = the enumerator is not domain-restricted (any scope of the kind is decidable); an array = only these node types can carry the surface.',
-      calibration: 'available only when the history holds >= calibMinEv value-transition events inside the horizon — rare on ordinary repos; trend/lifecycle do not depend on it.' },
+      calibration: 'available only when the history holds >= calibMinEv value-transition events inside the horizon — rare on ordinary repos; trend/lifecycle do not depend on it.',
+      archNorms: 'established layering per (source module, target module) pair, decided by the identical KT/lambda test every other convention uses (§mathematics, "Placement"): `exp` is the established majority ("true" = the module reaches the target, "false" = it does not), `ne`/`neff` its evidence and population, `share` = ne/neff. A pair absent here cleared no acceptance floor — no claim, not "false".' },
     indexedAt: meta?.builtAt || null, history: model.historyStats ? { ...model.historyStats, mode: meta?.historyMode || null, agentShare: model.agentShare } : null,
     summary: { files: model.files, partitions: model.partitions.length, groups: 0, conventions: 0, scopes: 0, deviations: 0, calibrationAvailable: 0, trendAvailable: 0 },
-    steers: (model.steers || []).map(st => ({ ...st })), boundaries: model.boundaries || [], edges: model.edges || [], edgesTruncated: model.edgesTruncated || 0, moduleGraph: model.moduleGraph || { nodes: [], edges: [], cycles: [] }, partitions: [], conventions: [], cochange: [] };
+    steers: (model.steers || []).map(st => ({ ...st })), boundaries: model.boundaries || [], edges: model.edges || [], edgesTruncated: model.edgesTruncated || 0, moduleGraph: model.moduleGraph || { nodes: [], edges: [], cycles: [] }, archNorms: model.archNorms || [], partitions: [], conventions: [], cochange: [] };
   const lcOf = key => H ? H.lc.get(key) || null : null;
   for (const part of model.partitions) {
     const fileSet = new Set(part.files || []);

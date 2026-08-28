@@ -1,7 +1,7 @@
 {
   "name": "grain",
-  "version": "0.1.0",
-  "description": "Ask a repository about its own conventions before writing code: where <intent> (where such things live, what is expected there, exemplars to copy), check <file> (how a file sits against the local norm), spectrum <file>, status/report, export (the whole model as JSON for training pipelines), seed (a committed maintainer decision that steers a pattern). Statistical answers mined from the repo's syntax trees and full git history; no model calls, no network, never blocks.",
+  "version": "0.2.0",
+  "description": "Ask a repository about its own conventions before writing code: where <intent> (where such things live, what is expected there, exemplars to copy), check <file> (how a file sits against the local norm), review (the same, for your whole change at once), completeness <file> (what historically co-changes with it), spectrum <file>, status/report/rules, export (the whole model as JSON for training pipelines), seed (a committed maintainer decision that steers a pattern) — plus an MCP server exposing the same read-only answers to any tool. Statistical answers mined from the repo's syntax trees and full git history; no model calls, no network, never blocks.",
   "author": {
     "name": "Krzysztof Dudek",
     "url": "https://github.com/krzysztofdudek"

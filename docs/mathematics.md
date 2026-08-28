@@ -103,5 +103,8 @@ What remains that mathematics does not decide, on the record:
 - λ = 8 itself, one interpretable constant in place of six tuned ones;
 - statistical power floors kept as compute short circuits (a partition below 30 scopes says nothing; below the raw
   minimum, positive bits are unreachable anyway) and the clustering ambiguity constants;
+- the co-change thresholds `cochangeMinSup` (a pair must co-occur in at least 8 commits before it is named at all)
+  and `cochangeMinConf` (a partner is spoken only once it covers 75% of the edited file's own commits) — configured
+  floors in the same family as the statistical power floors above, not a conclusion the KT/λ test derives;
 - the boundary between form and meaning: grain measures the shape of code, not its semantics; two behaviourally
   identical implementations with different trees are different to it, and it never pretends otherwise.

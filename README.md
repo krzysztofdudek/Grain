@@ -49,9 +49,12 @@ That gives you:
 - a **session-start hook**: what grain answers here, and the live state of this repository's index;
 - the **pre-write and post-edit hooks**: placement advice before a file exists, findings after an edit, silence
   otherwise;
-- slash commands for a human at the keyboard: `/grain:where`, `/grain:check`, `/grain:spectrum`, `/grain:status`,
-  `/grain:report`, `/grain:refresh`, `/grain:export`, and `/grain:steer`, which is the slash name for the CLI verb
-  `seed add`.
+- slash commands for a human at the keyboard: `/grain:where`, `/grain:check`, `/grain:review`, `/grain:completeness`,
+  `/grain:spectrum`, `/grain:status`, `/grain:report`, `/grain:rules`, `/grain:refresh`, `/grain:export`, and
+  `/grain:steer`, which is the slash name for the CLI verb `seed add`;
+- an **MCP server** (started automatically via `.mcp.json`), for any MCP-speaking tool, not only Claude Code:
+  `where`/`check`/`status`/`report` as JSON-RPC tools over stdio — see
+  [docs/reference.md](docs/reference.md#mcp-server).
 
 Update with `claude plugin update grain@grain` and restart the session to apply. Codex CLI, Cursor and GitHub Copilot
 CLI are packaged from the same plugin directory but have not been smoke-tested against a live install; treat those
@@ -129,8 +132,11 @@ The full cards, the `check` view and everything the hooks say unbidden are furth
 |---|---|
 | `grain where <intent words>` | where such things live (%), what is expected there (conventions with conformance %), the exemplar to copy, what historically co-changes with that place. No lexical hit → a compact map of the source groups, markers and directories, for the asking model to match itself. |
 | `grain check <file>` | how the file — its uncommitted version, marked `+dirty` — sits against the local norm: the conventions that govern it (group, directory, then package-wide; the most specific one wins), every deviation in your change with evidence and exemplars, pre-existing ones folded. |
+| `grain review` | the same check, aggregated over your WHOLE change at once — every uncommitted and untracked file by default, `--staged` or `--range <a>..<b>` to narrow it — one section per file that has a finding, highest-stakes first, plus the co-change partner your whole change is missing. A file with nothing to say is not listed; a fully clean change says so explicitly. |
+| `grain completeness <file…>` | the other files this repo's own commits show reliably changing together with the ones given (`co-changed in N/M commits`, above a real confidence floor). The exact line the post-edit hook also appends, unprompted, whenever an edit has one. |
 | `grain spectrum <file>` | the full local-to-global convention lattice around one file, with no acceptance cut — `NORM` rows are accepted conventions, `obs` rows are observations below the gate. |
 | `grain status` / `grain report` | model size, a signal verdict ("a sparse model — expect placement, not shape"), freshness, history, the top conventions with trends, deviant counts and age. |
+| `grain rules [--out <file>]` | the same top conventions `report` prints, generated as a standalone Markdown document with its own staleness header naming the commit it was computed from — for a maintainer or a coding tool with no terminal and no grain plugin installed. No `--out` prints it to stdout, so `grain rules > CONVENTIONS.md` already works. |
 | `grain seed add <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/seeds.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `steer (maintainer decision, who when)`, beside how far practice has caught up. `seed list` / `seed rm <id>`; `.grain/decisions.jsonl` is the audit trail. |
 | `grain export --out model.json` | the whole model as data: every convention with its context, evidence, trend, lifecycle, every conforming and deviating site (with the lines where the convention manifests and the nearest conforming exemplar), a machine check per convention, groups with their templates, markers, directories, co-change and the commit-message affinity. The schema is a published interface with a downstream consumer (a fine-tuning pipeline cuts training samples from the anchor lines): it changes deliberately or not at all. `where`, `check`, `report` and `status` take `--json` too. |
 
@@ -276,9 +282,11 @@ Deliberate is fine — if you guessed, look there first.
 count first, with the weaker rivals named beside their counts.)
 
 — and **PostToolUse on Edit, Write and MultiEdit**: the edited file is re-checked against the index and grain speaks ONLY when it
-has findings on the touched lines (deviations, maintainer decisions, architecture crossings, capped at 8; identical
-findings repeat at most once per 15 minutes). A clean edit, a foreign repo, a missing index: silence, exit 0, never a
-build step, never a block.
+has findings on the touched lines (deviations, maintainer decisions, architecture crossings), plus — on its own line,
+capped to 3 partners — the other files this repo's history shows reliably co-changing with the one you just touched;
+this line fires even on a clean edit with no other findings. Capped at 8 lines total; identical findings repeat at
+most once per 15 minutes. A clean edit with no history at all, a foreign repo, a missing index: silence, exit 0,
+never a build step, never a block.
 
 ## Decided, beside practiced
 
@@ -361,7 +369,12 @@ A query parses one file and exits, so the binary re-runs itself under V8's basel
 file takes 80 MB instead of the 600 MB the optimising compiler would spend on a 3 MB grammar it will use once. An
 explicit `grain refresh` keeps the optimiser. Measured across a 12-repository corpus (express, flask, nest, axum, gin,
 okhttp, typeorm, …): warm queries 83–312 ms; cold full-history builds from 4 s (a 900-commit repo) to ~2.9 min at the
-extreme (okhttp, typeorm — 6 000+ commits, up to ~1.5 GB RSS during the explicit build).
+extreme (okhttp, typeorm — 6 000+ commits, up to ~1.5 GB RSS during the explicit build). That range is this corpus's
+own, not a hard ceiling: an external field report on a production codebase measured a cold first build at 460.6 s
+(277.6 s walking history, 180.3 s mining) on 2 314 commits and 2 064 files, 91 MB on disk — past this corpus's own
+2.9 min extreme, on a repository with fewer commits than either outlier (typeorm's 6 052, okhttp's 6 444). Commit
+count alone does not predict the cost, on this corpus or that report's; the full case for why, and the boundary this
+sets, is in [docs/validation.md](docs/validation.md)'s Known boundaries.
 
 ## What it is not
 
@@ -381,11 +394,12 @@ the store, environment switches, cache version keys and the export schema contra
 
 ## Status
 
-0.1.0. The number describes the age of the interfaces, not the weight of the evidence above: this is the first
-published version, the export schema is already treated as a stable contract, and nothing has yet earned the right to
-break compatibility. The engine is the validated prototype vendored into this repository, made self-contained and
-incremental, then rebuilt on the single-objective mathematics above, with every rebuild measured on the corpus before
-it was kept.
+0.2.0. The number describes the age of the interfaces, not the weight of the evidence above: the export schema
+established at 0.1.0 is unbroken — every new convention family added since (constructor shape, marker alternatives,
+file-birth pattern, author concentration, established layering) flows through the same generic per-fact serialization,
+never a hand-listed schema addition — and nothing has yet earned the right to break compatibility. The engine is the
+validated prototype vendored into this repository, made self-contained and incremental, then rebuilt on the
+single-objective mathematics above, with every rebuild measured on the corpus before it was kept.
 
 ## Developing
 

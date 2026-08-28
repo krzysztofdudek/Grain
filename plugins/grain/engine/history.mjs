@@ -122,7 +122,7 @@ function replay(state, events, commits, cache) {
     for (const s of scopes) curM[s.k + '#' + s.n + (s.o ? '#' + s.o : '')] = s;
     const prev = state.prevState[e.path] || Object.create(null);
     for (const k of Object.keys(curM)) { const s = curM[k]; const key = e.path + '#' + k; let L = state.lc[key];
-      if (!L) { L = { path: e.path, first: e.c.ts, last: e.c.ts, mods: 0, churn: false, fix: 0, agentLast: e.c.agent }; state.lc[key] = L;
+      if (!L) { L = { path: e.path, first: e.c.ts, last: e.c.ts, mods: 0, churn: false, fix: 0, agentLast: e.c.agent, newFile: e.st === 'A' }; state.lc[key] = L;
         if (state.firstTs == null || e.c.ts < state.firstTs) state.firstTs = e.c.ts;
         (state.vev[key] ||= []).push({ ts: e.c.ts, author: e.c.author, agent: e.c.agent, val: s.val }); }
       const pv = prev[k];

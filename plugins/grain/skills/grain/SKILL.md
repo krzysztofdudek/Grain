@@ -31,6 +31,7 @@ commit the model was computed from); `+dirty` means the file you asked about was
 | about to create a source file, or unsure where something belongs | `where <intent>` — **once**, with the repo's own words |
 | about to trust your prior about a familiar framework or template | `where <the marker you expect>` — grain's job is to tell you how *this* copy differs from the one you remember |
 | you wrote or edited a file | usually nothing: grain checked it already (see the hooks below) — run `check <file>` yourself only for `--all`, `--json`, or when you need the full picture including pre-existing deviations |
+| you consider a unit of work done, before saying so | `review` — one aggregated pass over every file touched since the last commit, not just the last one you edited |
 
 Not a trigger: reading, investigating, answering questions, touching config or docs.
 
@@ -41,8 +42,11 @@ name-kin already live — a `[grain] placement:` note names the kin directory wi
 theirs ("the leading count is the one to argue with"). It arrives while changing the directory is still free: weigh
 it before writing, and if you place deliberately elsewhere, say so in one line. **After every edit**, the file is
 re-checked and grain injects `[grain]` findings ONLY when it has something on the lines you touched — deviations,
-maintainer decisions, architecture crossings. **Silence after an edit is not approval** — it means nothing
-certified was violated; it is not a review. Never re-run `check` just to confirm a silent edit.
+maintainer decisions, architecture crossings — plus, on its own line and capped to 3 partners, the other files this
+repo's own history shows reliably changing together with the one you just touched (`edits like this also touch:
+…`). That co-change line can fire even when nothing else does — it is the one finding not tied to a violation.
+**Silence after an edit is not approval** — it means nothing certified was violated and no co-change partner
+cleared the confidence floor; it is not a review. Never re-run `check` just to confirm a silent edit.
 
 ## How to phrase `where`
 
@@ -60,8 +64,9 @@ or third.
   your query — verify before building on it.
 - A **`superposition:`** line on a group card is the members laid on top of each other: the skeleton they share, the
   slot each fills differently (`one slot is per-instance — e.g. \`AdminController\``), the skewed ones (`Get` 6/9),
-  and the fleet's age (`held since … · N new in 180d`). `a new member comes with:` names what to create alongside
-  (a same-stem companion, the registering file).
+  and the fleet's age (`held since … · N new in 180d`). `a new member comes with:` is the recipe for a new
+  instance — whether it usually starts as its own new file or gets added to an existing one, a same-stem
+  companion, the registering file — whichever of these clear their own acceptance floor for this population.
 - A **`history bridge:`** line means your word never appears in the code, but commits that say it touched the listed
   files — cited with an example subject and sha. Follow the files, not the word.
 - **Retrieval miss ≠ freedom.** If every hit lands somewhere unrelated to what you are writing (all in `tests/`
@@ -90,6 +95,11 @@ or third.
 
 ## The other commands
 
+- `completeness <file…>` — the post-edit hook already runs this automatically after a matching edit; call it
+  yourself to ask about a file BEFORE editing it, or to check several files against each other at once. Names the
+  other files this repo's own commit history shows reliably co-changing with the ones given, each with
+  `co-changed in N/M commits`; `(complete — …)` means no partner cleared the confidence floor, not that history is
+  empty or the edit is done.
 - `spectrum <file>` — only when the explicit question is "what is local versus global around this file": the full
   lattice with no acceptance cut (`NORM` = accepted, `obs` = below the gate). Large; not for a small edit.
 - `status` / `report [--top N]` — model size, freshness, a signal verdict ("sparse model — expect placement, not
@@ -98,6 +108,9 @@ or third.
   creates the FIRST edge between two modules, closes a dependency cycle, or crosses a committed boundary decision
   (`grain seed add-boundary <from> --never-imports <to>`) is said with the established alternative path. Treat a
   `[grain] architecture:` line as a design question to raise, not a lint error to silence.
+- `rules [--out <file>]` — generates a standalone Markdown document of the established conventions (the same data
+  `report` renders), stamped with the commit it was computed from. For a maintainer or a coding tool with no
+  terminal and no grain plugin, not something to run mid-task — prefer `where`/`check`/`report` for a live question.
 - `refresh [--full]` — rebuild now (queries already auto-refresh).
 - `check <file> --json` / `where --json` / `report --json` / `status --json` / `export --out <file>` — the same answers
   as data (for harnesses and training pipelines, not for a conversation).

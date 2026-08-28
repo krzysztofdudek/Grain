@@ -2,22 +2,24 @@
 //
 //   grain where <intent words>      intent → where such things live, what is expected there, exemplars, co-change
 //   grain check <file>              how this file (its WORKTREE version) sits against the local norm field
+//   grain review                    one aggregated report over every file in your whole uncommitted change
 //   grain spectrum <file>           the full local→global convention lattice for one file, no acceptance cut
 //   grain status | grain report     model overview, freshness, trends, health
 //   grain refresh [--full]          rebuild the index now (auto-refresh already runs before every query)
 //
 // Every answer ends with `as of <sha>[+dirty]`. The index lives in <repo>/.grain/cache/ (gitignored, disposable).
-// Uncommitted changes never feed the norm — only `check`/`spectrum` read the worktree version of the one file asked about.
+// Uncommitted changes never feed the norm — only `check`/`review`/`spectrum` read the worktree version of the file(s) asked about.
 import { existsSync, mkdirSync, readFileSync, renameSync, statSync, writeFileSync, readdirSync, appendFileSync, realpathSync } from 'node:fs';
 import { join, relative, resolve, isAbsolute, dirname, extname, basename, dirname as pdirname } from 'node:path';
+import { dirname as posixDirname } from 'node:path/posix'; // matches placementHit's own dirname(rel) in core.mjs — `rel` is toPosix'd, so this is the correct dirname, not node:path's platform-dependent one
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, EXCL, EXT2GRAMMAR } from './config.mjs';
-import { learn, checkFile, spectrum, whereCmd, report, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel, placementHit } from './core.mjs';
+import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, EXCL, EXT2GRAMMAR, HARD_EXCL } from './config.mjs';
+import { learn, checkFile, spectrum, whereCmd, report, rulesMarkdown, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel, placementHit, sufOf, nameTokens } from './core.mjs';
 import { loadHistory, headSha, headTree, gitOk } from './history.mjs';
 import { exportModel } from './export.mjs';
 import { createHash } from 'node:crypto';
-import { hydrateScope, applyVocab, partitionFor, verbalize as verb2 } from './core.mjs';
+import { hydrateScope, applyVocab, partitionFor, verbalize as verb2, baselineShare } from './core.mjs';
 
 const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const BIN = join(PLUGIN_ROOT, 'bin', 'grain.mjs');
@@ -27,12 +29,12 @@ export function parseArgv(argv) {
   const opts = {}; const args = [];
   for (let i = 0; i < argv.length; i++) { const a = argv[i];
     if (a === '--') { args.push(...argv.slice(i + 1)); break; }
-    if (a.startsWith('--')) { const [k, ...v] = a.slice(2).split('='); if (v.length) opts[k] = v.join('='); else if (['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'never-imports', 'weight', 'topic', 'note', 'author'].includes(k) && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--')) opts[k] = argv[++i]; else opts[k] = true; }
+    if (a.startsWith('--')) { const [k, ...v] = a.slice(2).split('='); if (v.length) opts[k] = v.join('='); else if (['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'never-imports', 'weight', 'topic', 'note', 'author', 'range'].includes(k) && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--')) opts[k] = argv[++i]; else opts[k] = true; }
     else args.push(a); }
   return { cmd: args[0], args: args.slice(1), opts }; }
 
 // ----- repo + store -----
-function findRoot(opts) {
+export function findRoot(opts) {
   const start = resolve(opts.repo || process.cwd());
   try { return { root: execFileSync('git', ['-C', start, 'rev-parse', '--show-toplevel'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(), git: true }; }
   catch { return { root: start, git: false }; } }
@@ -40,7 +42,7 @@ function findRoot(opts) {
 //   .grain/cache/   rebuildable, gitignored — model.json, meta.json, history.json, blobs/   (safe to wipe: `rm -rf .grain/cache`)
 //   .grain/         committed inputs — reserved for maintainer seeds (seeds.jsonl) and their audit trail (decisions.jsonl)
 // .grain/.gitignore ignores `cache/`, so nothing generated can be committed even when the user never touches the root .gitignore.
-function storeFor(root) { const base = join(root, '.grain'); const dir = join(base, 'cache');
+export function storeFor(root) { const base = join(root, '.grain'); const dir = join(base, 'cache');
   return { base, dir, modelPath: join(dir, 'model.json'), metaPath: join(dir, 'meta.json'), historyPath: join(dir, 'history.json'), blobsDir: join(dir, 'blobs'), scopesPath: join(dir, 'scopes.json'), treePath: join(dir, 'tree.json'), seedsPath: join(base, 'seeds.jsonl') }; }
 function ensureStore(root, store) {
   mkdirSync(store.dir, { recursive: true });
@@ -54,7 +56,7 @@ function treeSig(root) { let h = 2166136261; const mix = s => { for (let i = 0; 
   for (const rel of [...walkFiles(root, root)].sort()) { try { const st = statSync(join(root, rel)); mix(rel + ':' + st.size + ':' + st.mtimeMs); } catch {} }
   return (h >>> 0).toString(16); }
 
-const short = sha => sha ? sha.slice(0, 7) : 'no-git';
+export const short = sha => sha ? sha.slice(0, 7) : 'no-git';
 const log = (...a) => console.error('[grain]', ...a);
 
 /**
@@ -63,7 +65,7 @@ const log = (...a) => console.error('[grain]', ...a);
  *   divergent history → full rebuild on the warm blob cache (or, with --no-refresh, answer with a STALE banner);
  *   no index → build. Worktree edits never trigger a rebuild (the norm is the accepted past — by design).
  */
-async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }) {
+export async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }) {
   const head = isGit ? headSha(root) : null;
   const meta = readJson(store.metaPath); const model = existsSync(store.modelPath) ? readJson(store.modelPath) : null;
   const versionOk = meta && meta.engine === ENGINE_VERSION && meta.extractor === EXTR_V && (meta.model || '') === MODEL_V && meta.grammars === grammarStamp();
@@ -111,7 +113,7 @@ function relPath(root, p) { const abs = isAbsolute(p) ? p : (existsSync(resolve(
   if (rel.startsWith('..')) throw new Error(`${p} is outside the repository ${root}`); return rel; }
 
 // ----- commands -----
-async function cmdWhere({ model, root, args, opts, stamp }) {
+export async function cmdWhere({ model, root, args, opts, stamp }) {
   if (!args.length) throw new Error('usage: grain where <intent words>');
   const { lines } = whereCmd({ model, query: args.join(' '), top: +opts.top || 3, mapRows: +opts['map-rows'] || 60, exemplarOk: existsMemo(root) });
   const sig = signal(model); if (/empty|sparse|no source/.test(sig.verdict)) lines.push(`model note: ${sig.facts} conventions over ${sig.files} source files — ${sig.verdict}`);
@@ -121,11 +123,45 @@ async function cmdWhere({ model, root, args, opts, stamp }) {
       conventions: h.facts.slice(0, 6).map(f => ({ id: h.part + '::' + f.cid + '::' + f.pid, statement: verbalize(f, f.exemplars.map(e => e.name)), share: f.share, established: f.sraw, exemplars: f.exemplars, deviants: f.deviants || [], trend: f.trend ? f.trend.shares.map(x => x.share) : null, held: f.held || null })) })),
       signal: sig, asOf: stamp().replace(/^as of /, '') })]; }
   return [...lines, stamp()]; }
-async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
+// per-scope conformance tally from a checkFile() result — shared by `check` (its own "conforms to:" line) and
+// `review`'s --json (the same `governed` shape, per file)
+function govFactsOf(r) { const m = new Map();
+  for (const g of r.governed) { const k = g.fact.cid + '|' + g.pid; const e = m.get(k) || { g, n: 0, ok: 0 }; e.n++; if (g.conforms) e.ok++; m.set(k, e); }
+  return m; }
+// the core "turn one checkFile() result into THIS file's own finding lines" step — shared by `check` (one file, full
+// detail: this feeds its in-change/pre-existing split, everything else in cmdCheck is check-only presentation) and
+// `review` (many files: only these four categories count as a finding — placement, maintainer decisions departed
+// from, architecture hits, and deviations inside the lines this file itself changed; pre-existing deviations outside
+// the change are deliberately excluded here too, same "not yours to fix" discipline as single-file `check`)
+function fileFindings({ root, rel, isGit, dirty, r, wholeFile = false }) {
+  const ranges = wholeFile ? [[1, Infinity]] : (dirty ? changedRanges(root, rel, isGit) : []);
+  const touched = ranges === null ? null : ((from, to) => ranges.some(([a, b]) => to >= a && from - 3 <= b)); // a scope is "in your change" when any changed line falls inside it or in the three lines above it (its decorator stack)
+  const grouped = groupDeviations(r.msgs, touched);
+  const inChange = grouped.filter(g => g.touched), preOnly = grouped.filter(g => !g.touched);
+  const steerIn = (r.steerHits || []).filter(h => !touched || touched(h.line, h.endLine)), steerPre = (r.steerHits || []).filter(h => touched && !touched(h.line, h.endLine));
+  const archIn = (r.archHits || []).filter(h => !touched || touched(h.line, h.line)), archPre = (r.archHits || []).filter(h => touched && !touched(h.line, h.line));
+  const lines = [...steerIn.map(h => h.text), ...(r.placeHit ? [r.placeHit.text] : []), ...archIn.map(h => h.text), ...inChange.map(g => g.text + `\n  (preference gap ${g.delta} bits)`)];
+  return { touched, grouped, inChange, preOnly, steerIn, steerPre, archIn, archPre, lines }; }
+// the machine-readable per-file verdict — the exact shape `check --json` has always returned, reused as-is for one
+// file inside `review --json` so the two never drift into two schemas for the same facts
+function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp }) {
+  const scopesN = r.scopes.filter(s => s.kind !== 'file').length;
+  const { touched, inChange, preOnly } = f;
+  const dev = g => ({ convention: r.partition + '::' + g.factKey.split('|')[0] + '::' + g.pid, label: g.label, pid: g.pid, expected: g.exp, observed: g.obs, gapBits: g.delta,
+    statement: g.text.split('\n')[0].replace(/^\[grain\] /, ''), hits: g.hits.map(h => ({ scope: h.scope, kind: h.kind, line: h.line, inChange: h.touched })) });
+  return { file: rel, partition: r.partition, label: r.partition ? scopeLabel(r.partition) : null, scopes: scopesN, dirty,
+    governed: [...govFacts.values()].map(e => ({ convention: r.partition + '::' + e.g.fact.cid + '::' + e.g.pid, label: e.g.label, statement: verbalize(e.g.fact, e.g.fact.exemplars.map(x => x.name)), established: e.g.fact.sraw, share: e.g.fact.share, scopes: e.n, conforming: e.ok })),
+    deviationsInChange: inChange.map(dev), deviationsPreExisting: preOnly.map(dev),
+    steers: (r.steerHits || []).map(h => ({ seed: h.id, pid: h.pid, expected: h.exp, observed: h.obs, scope: h.scope, kind: h.kind, line: h.line, inChange: !touched || touched(h.line, h.endLine) })),
+    architecture: (r.archHits || []).map(h => ({ kind: h.kind, to: h.to, line: h.line, seed: h.id || null, inChange: !touched || touched(h.line, h.line) })),
+    placement: r.placeHit ? { token: r.placeHit.token, dir: r.placeHit.dir, statement: r.placeHit.text.replace(/^\[grain\] /, '') } : null,
+    asOf: stamp(dirty).replace(/^as of /, '') }; }
+export async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
   if (!args[0]) throw new Error('usage: grain check <file> [--as <repo-relative path>]');
   const rel = relPath(root, args[0]); const content = opts.content ? readFileSync(opts.content, 'utf8') : undefined;
   if (!content && !existsSync(join(root, rel))) throw new Error(`no such file: ${rel}`);
-  if (!EXT2GRAMMAR[extname(rel)]) return [`check ${rel}: no grammar for "${extname(rel) || 'a file without extension'}" — grain parses ${GRAMMARS.join(', ')}`, stamp(fileDirty(root, rel, isGit))];
+  if (!EXT2GRAMMAR[extname(rel)]) { const ph = placementHit(model, rel);
+    return [`check ${rel}: no grammar for "${extname(rel) || 'a file without extension'}" — grain parses ${GRAMMARS.join(', ')}`, ...(ph ? [ph.text] : []), stamp(fileDirty(root, rel, isGit))]; }
   const r = await checkFile({ model, root, rel, content, asPath: opts.as, exemplarOk: existsMemo(root) });
   const dirty = content ? true : fileDirty(root, rel, isGit);
   const lines = [];
@@ -133,29 +169,24 @@ async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
     return [`check ${rel}: ${r.reason} — grain has no norm to hold this file against`, ...(r.placeHit ? [r.placeHit.text] : []), ...arch, stamp(dirty)]; }
   const scopesN = r.scopes.filter(s => s.kind !== 'file').length;
   if (!r.scopes.length) return [`check ${rel}: no scopes extracted (unsupported language or parse failure)`, stamp(dirty)];
-  const govFacts = new Map(); for (const g of r.governed) { const k = g.fact.cid + '|' + g.pid; const e = govFacts.get(k) || { g, n: 0, ok: 0 }; e.n++; if (g.conforms) e.ok++; govFacts.set(k, e); }
-  const ranges = content ? [[1, Infinity]] : (dirty ? changedRanges(root, rel, isGit) : []);
-  const touched = ranges === null ? null : ((from, to) => ranges.some(([a, b]) => to >= a && from - 3 <= b)); // a scope is "in your change" when any changed line falls inside it or in the three lines above it (its decorator stack)
-  const grouped = groupDeviations(r.msgs, touched);
-  const inChange = grouped.filter(g => g.touched), preOnly = grouped.filter(g => !g.touched);
-  if (opts.json) { // machine-readable verdict: the same facts `check` prints, as data (consumers: harnesses, training pipelines)
-    const dev = g => ({ convention: r.partition + '::' + g.factKey.split('|')[0] + '::' + g.pid, label: g.label, pid: g.pid, expected: g.exp, observed: g.obs, gapBits: g.delta,
-      statement: g.text.split('\n')[0].replace(/^\[grain\] /, ''), hits: g.hits.map(h => ({ scope: h.scope, kind: h.kind, line: h.line, inChange: h.touched })) });
-    return [JSON.stringify({ file: rel, partition: r.partition, label: scopeLabel(r.partition), scopes: scopesN, dirty, governed: [...govFacts.values()].map(e => ({ convention: r.partition + '::' + e.g.fact.cid + '::' + e.g.pid, label: e.g.label, statement: verbalize(e.g.fact, e.g.fact.exemplars.map(x => x.name)), established: e.g.fact.sraw, share: e.g.fact.share, scopes: e.n, conforming: e.ok })),
-      deviationsInChange: inChange.map(dev), deviationsPreExisting: preOnly.map(dev), steers: (r.steerHits || []).map(h => ({ seed: h.id, pid: h.pid, expected: h.exp, observed: h.obs, scope: h.scope, kind: h.kind, line: h.line, inChange: !touched || touched(h.line, h.endLine) })), architecture: (r.archHits || []).map(h => ({ kind: h.kind, to: h.to, line: h.line, seed: h.id || null, inChange: !touched || touched(h.line, h.line) })), placement: r.placeHit ? { token: r.placeHit.token, dir: r.placeHit.dir, statement: r.placeHit.text.replace(/^\[grain\] /, '') } : null, asOf: stamp(dirty).replace(/^as of /, '') })]; }
-  const steerIn = (r.steerHits || []).filter(h => !touched || touched(h.line, h.endLine)), steerPre = (r.steerHits || []).filter(h => touched && !touched(h.line, h.endLine));
+  const govFacts = govFactsOf(r);
+  const { touched, inChange, preOnly, steerIn, steerPre, archIn, archPre } = fileFindings({ root, rel, isGit, dirty, r, wholeFile: !!content });
+  if (opts.json) return [JSON.stringify(fileVerdictJson({ rel, r, dirty, f: { touched, inChange, preOnly }, govFacts, stamp }))]; // machine-readable verdict: the same facts `check` prints, as data (consumers: harnesses, training pipelines)
   lines.push(`check ${rel} — ${scopeLabel(r.partition)} · ${scopesN} scopes + file · governed by ${govFacts.size} convention(s) · ${inChange.length} deviation(s) in your change, ${preOnly.length} pre-existing${steerIn.length ? ` · ${steerIn.length} maintainer decision(s) your change departs from` : ''}`);
   if (steerPre.length && !steerIn.length) lines.push(`  (${steerPre.length} existing ${steerPre.length > 1 ? 'scopes are' : 'scope is'} still on a pattern a maintainer decision retires — a transition in progress, not yours to fix; \`--all\` lists)`);
   for (const h of steerIn) lines.push(h.text);
   if (r.placeHit) lines.push(r.placeHit.text);
-  const archIn = (r.archHits || []).filter(h => !touched || touched(h.line, h.line)), archPre = (r.archHits || []).filter(h => touched && !touched(h.line, h.line));
   for (const h of archIn) lines.push(h.text);
   if (archPre.length) lines.push(`  (${archPre.length} architecture note(s) on lines you did not touch — \`--all\` shows${opts.all ? ':' : ''})`);
   if (archPre.length && opts.all) for (const h of archPre) lines.push(h.text);
   if (steerPre.length && steerIn.length) lines.push(`  (${steerPre.length} more existing ${steerPre.length > 1 ? 'scopes' : 'scope'} still on the retired pattern — a transition in progress, not yours to fix)`);
   if (steerPre.length && opts.all) for (const h of steerPre) lines.push(h.text);
+  // superficial: a file-level fact by definition, or a naming-shape/lexical surface — governs no behavior even when it
+  // sits on a type/method-kind scope (a class named PascalCase is not a "shape of code" certification any more than a
+  // file's import style is)
+  const SUPERFICIAL_PID = /^auto\.(nameshape|filenameshape)$|^auto\.lex:/;
   if (!govFacts.size) lines.push('  no strong convention governs this file — grain has nothing certified for this kind of file here; that is not approval, open the nearest neighbour and copy it');
-  else if (![...govFacts.values()].some(e => e.g.fact.kind !== 'file')) lines.push('  only file-level style is certified here (quotes, declarations, imports) — nothing about the shape of this file\'s code; that is not approval, open the nearest neighbour and copy it');
+  else if ([...govFacts.values()].every(e => e.g.fact.kind === 'file' || SUPERFICIAL_PID.test(e.g.fact.pid))) lines.push('  only naming and lexical style is certified here (quotes, declarations, imports, name shape) — nothing about the shape of this file\'s code; that is not approval, open the nearest neighbour and copy it');
   for (const g of inChange) lines.push(g.text + `\n  (preference gap ${g.delta} bits)`);
   if (preOnly.length) { if (opts.all) for (const g of preOnly) lines.push(g.text + `\n  (preference gap ${g.delta} bits)`);
     else lines.push(`pre-existing (not in your change, not yours to fix — \`--all\` to list): ${preOnly.slice(0, 4).map(g => `${g.label}: ${verbalize({ ...g, kind: g.kind }, g.exNames || []).replace(/ here /, ' ')} ×${g.pre}`).join(' · ')}${preOnly.length > 4 ? ` · +${preOnly.length - 4} more` : ''}`); }
@@ -163,6 +194,51 @@ async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
   const supNote = e => e.g.fact.contested ? ` — superseded by maintainer decision ${e.g.fact.contested}` : '';
   if (ok.length) lines.push(`conforms to: ${ok.slice(0, 6).map(e => `${e.g.label}: ${verbalize(e.g.fact, e.g.fact.exemplars.map(x => x.name))} (${Math.round(e.g.fact.share * 100)}% of ${e.g.fact.sraw})${supNote(e)}`).join(' · ')}${ok.length > 6 ? ` · +${ok.length - 6} more` : ''}`);
   lines.push(stamp(dirty)); return lines; }
+// plain git plumbing, no new wrapper (mirrors changedRanges/fileDirty above): `git diff --name-only <ref-args>` for
+// --staged and --range; default/--worktree unions the worktree-vs-HEAD diff (covers staged AND unstaged, since a
+// plain `diff HEAD` already compares the full working tree to HEAD regardless of the index) with untracked new
+// files, because an agent mid-task has usually not staged anything yet. A bad --range is not our error to shape —
+// stderr is captured and re-thrown verbatim so git's own message reaches the user.
+function gitNameOnly(root, args) {
+  let out; try { out = execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
+  catch (e) { throw new Error((e.stderr || e.message || '').toString().trim() || `git ${args.join(' ')} failed`); }
+  return out.split('\n').map(s => s.trim()).filter(Boolean); }
+function reviewFileList(root, opts) {
+  const raw = opts.range ? gitNameOnly(root, ['diff', '--name-only', opts.range])
+    : opts.staged ? gitNameOnly(root, ['diff', '--cached', '--name-only'])
+    : [...gitNameOnly(root, ['diff', '--name-only', 'HEAD']), ...gitNameOnly(root, ['ls-files', '--others', '--exclude-standard'])];
+  return [...new Set(raw.map(toPosix))].filter(p => !HARD_EXCL.test(p)).sort(); } // sorted for a deterministic, reviewable report — git's own diff order is an artifact of its tree walk, not signal
+async function cmdReview({ model, root, isGit, args, opts, stamp }) {
+  if (!isGit) return ['review: not a git repository — there is no committed HEAD to measure "your change" against', stamp()];
+  const files = reviewFileList(root, opts); // throws with git's own stderr on a bad --range
+  let anyDirty = false; const perFile = [];
+  for (const rel of files) {
+    const dirty = fileDirty(root, rel, isGit); anyDirty = anyDirty || dirty;
+    if (!existsSync(join(root, rel))) continue; // deleted in this change — nothing left to hold against a norm
+    if (!EXT2GRAMMAR[extname(rel)]) { const ph = placementHit(model, rel); // no grammar: only a placement signal can still speak (mirrors `check`'s no-grammar case)
+      if (ph) perFile.push({ rel, dirty, r: null, f: { steerIn: [], archIn: [], inChange: [], preOnly: [], lines: [ph.text] } });
+      continue; }
+    const r = await checkFile({ model, root, rel, exemplarOk: existsMemo(root) });
+    const f = fileFindings({ root, rel, isGit, dirty, r });
+    if (!f.lines.length) continue; // no finding at all — contributes nothing, not even a placeholder
+    perFile.push({ rel, dirty, r, f }); }
+  // presentation order, not a mathematically constrained gate: maintainer-decision/architecture hits first (the
+  // highest-stakes findings), then plain deviations ranked by how many and how strong, placement-only files last
+  const rank = e => (e.f.steerIn.length || e.f.archIn.length) ? [0, -(e.f.steerIn.length + e.f.archIn.length), -e.f.inChange.length]
+    : e.f.inChange.length ? [1, -e.f.inChange.length, -e.f.inChange.reduce((a, g) => a + g.delta, 0)] : [2, 0, 0];
+  perFile.sort((a, b) => { const ra = rank(a), rb = rank(b); for (let i = 0; i < ra.length; i++) if (ra[i] !== rb[i]) return ra[i] - rb[i]; return a.rel < b.rel ? -1 : 1; });
+  const totalFindings = perFile.reduce((a, e) => a + e.f.lines.length, 0);
+  const cc = completenessDirectional(model, files); // the WHOLE set's missing co-change partners, not per-file
+  const ccPartners = cc.length > 1 ? cc.slice(1) : []; // the "(complete — …)" placeholder makes sense answering one direct query; in an aggregated report most reviews have no hit, so it would be noise repeated on every clean run — say nothing instead
+  if (opts.json) return [JSON.stringify({ files,
+    findings: perFile.map(e => e.r ? fileVerdictJson({ rel: e.rel, r: e.r, dirty: e.dirty, f: e.f, govFacts: govFactsOf(e.r), stamp })
+      : { file: e.rel, noGrammar: extname(e.rel) || null, dirty: e.dirty, placement: { statement: e.f.lines[0].replace(/^\[grain\] /, '') } }),
+    cochangePartners: ccPartners.map(x => x.replace(/^\s*-\s*/, '')), asOf: stamp(anyDirty).replace(/^as of /, '') })];
+  const lines = [`review ${files.length} file${files.length === 1 ? '' : 's'} · ${totalFindings} finding(s) across ${perFile.length} file(s)`];
+  if (!totalFindings && !ccPartners.length) lines.push(`clean — nothing to report across ${files.length} file${files.length === 1 ? '' : 's'} reviewed`);
+  for (const e of perFile) { lines.push(`== ${e.rel} — ${e.f.lines.length} finding(s) ==`); for (const l of e.f.lines) lines.push(l); }
+  if (ccPartners.length) lines.push(cc[0], ...ccPartners);
+  lines.push(stamp(anyDirty)); return lines; }
 async function cmdSpectrum({ model, root, isGit, args, opts, stamp, store }) {
   if (!args[0]) throw new Error('usage: grain spectrum <file> [--minbits N] [--top N]');
   const rel = relPath(root, args[0]);
@@ -175,7 +251,7 @@ function readSeeds(store) { const out = []; const boundaries = [];
   if (existsSync(store.seedsPath)) for (const line of readFileSync(store.seedsPath, 'utf8').split('\n')) { const t = line.trim(); if (!t || t.startsWith('#')) continue;
     try { const j = JSON.parse(t);
       if (j && j.boundary && j.boundary.from && j.boundary.to) boundaries.push({ id: j.id, boundary: { from: j.boundary.from.replace(/\/$/, ''), to: j.boundary.to.replace(/\/$/, '') }, note: j.note || '', author: j.author || '', createdAt: j.createdAt || '' });
-      else if (j && j.scope && j.scope.path && Array.isArray(j.surfaces) && j.surfaces.length) out.push({ id: j.id, path: j.scope.path, name: j.scope.name, pids: j.surfaces.concat(j.retired || []), retired: j.retired || [], weight: +j.weight || 8, topic: j.topic || '', note: j.note || '', author: j.author || '', createdAt: j.createdAt || '' }); }
+      else if (j && j.scope && j.scope.path && Array.isArray(j.surfaces) && j.surfaces.length) out.push({ id: j.id, path: j.scope.path, name: j.scope.name, pids: j.surfaces.concat(j.retired || []), retired: j.retired || [], weight: +j.weight || 8, topic: j.topic || '', note: j.note || '', author: j.author || '', createdAt: j.createdAt || '', baseline: j.baseline || null }); }
     catch { log(`seeds.jsonl: skipped an unparsable line: ${t.slice(0, 60)}`); } }
   return { seeds: out, boundaries }; }
 const hashSeeds = ({ seeds, boundaries }) => (seeds.length || boundaries.length) ? createHash('sha256').update(JSON.stringify([seeds, boundaries])).digest('hex').slice(0, 16) : '';
@@ -217,7 +293,13 @@ async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
     const createdAt = new Date().toISOString().slice(0, 10); const author = opts.author || process.env.USER || '';
     const id = createHash('sha256').update([rel, r.scope.name, want.concat(retire).join(','), author, createdAt].join('|')).digest('hex').slice(0, 8);
     if (readSeeds(store).seeds.some(sd => sd.id === id)) return [`seed ${id} already exists for ${rel}#${r.scope.name} on ${want.join(',')} — \`grain seed rm ${id}\` first to change it`, stamp()];
-    const rec = { id, scope: { path: rel, name: r.scope.name }, surfaces: want, retired: retire, weight: +opts.weight || 8, topic: opts.topic || '', note: opts.note || '', author, createdAt };
+    // a creation-time snapshot of how widely the FIRST promoted surface was already practiced — read back by
+    // `report`/`where` so a later reader can see whether adoption has moved since the decision was made, without
+    // keeping their own notes. null when the exemplar's partition never mined a partition-wide (`_all:`) fact for
+    // this (kind, pid) — a brand-new pattern, or one whose accepted convention lives only at a group/directory
+    // context this snapshot deliberately does not chase (see `baselineShare` in core.mjs for the trade-off)
+    const baseline = (() => { const b = baselineShare(model, rel, r.scope.kind, want[0], r.scope.preds[want[0]]); return b ? { ...b, at: createdAt } : null; })();
+    const rec = { id, scope: { path: rel, name: r.scope.name }, surfaces: want, retired: retire, weight: +opts.weight || 8, topic: opts.topic || '', note: opts.note || '', author, createdAt, baseline };
     mkdirSync(store.base, { recursive: true }); ensureSeedAttrs(store);
     appendFileSync(store.seedsPath, JSON.stringify(rec) + '\n'); appendDecision(store, { action: 'add', id, at: createdAt, by: author, note: rec.note });
     return [`recorded seed ${id} in .grain/seeds.jsonl — ${want.map(pid => verb2({ pid, exp: r.scope.preds[pid], kind: r.scope.kind }, [r.scope.name])).join('; ')} (weight ${rec.weight}, capped at half the real population of each cell). Commit .grain/seeds.jsonl and .grain/decisions.jsonl; the next query re-mines with it.`, stamp()]; }
@@ -253,12 +335,31 @@ function freshnessLines(meta, head, isGit) {
   else l.push(`freshness: indexed HEAD ${short(meta?.headSha)} · current HEAD ${short(head)} · ${meta?.headSha === head ? 'up to date' : 'STALE'} · history ${meta?.historyMode || '?'}${meta?.historyReason ? ` (${meta.historyReason})` : ''}`);
   if (meta) l.push(`index: engine ${meta.engine} · extractor ${meta.extractor} · grammars ${meta.grammars} · built ${meta.builtAt} in ${meta.buildMs}ms`);
   return l; }
-async function cmdStatus({ model, meta, head, isGit, stamp, opts }) { const sig = signal(model);
+export async function cmdStatus({ model, meta, head, isGit, stamp, opts, store }) { const sig = signal(model);
   if (opts.json) return [JSON.stringify({ repo: model.repo, files: model.files, partitions: model.partitions.map(p => ({ name: p.name, label: scopeLabel(p.name), files: p.files.length, scopes: p.scopes, groups: p.medoids.length, conventions: p.facts.length })), signal: sig, agentShare: model.agentShare, cochangePairs: model.cochange.length, history: model.historyStats, freshness: { indexedHead: meta?.headSha || null, head, upToDate: meta?.headSha === head, historyMode: meta?.historyMode || null, builtAt: meta?.builtAt || null, engine: meta?.engine, extractor: meta?.extractor }, asOf: stamp().replace(/^as of /, '') })];
-  return [...statusLines(model), `signal: ${sig.facts} conventions over ${sig.files} source files — ${sig.verdict}`, ...freshnessLines(meta, head, isGit), stamp()]; }
-async function cmdReport({ model, meta, head, isGit, opts, stamp }) {
+  return [...statusLines(model), `signal: ${sig.facts} conventions over ${sig.files} source files — ${sig.verdict}`, ...placementOutcomeLine(store), ...freshnessLines(meta, head, isGit), stamp()]; }
+// self-observability, not a repo convention — belongs beside status's own freshness/health lines, not in `report`'s
+// "here is what this repo practices" surface. Silent (no "0 of 0" noise) until at least one suggestion has resolved.
+function placementOutcomeLine(store) {
+  const out = readJson(join(store.dir, 'placement-outcomes.json'));
+  const total = out ? out.followed + out.deviated : 0;
+  return total ? [`placement notes followed: ${out.followed} of ${total} (${Math.round(out.followed / total * 100)}%)`] : []; }
+export async function cmdReport({ model, meta, head, isGit, opts, stamp }) {
   if (opts.json) return [JSON.stringify({ repo: model.repo, partitions: model.partitions.map(p => ({ name: p.name, label: scopeLabel(p.name), conventions: p.facts.slice(0, +opts.top || 15).map(f => ({ id: p.name + '::' + f.cid + '::' + f.pid, context: factLabel(p, f), kind: f.kind, pid: f.pid, expected: f.exp, statement: verbalize(f, f.exemplars.map(e => e.name)), share: f.share, established: f.sraw, deviantsN: f.deviantsN, deviants: f.deviants || [], exemplars: f.exemplars, trend: f.trend ? { shares: f.trend.shares.map(x => x.share), nucleating: f.trend.nucleating } : null, held: f.held || null })), total: p.facts.length })), asOf: stamp().replace(/^as of /, '') })];
   return [...report(model, { top: +opts.top || 15 }), ...freshnessLines(meta, head, isGit), stamp()]; }
+// a generated Markdown document for a reader with no terminal and no grain plugin (a human maintainer, or a
+// coding tool this plugin is not installed in) — the same model data `report()` renders, formatted as a
+// standalone snapshot instead of context-window lines. `--out` writes the file and answers with a short
+// confirmation only (never both the file AND the whole document on stdout); with no `--out`, the document goes
+// straight to stdout so `grain rules > CONVENTIONS.md` already works without a flag — matching `export`'s own
+// `--out`-vs-stdout split, including keeping the freshness stamp off stdout in the redirection path so it never
+// lands inside the written document.
+async function cmdRules({ model, isGit, head, opts, stamp }) {
+  const text = rulesMarkdown(model, { top: +opts.top || 15, sha: short(isGit ? head : null), date: new Date().toISOString().slice(0, 10) }).join('\n');
+  if (opts.out) { const p = isAbsolute(opts.out) ? opts.out : resolve(process.cwd(), opts.out); atomicWrite(p, text + '\n');
+    const n = model.partitions.reduce((a, pt) => a + pt.facts.length, 0);
+    return [`wrote ${n} convention(s) to ${p}`, stamp()]; }
+  console.error('[grain] ' + stamp()); return [text]; }
 
 // how much the model can say about the code, as a verdict a reader can calibrate on — "16 conventions over 150 files"
 // is a sparse model and the agent cannot know that from the count alone
@@ -275,7 +376,7 @@ export function sessionContext({ root, isGit, store, mode }) {
   const head = isGit ? headSha(root) : null;
   let state;
   if (!isGit && !model) state = 'not built yet — the first query builds it (no git here, so weights will be flat)';
-  else if (!model) state = 'not built yet — the first query builds it from the full git history (can take a minute or more on a large repository; later refreshes are incremental)';
+  else if (!model) state = `not built yet — the first query walks the full git history and parses every file; on a multi-thousand-commit or densely-scoped repo this can run minutes, not seconds, and a tight command timeout may mistake that for a hang; run \`grain refresh\` ahead of time, or add \`--no-history\` for a fast first answer without the history layer (later refreshes are incremental)`;
   else { const sig = signal(model);
     state = `${meta.headSha === head ? 'ready' : 'built at ' + short(meta.headSha) + ', HEAD moved to ' + short(head) + ' — the first query refreshes it incrementally'}: ${model.files} files, ${sig.groups} groups, ${sig.facts} conventions in source code (${sig.verdict})`; }
   const bin = `node "${BIN}"`;
@@ -298,6 +399,53 @@ export function sessionContext({ root, isGit, store, mode }) {
 
 // hooks receive a JSON payload on stdin ({ cwd, session_id, … }); read it only when stdin is a pipe with data
 function hookCwd() { try { if (process.stdin.isTTY) return null; const raw = readFileSync(0, 'utf8'); if (!raw.trim()) return null; const j = JSON.parse(raw); return typeof j.cwd === 'string' ? j.cwd : null; } catch { return null; } }
+
+// ----- placement feedback loop: a purely local, never-transmitted signal for whether a PreToolUse placement
+// suggestion (placementHit, core.mjs) was actually followed. Two small state files in the same store dir as
+// hook-seen.json: placement-pending.json (a suggestion awaiting its outcome) and placement-outcomes.json (a
+// cumulative { followed, deviated } tally — latest state, not a history, exactly like hook-seen.json keeps
+// only the latest signature per file rather than every past one).
+//
+// Correlation is by SUFFIX + NAME-KIN TOKEN (`sufOf`/`nameTokens`, core.mjs — the same keys placementHit itself
+// groups candidates by), never by the exact `rel` grain was asked about. A single Write's PreToolUse and
+// PostToolUse always see the IDENTICAL path, and placementHit only ever fires when that path's CURRENT
+// directory does NOT already hold the name-kin — so resolving against that same `rel` can mathematically never
+// observe "followed" (dirname(rel) was already established as wrong the moment Pre looked at it). The real
+// "followed" case is a SEPARATE, corrective write at a DIFFERENT path — whose own PreToolUse finds no hit at
+// all, since the destination is already correct. Keying by suffix+token lets that second, differently-pathed
+// write still find the first write's pending suggestion.
+//
+// The pending window reuses GRAIN_HOOK_TTL_MS rather than a second constant: a placement suggestion is only
+// actionable while the agent is still working that same name-kin file, which is the same timescale the hook's
+// own repeat-suppression already models — a separate "how long is a suggestion live" number would track the
+// same thing under a different name.
+function pendingKey(suf, token) { return suf + '#' + (token || ''); }
+function prunePending(pending, now, ttl) { for (const k of Object.keys(pending)) if (now - pending[k].t >= ttl) delete pending[k]; }
+function recordPlacementPending(st2, ph, rel) {
+  try {
+    const now = Date.now(); const ttl = +(process.env.GRAIN_HOOK_TTL_MS || 15 * 60 * 1000);
+    const p = join(st2.dir, 'placement-pending.json'); const pending = readJson(p) || {};
+    prunePending(pending, now, ttl); pending[pendingKey(ph.suf, ph.token)] = { dir: ph.dir, t: now, badRel: rel };
+    writeFileSync(p, JSON.stringify(pending)); }
+  catch { /* stateless is still correct, just louder */ } }
+function resolvePlacementPending(st2, root, rel) {
+  try {
+    if (!existsSync(join(root, rel))) return; // only a confirmed write can resolve anything
+    const now = Date.now(); const ttl = +(process.env.GRAIN_HOOK_TTL_MS || 15 * 60 * 1000);
+    const p = join(st2.dir, 'placement-pending.json'); const pending = readJson(p) || {};
+    prunePending(pending, now, ttl);
+    const suf2 = sufOf(rel); const dir2 = posixDirname(rel);
+    const keys = [pendingKey(suf2, null), ...nameTokens(rel).map(t => pendingKey(suf2, t))];
+    for (const k of keys) { const entry = pending[k]; if (!entry) continue;
+      if (rel === entry.badRel) { bumpOutcome(st2, 'deviated'); delete pending[k]; }
+      else if (dir2 === entry.dir) { bumpOutcome(st2, 'followed'); delete pending[k]; }
+      // else: a second miss on the same suffix/token — leave it pending, don't guess, don't double-count
+    }
+    writeFileSync(p, JSON.stringify(pending)); }
+  catch { /* stateless is still correct, just louder */ } }
+function bumpOutcome(st2, kind) {
+  const op = join(st2.dir, 'placement-outcomes.json'); const outcomes = readJson(op) || { followed: 0, deviated: 0 };
+  outcomes[kind]++; writeFileSync(op, JSON.stringify(outcomes)); }
 
 // ----- main -----
 export async function main(argv) {
@@ -330,11 +478,17 @@ export async function main(argv) {
         // moving was still cheap; the stronger, later note lost to sunk cost)
         pre = true;
         const ph = placementHit(model2, rel);
+        if (ph) recordPlacementPending(st2, ph, rel); // feedback loop: did a later write to this suffix/token land in `ph.dir`? resolved on a matching PostToolUse below
         speak = ph ? [ph.text] : []; }
       else {
+        resolvePlacementPending(st2, f.root, rel); // silent — never adds to the hook's spoken output, only updates local state
         if (!EXT2GRAMMAR[extname(rel)] || !existsSync(join(f.root, rel))) return 0;
         const lines = await cmdCheck({ model: model2, root: f.root, isGit: f.git, args: [rel], opts: {}, stamp: stamp2 });
-        speak = lines.filter(l => l.includes('[grain]')); } // only findings — headers, conforms-to and the stamp stay in the direct command
+        speak = lines.filter(l => l.includes('[grain]')); // only findings — headers, conforms-to and the stamp stay in the direct command
+        // co-change: a separate, single-line finding — capped to 3 partners, folded into the same signature/suppression
+        // below as the check findings, so it speaks unbidden but repeats no more often than they do
+        const cc = completenessDirectional(model2, [rel]);
+        if (cc.length > 1) speak = [...speak, `[grain] edits like this also touch: ${cc.slice(1, 4).map(l => l.replace(/^\s*-\s*/, '')).join(' · ')}`]; }
       if (!speak.length) return 0;
       // repeat suppression: an agent editing the same file five times must not read the same note five times — an
       // UNCHANGED set of findings for a file repeats only after the TTL; any change in the findings speaks at once
@@ -360,9 +514,11 @@ export async function main(argv) {
   switch (cmd) {
     case 'where': lines = await cmdWhere(ctx); break;
     case 'check': lines = await cmdCheck(ctx); break;
+    case 'review': lines = await cmdReview(ctx); break;
     case 'spectrum': lines = await cmdSpectrum(ctx); break;
     case 'status': lines = await cmdStatus(ctx); break;
     case 'report': lines = await cmdReport(ctx); break;
+    case 'rules': lines = await cmdRules(ctx); break;
     case 'export': lines = await cmdExport(ctx); break;
     case 'seed': lines = await cmdSeed(ctx); break;
     case 'refresh': lines = [...statusLines(model), ...freshnessLines(meta, head, isGit), stamp()]; break;
@@ -376,8 +532,12 @@ const USAGE = `grain — ask a repository about its own conventions before writi
 usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
   where <intent words> [--top N] [--map-rows N] [--json]  intent → place + expectations + exemplars + co-change
   check <file> [--as <path>] [--content <file>] [--all] [--json]  how this file's worktree version sits against the local norm
+  review [--staged | --range <a>..<b> | --worktree] [--json]  one aggregated report over every file in your whole change (default: uncommitted + untracked)
+  completeness <file…>                    other files this repo's own commits show reliably changing WITH these — the same line check-hook appends automatically after a matching edit
   spectrum <file> [--minbits N] [--top N] the full local→global convention lattice for one file
   status | report [--top N] [--json]      model overview / top conventions, freshness
+  rules [--out <file>] [--top N]          a generated Markdown document of established conventions, stamped with the commit — for a
+                                          reader with no terminal or no grain plugin; \`grain rules > CONVENTIONS.md\` also works
   export [--out <file>] [--max-sites N] [--compact] [--no-anchors]  the whole model as JSON: every convention with all its sites, anchors, trends,
                                           groups, markers, directories, co-change (for training pipelines and audits)
   seed add <path>#<name> --surfaces <pid,…> [--instead-of <pid,…>] [--author <who>] --note "…"   record a maintainer decision (.grain/seeds.jsonl, committed)

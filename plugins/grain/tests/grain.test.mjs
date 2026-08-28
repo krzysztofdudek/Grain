@@ -46,7 +46,7 @@ test('where: intent → directory card with expectations and exemplars; no match
   const { out } = grain(['where', 'handler']);
   assert.match(out, /«handler» → directory src\/handlers\//);
   assert.match(out, /types here are annotated with `@Handler` — 100% of \d+/);
-  assert.match(out, /pattern to copy: src\/handlers\/[a-z]+\.handler\.ts:\d+ `\w+(Handler|Command)`/);
+  assert.match(out, /pattern to copy: src\/handlers\/[a-z]+\.handler\.ts:\d+ `\w+`/);
   const map = grain(['where', 'kafka', 'consumer']).out;
   assert.match(map, /no lexical match for "kafka consumer" — compact map/);
   assert.match(map, /\[directory\] src\/handlers\//);

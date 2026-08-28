@@ -107,5 +107,11 @@ brand new untracked file. 25 of 25 pass; every answer exits cleanly and carries 
 Stated, not hidden: a feature extending existing modules draws no placement note (name kin already live beside it);
 markdown documents are not indexed, so misplaced docs are invisible; after the removal of the test axis a test file
 can outrank the source it tests in `where` for a source intent (the source hit survives in the top three, and the
-skill tells the agent to take it); cold builds of very large repositories cost minutes and around 1.5 GB RSS; and
-`where` closes no semantic gaps by itself, which is what the compact map and the history bridge are for.
+skill tells the agent to take it); cold builds cost minutes, not seconds, and the corpus above does not bound how
+many: an external field report on a production codebase measured 460.6 s (277.6 s walking history, 180.3 s mining) on
+2 314 commits and 2 064 files, 91 MB on disk — past this corpus's own 2.9 min extreme (typeorm, 6 052 commits) on a
+repository with fewer commits than either corpus outlier, and confirming what the table alone already hints (nest's
+21 648 commits build in 55.7 s, faster than typeorm's 6 052): commit count does not predict cold-build cost, a
+densely-scoped or generic-heavy codebase can run well past this corpus's range, and 1.5 GB is this corpus's own peak
+RSS (typeorm), not a ceiling; and `where` closes no semantic gaps by itself, which is what the compact map and the
+history bridge are for.

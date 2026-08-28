@@ -3,10 +3,10 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const ENGINE_VERSION = '0.1.0';
+export const ENGINE_VERSION = '0.2.0';
 export const EXTR_V = 'g23';
-export const HIST_V = 'h5';
-export const MODEL_V = 'm11'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
+export const HIST_V = 'h6'; // replay-state schema version — bump when a per-scope lifecycle field is added (forces a full history re-walk, not just a re-learn): h6 adds `newFile` (birth-file status, §13.3), which only a fresh replay can backfill onto scopes born before the upgrade
+export const MODEL_V = 'm14'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Grammar assets (`tree-sitter-<g>.wasm` + `tree-sitter-<g>.node-types.json`) live inside the plugin by default;
