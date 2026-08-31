@@ -9,7 +9,7 @@
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import { extname, join } from 'node:path';
-import { getParser, bindingFor, extractScopes, hashStr, CODE_RE } from './core.mjs';
+import { getParser, bindingFor, extractScopes, hashStr, CODE_RE, normalizeCR } from './core.mjs';
 import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, FIX_RE } from './config.mjs';
 import { tokenize, normTok, QSTOP, DOC_STOP } from './core.mjs';
 
@@ -44,7 +44,7 @@ export function headTree(gitdir, { skip = () => false } = {}) {
 function atomicWrite(path, data) { const tmp = path + '.tmp-' + process.pid; writeFileSync(tmp, data); renameSync(tmp, path); }
 
 // ----- blob cache: blobs/<2hex>.json = { "<sha>": scopeRecords[] } -----
-class BlobCache {
+export class BlobCache {
   constructor(dir) { this.dir = dir; this.shards = new Map(); this.dirty = new Set();
     mkdirSync(dir, { recursive: true });
     const vf = join(dir, 'VERSION');
@@ -56,7 +56,7 @@ class BlobCache {
   has(sha) { return Object.prototype.hasOwnProperty.call(this.shard(sha), sha); }
   get(sha) { return this.shard(sha)[sha]; }
   set(sha, sc) { this.shard(sha)[sha] = sc; this.dirty.add(sha.slice(0, 2)); }
-  flush() { for (const k of this.dirty) atomicWrite(join(this.dir, k + '.json'), JSON.stringify(this.shards.get(k))); this.dirty.clear(); }
+  flush() { for (const k of this.dirty) { atomicWrite(join(this.dir, k + '.json'), JSON.stringify(this.shards.get(k))); this.shards.delete(k); } this.dirty.clear(); }
 }
 
 // ----- the walk: one streaming `git log --raw` over a commit range -----
@@ -81,7 +81,7 @@ async function walk(gitdir, range) {
   await new Promise(res => child.on('close', res));
   return { events, commits, blobExt }; }
 
-async function parseBlobs(gitdir, cache, blobExt, log) {
+export async function parseBlobs(gitdir, cache, blobExt, log) {
   const shas = [...blobExt.keys()].filter(s => !cache.has(s)); let parsed = 0, bytes = 0;
   for (let i = 0; i < shas.length; i += 400) {
     const chunk = shas.slice(i, i + 400);
@@ -94,14 +94,14 @@ async function parseBlobs(gitdir, cache, blobExt, log) {
       bytes += size; const sha = hdr[0]; if (size > 1.5e6) { cache.set(sha, []); continue; }
       // language from the HISTORICAL path's extension recorded in the walk — never by sniffing content (§13.2)
       try { const ext = blobExt.get(sha); const p = await getParser(ext); const b = bindingFor(p._g);
-        const tr = p.parse(body.toString());
+        const tr = p.parse(normalizeCR(body.toString()));
         const sc = extractScopes('b.tmp', tr, b).filter(s => s.kind !== 'file').map(s => ({ k: s.kind, n: s.name, o: s.ord,
           bh: hashStr(s.preds['auto.first1'] + '|' + [...s.seen].sort().join(',') + '|' + [...s.calls].sort().join(',') + '|' + s.decos.join(',') + '|' + s.sup.join(',') + '|' + s.preds['auto.nameshape']),
           val: { ns: s.preds['auto.nameshape'], f1: s.preds['auto.first1'] || '', ret: s.preds['auto.ret'] || '', deco: [...s.decos].sort(), sup: [...s.sup].sort() } }));
         tr.delete(); cache.set(sha, sc); parsed++;
       } catch { cache.set(sha, []); } }
-    if (log && shas.length > 400) log(`  blobs ${Math.min(i + 400, shas.length)}/${shas.length}`); }
-  cache.flush();
+    if (log && shas.length > 400) log(`  blobs ${Math.min(i + 400, shas.length)}/${shas.length}`);
+    cache.flush(); }
   return { parsed, bytes, total: blobExt.size }; }
 
 // ----- replay state (persisted) -----

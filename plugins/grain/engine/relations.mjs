@@ -131,9 +131,9 @@ export function tableFrom(files, relFacts) {
 // the symbol table, compact enough to live in the model (check-time resolution of an edited file): up to 3 defining
 // files per key — 0/1/≥2 classification and the nested-split distinct-file rule survive the cap
 export function compactDecls(files, relFacts) {
-  const out = {};
+  const out = Object.create(null);
   for (const rel of files) { const f = relFacts[rel]; if (!f) continue;
-    for (const d of f.d || []) { const byLang = (out[f.l] ||= {}); const arr = (byLang[d.symbolKey] ||= []); if (arr.length < 3 && !arr.includes(rel)) arr.push(rel); } }
+    for (const d of f.d || []) { const byLang = (out[f.l] ||= Object.create(null)); const arr = (byLang[d.symbolKey] ||= []); if (arr.length < 3 && !arr.includes(rel)) arr.push(rel); } }
   return out; }
 export function hydrateTable(relDecls) {
   const table = new SymbolTable();
@@ -153,9 +153,13 @@ export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], 
 // ---- the module graph: directories at layout depth ≤ 2 as nodes, edge counts, cycles ----
 export const moduleOf = (rel, pkgs = []) => { for (const d of pkgs) if (d !== '.' && (rel + '/').startsWith(d + '/')) return d; // a package root IS the module
   const segs = rel.split('/'); return segs.length <= 1 ? '.' : segs.slice(0, Math.min(2, segs.length - 1)).join('/'); };
-export function moduleGraph(edges, files, pkgs = []) {
-  // a module holding most of the repository is not a module, it is the repository: refine dominant modules one path
-  // segment deeper (a single-package repo's architecture lives INSIDE the package — source/cli/src/{ast,relations,io,…})
+// module assignment refined for a dominant module (a module holding most of the repo is not a module, it is the
+// repository — refine one path segment deeper, e.g. a single-package repo's real architecture lives INSIDE the
+// package, source/cli/src/{ast,relations,io,…}). Pure function of (files, pkgs) — the SAME assignment moduleGraph
+// uses for its nodes/edges must be used everywhere a module ID is computed for a file, or module IDs silently stop
+// matching between callers (§G11). Cheap to recompute (two O(files) passes); a closure can't survive model.json
+// serialization, so callers at check time (after a fresh deserialize) recompute it rather than reusing a stored one.
+export function refineModOf(files, pkgs = []) {
   let modOf = rel => moduleOf(rel, pkgs);
   for (let round = 0; round < 2; round++) {
     const per = new Map(); for (const rel of files) { const m = modOf(rel); per.set(m, (per.get(m) || 0) + 1); }
@@ -165,6 +169,10 @@ export function moduleGraph(edges, files, pkgs = []) {
     modOf = rel => { const m = prev(rel); if (!dominant.has(m)) return m;
       const sub = m === '.' ? rel : rel.slice(m.length + 1); const segs = sub.split('/');
       return segs.length <= 1 ? m : (m === '.' ? '' : m + '/') + segs[0] + (/^(src|lib|app|source|packages|apps)$/.test(segs[0]) && segs.length > 2 ? '/' + segs[1] : ''); }; }
+  return modOf;
+}
+export function moduleGraph(edges, files, pkgs = []) {
+  const modOf = refineModOf(files, pkgs);
   const filesPer = new Map();
   for (const rel of files) { const m = modOf(rel); filesPer.set(m, (filesPer.get(m) || 0) + 1); }
   const em = new Map(); // from\0to → { n, kinds }

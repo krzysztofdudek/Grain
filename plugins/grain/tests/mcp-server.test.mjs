@@ -6,7 +6,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -128,6 +128,25 @@ test('tools/call grain_status and grain_report answer valid, well-shaped JSON', 
   const rr = await server.send('tools/call', { name: 'grain_report', arguments: { top: 5 } });
   const dr = JSON.parse(rr.result.content[0].text);
   assert.ok(Array.isArray(dr.partitions));
+});
+
+test('tools/call grain_status with a nonexistent repo is a tool EXECUTION error, not a fabricated empty model (G3)', async () => {
+  const bad = join(tmp, 'nonexistent-repo-for-mcp');
+  assert.equal(existsSync(bad), false);
+  const r = await server.send('tools/call', { name: 'grain_status', arguments: { repo: bad } });
+  assert.ok(!r.error, JSON.stringify(r));
+  assert.equal(r.result.isError, true, `expected isError:true for a bad repo, got: ${JSON.stringify(r.result)}`);
+  assert.match(r.result.content[0].text, /no such directory/);
+  assert.equal(existsSync(bad), false, 'a bad --repo must not fabricate a directory tree on disk');
+  const again = await server.send('tools/call', { name: 'grain_where', arguments: { query: 'handler' } });
+  assert.ok(!again.error, JSON.stringify(again));
+});
+
+test('tools/call grain_check with a nonexistent repo is still isError: true (regression control — unaffected by the G3 fix)', async () => {
+  const bad = join(tmp, 'nonexistent-repo-for-check');
+  const r = await server.send('tools/call', { name: 'grain_check', arguments: { repo: bad, file: 'src/handlers/order.handler.ts' } });
+  assert.ok(!r.error, JSON.stringify(r));
+  assert.equal(r.result.isError, true, `expected isError:true for a bad repo, got: ${JSON.stringify(r.result)}`);
 });
 
 test('an unparseable line on stdin gets a JSON-RPC parse error and does not crash the server', async () => {

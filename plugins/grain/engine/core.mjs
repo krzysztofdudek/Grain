@@ -14,7 +14,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative, sep } from 'node:path';
 import { basename, dirname, extname, join as pjoin, normalize as pnormalize } from 'node:path/posix'; // repo-relative paths are POSIX everywhere (model keys, git output, regexes) — also on Windows
 import { GRAMMAR_DIR, EXT2GRAMMAR, CFG, SUP, TOPK, EXCL, MINE_EXCL, NCAP, HARD_EXCL } from './config.mjs';
-import { relFactsFor, buildEdges, moduleGraph, moduleOf, compactDecls, hydrateTable, tableFrom, makeEdgeResolver, parseJsonc } from './relations.mjs';
+import { relFactsFor, buildEdges, moduleGraph, moduleOf, refineModOf, compactDecls, hydrateTable, tableFrom, makeEdgeResolver, parseJsonc, relSupported } from './relations.mjs';
 
 const S = '\u0001';      // cell-key separator (was a literal SOH byte in the prototype)
 const UNSEEN = '\u0000'; // "value never observed" sentinel for the smoothed-count lookup (was a literal NUL byte)
@@ -92,6 +92,16 @@ function scopeName(ch) { const n = ch.childForFieldName('name'); if (n) return n
 const wordBounded = words => new RegExp('(?:^|_)(?:' + words.join('|') + ')(?:_|$)');
 const TYPE_LIKE_RE = wordBounded(['class', 'struct', 'record', 'enum', 'interface', 'trait', 'protocol', 'object_declaration', 'impl_item', 'type_declaration', 'companion', 'singleton', 'union', 'contract']);
 const FUNC_LIKE_RE = wordBounded(['function', 'method', 'lambda', 'closure', 'arrow', 'constructor', 'destructor']);
+// a namespace/package/module STATEMENT names a location, not a unit of code (walked through, never itself a
+// scope, and never counted as a "real" nested scope for its parent's type/method classification) — 'mod' is
+// word-bounded via the shared wordBounded() helper, never a plain substring, so Ruby's real type-like `module`
+// declaration is untouched (§G15b)
+const MOD_LOCATION_RE = wordBounded(['mod']);
+const isLocationNode = t => /namespace|package/.test(t) || MOD_LOCATION_RE.test(t);
+// a function/arrow/lambda-shaped VALUE, for the assignment-side anonymous-function detector below — word-bounded
+// alone is not sufficient (PHP's plain call node `function_call_expression` still matches the segment `function`);
+// the detector additionally requires the value to have a real BODY, which a call node never does (§G16)
+const FUNC_VALUE_RE = wordBounded(['function', 'arrow', 'lambda', 'func_literal', 'closure']);
 // primary-constructor detection (a type's OWN header carries its constructor's parameters, C# 12 `class Foo(IBar bar)`
 // / Kotlin `class Foo(val bar: Bar)` style): confirmed by scanning every shipped grammar's node-types.json for any
 // TYPE_LIKE_RE node exposing one of these, not guessed —
@@ -120,7 +130,13 @@ const CTOR_LIKE_RE = wordBounded(['constructor']);
 export function extractScopes(rel, tree, b, grammar = null) {
   const scopes = []; const imports = [];
   const isScope = n => b.scope.has(n.type);
-  const walk = node => { for (const ch of node.namedChildren) {
+  // iterative pre-order, left-to-right traversal (no call-stack frame per AST level — a recursive `walk` overflowed
+  // the stack on a deeply left-nested `binary_expression`, one JS frame per operator): children are pushed in
+  // REVERSE order so the first child pops first, preserving the exact visitation order `scopes` array order,
+  // decoration attribution and the same-name ordinal disambiguation all depend on
+  const pushKids = (node, stack) => { const kids = node.namedChildren; for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]); };
+  const treeStack = []; pushKids(tree.rootNode, treeStack);
+  while (treeStack.length) { const ch = treeStack.pop();
     if (ch.isError || ch.isMissing) continue; // a malformed node is skipped, never its ancestor (a class with one broken method keeps its other methods)
     if (b.imp.has(ch.type)) { // every string inside the import node (Go's grouped imports hold one per spec); else the first name-like child
       const strs = ch.descendantsOfType(['string', 'string_literal', 'interpreted_string_literal', 'raw_string_literal', 'system_lib_string']).map(n => n.text.replace(/^["'`<]|["'`>]$/g, '')).filter(Boolean);
@@ -133,10 +149,10 @@ export function extractScopes(rel, tree, b, grammar = null) {
       // re-match /import/ and record every imported identifier as a module (measured: `files here import \`Command\``)
       if (!isScope(ch)) continue; }
     if (isScope(ch)) {
-      if (/namespace|package/.test(ch.type)) { walk(ch); continue; } // a namespace/package statement names a location, not a unit of code
+      if (isLocationNode(ch.type)) { pushKids(ch, treeStack); continue; } // a namespace/package/mod statement names a location, not a unit of code
       // a property accessor (C# `get`/`set`/`init`) is named by a keyword and belongs to its property — mined as methods, 40 accessors
       // certified "methods here are named a single lowercase word" and flagged every real method of the directory (measured on CleanArchitecture)
-      if (/accessor/.test(ch.type)) { walk(ch); continue; }
+      if (/accessor/.test(ch.type)) { pushKids(ch, treeStack); continue; }
       const name = scopeName(ch);
       const bodyN = ch.childForFieldName('body') || (b.loosebody.has(ch.type) ? looseBody(ch) : null);
       // a bodiless declaration (C# positional record, Kotlin data class, interface method signature, forward declaration) is
@@ -145,8 +161,8 @@ export function extractScopes(rel, tree, b, grammar = null) {
       // kind by syntax category (class/struct/record/enum/interface/trait/object… ⇒ type) rather than by nesting alone: a
       // Python class with only fields and a TS interface are types, a JS function holding callbacks is still a method —
       // the container/leaf rule confused all three in every language of the corpus
-      const typeLike = TYPE_LIKE_RE.test(ch.type);
-      const hasChildScope = bodyN ? bodyN.descendantsOfType([...b.scope]).some(d => !/namespace|package/.test(d.type) && (d.childForFieldName('body') || (b.loosebody.has(d.type) && looseBody(d)))) : false;
+      const typeLike = TYPE_LIKE_RE.test(ch.type) && !/(?:^|_)expression(?:_|$)/.test(ch.type);
+      const hasChildScope = bodyN ? bodyN.descendantsOfType([...b.scope]).some(d => !isLocationNode(d.type) && (d.childForFieldName('body') || (b.loosebody.has(d.type) && looseBody(d)))) : false;
       const kind = typeLike || (hasChildScope && !FUNC_LIKE_RE.test(ch.type)) ? 'type' : 'method';
       // constructor shape (types only): does the type declare its constructor's parameters in its OWN header
       // (`primary`, hasPrimaryCtor above) or as a nested classic member (`classic`, CTOR_LIKE_RE), both, or
@@ -192,7 +208,7 @@ export function extractScopes(rel, tree, b, grammar = null) {
         if (!docText && stmts.length && stmts[0].type === 'expression_statement' && stmts[0].namedChildCount === 1 && /string/.test(stmts[0].namedChildren[0].type)) docText = stmts[0].namedChildren[0].text; }
       const doc = docTokens(docText);
       if (decoLits.length) for (const t of docTokens(decoLits.slice(0, 12).join(' '))) if (!doc.includes(t)) doc.push(t);
-      if (noBody) { scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, noBody: true, sup: [...new Set(sup)], decos: [...new Set(decos)], rets, calls: new Set(), seen: new Set(), shapes: new Set(), preds: Object.assign({}, name !== '<anon>' ? { 'auto.nameshape': nameShape(name) } : {}, kind === 'type' ? { 'auto.ctorshape': ctorShape } : {}), sk: skelOf(ch, isScope) }); walk(ch); continue; }
+      if (noBody) { scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, noBody: true, sup: [...new Set(sup)], decos: [...new Set(decos)], rets, calls: new Set(), seen: new Set(), shapes: new Set(), preds: Object.assign({}, name !== '<anon>' ? { 'auto.nameshape': nameShape(name) } : {}, kind === 'type' ? { 'auto.ctorshape': ctorShape } : {}), sk: skelOf(ch, isScope) }); pushKids(ch, treeStack); continue; }
       const seen = new Set(); const calls = new Set(); const varNames = []; const stack = [...stmts]; let g = 0;
       while (stack.length && g++ < 4000) { const n = stack.pop(); seen.add(n.type);
         if (/call/.test(n.type) && n.childForFieldName('function')) { const fn = n.childForFieldName('function'); if (fn.text.length <= 40 && !fn.text.includes('\n')) calls.add(fn.text); }
@@ -217,13 +233,14 @@ export function extractScopes(rel, tree, b, grammar = null) {
       if (bodyN) for (const blk of bodyN.descendantsOfType(['catch_clause', 'except_clause', 'rescue', 'finally_clause', 'ensure', 'defer_statement'])) {
         const bkind = /finally|ensure/.test(blk.type) ? 'finally' : 'catch';
         scopes.push(blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope)); }
-      walk(bodyN || ch);
+      pushKids(bodyN || ch, treeStack);
     } else {
       // a function on the right of an assignment is named by its left side: `const foo = () => {}`, `obj.prop = function () {}`
       // (only when the function itself is nameless — a named function expression is already a scope of its own)
       {
         const inner = ch.childForFieldName('value') || ch.childForFieldName('right');
-        if (inner && /function|arrow|lambda|func_literal|closure/.test(inner.type) && !(inner.childForFieldName('name')?.text)) {
+        const innerHasBody = inner && !!(inner.childForFieldName('body') || (b.loosebody.has(inner.type) && looseBody(inner)));
+        if (inner && FUNC_VALUE_RE.test(inner.type) && innerHasBody && !(inner.childForFieldName('name')?.text)) {
           const leftN = ch.childForFieldName('name') || ch.childForFieldName('left');
           const nm = leftN ? leftN.text.split('.').pop().trim() : '';
           if (nm && nm.length <= 40 && /^[A-Za-z_$][\w$]*$/.test(nm)) {
@@ -241,8 +258,7 @@ export function extractScopes(rel, tree, b, grammar = null) {
           const fnN = argsN.namedChildren.find(a => /function|arrow|lambda|func_literal|closure|do_block|^block$/.test(a.type));
           if (strN && fnN) { const nm = strN.text.replace(/^["'`]|["'`]$/g, '').replace(/\s+/g, ' ').slice(0, 60);
             if (nm) scopes.push(blockScope(fnN.childForFieldName('body') || fnN, 'case', nm, rel, grammar, isScope, ch.startPosition.row + 1, ch.endPosition.row + 1)); } } }
-      walk(ch); } } };
-  walk(tree.rootNode);
+      pushKids(ch, treeStack); } }
   // loader calls as imports, for grammars whose module system is a function call (Ruby `require`, Lua `require`, PHP `require_once`,
   // Solidity-less) — module-level only: a `require` inside a function is a lazy load, not the file's dependency
   if (b.imp.size === 0 || /ruby|lua|php/.test(String(b.name))) {
@@ -435,6 +451,13 @@ export function lexicalPreds(tree) {
   const decl = Object.create(null); for (const n of root.descendantsOfType(['variable_declaration', 'lexical_declaration']).slice(0, 2000)) { const kw = n.text.match(/^(var|let|const)\b/); if (kw) decl[kw[1]] = (decl[kw[1]] || 0) + 1; }
   const tot = Object.values(decl).reduce((a, b) => a + b, 0); if (tot >= 2) { const [k, c] = Object.entries(decl).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0]; out['auto.lex:decl'] = c >= tot * 0.8 ? k : 'mixed'; }
   return out; }
+// the SAME three ingredients extractScopes uses to build a file-kind scope's own preds, computable from raw source
+// text alone — lets a caller ask "what value did this file-level predicate carry in some OTHER version of this
+// file's content" without a full extractScopes/mine pass (used by fileFindings in grain.mjs for G10)
+export async function fileLevelPreds(rel, src) {
+  const p = await getParser(extname(rel)); const b = bindingFor(p._g); const tr = p.parse(src);
+  const preds = { 'auto.filenameshape': nameShape(basename(rel, extname(rel))), ...lexicalPreds(tr), ...exportShape(tr) };
+  tr.delete(); return preds; }
 // scope key → line, from the partition's fileScopes (line order ⇒ the k-th same-named scope of a kind is ordinal k)
 const scopeLineIdx = new WeakMap();
 export function scopeLine(part, key) { let m = scopeLineIdx.get(part);
@@ -542,7 +565,7 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   ps.forEach((s, i) => { const w = wfn(s); const surv = ageFn ? ageFn(s) >= CFG.freshDays : true;
     for (const [pid, v] of Object.entries(s.preds)) {
       add('_all:' + s.kind, pid, v, w, 1, i, surv);
-      const r = ri.assign.get(i); if (r !== undefined) add('r' + r + ':' + s.kind, pid, v, w * (ri.amb.has(i) ? 0.5 : 1), 1, i, surv);
+      const r = ri.assign.get(i); if (r !== undefined) add('r' + r + ':' + s.kind, pid, v, w * (ri.amb.has(i) ? 0.5 : 1), ri.amb.has(i) ? 0 : 1, ri.amb.has(i) ? -1 : i, surv);
       for (const d of dirsOf(s.rel)) if (dirEligible(d + S + s.kind)) add('d[' + d + ']:' + s.kind, pid, v, w, 1, i, surv); } });
   // seeds: pid-scoped pseudo-counts, capped at 0.5 × n_eff_real of the cell
   const seedMarks = new Map(); // cid\x01pid → [{ id, v }]: which value a maintainer seeded in that cell
@@ -716,7 +739,7 @@ export function authorConcClause(ac) { return !ac ? null : ac.distinctAuthors ==
 export function factNotes(f) { const out = [];
   if (f.contested) out.push(`superseded by maintainer decision ${f.contested} — see the steer line / \`grain report\``);
 
-  if (f.trend && f.trend.shares && f.trend.shares.length >= 2) { const a = Math.round(f.trend.shares[0].share * 100), b = Math.round(f.trend.shares[f.trend.shares.length - 1].share * 100); if (Math.abs(a - b) >= 10) out.push(`trend ${a}>${b}%`); }
+  if (f.trend && f.trend.shares && f.trend.shares.length >= 2) { const a = pct(f.trend.shares[0].share), b = pct(f.trend.shares[f.trend.shares.length - 1].share); if (Math.abs(a - b) >= 10) out.push(`trend ${a}>${b}%`); }
   if (f.suppressedValue && !f.contested) out.push(`a newer pattern is emerging: ${f.suppressedValue}`); // when contested, the superseded note already says it
   if (f.held && f.held.since) out.push(`held since ${f.held.since}${f.held.lastReinforced && f.held.lastReinforced !== f.held.since ? `, last reinforced ${f.held.lastReinforced}` : ''}${f.held.repairs ? `, ${f.held.repairs} repair${f.held.repairs > 1 ? 's' : ''} toward it` : ''}${f.held.departures ? `, ${f.held.departures} departure${f.held.departures > 1 ? 's' : ''}` : ''}`);
   return out.length ? ' · ' + out.join(' · ') : ''; }
@@ -904,12 +927,19 @@ export const partOfFn = pkgs => rel => { let b = null; for (const d of pkgs) { i
 // partition — a test suite too small to have norms of its own gets no partition (null), never the production norms
 export const partitionFor = (model, rel) => { const key = partOfFn(model.cuts || model.pkgs)(rel);
   return model.partitions.find(p => p.name === key) || model.partitions.find(p => p.name === '_repo') || model.partitions[0] || null; };
+// normalize a lone CR (not part of a CRLF pair) to LF before parsing — some vendored grammars (tree-sitter-kotlin
+// confirmed) don't treat a bare 0x0D as a line-comment terminator, silently swallowing the declaration that
+// follows on the same "line" as far as the grammar's tokenizer is concerned. Preserves byte length and line
+// count exactly (CR and LF are both one character each), so line/endLine/startIndex stay consistent with the
+// file's real content; a no-op for LF-only and CRLF files. (§G17)
+export function normalizeCR(src) { return src.replace(/\r(?!\n)/g, '\n'); }
 export async function extractTree(root, files, onProgress, readSource = null, cached = null, relOut = null) {
   const all = []; let i = 0, reused = 0;
   for (const rel of files) {
     const hit = cached ? cached(rel) : null; // extraction cache keyed by (blob sha, path): an unchanged file is never re-parsed
     if (hit) { const hs = Array.isArray(hit) ? hit : hit.s; all.push(...hs.map(hydrateScope)); if (relOut && !Array.isArray(hit)) relOut[rel] = hit.r ?? null; reused++; continue; }
     let src; try { src = readSource ? readSource(rel) : readFileSync(join(root, rel), 'utf8'); } catch { continue; }
+    if (src != null) src = normalizeCR(src);
     if (src == null || src.length > 1.5e6) continue;
     try { const p = await getParser(extname(rel)); const b = bindingFor(p._g); const tr = p.parse(src); all.push(...extractScopes(rel, tr, b, p._g));
       if (relOut) relOut[rel] = relFactsFor(rel, src, tr, p._g); // relation facts ride the same parse — the tree is in hand exactly once
@@ -1291,14 +1321,17 @@ export function placementHit(model, rel) {
 
 export async function checkFile({ model, root, rel, content, asPath, exemplarOk = () => true }) {
   const effRel = asPath || rel;
-  const src = content ?? readFileSync(join(root, rel), 'utf8');
+  const src = normalizeCR(content ?? readFileSync(join(root, rel), 'utf8'));
   const part = partitionFor(model, effRel);
   const p = await getParser(extname(rel)); const b = bindingFor(p._g); const tr = p.parse(src);
+  const hasError = tr.rootNode.hasError; // a real parse failure (e.g. unicode identifiers a vendored grammar can't
+  // handle) leaves ERROR nodes in the tree; extractScopes silently skips them so partial content still mines, but
+  // callers need this signal to tell "genuinely nothing here" apart from "the parser gave up on part of this file"
   const scopes = extractScopes(effRel, tr, b, p._g).filter(s => s.name !== '<anon>');
   const relFact = relFactsFor(effRel, src, tr, p._g); tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
   const placeHit = placementHit(model, effRel);
-  if (!part) return { scopes: [], governed: [], msgs: [], archHits, placeHit, partition: null, reason: 'no partition covers this file' };
+  if (!part) return { scopes: [], governed: [], msgs: [], archHits, placeHit, partition: null, reason: 'no partition covers this file', hasError };
   for (const s of scopes) applyVocab(s, part.vocab);
   const medoids = part.medoids;
   const { assign, amb } = assignAll(scopes, medoids);
@@ -1372,17 +1405,19 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
           : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}`;
         steerHits.push({ scope: s.name, kind: s.kind, line: s.line, endLine: s.endLine || s.line, id: st.id, pid: sf.pid, exp: sf.value, obs: v,
           text: `[grain] maintainer decision (${[st.author, st.createdAt].filter(Boolean).join(' ')}): ${head2}.${st.note ? `\n  ${st.note}` : ''}\n  Copy: ${st.path}:${st.line} \`${st.name}\`` }); } }); }
-  return { scopes, governed, msgs, steerHits, archHits, placeHit, partition: part.name }; }
+  return { scopes, governed, msgs, steerHits, archHits, placeHit, partition: part.name, hasError }; }
 // established layering norms: a (source module, target module) pair is a cell exactly like a `_all`-scoped predicate
 // cell in mine() (§9.4a in mathematics.md) — counts = { true: files in A that reach B, false: files in A that don't },
 // neff = |files in A| — decided with the IDENTICAL KT/BIC/index-cost test as mine()'s isAll branch (core.mjs mine(),
-// ~line 552-560): same kt(), same CFG.lambda, no new constant. Uses the PLAIN exported moduleOf (not moduleGraph's
-// internal, unexported, dominant-module-refined closure), consistently with computeArchHits below, and its own edge
-// aggregation straight from model.edges/model.filesAll — never model.moduleGraph's nodes/edges.
+// ~line 552-560): same kt(), same CFG.lambda, no new constant. Uses the SAME refined module assignment as
+// moduleGraph (via the shared refineModOf), consistently with computeArchHits below — both now agree with what
+// report/rules display (§G11 fixed a prior inconsistency here), and its own edge aggregation straight from
+// model.edges/model.filesAll — never model.moduleGraph's nodes/edges.
 export function architectureNorms(model) {
   const files = model.filesAll || []; const pkgs = model.pkgs || [];
   const EMPTY = new Set();
-  const modOf = new Map(); for (const f of files) modOf.set(f, moduleOf(f, pkgs));
+  const refined = refineModOf(files, pkgs);
+  const modOf = new Map(); for (const f of files) modOf.set(f, refined(f));
   // per-file reached-module set: a target module counts once per file, regardless of how many edges/how much .n land on it
   const reached = new Map();
   for (const e of model.edges || []) { const a = modOf.get(e.from), b = modOf.get(e.to); if (a === undefined || b === undefined || a === b) continue;
@@ -1432,8 +1467,9 @@ function computeArchHits({ model, root, effRel, relFact }) {
     const fileSet = new Set(model.filesAll || []);
     const resolve = makeEdgeResolver({ root, fileSet, table: hydrateTable(model.relDecls), workspaces: model.workspaces || [], pkgs: model.pkgs || [], tsAliases: model.tsAliases || [], csGlobal: model.csGlobal || { usings: [], aliases: [] } });
     const mg = model.moduleGraph;
+    const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
     for (const e of resolve(effRel, relFact)) {
-      const a = moduleOf(effRel, model.pkgs), b2 = moduleOf(e.to, model.pkgs);
+      const a = refined(effRel), b2 = refined(e.to);
       for (const bd of model.boundaries || []) { const inFrom = bd.boundary.from === '.' ? !effRel.includes('/') : (effRel + '/').startsWith(bd.boundary.from + '/');
         if (inFrom && (e.to + '/').startsWith(bd.boundary.to + '/'))
           archHits.push({ line: e.line, to: e.to, kind: 'boundary-decision', id: bd.id,
@@ -1454,9 +1490,11 @@ function computeArchHits({ model, root, effRel, relFact }) {
   } catch { /* architecture advice must never break check */ } }
   return archHits; }
 // one paragraph per (convention, observed value): the scopes that deviate, with lines, never nine identical paragraphs
-export function groupDeviations(msgs, touched = null) {
+export function groupDeviations(msgs, touched = null, fileKindTouched = null) {
   const groups = new Map();
-  for (const m of msgs) { const k = m.factKey + '|' + m.pid + '|' + m.obs; let g = groups.get(k); if (!g) { g = { ...m, hits: [] }; groups.set(k, g); } g.hits.push({ scope: m.scope, kind: m.kind, line: m.line, touched: touched ? touched(m.line, m.endLine || m.line) : true }); }
+  for (const m of msgs) { const k = m.factKey + '|' + m.pid + '|' + m.obs; let g = groups.get(k); if (!g) { g = { ...m, hits: [] }; groups.set(k, g); }
+    const isTouched = (m.kind === 'file' && fileKindTouched) ? fileKindTouched(m) : (touched ? touched(m.line, m.endLine || m.line) : true);
+    g.hits.push({ scope: m.scope, kind: m.kind, line: m.line, touched: isTouched }); }
   const out = [];
   for (const g of groups.values()) { const t = g.hits.filter(h => h.touched), p = g.hits.filter(h => !h.touched);
     const who = hs => hs.slice(0, 3).map(h => `\`${h.scope}\` (line ${h.line})`).join(', ') + (hs.length > 3 ? ` and ${hs.length - 3} more` : '');
@@ -1476,6 +1514,11 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
   const files = (part.files || []).slice();
   const fileSet = new Set(files);
   const ps = (scopesAll ? scopesAll.filter(s => fileSet.has(s.rel) && s.kind !== 'module').map(hydrateScope) : (await extractTree(root, files))).filter(s => s.name !== '<anon>');
+  if (!fileSet.has(rel)) { // a new/untracked file — never in the indexed file list, so extractTree/scopesAll never touched it; parse it directly so spectrum doesn't falsely claim "no scopes" for a file `check` sees fine (§G20, consistent with §G8's "don't say parse failure for a genuinely different reason")
+    try { const src = normalizeCR(readFileSync(join(root, rel), 'utf8'));
+      const p = await getParser(extname(rel)); const b = bindingFor(p._g); const tr = p.parse(src);
+      ps.push(...extractScopes(rel, tr, b, p._g).filter(s => s.name !== '<anon>'));
+      tr.delete(); } catch { /* unsupported extension, or the file vanished mid-call — the existing "no scopes extracted" message below is honest here */ } }
   addModuleScopes(ps);
   const vocab = buildVocab(ps, { deep: true });
   for (const s of ps) applyVocab(s, vocab);
@@ -1606,7 +1649,7 @@ export const normTok = t => { t = t.toLowerCase(); if (t.length <= 3) return t;
   if (t.length >= 5) t = t.replace(/e$/, '');
   return t; };
 // partners that historically change WITH files under `dirs`: the partner side is gated on its own direction (sup/commits of the edited side)
-const part = (model, name) => model.partitions.find(p => p.name === name) || { medoids: [], name };
+export const part = (model, name) => model.partitions.find(p => p.name === name) || { medoids: [], name };
 export function cochangePartners(model, dirs, max = 3, file = null) {
   const out = []; const minConf = file ? 1 / 3 : CFG.cochangeMinConf; // one file's history is sparse; a third of its commits is a real signal
   for (const p of model.cochange || []) {
@@ -1719,7 +1762,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
   const bridged = bridgeLines(model, qt, df); // query words the code never says, translated by the commit history
   // the "comes with" recipe's file-shape clause: an accepted auto.filebirth verdict for the SAME population
   // (already computed by learn(), never re-derived here) phrased to read first, before companion/registration
-  const filebirthBit = f => f.exp === 'new' ? `usually starts a new file (${Math.round(f.share * 100)}% of ${f.sraw})` : `is usually added to an existing file (${Math.round(f.share * 100)}% of ${f.sraw})`;
+  const filebirthBit = f => f.exp === 'new' ? `usually starts a new file (${pct(f.share)}% of ${f.sraw})` : `is usually added to an existing file (${pct(f.share)}% of ${f.sraw})`;
   for (const h of hits) {
     const stLines = steers.filter(st => cardHit(st, h)).flatMap(steerLine); // decided, printed right under the card's header
     if (h.type === 'file') { const qs = [...qt];
@@ -1729,7 +1772,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
       const TRIVIAL = /^(none|void|str|string|bool|boolean|int|number|float|any|t\.any|object|list|dict|error|unit|self|this|t|f)$/i;
       const carried = (h.carried || []).filter(([mk]) => !mk.startsWith('ret:') || !TRIVIAL.test(mk.slice(4))).sort((a, b) => b[1] - a[1]);
       if (carried.length) lines.push(`  carries: ${carried.slice(0, 5).map(([mk, n]) => `${mk.startsWith('deco:') ? (mk.slice(5).startsWith('[') ? mk.slice(5) : '@' + mk.slice(5)) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`).join(' · ')}`);
-      for (const f of h.facts.slice(0, 3)) lines.push(`  - ${factLabel(part(model, h.part), f)}: ${verbalize(f, f.exemplars.map(e => e.name))} — ${Math.round(f.share * 100)}% of ${f.sraw}`);
+      for (const f of h.facts.slice(0, 3)) lines.push(`  - ${factLabel(part(model, h.part), f)}: ${verbalize(f, f.exemplars.map(e => e.name))} — ${pct(f.share)}% of ${f.sraw}`);
       const cc = cochangePartners(model, [], 3, h.label);
       if (cc.length) lines.push(`  historically co-changes with: ${cc.map(c => `${c.partner} (${c.sup}/${c.commits} commits)`).join(' · ')}`);
       continue; }
@@ -1755,13 +1798,13 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
       const mFb = mFbCids.size ? part(model, h.part).facts.find(f => f.pid === 'auto.filebirth' && mFbCids.has(f.cid)) : undefined;
       { const bits = [];
         if (mFb) bits.push(filebirthBit(mFb));
-        if (mi) { if (mi.companion) bits.push(`a same-stem \`${mi.companion.pattern}\` companion (${Math.round(mi.companion.share * 100)}% of ${mi.companion.n} have one, e.g. \`${mi.companion.example}\`)`);
+        if (mi) { if (mi.companion) bits.push(`a same-stem \`${mi.companion.pattern}\` companion (${pct(mi.companion.share)}% of ${mi.companion.n} have one, e.g. \`${mi.companion.example}\`)`);
           if (mi.importedBy) bits.push(`registration in \`${mi.importedBy.file}\` (imports ${mi.importedBy.n} of ${mi.importedBy.of} carriers)`);
           if (mi.importedByPattern) bits.push(`registration by a \`${mi.importedByPattern.pattern}\` file (${mi.importedByPattern.n} of ${mi.importedByPattern.of} carriers)`); }
         if (bits.length) lines.push(`  a new carrier comes with: ${bits.join(' · ')}`); }
       const best = [...h.facts].sort((a, b) => b.sraw - a.sraw)[0];
       if (best) { const own = best.pid === h.mpid ? best : { ...((best.siblings || []).find(sb => sb.pid === h.mpid) || best), kind: best.kind };
-        lines.push(`  - ${verbalize(own, best.exemplars.map(e => e.name))} — ${Math.round(best.share * 100)}% of ${best.sraw}${own !== best ? ` (with: ${verbalize(best, best.exemplars.map(e => e.name)).replace(/^\w+ here /, '')})` : ''}${factNotes(best)}`); }
+        lines.push(`  - ${verbalize(own, best.exemplars.map(e => e.name))} — ${pct(best.share)}% of ${best.sraw}${own !== best ? ` (with: ${verbalize(best, best.exemplars.map(e => e.name)).replace(/^\w+ here /, '')})` : ''}${factNotes(best)}`); }
       continue; }
     if (!h.facts.length) lines.push(`  - no convention certified here beyond placement (the group is small, not free-form) — open a member below and copy its shape`);
     let bulletFacts = h.facts;
@@ -1778,14 +1821,14 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
       const fbFact = h.facts.find(f => f.pid === 'auto.filebirth');
       { const bits = [];
         if (fbFact) bits.push(filebirthBit(fbFact));
-        if (gi2) { if (gi2.companion) bits.push(`a same-stem \`${gi2.companion.pattern}\` companion (${Math.round(gi2.companion.share * 100)}% of ${gi2.companion.n} have one, e.g. \`${gi2.companion.example}\`)`);
+        if (gi2) { if (gi2.companion) bits.push(`a same-stem \`${gi2.companion.pattern}\` companion (${pct(gi2.companion.share)}% of ${gi2.companion.n} have one, e.g. \`${gi2.companion.example}\`)`);
           if (gi2.importedBy) bits.push(`registration in \`${gi2.importedBy.file}\` (imports ${gi2.importedBy.n} of ${gi2.importedBy.of} members)`);
           if (gi2.importedByPattern) bits.push(`registration by a \`${gi2.importedByPattern.pattern}\` file (${gi2.importedByPattern.n} of ${gi2.importedByPattern.of} members are imported by one)`); }
         if (bits.length) lines.push(`  a new member comes with: ${bits.join(' · ')}`); }
       // folded into the recipe line above — must not also print as one of the ordinary bullets below
       if (fbFact) bulletFacts = h.facts.filter(f => f !== fbFact); }
     let dlShown = false; // the first fact that HAS deviants names them — what not to copy
-    bulletFacts.slice(0, 6).forEach(f => { lines.push(`  - ${verbalize(f, f.exemplars.map(e => e.name))} — ${Math.round(f.share * 100)}% of ${f.sraw}${factNotes(f)}${f.authorConc ? ` · ${authorConcClause(f.authorConc)}` : ''}`); if (!dlShown) { const dl = deviantLine(f); if (dl) { lines.push(dl); dlShown = true; } } });
+    bulletFacts.slice(0, 6).forEach(f => { lines.push(`  - ${verbalize(f, f.exemplars.map(e => e.name))} — ${pct(f.share)}% of ${f.sraw}${factNotes(f)}${f.authorConc ? ` · ${authorConcClause(f.authorConc)}` : ''}`); if (!dlShown) { const dl = deviantLine(f); if (dl) { lines.push(dl); dlShown = true; } } });
     // exemplars: types and methods before file scopes — a class to copy beats a filename to copy
     const kindRank = e => /\.[a-z]+$/i.test(e.name) && e.line === 1 ? 1 : 0;
     const ex = [...new Map(h.facts.flatMap(f => f.exemplars).map(e => [e.rel + e.name, e])).values()].filter(e => exemplarOk(e.rel)).sort((a, b) => kindRank(a) - kindRank(b)).slice(0, 3);
@@ -1798,7 +1841,11 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
   return { lines, hits, cards }; }
 
 // ===== REPORT / STATUS / COMPLETENESS =====
-export const factLabel = (p, f) => /^r\d/.test(f.cid) ? `group «${p.medoids[+f.cid.slice(1).split(':')[0]]?.label || 'group'}»` : f.cid.startsWith('d[') ? `local (${f.cid.slice(2, f.cid.indexOf(']'))}/)` : f.pkgWide ? scopeLabel(p.name.replace(/#.*$/, '')) + ' incl. tests/examples' : scopeLabel(p.name);
+// never round a share < 1 up to a misleading 100% — the floor sits at 99 so "100%" is reserved for an actual,
+// exact 1.0 share (zero exceptions), matching what the rest of the product's own language teaches that phrase to
+// mean; share === 1 still prints 100 (§G14)
+export function pct(share) { const r = Math.round(share * 100); return share < 1 && r >= 100 ? 99 : r; }
+export const factLabel = (p, f) =>/^r\d/.test(f.cid) ? `group «${p.medoids[+f.cid.slice(1).split(':')[0]]?.label || 'group'}»` : f.cid.startsWith('d[') ? `local (${f.cid.slice(2, f.cid.indexOf(']'))}/)` : f.pkgWide ? scopeLabel(p.name.replace(/#.*$/, '')) + ' incl. tests/examples' : scopeLabel(p.name);
 // three tiers, each under its own --top cap: domain conventions (a choice someone made) first, structural-shape
 // contrasts (the language showing through a group/directory boundary, not a chosen convention) second, lexical
 // style (quotes, semicolons, indentation) last — bpi alone conflates them, since a crisp small sample can
@@ -1815,12 +1862,23 @@ export function factTiers(p) {
   const structural = shown.filter(f => STRUCT_PID.test(f.pid));
   const lexical = shown.filter(isLex);
   return { domain, structural, lexical, taut }; }
+// how much of the indexed file set the relation/architecture layer can even see — a grammar with no relSupported()
+// extractor contributes file/module edges of exactly zero, indistinguishable from a real, measured "this language
+// imports nothing" without this disclosure; pure render from data the model already has, zero heuristics about
+// WHICH languages (driven entirely by relSupported's own capability list) (§G21)
+function relCoverageNote(model) {
+  const uncovered = new Map(); // grammar name -> file count
+  for (const f of model.filesAll || []) { const g = EXT2GRAMMAR[extname(f)]; if (g && !relSupported(g)) uncovered.set(g, (uncovered.get(g) || 0) + 1); }
+  if (!uncovered.size) return null;
+  const n = [...uncovered.values()].reduce((a, b) => a + b, 0);
+  return `resolution does not cover ${n} file${n > 1 ? 's' : ''} (${[...uncovered.keys()].sort().join(', ')}) — conventions layer only for those`;
+}
 export function report(model, { top = 15 } = {}) {
   const lines = [];
   for (const p of model.partitions) { lines.push(`== ${scopeLabel(p.name)} — ${p.facts.length} conventions · ${p.medoids.length} groups · ${p.scopes} scopes · ${p.files.length} files ==`);
     const { domain, structural, lexical, taut } = factTiers(p);
-    const printFact = f => { const t = f.trend; const tr = t ? ` trend[${t.shares.map(s => Math.round(s.share * 100)).join('>')}%]${t.nucleating ? ` — a newer pattern is emerging here: ${t.nucleating}` : ''}` : '';
-      lines.push(`  ${factLabel(p, f)}: ${verbalize(f, f.exemplars.map(e => e.name))} — ${Math.round(f.share * 100)}% of ${f.sraw} established${f.deviantsN ? `, ${f.deviantsN} deviant${f.deviantsN > 1 ? 's' : ''}` : ''}${tr}${f.held && f.held.since ? ` · held since ${f.held.since}` : ''}${f.authorConc ? ` · ${authorConcClause(f.authorConc)}` : ''}`); };
+    const printFact = f => { const t = f.trend; const tr = t ? ` trend[${t.shares.map(s => pct(s.share)).join('>')}%]${t.nucleating ? ` — a newer pattern is emerging here: ${t.nucleating}` : ''}` : '';
+      lines.push(`  ${factLabel(p, f)}: ${verbalize(f, f.exemplars.map(e => e.name))} — ${pct(f.share)}% of ${f.sraw} established${f.deviantsN ? `, ${f.deviantsN} deviant${f.deviantsN > 1 ? 's' : ''}` : ''}${tr}${f.held && f.held.since ? ` · held since ${f.held.since}` : ''}${f.authorConc ? ` · ${authorConcClause(f.authorConc)}` : ''}`); };
     for (const f of domain.slice(0, top)) printFact(f);
     if (domain.length > top) lines.push(`  … and ${domain.length - top} more — run with --top ${domain.length} for all`);
     if (structural.length) { lines.push('  syntax-shape facts (structural, not a chosen convention):');
@@ -1837,10 +1895,11 @@ export function report(model, { top = 15 } = {}) {
   if (model.moduleGraph && model.moduleGraph.nodes.length > 1) {
     const mg = model.moduleGraph;
     lines.push(`== architecture — ${mg.nodes.length} modules · ${mg.edges.length} directed dependencies · ${mg.cycles.length} cycle(s) ==`);
+    const covNote = relCoverageNote(model); if (covNote) lines.push(`  ${covNote}`);
     const out = new Map(); for (const e of mg.edges) (out.get(e.from) || out.set(e.from, []).get(e.from)).push(e);
     for (const [from, es] of [...out].sort((a, b) => b[1].reduce((x, y) => x + y.n, 0) - a[1].reduce((x, y) => x + y.n, 0)).slice(0, 12))
       lines.push(`  ${from}/ → ${es.slice(0, 5).map(e => `${e.to}/ (${e.n})`).join(' · ')}${es.length > 5 ? ` · +${es.length - 5} more` : ''}`);
-    for (const c of mg.cycles.slice(0, 4)) lines.push(`  cycle: ${c.join(' ↔ ')}`);
+    for (const c of mg.cycles.slice(0, 4)) lines.push(`  cycle (strongly connected): ${c.join(', ')} — every member reaches every other, not necessarily in this order`);
     const departures = (model.archNorms || []).filter(n => n.exp === 'false');
     if (departures.length) lines.push(`  established layering: ${departures.length} module pair(s) where reaching the target is the counted exception, not the practice`); }
   { const moving = [];
@@ -1849,7 +1908,7 @@ export function report(model, { top = 15 } = {}) {
       if (Math.abs(b2 - a) >= 0.1 || f.suppressedValue) moving.push({ p: p2, f, d: b2 - a }); }
     if (moving.length) { lines.push(`== drift — ${moving.length} convention(s) in motion ==`);
       for (const m of moving.sort((x, y) => Math.abs(y.d) - Math.abs(x.d)).slice(0, 10))
-        lines.push(`  ${m.d > 0 ? '↑' : m.d < 0 ? '↓' : '~'} ${factLabel(m.p, m.f)}: ${verbalize(m.f, m.f.exemplars.map(e => e.name))} — ${m.f.trend.shares.map(x2 => Math.round(x2.share * 100)).join('>')}%${m.f.suppressedValue ? ` · a newer pattern is emerging: ${m.f.suppressedValue}` : ''}`); } }
+        lines.push(`  ${m.d > 0 ? '↑' : m.d < 0 ? '↓' : '~'} ${factLabel(m.p, m.f)}: ${verbalize(m.f, m.f.exemplars.map(e => e.name))} — ${m.f.trend.shares.map(x2 => pct(x2.share)).join('>')}%${m.f.suppressedValue ? ` · a newer pattern is emerging: ${m.f.suppressedValue}` : ''}`); } }
   if (model.boundaries && model.boundaries.length) { lines.push(`== boundaries — ${model.boundaries.length} architecture decision(s) in .grain/seeds.jsonl ==`);
     for (const bd of model.boundaries) lines.push(`  ${bd.id}: ${bd.boundary.from}/ never imports ${bd.boundary.to}/${bd.note ? ' — ' + bd.note : ''}${!bd.fromLive || !bd.toLive ? ' (a side names no indexed files — inert)' : ''}${bd.author ? ' · ' + bd.author : ''} ${bd.createdAt || ''}`); }
   if (model.steers && model.steers.length) { lines.push(`== steers — ${model.steers.length} maintainer decision(s) in .grain/seeds.jsonl ==`);
@@ -1869,10 +1928,10 @@ export function rulesMarkdown(model, { top = 15, sha = 'no-git', date = new Date
   const lines = [];
   lines.push(`# ${model.repo} — established conventions`, '');
   lines.push(`Generated by \`grain rules\` as of commit \`${sha}\` on ${date} — this file is a snapshot, not a live query; recompute with \`grain rules --out <this file>\` after the code moves. It reflects only what a maintainer would see running \`grain report\` on this exact commit.`, '');
-  const row = (p, f) => { const t = f.trend; const tr = t ? `trend ${t.shares.map(s => Math.round(s.share * 100)).join('>')}%${t.nucleating ? ` — newer pattern emerging: ${t.nucleating}` : ''}` : '';
+  const row = (p, f) => { const t = f.trend; const tr = t ? `trend ${t.shares.map(s => pct(s.share)).join('>')}%${t.nucleating ? ` — newer pattern emerging: ${t.nucleating}` : ''}` : '';
     const notes = [tr, f.held && f.held.since ? `held since ${f.held.since}` : '', f.authorConc ? authorConcClause(f.authorConc) : ''].filter(Boolean).join('; ');
     const ex = f.exemplars[0];
-    const evidence = `${Math.round(f.share * 100)}% of ${f.sraw} established${f.deviantsN ? `, ${f.deviantsN} deviant${f.deviantsN > 1 ? 's' : ''}` : ''}`;
+    const evidence = `${pct(f.share)}% of ${f.sraw} established${f.deviantsN ? `, ${f.deviantsN} deviant${f.deviantsN > 1 ? 's' : ''}` : ''}`;
     return `| ${factLabel(p, f)} | ${verbalize(f, f.exemplars.map(e => e.name))} | ${evidence} | ${ex ? `\`${ex.rel}:${ex.line}\`` : ''} | ${notes} |`; };
   const table = (p, heading, facts) => { if (!facts.length) return;
     lines.push(`### ${heading}`, '', '| where | convention | evidence | exemplar | notes |', '| --- | --- | --- | --- | --- |');
@@ -1898,7 +1957,7 @@ export function rulesMarkdown(model, { top = 15, sha = 'no-git', date = new Date
     const out = new Map(); for (const e of mg.edges) (out.get(e.from) || out.set(e.from, []).get(e.from)).push(e);
     for (const [from, es] of [...out].sort((a, b) => b[1].reduce((x, y) => x + y.n, 0) - a[1].reduce((x, y) => x + y.n, 0)).slice(0, 12))
       lines.push(`- \`${from}/\` → ${es.slice(0, 5).map(e => `\`${e.to}/\` (${e.n})`).join(' · ')}${es.length > 5 ? ` · +${es.length - 5} more` : ''}`);
-    if (mg.cycles.length) { lines.push('', '**Cycles:**', ''); for (const c of mg.cycles.slice(0, 4)) lines.push(`- ${c.join(' ↔ ')}`); }
+    if (mg.cycles.length) { lines.push('', '**Cycles (strongly connected — every member reaches every other, not necessarily in this order):**', ''); for (const c of mg.cycles.slice(0, 4)) lines.push(`- ${c.join(', ')}`); }
     const departures = (model.archNorms || []).filter(n => n.exp === 'false');
     if (departures.length) lines.push('', `_Established layering: ${departures.length} module pair(s) where reaching the target is the counted exception, not the practice._`);
     lines.push(''); }
@@ -1911,15 +1970,18 @@ export function rulesMarkdown(model, { top = 15, sha = 'no-git', date = new Date
         for (const rp of st.surfaces.filter(x => x.retires)) lines.push(`  - retires: ${verbalize({ pid: rp.pid, exp: 'true', kind: st.kind }, [])}`); } }
     lines.push(''); }
   while (lines.length && lines[lines.length - 1] === '') lines.pop();
+  lines.push('', `*as of ${sha}*`);
   return lines; }
 export function statusLines(model) {
   const nf = model.partitions.reduce((a, p) => a + p.facts.length, 0);
   const ng = model.partitions.reduce((a, p) => a + p.medoids.length, 0);
+  const covNote = relCoverageNote(model);
   return [`model: ${model.repo} · ${model.partitions.length} partition(s) · ${ng} groups · ${nf} conventions · ${model.files} files${!model.historyStats ? ' — no git history: nothing counts as established, so no convention is spoken (groups and placement still answer `where`)' : ''}`,
     `agent-authored share of code younger than ${CFG.survDays} days: ${model.agentShare == null ? 'n/a (no history)' : Math.round(model.agentShare * 100) + '%'}${model.agentShare >= 0.85 ? ' ⚠ ALARM — the norm is being written by agents faster than humans review it' : ''}`,
     `nucleating stand-downs: ${model.partitions.reduce((a, p) => a + p.facts.filter(f => f.suppressedValue).length, 0)}`,
     `co-change pairs: ${model.cochange.length} · history: ${model.historyStats ? model.historyStats.commits + ' commits, ' + model.historyStats.blobs + ' blobs' : 'none (degraded weights)'}`,
     `architecture: ${model.moduleGraph?.nodes.length ?? 0} modules · ${(model.edges || []).length} file edges${model.edgesTruncated ? ' (+' + model.edgesTruncated + ' truncated)' : ''} · ${model.moduleGraph?.edges.length ?? 0} module edges · ${model.moduleGraph?.cycles.length ?? 0} cycle(s)`,
+    ...(covNote ? [covNote] : []),
     ...(model.steers && model.steers.length ? [`steers: ${model.steers.filter(s => s.found).length} active${model.steers.some(s => !s.found) ? `, ${model.steers.filter(s => !s.found).length} inert (exemplar gone)` : ''} — .grain/seeds.jsonl`] : []),
     ...(model.boundaries && model.boundaries.length ? [`boundaries: ${model.boundaries.length} architecture decision(s) — .grain/seeds.jsonl`] : [])]; }
 export function completeness(model, changed) {

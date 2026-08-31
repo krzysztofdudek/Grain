@@ -3,10 +3,10 @@ import { existsSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-export const ENGINE_VERSION = '0.2.0';
-export const EXTR_V = 'g23';
+export const ENGINE_VERSION = '0.2.1';
+export const EXTR_V = 'g24'; // g24: iterative (non-recursive) walk in extractScopes so a deeply-nested expression no longer crashes extraction (G1); Rust struct_expression/mod_item are no longer misclassified as types (G15); a PHP call assigned to a variable no longer creates a phantom method scope (G16); a lone CR in a `//` comment no longer swallows the declaration after it (G17)
 export const HIST_V = 'h6'; // replay-state schema version — bump when a per-scope lifecycle field is added (forces a full history re-walk, not just a re-learn): h6 adds `newFile` (birth-file status, §13.3), which only a fresh replay can backfill onto scopes born before the upgrade
-export const MODEL_V = 'm14'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse)
+export const MODEL_V = 'm15'; // model schema version — bump when the model gains fields queries depend on (forces a re-learn, not a re-parse): m15 corrects role-cell established/share counts to exclude ambiguous members (G9), fixes a symbol literally named `constructor`/etc. silently zeroing the whole architecture layer (G6), and makes archNorms/computeArchHits agree with moduleGraph's own refined module IDs instead of a flatter, inconsistent one (G11)
 
 const here = dirname(fileURLToPath(import.meta.url));
 // Grammar assets (`tree-sitter-<g>.wasm` + `tree-sitter-<g>.node-types.json`) live inside the plugin by default;

@@ -15,8 +15,8 @@ import { dirname as posixDirname } from 'node:path/posix'; // matches placementH
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, EXCL, EXT2GRAMMAR, HARD_EXCL } from './config.mjs';
-import { learn, checkFile, spectrum, whereCmd, report, rulesMarkdown, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel, placementHit, sufOf, nameTokens } from './core.mjs';
-import { loadHistory, headSha, headTree, gitOk } from './history.mjs';
+import { learn, checkFile, spectrum, whereCmd, report, rulesMarkdown, statusLines, completenessDirectional, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel, placementHit, sufOf, nameTokens, fileLevelPreds, pct, scopeLine, part } from './core.mjs';
+import { loadHistory, headSha, headTree, gitOk, isShallow } from './history.mjs';
 import { exportModel } from './export.mjs';
 import { createHash } from 'node:crypto';
 import { hydrateScope, applyVocab, partitionFor, verbalize as verb2, baselineShare } from './core.mjs';
@@ -36,6 +36,7 @@ export function parseArgv(argv) {
 // ----- repo + store -----
 export function findRoot(opts) {
   const start = resolve(opts.repo || process.cwd());
+  if (opts.repo && !existsSync(start)) throw new Error(`no such directory: ${start}`);
   try { return { root: execFileSync('git', ['-C', start, 'rev-parse', '--show-toplevel'], { stdio: ['ignore', 'pipe', 'ignore'] }).toString().trim(), git: true }; }
   catch { return { root: start, git: false }; } }
 // Two stores under <repo>/.grain/ (the spec's store triad minus local state, which a query tool does not keep):
@@ -71,16 +72,28 @@ export async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }
   const versionOk = meta && meta.engine === ENGINE_VERSION && meta.extractor === EXTR_V && (meta.model || '') === MODEL_V && meta.grammars === grammarStamp();
   const { seeds, boundaries } = readSeeds(store); const seedsHash = hashSeeds({ seeds, boundaries });
   const sig = isGit ? null : treeSig(root);
-  const fresh = model && versionOk && (meta.seedsHash || '') === seedsHash && (isGit ? meta.headSha === head : meta.treeSig === sig); // a changed seeds file re-mines like a new commit would
+  const cachedWithHistory = meta && meta.historyMode && meta.historyMode !== 'none';
+  const cachedNoHistoryByFlag = meta && meta.historyMode === 'none' && meta.historyReason === '--no-history flag';
+  const cachedShallow = meta && meta.historyReason === 'shallow clone — history unavailable, weights flat';
+  const nowUnshallow = cachedShallow && isGit && !isShallow(root); // §G13: the cache says shallow, but the repo isn't anymore — that alone must invalidate freshness, even though headSha/version/seeds all still match
+  const fresh = model && versionOk && (meta.seedsHash || '') === seedsHash && (isGit ? meta.headSha === head : meta.treeSig === sig) // a changed seeds file re-mines like a new commit would
+    && !(cachedNoHistoryByFlag && !opts['no-history']) // §G12 (symmetric case): a cache built under --no-history must not silently serve a no-flag call as if it had full history — force a real rebuild instead
+    && !nowUnshallow;
   const banner = [];
-  if (fresh && want !== 'force') return { model, meta, head, banner };
+  if (fresh && want !== 'force') {
+    if (opts['no-history'] && cachedWithHistory) { // §G12: a per-invocation --no-history must not be silently ignored by an otherwise-fresh WITH-history cache
+      const treeCache = readJson(store.treePath);
+      const tree = isGit && head ? headTree(root, { skip: (rel, sha) => !!(treeCache && treeCache[sha + '|' + rel]) }) : null;
+      const { model: m2 } = await learn({ root, H: null, log, tree, treeCache, seeds, boundaries });
+      return { model: m2, meta: { ...meta, historyMode: 'none', historyReason: '--no-history flag' }, head, banner }; } // in-memory only — the persisted store is NEVER touched here, the flag is per-invocation, not a change to indexed state
+    return { model, meta, head, banner }; }
   if (want === 'none') { // caller refuses to rebuild (hook path, or --no-refresh): answer stale, never silently
     if (!model) return { model: null, meta, head, banner: ['NO INDEX: run `grain refresh` (or any query) to build it'] };
     banner.push(`STALE: indexed at ${short(meta?.headSha)}, HEAD is ${short(head)}${versionOk ? '' : ' (engine/grammar version changed)'} — run \`grain refresh\``);
     return { model, meta, head, banner, stale: true }; }
   ensureStore(root, store);
   const t0 = Date.now();
-  let H = null, hist = { mode: 'none', reason: 'no git' };
+  let H = null, hist = { mode: 'none', reason: isGit ? '--no-history flag' : 'not a git repository (or no commits yet)' };
   if (isGit && !opts['no-history']) { hist = await loadHistory({ gitdir: root, store, log, full: want === 'force' && !!opts.full || !versionOk }); H = hist.H;
     if (hist.mode === 'none') log(`history: ${hist.reason}`); }
   log(`indexing ${root} (${hist.mode === 'incremental' ? 'incremental' : hist.mode === 'unchanged' ? 'history unchanged' : hist.mode === 'full' ? 'full history' : 'no history'})`);
@@ -98,18 +111,32 @@ export async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }
 // exemplar re-validation at render time is a memoized existence check (never a re-parse)
 const existsMemo = root => { const m = new Map(); return rel => { if (!m.has(rel)) m.set(rel, existsSync(join(root, rel))); return m.get(rel); }; };
 // worktree vs HEAD for one file: dirty ⇔ untracked, or content differs from the HEAD blob
-function fileDirty(root, rel, isGit) { if (!isGit) return true;
-  if (!gitOk(root, ['ls-files', '--error-unmatch', '--', rel])) return true;
-  return !gitOk(root, ['diff', '--quiet', 'HEAD', '--', rel]); }
+function fileDirty(root, rel, isGit, diffArgs) { if (!isGit) return true;
+  if (!diffArgs && !gitOk(root, ['ls-files', '--error-unmatch', '--', rel])) return true;
+  return !gitOk(root, ['diff', '--quiet', ...(diffArgs || ['HEAD']), '--', rel]); }
 // the worktree lines this file changed against HEAD (untracked ⇒ every line; clean ⇒ none): `check` reports deviations in
 // the caller's own change first and folds pre-existing ones into a count — measured: 11 pre-existing deviations and 0 about
 // the change on one flask file was 1.5k tokens of noise
-function changedRanges(root, rel, isGit) { if (!isGit) return null;
-  if (!gitOk(root, ['ls-files', '--error-unmatch', '--', rel])) return [[1, Infinity]];
-  let out; try { out = execFileSync('git', ['-C', root, 'diff', '-U0', 'HEAD', '--', rel], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return null; }
+function changedRanges(root, rel, isGit, diffArgs) { if (!isGit) return null;
+  if (!diffArgs && !gitOk(root, ['ls-files', '--error-unmatch', '--', rel])) return [[1, Infinity]];
+  let out; try { out = execFileSync('git', ['-C', root, 'diff', '-U0', ...(diffArgs || ['HEAD']), '--', rel], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); } catch { return null; }
   const ranges = []; for (const m of out.matchAll(/^@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/gm)) { const a = +m[1], n = m[2] === undefined ? 1 : +m[2]; ranges.push(n === 0 ? [a, a + 1] : [a, a + n - 1]); } // a pure deletion touches the line after its point (the class whose decorator was deleted)
   return ranges; }
-function relPath(root, p) { const abs = isAbsolute(p) ? p : (existsSync(resolve(process.cwd(), p)) || !existsSync(resolve(root, p)) ? resolve(process.cwd(), p) : resolve(root, p)); const rel = toPosix(relative(root, abs));
+function canonicalize(p) { // realpath through the deepest EXISTING ancestor — handles a path not yet on disk (a
+  // pre-write path) and OS symlinks (macOS /tmp -> /private/tmp) that would otherwise put a valid path "outside"
+  // its own repository; shared by relPath and check-hook's PreToolUse path resolution
+  try { return realpathSync(p); } catch {
+    let d2 = p; const tail = []; while (!existsSync(d2)) { tail.unshift(basename(d2)); const nd = pdirname(d2); if (nd === d2) break; d2 = nd; }
+    try { return join(realpathSync(d2), ...tail); } catch { return p; } } }
+function relPath(root, p) {
+  let abs;
+  if (isAbsolute(p)) abs = canonicalize(p);
+  else { const underRoot = resolve(root, p), underCwd = resolve(process.cwd(), p);
+    abs = existsSync(underRoot) ? underRoot
+      : (existsSync(underCwd) && !relative(root, underCwd).startsWith('..')) ? underCwd
+      : underRoot; } // neither exists (or the cwd match would itself escape root): fall back to root-relative so a
+      // distinct "no such file" check downstream catches it, not a false "outside"
+  const rel = toPosix(relative(root, abs));
   if (rel.startsWith('..')) throw new Error(`${p} is outside the repository ${root}`); return rel; }
 
 // ----- commands -----
@@ -119,7 +146,13 @@ export async function cmdWhere({ model, root, args, opts, stamp }) {
   const sig = signal(model); if (/empty|sparse|no source/.test(sig.verdict)) lines.push(`model note: ${sig.facts} conventions over ${sig.files} source files — ${sig.verdict}`);
   if (opts.json) { const { hits } = whereCmd({ model, query: args.join(' '), top: +opts.top || 3, mapRows: +opts['map-rows'] || 60, exemplarOk: existsMemo(root) });
     return [JSON.stringify({ query: args.join(' '), hits: hits.map(h => ({ type: h.type, label: h.label, partition: h.part, score: +h.score.toFixed(3), size: h.n, directories: h.topDirs.map(([d, n]) => ({ dir: d, n })),
-      members: h.members ? h.members.slice(0, 12).map(k => { const [rel, kind, name, line] = k.split('#'); return { rel, kind, name, line: line ? +line : null }; }) : undefined,
+      // a `file` card's own keys already bake in the real line as their 4th segment (`rel#kind#name#line`, built
+      // in core.mjs's card-building pass) — unlike every other card type, whose keys are `skeyR` identity keys
+      // (`rel#kind#name[#ord]`) where a 4th segment, when present, is a dedup ordinal, never a line. Matches the
+      // text-rendering path's own split: `h.type === 'file'` naively destructures the key (core.mjs's `matching`),
+      // every other type resolves through `scopeLine` (core.mjs's `withLine`).
+      members: h.members ? h.members.slice(0, 12).map(k => { const [rel, kind, name, rawLine] = k.split('#');
+        return { rel, kind, name, line: h.type === 'file' ? (rawLine ? +rawLine : null) : scopeLine(part(model, h.part), k) }; }) : undefined,
       conventions: h.facts.slice(0, 6).map(f => ({ id: h.part + '::' + f.cid + '::' + f.pid, statement: verbalize(f, f.exemplars.map(e => e.name)), share: f.share, established: f.sraw, exemplars: f.exemplars, deviants: f.deviants || [], trend: f.trend ? f.trend.shares.map(x => x.share) : null, held: f.held || null })) })),
       signal: sig, asOf: stamp().replace(/^as of /, '') })]; }
   return [...lines, stamp()]; }
@@ -133,10 +166,21 @@ function govFactsOf(r) { const m = new Map();
 // `review` (many files: only these four categories count as a finding — placement, maintainer decisions departed
 // from, architecture hits, and deviations inside the lines this file itself changed; pre-existing deviations outside
 // the change are deliberately excluded here too, same "not yours to fix" discipline as single-file `check`)
-function fileFindings({ root, rel, isGit, dirty, r, wholeFile = false }) {
-  const ranges = wholeFile ? [[1, Infinity]] : (dirty ? changedRanges(root, rel, isGit) : []);
+async function fileFindings({ root, rel, isGit, dirty, r, wholeFile = false, diffArgs }) {
+  const ranges = wholeFile ? [[1, Infinity]] : (dirty ? changedRanges(root, rel, isGit, diffArgs) : []);
   const touched = ranges === null ? null : ((from, to) => ranges.some(([a, b]) => to >= a && from - 3 <= b)); // a scope is "in your change" when any changed line falls inside it or in the three lines above it (its decorator stack)
-  const grouped = groupDeviations(r.msgs, touched);
+  // a file-kind fact (quote style, filename shape, export style…) describes the WHOLE file's content, not a bounded
+  // line range — its pseudo-scope sits at line 1 (extractScopes, core.mjs), so the line-range `touched` above would
+  // misattribute it by whether the diff happens to touch line 1, not by whether THIS edit changed the fact's value
+  // (G10). Classify it instead by comparing against the predicate recomputed on the file's content at the correct
+  // "before" ref — one extra parse, only when a file-kind deviation actually exists and the file is dirty.
+  let fkTouched = null;
+  if (!wholeFile && dirty && r.msgs.some(m => m.kind === 'file')) {
+    const beforeRef = (diffArgs && diffArgs.length === 2) ? diffArgs[0] : 'HEAD'; // --range a..b compares against a; default/--worktree/--staged all compare against HEAD (--cached's own baseline)
+    const headSrc = refContent(root, beforeRef, rel);
+    if (headSrc == null) fkTouched = () => true; // untracked, or didn't exist at beforeRef — every file-kind deviation is "in your change" by construction
+    else { const headPreds = await fileLevelPreds(rel, headSrc); fkTouched = m => headPreds[m.pid] !== m.obs; } }
+  const grouped = groupDeviations(r.msgs, touched, fkTouched);
   const inChange = grouped.filter(g => g.touched), preOnly = grouped.filter(g => !g.touched);
   const steerIn = (r.steerHits || []).filter(h => !touched || touched(h.line, h.endLine)), steerPre = (r.steerHits || []).filter(h => touched && !touched(h.line, h.endLine));
   const archIn = (r.archHits || []).filter(h => !touched || touched(h.line, h.line)), archPre = (r.archHits || []).filter(h => touched && !touched(h.line, h.line));
@@ -149,7 +193,7 @@ function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp }) {
   const { touched, inChange, preOnly } = f;
   const dev = g => ({ convention: r.partition + '::' + g.factKey.split('|')[0] + '::' + g.pid, label: g.label, pid: g.pid, expected: g.exp, observed: g.obs, gapBits: g.delta,
     statement: g.text.split('\n')[0].replace(/^\[grain\] /, ''), hits: g.hits.map(h => ({ scope: h.scope, kind: h.kind, line: h.line, inChange: h.touched })) });
-  return { file: rel, partition: r.partition, label: r.partition ? scopeLabel(r.partition) : null, scopes: scopesN, dirty,
+  return { file: rel, partition: r.partition, label: r.partition ? scopeLabel(r.partition) : null, scopes: scopesN, dirty, hasError: !!r.hasError,
     governed: [...govFacts.values()].map(e => ({ convention: r.partition + '::' + e.g.fact.cid + '::' + e.g.pid, label: e.g.label, statement: verbalize(e.g.fact, e.g.fact.exemplars.map(x => x.name)), established: e.g.fact.sraw, share: e.g.fact.share, scopes: e.n, conforming: e.ok })),
     deviationsInChange: inChange.map(dev), deviationsPreExisting: preOnly.map(dev),
     steers: (r.steerHits || []).map(h => ({ seed: h.id, pid: h.pid, expected: h.exp, observed: h.obs, scope: h.scope, kind: h.kind, line: h.line, inChange: !touched || touched(h.line, h.endLine) })),
@@ -160,19 +204,24 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
   if (!args[0]) throw new Error('usage: grain check <file> [--as <repo-relative path>]');
   const rel = relPath(root, args[0]); const content = opts.content ? readFileSync(opts.content, 'utf8') : undefined;
   if (!content && !existsSync(join(root, rel))) throw new Error(`no such file: ${rel}`);
-  if (!EXT2GRAMMAR[extname(rel)]) { const ph = placementHit(model, rel);
-    return [`check ${rel}: no grammar for "${extname(rel) || 'a file without extension'}" — grain parses ${GRAMMARS.join(', ')}`, ...(ph ? [ph.text] : []), stamp(fileDirty(root, rel, isGit))]; }
+  if (!EXT2GRAMMAR[extname(rel)]) { const ph = placementHit(model, rel); const dirty0 = fileDirty(root, rel, isGit);
+    if (opts.json) return [JSON.stringify({ file: rel, noGrammar: extname(rel) || null, dirty: dirty0, placement: ph ? { token: ph.token, dir: ph.dir, statement: ph.text.replace(/^\[grain\] /, '') } : null, asOf: stamp(dirty0).replace(/^as of /, '') })];
+    return [`check ${rel}: no grammar for "${extname(rel) || 'a file without extension'}" — grain parses ${GRAMMARS.join(', ')}`, ...(ph ? [ph.text] : []), stamp(dirty0)]; }
   const r = await checkFile({ model, root, rel, content, asPath: opts.as, exemplarOk: existsMemo(root) });
   const dirty = content ? true : fileDirty(root, rel, isGit);
   const lines = [];
   if (!r.partition) { const arch = (r.archHits || []).map(h => h.text);
+    if (opts.json) return [JSON.stringify({ file: rel, noPartition: true, reason: r.reason, placement: r.placeHit ? { token: r.placeHit.token, dir: r.placeHit.dir, statement: r.placeHit.text.replace(/^\[grain\] /, '') } : null, architecture: (r.archHits || []).map(h => ({ kind: h.kind, to: h.to, line: h.line, seed: h.id || null })), asOf: stamp(dirty).replace(/^as of /, '') })];
     return [`check ${rel}: ${r.reason} — grain has no norm to hold this file against`, ...(r.placeHit ? [r.placeHit.text] : []), ...arch, stamp(dirty)]; }
   const scopesN = r.scopes.filter(s => s.kind !== 'file').length;
-  if (!r.scopes.length) return [`check ${rel}: no scopes extracted (unsupported language or parse failure)`, stamp(dirty)];
+  if (r.hasError && scopesN === 0) { // a real parse failure, not a genuinely trivial file — the ONLY case this branch may fire for now (it used to be permanently dead: r.scopes.length is never 0 because extractScopes always pushes a file-kind pseudo-scope)
+    if (opts.json) return [JSON.stringify({ file: rel, parseFailed: true, hasError: true, asOf: stamp(dirty).replace(/^as of /, '') })];
+    return [`check ${rel}: parse failed — this file is largely unparseable (unsupported syntax or a grammar limitation); its scope list is empty and may be missing real content`, stamp(dirty)]; }
   const govFacts = govFactsOf(r);
-  const { touched, inChange, preOnly, steerIn, steerPre, archIn, archPre } = fileFindings({ root, rel, isGit, dirty, r, wholeFile: !!content });
+  const { touched, inChange, preOnly, steerIn, steerPre, archIn, archPre } = await fileFindings({ root, rel, isGit, dirty, r, wholeFile: !!content });
   if (opts.json) return [JSON.stringify(fileVerdictJson({ rel, r, dirty, f: { touched, inChange, preOnly }, govFacts, stamp }))]; // machine-readable verdict: the same facts `check` prints, as data (consumers: harnesses, training pipelines)
   lines.push(`check ${rel} — ${scopeLabel(r.partition)} · ${scopesN} scopes + file · governed by ${govFacts.size} convention(s) · ${inChange.length} deviation(s) in your change, ${preOnly.length} pre-existing${steerIn.length ? ` · ${steerIn.length} maintainer decision(s) your change departs from` : ''}`);
+  if (r.hasError) lines.push(`  (parse degraded — part of this file sits in error nodes; the scope list above may be incomplete)`);
   if (steerPre.length && !steerIn.length) lines.push(`  (${steerPre.length} existing ${steerPre.length > 1 ? 'scopes are' : 'scope is'} still on a pattern a maintainer decision retires — a transition in progress, not yours to fix; \`--all\` lists)`);
   for (const h of steerIn) lines.push(h.text);
   if (r.placeHit) lines.push(r.placeHit.text);
@@ -192,7 +241,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
     else lines.push(`pre-existing (not in your change, not yours to fix — \`--all\` to list): ${preOnly.slice(0, 4).map(g => `${g.label}: ${verbalize({ ...g, kind: g.kind }, g.exNames || []).replace(/ here /, ' ')} ×${g.pre}`).join(' · ')}${preOnly.length > 4 ? ` · +${preOnly.length - 4} more` : ''}`); }
   const ok = [...govFacts.values()].filter(e => e.ok === e.n && !(e.g.fact.exp === 'false' && /^auto\.(has|call|deco|extends|imp|stshape|returns):/.test(e.g.pid)));
   const supNote = e => e.g.fact.contested ? ` — superseded by maintainer decision ${e.g.fact.contested}` : '';
-  if (ok.length) lines.push(`conforms to: ${ok.slice(0, 6).map(e => `${e.g.label}: ${verbalize(e.g.fact, e.g.fact.exemplars.map(x => x.name))} (${Math.round(e.g.fact.share * 100)}% of ${e.g.fact.sraw})${supNote(e)}`).join(' · ')}${ok.length > 6 ? ` · +${ok.length - 6} more` : ''}`);
+  if (ok.length) lines.push(`conforms to: ${ok.slice(0, 6).map(e => `${e.g.label}: ${verbalize(e.g.fact, e.g.fact.exemplars.map(x => x.name))} (${pct(e.g.fact.share)}% of ${e.g.fact.sraw})${supNote(e)}`).join(' · ')}${ok.length > 6 ? ` · +${ok.length - 6} more` : ''}`);
   lines.push(stamp(dirty)); return lines; }
 // plain git plumbing, no new wrapper (mirrors changedRanges/fileDirty above): `git diff --name-only <ref-args>` for
 // --staged and --range; default/--worktree unions the worktree-vs-HEAD diff (covers staged AND unstaged, since a
@@ -200,26 +249,40 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp }) {
 // files, because an agent mid-task has usually not staged anything yet. A bad --range is not our error to shape —
 // stderr is captured and re-thrown verbatim so git's own message reaches the user.
 function gitNameOnly(root, args) {
-  let out; try { out = execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
+  let out; try { out = execFileSync('git', ['-C', root, ...args, '-z'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }); }
   catch (e) { throw new Error((e.stderr || e.message || '').toString().trim() || `git ${args.join(' ')} failed`); }
-  return out.split('\n').map(s => s.trim()).filter(Boolean); }
+  return out.split('\0').filter(Boolean); }
 function reviewFileList(root, opts) {
   const raw = opts.range ? gitNameOnly(root, ['diff', '--name-only', opts.range])
     : opts.staged ? gitNameOnly(root, ['diff', '--cached', '--name-only'])
     : [...gitNameOnly(root, ['diff', '--name-only', 'HEAD']), ...gitNameOnly(root, ['ls-files', '--others', '--exclude-standard'])];
   return [...new Set(raw.map(toPosix))].filter(p => !HARD_EXCL.test(p)).sort(); } // sorted for a deterministic, reviewable report — git's own diff order is an artifact of its tree walk, not signal
+// which git refs define "the change" for this review mode, and where to read a file's content from — null means
+// the existing worktree-vs-HEAD behavior (default/--worktree), unchanged
+function reviewRefs(opts) {
+  if (opts.range) { const m = /^(.+?)\.{2,3}(.+)$/.exec(opts.range);
+    if (!m) throw new Error(`--range must be <a>..<b>, got "${opts.range}"`);
+    return { diffArgs: [m[1], m[2]], contentRef: m[2] }; } // review the file AS OF the range's end commit, so line numbers in the diff match the content being parsed
+  if (opts.staged) return { diffArgs: ['--cached'], contentRef: '' }; // '' + ':' + rel => git's `:rel` syntax for the index/staged blob
+  return null; }
+function refContent(root, ref, rel) {
+  try { return execFileSync('git', ['-C', root, 'show', `${ref}:${rel}`], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }); }
+  catch { return null; } } // deleted at that ref / not tracked there — nothing to check
 async function cmdReview({ model, root, isGit, args, opts, stamp }) {
   if (!isGit) return ['review: not a git repository — there is no committed HEAD to measure "your change" against', stamp()];
   const files = reviewFileList(root, opts); // throws with git's own stderr on a bad --range
+  const refs = reviewRefs(opts); // null | { diffArgs, contentRef } — see reviewRefs
   let anyDirty = false; const perFile = [];
   for (const rel of files) {
-    const dirty = fileDirty(root, rel, isGit); anyDirty = anyDirty || dirty;
-    if (!existsSync(join(root, rel))) continue; // deleted in this change — nothing left to hold against a norm
+    const dirty = fileDirty(root, rel, isGit, refs?.diffArgs); anyDirty = anyDirty || (!opts.range && dirty); // "+dirty" in the stamp means "used uncommitted content" — never true for an already-committed --range
+    const content = refs ? refContent(root, refs.contentRef, rel) : undefined;
+    if (refs ? content == null : !existsSync(join(root, rel))) continue; // deleted at the ref / deleted in worktree — nothing left to hold against a norm
     if (!EXT2GRAMMAR[extname(rel)]) { const ph = placementHit(model, rel); // no grammar: only a placement signal can still speak (mirrors `check`'s no-grammar case)
       if (ph) perFile.push({ rel, dirty, r: null, f: { steerIn: [], archIn: [], inChange: [], preOnly: [], lines: [ph.text] } });
       continue; }
-    const r = await checkFile({ model, root, rel, exemplarOk: existsMemo(root) });
-    const f = fileFindings({ root, rel, isGit, dirty, r });
+    let r; try { r = await checkFile({ model, root, rel, content, exemplarOk: existsMemo(root) }); }
+    catch (e) { perFile.push({ rel, dirty, r: null, f: { steerIn: [], archIn: [], inChange: [], preOnly: [], lines: [`[grain] ${rel}: parse failed — skipped (${e.message})`] } }); continue; }
+    const f = await fileFindings({ root, rel, isGit, dirty, r, diffArgs: refs?.diffArgs });
     if (!f.lines.length) continue; // no finding at all — contributes nothing, not even a placeholder
     perFile.push({ rel, dirty, r, f }); }
   // presentation order, not a mathematically constrained gate: maintainer-decision/architecture hits first (the
@@ -464,10 +527,7 @@ export async function main(argv) {
       const fp = payload?.tool_input?.file_path || payload?.tool_input?.filePath || payload?.file_path;
       if (!fp) return 0;
       const f = findRoot({ repo: typeof payload?.cwd === 'string' ? payload.cwd : process.cwd() }); const st2 = storeFor(f.root);
-      let fpr = fp; try { fpr = realpathSync(fp); } catch { // not on disk yet (a pre-write path): canonicalize through
-        // the deepest EXISTING ancestor, or /var-vs-/private/var symlinks put the path "outside" its own repository
-        let d2 = fp; const tail = []; while (!existsSync(d2)) { tail.unshift(basename(d2)); const nd = pdirname(d2); if (nd === d2) break; d2 = nd; }
-        try { fpr = join(realpathSync(d2), ...tail); } catch { /* keep raw */ } }
+      const fpr = canonicalize(fp);
       const meta2 = readJson(st2.metaPath); const model2 = meta2 && existsSync(st2.modelPath) ? readJson(st2.modelPath) : null;
       if (!model2 || meta2.engine !== ENGINE_VERSION || meta2.extractor !== EXTR_V || (meta2.model || '') !== MODEL_V) return 0; // stale schema: silence, the next real query rebuilds
       const rel = relPath(f.root, fpr);

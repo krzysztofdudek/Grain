@@ -130,3 +130,95 @@ test('a non-git directory gets one clear line instead of crashing', () => {
   assert.match(r.stdout, /not a git repository/);
   rmSync(nogit, { recursive: true, force: true });
 });
+
+// The tests below append further commits to the shared fixture repo (rather than only editing the worktree, as
+// every test above does) — each stays additive so it doesn't disturb history the tests above depend on. They must
+// run in file order, after every test above.
+
+test('--range a..b reports a real deviation introduced strictly between the two refs, even though the worktree is clean at b — the exact regression this fix targets', () => {
+  const a = git({}, 'rev-parse', 'HEAD');
+  w('src/handlers/HandlerBad.ts', 'export class HandlerBadHandler {\n  run() {\n    return 1;\n  }\n}\n'); // decorator dropped — violates the established @Handler() convention
+  git(dateEnv('2026-03-02T12:00:00Z'), 'add', '-A'); git(dateEnv('2026-03-02T12:00:00Z'), 'commit', '-qm', 'introduce a bad handler');
+  w('NOTES.md', 'notes 2\n'); // a further commit strictly after the deviation, so it sits strictly between a and b
+  git(dateEnv('2026-03-03T12:00:00Z'), 'add', 'NOTES.md'); git(dateEnv('2026-03-03T12:00:00Z'), 'commit', '-qm', 'more notes');
+  const b = git({}, 'rev-parse', 'HEAD'); // worktree is clean and equals HEAD (== b) right here
+  const j = JSON.parse(grain(['review', '--range', `${a}..${b}`, '--json']).out);
+  assert.ok(j.files.includes('src/handlers/HandlerBad.ts'), `expected the introduced file in scope: ${JSON.stringify(j.files)}`);
+  const f = j.findings.find(x => x.file === 'src/handlers/HandlerBad.ts');
+  assert.ok(f, `expected a finding for the file that dropped the decorator: ${JSON.stringify(j)}`);
+  assert.ok(f.deviationsInChange.length, `expected the missing @Handler() to be reported as a deviation in the range: ${JSON.stringify(f)}`);
+});
+
+test('--range a..b reads file content as of b, not off disk — a change made after b must not appear', () => {
+  const a2 = git({}, 'rev-parse', 'HEAD');
+  w('src/handlers/HandlerRange.ts', 'export class HandlerRangeHandler {\n  run() {\n    return 1;\n  }\n}\n'); // decorator dropped — the in-range deviation
+  git(dateEnv('2026-03-06T12:00:00Z'), 'add', '-A'); git(dateEnv('2026-03-06T12:00:00Z'), 'commit', '-qm', 'introduce range handler');
+  const b2 = git({}, 'rev-parse', 'HEAD');
+  // a disk-only edit made AFTER b2 (never committed): fixes the original decorator and adds a second, undecorated
+  // class — if content were read from disk instead of ref b2, this second class's deviation would leak into the report
+  w('src/handlers/HandlerRange.ts', '@Handler()\nexport class HandlerRangeHandler {\n  run() {\n    return 1;\n  }\n}\n\nexport class HandlerRangeExtraHandler {\n  run() {\n    return 2;\n  }\n}\n');
+  const j = JSON.parse(grain(['review', '--range', `${a2}..${b2}`, '--json']).out);
+  const f = j.findings.find(x => x.file === 'src/handlers/HandlerRange.ts');
+  assert.ok(f, `expected the deviation as it stood at b2: ${JSON.stringify(j)}`);
+  assert.ok(f.deviationsInChange.some(d => d.hits.some(h => h.scope === 'HandlerRangeHandler')), `expected HandlerRangeHandler's own deviation, as committed at b2: ${JSON.stringify(f)}`);
+  assert.ok(!JSON.stringify(f).includes('HandlerRangeExtraHandler'), `a class that only exists in the post-b2 disk edit must not appear in the a..b review: ${JSON.stringify(f)}`);
+});
+
+test('--range a..b skips a file that existed at a but was deleted by b, without crashing', () => {
+  w('src/handlers/HandlerGone.ts', handler('Gone', 5));
+  git(dateEnv('2026-03-07T12:00:00Z'), 'add', '-A'); git(dateEnv('2026-03-07T12:00:00Z'), 'commit', '-qm', 'add handler gone');
+  const a3 = git({}, 'rev-parse', 'HEAD');
+  execFileSync('git', ['-C', repo, 'rm', '-q', 'src/handlers/HandlerGone.ts']);
+  git(dateEnv('2026-03-08T12:00:00Z'), 'commit', '-qm', 'remove handler gone');
+  const b3 = git({}, 'rev-parse', 'HEAD');
+  w('src/handlers/HandlerGone.ts', 'export class HandlerGoneHandler {\n  run() {\n    return 999;\n  }\n}\n'); // untracked leftover on disk — the file is deleted AT b3, so this must not resurrect it in the range review
+  const { out, code } = grain(['review', '--range', `${a3}..${b3}`, '--json']);
+  assert.equal(code, 0, out);
+  const j = JSON.parse(out);
+  assert.ok(j.files.includes('src/handlers/HandlerGone.ts'), `expected the deleted file still listed in scope: ${JSON.stringify(j.files)}`);
+  assert.ok(!j.findings.some(x => x.file === 'src/handlers/HandlerGone.ts'), `a file deleted by b must not appear in findings: ${JSON.stringify(j.findings)}`);
+});
+
+test('--staged reviews only the staged content, ignoring an additional unstaged edit to the same file (no leak)', () => {
+  w('src/handlers/Handler3.ts', 'export class Handler3Handler {\n  run() {\n    return 3;\n  }\n}\n'); // staged: decorator dropped
+  git({}, 'add', 'src/handlers/Handler3.ts');
+  // unstaged, on top of the staged version: adds a second, undecorated class — must not leak into the --staged review
+  w('src/handlers/Handler3.ts', 'export class Handler3Handler {\n  run() {\n    return 3;\n  }\n}\n\nexport class Handler3ExtraHandler {\n  run() {\n    return 4;\n  }\n}\n');
+  const j = JSON.parse(grain(['review', '--staged', '--json']).out);
+  const f = j.findings.find(x => x.file === 'src/handlers/Handler3.ts');
+  assert.ok(f, `expected the staged decorator deviation to be reported: ${JSON.stringify(j)}`);
+  assert.ok(f.deviationsInChange.some(d => d.hits.some(h => h.scope === 'Handler3Handler')), `expected Handler3Handler's own staged deviation: ${JSON.stringify(f)}`);
+  assert.ok(!JSON.stringify(f).includes('Handler3ExtraHandler'), `the unstaged-only class must not leak into the staged review: ${JSON.stringify(f)}`);
+});
+
+test('an untracked file with a non-ASCII name is not mangled by git C-quoting: --json lists its real name and carries its finding', () => {
+  w('src/handlers/café.ts', 'export class CafeHandler {\n  run() {\n    return 1;\n  }\n}\n'); // decorator dropped — real deviation, untracked
+  const j = JSON.parse(grain(['review', '--json']).out);
+  assert.ok(j.files.includes('src/handlers/café.ts'), `expected the exact non-ASCII filename in files, got: ${JSON.stringify(j.files)}`);
+  const f = j.findings.find(x => x.file === 'src/handlers/café.ts');
+  assert.ok(f, `expected a findings entry for café.ts, got: ${JSON.stringify(j)}`);
+  assert.ok(f.deviationsInChange.length, `expected the missing @Handler() deviation reported for café.ts: ${JSON.stringify(f)}`);
+});
+
+test('--staged: a staged file with a non-ASCII name is not mangled by git C-quoting', () => {
+  w('src/handlers/café.ts', 'export class CafeHandler {\n  run() {\n    return 1;\n  }\n}\n'); // decorator dropped — real deviation, staged
+  git({}, 'add', 'src/handlers/café.ts');
+  const j = JSON.parse(grain(['review', '--staged', '--json']).out);
+  assert.ok(j.files.includes('src/handlers/café.ts'), `expected the exact non-ASCII filename in files, got: ${JSON.stringify(j.files)}`);
+  const f = j.findings.find(x => x.file === 'src/handlers/café.ts');
+  assert.ok(f, `expected a findings entry for café.ts, got: ${JSON.stringify(j)}`);
+  assert.ok(f.deviationsInChange.length, `expected the missing @Handler() deviation reported for café.ts: ${JSON.stringify(f)}`);
+});
+
+// permanently commits (like the --range tests above) — kept last so it doesn't disturb any test that runs after it
+test('--range a..b: a file with a non-ASCII name introduced in the range is not mangled by git C-quoting', () => {
+  const a = git({}, 'rev-parse', 'HEAD');
+  w('src/handlers/café.ts', 'export class CafeHandler {\n  run() {\n    return 1;\n  }\n}\n'); // decorator dropped — real deviation
+  git(dateEnv('2026-03-09T12:00:00Z'), 'add', '-A'); git(dateEnv('2026-03-09T12:00:00Z'), 'commit', '-qm', 'add café handler');
+  const b = git({}, 'rev-parse', 'HEAD');
+  const j = JSON.parse(grain(['review', '--range', `${a}..${b}`, '--json']).out);
+  assert.ok(j.files.includes('src/handlers/café.ts'), `expected the exact non-ASCII filename in files, got: ${JSON.stringify(j.files)}`);
+  const f = j.findings.find(x => x.file === 'src/handlers/café.ts');
+  assert.ok(f, `expected a findings entry for café.ts, got: ${JSON.stringify(j)}`);
+  assert.ok(f.deviationsInChange.length, `expected the missing @Handler() deviation reported for café.ts in range mode: ${JSON.stringify(f)}`);
+});

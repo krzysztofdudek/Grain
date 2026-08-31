@@ -89,6 +89,27 @@ test('spectrum lists NORM and obs rows for the file contexts and is identical wi
   assert.equal(a, b);
 });
 
+test('spectrum on a new untracked file agrees with check, not "no scopes extracted" (G20)', () => {
+  const dtoBody = readFileSync(join(repo, 'src', 'dto', 'dispute.dto.ts'), 'utf8').replace(/Dispute/g, 'Zz');
+  const f = join(repo, 'src', 'dto', 'zz.dto.ts');
+  writeFileSync(f, dtoBody);
+  try {
+    const c = grain(['check', 'src/dto/zz.dto.ts']).out;
+    assert.match(c, /· \d+ scopes \+ file ·/, 'check parses the untracked file live and reports real scopes');
+    const s = grain(['spectrum', 'src/dto/zz.dto.ts']).out;
+    assert.doesNotMatch(s, /no scopes extracted/, 'spectrum must not contradict check for the same untracked file');
+    assert.match(s, /^spectrum src\/dto\/zz\.dto\.ts — repo-wide( \(small packages merged\))? · \d+ scopes · \d+ cells computed/);
+    assert.match(s, /\[NORM\] d\[src\/dto\]:type auto\.extends:BaseDto = true/);
+
+    // regression control: an untracked file with no minable declarations (unsupported extension, so the fallback
+    // parse in the fix can't run either) still gets an honest zero — the message isn't permanently silenced
+    const notCode = join(repo, 'src', 'dto', 'notes.md');
+    writeFileSync(notCode, 'just some prose, not a declaration\n');
+    try { assert.match(grain(['spectrum', 'src/dto/notes.md']).out, /^\(no scopes extracted for src\/dto\/notes\.md\)/); }
+    finally { rmSync(notCode); }
+  } finally { rmSync(f); }
+});
+
 test('export: every convention with its sites, anchors and nearest exemplar; check --json mirrors the verdict', () => {
   const { out, code, err } = grain(['export', '--compact']); assert.equal(code, 0, err);
   const d = JSON.parse(out.split('\n').find(l => l.startsWith('{')));
@@ -105,6 +126,7 @@ test('export: every convention with its sites, anchors and nearest exemplar; che
   const cj = JSON.parse(grain(['check', 'src/handlers/dispute.handler.ts', '--json']).out.split('\n').find(l => l.startsWith('{')));
   assert.equal(cj.file, 'src/handlers/dispute.handler.ts'); assert.ok(cj.deviationsPreExisting.some(x => x.pid.startsWith('auto.deco:@Handler')));
   assert.ok(cj.governed.length > 0 && cj.deviationsInChange.length === 0);
+  assert.equal(cj.hasError, false, 'a cleanly-parsed file carries hasError:false alongside the rest of the verdict, unchanged');
 });
 
 test('steering: a committed seed promotes a pattern — the retired rule mutes, where/check/report carry the decision, and rm withdraws it', () => {
