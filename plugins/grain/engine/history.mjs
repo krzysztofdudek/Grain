@@ -63,7 +63,7 @@ export class BlobCache {
 async function walk(gitdir, range) {
   // streamed: the raw log of a large repository is hundreds of MB; only the parsed records are kept
   const { spawn } = await import('node:child_process'); const { createInterface } = await import('node:readline');
-  const child = spawn('git', ['-C', gitdir, 'log', '--reverse', '--raw', '--no-abbrev', '--no-merges', '-M', '--format=%x01%H%x00%ct%x00%an <%ae>%x00%s', ...(range ? [range] : [])], { stdio: ['ignore', 'pipe', 'ignore'] });
+  const child = spawn('git', ['-C', gitdir, '-c', 'core.quotePath=false', 'log', '--reverse', '--raw', '--no-abbrev', '--no-merges', '-M', '--format=%x01%H%x00%ct%x00%an <%ae>%x00%s', ...(range ? [range] : [])], { stdio: ['ignore', 'pipe', 'ignore'] });
   const events = []; const commits = []; let cur = null; const blobExt = new Map();
   for await (const line of createInterface({ input: child.stdout, crlfDelay: Infinity })) {
     if (line.startsWith('\x01')) { const p = line.slice(1).split('\x00');
