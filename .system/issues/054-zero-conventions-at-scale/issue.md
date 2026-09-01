@@ -1,6 +1,6 @@
 # 054 · The convention engine certifies ZERO conventions on Symfony — 89,174 scopes, 94 packages, `"conventions": []`
 
-**Status:** MEASURED — three separate diseases, NONE is λ/idxCost/neff (both measured dead: 87 of 262,591 cells data-only; 969/1,446 accepted facts are role cells at n=5–19 paying full 18 bits). Split into 054a/054b + 055 root cause. Recommendation adds no constant. Found by round 4, PHP/symfony, 2026-09-01 (explorer stopped before follow-up)
+**Status:** FIXED — three diseases fixed: shallow-clone gate now keys on visible-window vs freshDays (054a), PHP #[ sigil recognized (054b), history state streamed record-by-record with loud failure on read/save (055)
 Three clones (shallow, ~80k shallow-marked, full) all give `total: 0` for every package. Not a history artifact.
 Proof it is not "nothing to learn": `rules` DOES cluster 8 sibling Command classes sharing
 `#[AsCommand(name,description)] final class X extends Command` — then labels it *"descriptive only — check has no

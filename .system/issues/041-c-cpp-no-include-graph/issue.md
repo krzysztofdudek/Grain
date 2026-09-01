@@ -1,6 +1,6 @@
 # 041 · C/C++ has no dependency graph — and the coverage disclosure actively certifies that absence as real
 
-**Status:** OPEN — verified independently by the orchestrator; the disclosure defect below is MORE severe than the missing graph
+**Status:** FIXED — relCoverageNote no longer certifies c/cpp as covered when resolver is include-only; relPathOnly(g) structural check in relations.mjs, no other REL_LANGS affected
 **Found by:** round 3 field test, C++/google/leveldb, 2026-09-01
 **Severity:** HIGH — a false assurance, not merely a gap
 

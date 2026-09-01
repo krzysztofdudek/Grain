@@ -27,9 +27,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/063",
-      "state": "queued",
+      "state": "merged",
       "note": "WAVE 3 #1 completeness: max directional confidence, print number, never (complete)",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 00:58",
+      "sha": "15fdce2"
     },
     {
       "id": 4,
@@ -37,9 +38,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/067",
-      "state": "queued",
+      "state": "merged",
       "note": "WAVE 3 #2 adoption: grain shim, sub-agent advertisement, file-vs-dir wording; no engine work",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 01:01",
+      "sha": "2bd2d57"
     },
     {
       "id": 5,
@@ -77,9 +79,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/047",
-      "state": "queued",
+      "state": "merged",
       "note": "HIGH below-floor disclosure naming nearest certifying group; gated on fire rate (spec in ticket)",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 01:05",
+      "sha": "f6e4ec5"
     },
     {
       "id": 9,
@@ -87,9 +90,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/054a",
-      "state": "queued",
+      "state": "merged",
       "note": "HIGH shallow-clone gate kills 14,674 accepted cells; key on need not shallow flag",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 01:08",
+      "sha": "98844c1"
     },
     {
       "id": 10,
@@ -97,9 +101,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/054b",
-      "state": "queued",
+      "state": "merged",
       "note": "HIGH PHP #[ sigil in deco regex; EXTR_V",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 01:12",
+      "sha": "7d21fb7"
     },
     {
       "id": 11,
@@ -107,9 +112,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/055",
-      "state": "queued",
+      "state": "merged",
       "note": "HIGH chunked history serialisation + loud failure; history.mjs JSON.stringify V8 cap",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 01:15",
+      "sha": "9ee6e21"
     },
     {
       "id": 12,
@@ -117,9 +123,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/041",
-      "state": "queued",
+      "state": "merged",
       "note": "HIGH coverage note must not certify absence; floor = truthful note (D fixture todo)",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 01:19",
+      "sha": "343aad0"
     },
     {
       "id": 13,
@@ -127,9 +134,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/057",
-      "state": "queued",
+      "state": "merged",
       "note": "HIGH what honest-negative consults no-grammar files; explain no-grammar≠no-scopes (D fixture todo)",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 01:22",
+      "sha": "b008c7d"
     },
     {
       "id": 14,

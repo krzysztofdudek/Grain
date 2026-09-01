@@ -1,6 +1,6 @@
 # 047 · A deviant is pushed out of the group that would have judged it — by the very feature it deviates on
 
-**Status:** MEASURED (Opus, 2026-09-01; log.md) — GENERAL, CONTAINED, leave-one-feature-out REJECTED on evidence. DIRECTOR DECISION: ship the disclosure (queued as fix/047, Sonnet), gated on a measured fire rate on clean new files — the 018/037 standard (18.6% was rejected, 1.58% shipped).
+**Status:** FIXED — below-floor disclosure names nearest certifying group + requirement, gated by bpi>=log2(lambda); fire rate 0.78% aggregate across 4 repos
 
 **Measured:**
 - General across 5 languages, similarity with→without marker vs floor 0.35: Java `@Test` 0.824→0.647, Python `extends MethodView` 0.905→0.429, Solidity `@onlyOwner` 0.800→0.250, C# `extends IRequestHandler` 0.778→0.444, TypeScript `@Inject` 0.714→0.333.
