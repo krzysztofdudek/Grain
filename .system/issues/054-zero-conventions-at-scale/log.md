@@ -243,3 +243,5 @@ settled the template asymmetry with a shipped disclosure.
 **Boundary to disclose honestly.** Even with R1 and R2, a *unanimous* local cell whose parent already agrees earns
 only a few bits and can never pay a repo-wide `log2(C)` that grows with the codebase. That is a real property of
 the discipline, not a bug, and it is the frontier `docs/mathematics.md` already promises to make visible.
+
+## 2026-09-02 00:31 — 054b fixed: #[ now recognized as a decoration sigil alongside @ and [ (core.mjs take()); decoLabel()/decoSigiled() helper added and applied everywhere a stored deco's own sigil was reconstructed for display/pid (core.mjs x4 sites, export.mjs marker JSON), plus export.mjs's focusLines anchor-line regex (same #[ blind spot, found while proving red->green). PHP fixture (30 Symfony-style #[AsCommand] Command classes, 1 omitting it): red before fix (0 decos, 0 auto.deco:#[AsCommand] facts, check silent on the marker); green after (decos:['#[AsCommand]'], convention share=1, check flags SecretsFooCommand as a known deviation, review reports it). Suite 1962/1962 (1958 baseline + 4 new), 0 fail. EXTR_V bump needed — not done here, batched by director.

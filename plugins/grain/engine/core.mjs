@@ -904,7 +904,9 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         // linear: walk back over decoration/comment siblings (the stack), then scan the scope's own pre-body subtree
         const decoTypes = [...b.deco];
         const limit = bodyN ? bodyN.startIndex : ch.endIndex;
-        // the sigil travels with the name: `[Test]` (C#) and `@Test` (Java/Kotlin) are different tokens and render as written.
+        // the sigil travels with the name: `[Test]` (C#), `#[Test]` (PHP) and `@Test` (Java/Kotlin) are different
+        // tokens and render as written. §054b: `#[` is the same category of sigil as `@` and `[` — a decoration
+        // marker, not a PHP special case — so it is matched by character pattern here exactly like the other two.
         // §043 — a decoration may also be written with NO sigil at all (Solidity's modifiers: `onlyOwner`), in which case
         // the whole text is a bare name, optionally applied to an argument list, and renders bare. Admitted ONLY for the
         // node types `b.decoBare` holds — the structurally-derived ones — because the node-type-NAME vocabulary that
@@ -914,13 +916,13 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         // too, never a prefix, so a bare name followed by anything else is not a decoration either.
         const take = d => {
           const t = d.text.trimStart();
-          const m = /^[@[]/.test(t)
-            ? t.match(/^[@[]\s*([\w.]+)/)
+          const m = /^(?:#\[|[@[])/.test(t)
+            ? t.match(/^(?:#\[|[@[])\s*([\w.]+)/)
             : b.decoBare.has(d.type)
               ? t.match(/^([A-Za-z_$][\w.$]*)\s*(?:\(|$)/)
               : null;
           if (m) {
-            decos.push(t[0] === '[' ? '[' + m[1] + ']' : m[1]);
+            decos.push(t.startsWith('#[') ? '#[' + m[1] + ']' : t[0] === '[' ? '[' + m[1] + ']' : m[1]);
             if (decoLits.length < 12)
               for (const lm of t.matchAll(/["'`]([^"'`\n]{1,60})["'`]/g)) decoLits.push(lm[1]);
           }
@@ -2085,6 +2087,11 @@ const inGrammar = (s, nt) => {
   const b = bindings[s.g];
   return !b || b.nodeTypes.has(nt);
 };
+// a deco string already carries its own wrapping sigil — `[Route]` (C#), `#[AsCommand]` (PHP) — versus a bare
+// name (`Test`) that still needs its `@` prefix reconstructed wherever a deco is turned into a pid or a display
+// label (§054b: `#[` joins `[` here as a self-delimiting sigil, the same way it joined `take()`'s sigil test above).
+export const decoSigiled = d => d[0] === '[' || d.startsWith('#[');
+export const decoLabel = d => (decoSigiled(d) ? d : '@' + d);
 export function applyVocab(s, vb) {
   if (BODY_KINDS.has(s.kind) && !s.noBody) {
     for (const nt of vb.NT)
@@ -2098,8 +2105,7 @@ export function applyVocab(s, vb) {
   // must be counted over classes, not over classes+interfaces; a method extends nothing at all)
   const inDom = (list, nt) => !list || !nt || list.includes(nt);
   if (s.kind !== 'file' && inDom(vb.DNT, s.nt))
-    for (const d of vb.DECO)
-      s.preds['auto.deco:' + (d.startsWith('[') ? d : '@' + d)] = s.decos.includes(d) ? 'true' : 'false';
+    for (const d of vb.DECO) s.preds['auto.deco:' + decoLabel(d)] = s.decos.includes(d) ? 'true' : 'false';
   if (s.kind === 'type' && inDom(vb.ENT, s.nt))
     for (const e of vb.EXT) s.preds['auto.extends:' + e] = s.sup.includes(e) ? 'true' : 'false';
   if (s.kind === 'method' && inDom(vb.RNT, s.nt))
@@ -4158,7 +4164,7 @@ export async function learn({
       const dc = new Map();
       for (const s2 of cs) for (const d of s2.decos) if (d !== own) dc.set(d, (dc.get(d) || 0) + 1);
       for (const [d, k] of [...dc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 2))
-        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${d.startsWith('[') ? d : '@' + d} (${k}/${n})`);
+        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${decoLabel(d)} (${k}/${n})`);
       const cc = new Map();
       for (const s2 of cs) for (const c2 of s2.calls) cc.set(c2, (cc.get(c2) || 0) + 1);
       for (const [c2, k] of [...cc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3))
@@ -6327,15 +6333,13 @@ export function buildCards(model) {
       const degenerate = carrierNames.size === 1 && keys.length > 1; // three fixtures all named `test` are not a pattern to copy (three commands in one cli.py are)
       const label =
         pre === 'deco'
-          ? name.startsWith('[')
-            ? name
-            : '@' + name
+          ? decoLabel(name)
           : pre === 'sup'
             ? `extends ${name}`
             : `returns ${name}`;
       const mpid =
         pre === 'deco'
-          ? 'auto.deco:' + (name.startsWith('[') ? name : '@' + name)
+          ? 'auto.deco:' + decoLabel(name)
           : pre === 'sup'
             ? 'auto.extends:' + name
             : 'auto.returns:' + name;
@@ -6752,7 +6756,7 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
             .slice(0, 5)
             .map(
               ([mk, n]) =>
-                `${mk.startsWith('deco:') ? (mk.slice(5).startsWith('[') ? mk.slice(5) : '@' + mk.slice(5)) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
+                `${mk.startsWith('deco:') ? decoLabel(mk.slice(5)) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
             )
             .join(' · ')}`
         );
