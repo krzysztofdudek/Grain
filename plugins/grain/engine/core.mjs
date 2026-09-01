@@ -237,6 +237,63 @@ export function bindingFor(gname) {
       }
     }
   }
+  // §062 — QUALIFIED/MEMBER-NAME node types: `ns.Base` (JS/TS member_expression), a Java/Groovy FQN
+  // (scoped_identifier/scoped_type_identifier), C#'s qualified_name, Kotlin's user_type/qualified_identifier,
+  // Scala's stable_type_identifier, Ruby's scope_resolution, … Reading a compound name's identifiers naively
+  // (every identifier-shaped DESCENDANT of a heritage clause) records the NAMESPACE half too — `extends
+  // ethers.AbstractSigner` recorded `ethers`, never `AbstractSigner` (§049 fixed the analogous constructor-
+  // argument shape; this is the member-access shape). A node type qualifies, without ever naming a language,
+  // when its own field shape is a genuine two-part chain: exactly two "relevant" fields (its REQUIRED fields,
+  // plus any OPTIONAL field that can itself carry a name-shaped value — Ruby's optional `scope`, absent on a
+  // bare top-level `::Foo`), at least one of them PURELY name-shaped once its declared types are expanded
+  // through the grammar's own supertype unions (member_expression's `property`, scoped_identifier's `name`,
+  // qualified_name's `name`), and EVERY relevant field able to at least sometimes hold a name-shaped value (so
+  // a declaration's unrelated `name` + `body` pair — body never holds a name — never qualifies). A fieldless
+  // grammar (Java's scoped_type_identifier, Kotlin's user_type/qualified_identifier, Scala's
+  // stable_type_identifier: node-types.json gives these no field names, only a shared repeatable CHILDREN
+  // list) qualifies the same way through that list instead: more than one child allowed, and at least one of
+  // the allowed child types is itself name-shaped. Measured to add no other grammar's declaration/expression
+  // node types (a control-flow or binary-expression node's operands are typed too broadly — numbers, calls,
+  // whole statements — to ever be "purely name-shaped").
+  const qnMemo = new Map();
+  const qnExpand = (t, seen) => {
+    if (qnMemo.has(t)) return qnMemo.get(t);
+    if (seen.has(t)) return new Set();
+    seen.add(t);
+    const out = new Set([t]);
+    const entry = byType.get(t);
+    if (entry && entry.subtypes) for (const s of entry.subtypes) for (const x of qnExpand(s.type, seen)) out.add(x);
+    qnMemo.set(t, out);
+    return out;
+  };
+  const qnExpandFields = types => {
+    const out = new Set();
+    for (const t of types) for (const x of qnExpand(t, new Set())) out.add(x);
+    return out;
+  };
+  const qnAllNamey = set => {
+    for (const t of set) if (!QUAL_NAME_LEAF_RE.test(t)) return false;
+    return true;
+  };
+  const qnAnyNamey = set => {
+    for (const t of set) if (QUAL_NAME_LEAF_RE.test(t)) return true;
+    return false;
+  };
+  b.qualName = new Set();
+  for (const n of nt) {
+    const nf = n.fields || {};
+    const fnames = Object.keys(nf);
+    if (fnames.length) {
+      const expOf = fn => qnExpandFields((nf[fn].types || []).map(t => t.type));
+      const relevant = fnames.filter(fn => nf[fn].required !== false || qnAnyNamey(expOf(fn)));
+      if (relevant.length === 2) {
+        const expanded = relevant.map(expOf);
+        if (expanded.some(qnAllNamey) && expanded.every(qnAnyNamey)) b.qualName.add(n.type);
+      }
+    } else if (n.children && n.children.multiple && (n.children.types || []).some(t => QUAL_NAME_LEAF_RE.test(t.type))) {
+      b.qualName.add(n.type);
+    }
+  }
   // a grammar that declares no name+body scope at all (JSON/YAML/TOML): its files carry no name+body units to
   // mine, only a file-level scope and the raw values it names (§J7.2) — derived, not a name list: 0 for the three
   // data grammars, >=1 for every one of the 19 shipped code grammars
@@ -449,6 +506,11 @@ const FUNC_LIKE_RE = wordBounded([
 // technique as the two above; neither is ever matched against a language's own identifiers.
 const DECO_NAME_RE = wordBounded(['identifier', 'name']);
 const DECO_ARG_RE = wordBounded(['call', 'argument', 'arguments', 'invocation']);
+// §bindingFor's `b.qualName` (§062): a "qualified/member name" node type's own leaf constituents — every
+// concrete node type this touches, whether a plain identifier or another qualified-name node one level in,
+// happens to end in one of these three words across every shipped grammar. Same word-bounded node-TYPE-NAME
+// technique as the two above.
+const QUAL_NAME_LEAF_RE = wordBounded(['identifier', 'name', 'constant']);
 // §bindingFor's `b.retField`: a callable's declared-result field is whichever of its OWN fields admits a child
 // node whose type NAMES "type" as a whole word segment (`type`, `_simple_type`, `type_annotation`, `bottom_type`,
 // `type_identifier`, …) — matches Go's `result` (declares `_simple_type`), every `return_type` field, Java/Groovy/
@@ -854,35 +916,69 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         const fn = ch.fieldNameForChild(i);
         if (fn) fieldOf.set(ch.child(i).id, fn);
       }
+      // the leaf identifier-shaped node types a heritage clause is scanned for, MINUS any that this grammar's
+      // OWN node-types.json shows to be a `b.qualName` WRAPPER rather than a leaf (§062): Java's
+      // `scoped_type_identifier` (`com.google.inject.AbstractModule`) and, one grammar's coincidence with
+      // another, C#'s OWN unrelated `qualified_name` (`Ns.Base` — kept in this list unfiltered for PHP, whose
+      // *different* node type of the same name is not a `b.qualName` wrapper and gets its own dedicated
+      // backslash-split handling below). Matching a wrapper type directly would capture its own full dotted
+      // text wholesale — the same bug this fixes one level down. Its actual leaf (`type_identifier`/
+      // `generic_name`/…) is still found, and resolved to just the tail, via the ordinary leaf types below.
+      const heritageIdTypes = [
+        'identifier',
+        'type_identifier',
+        'property_identifier',
+        'private_property_identifier',
+        'constant',
+        'name',
+        'qualified_name',
+        'relative_name',
+      ].filter(t => !b.qualName.has(t));
+      const heritageIdTypeSet = new Set(heritageIdTypes);
       for (const c2 of ch.namedChildren)
         if (
           b.heritageRe.test(c2.type) &&
           !(bodyN && c2.id === bodyN.id) &&
           !b.argRe.test(fieldOf.get(c2.id) || '')
         )
-          for (const id of c2.descendantsOfType([
-            'identifier',
-            'type_identifier',
-            'scoped_type_identifier',
-            'name',
-            'qualified_name',
-            'relative_name',
-          ])) {
+          for (const id of c2.descendantsOfType(heritageIdTypes)) {
             let anc = id.parent,
+              prevChild = id,
               inArg = false,
+              inPrefix = false,
               hKind = null;
             while (anc && anc.id !== c2.id) {
               if (b.genArgRe.test(anc.type) || b.argRe.test(anc.type)) {
                 inArg = true;
                 break;
               } // `AbstractValidator<TQuery>`: TQuery sits under a type_argument_list — a slot, not a base type. `AbstractController(cc)`: cc sits under an argument list — a call operand, not a base type
+              // §062: `id` sits inside a QUALIFIED-NAME node (`ns.Base`, `com.google.inject.AbstractModule`,
+              // …) — if another of that node's own children, positioned AFTER the one `id` descends through,
+              // is ALSO name-shaped (a leaf identifier or a further qualified-name node), then `id` is on the
+              // NAMESPACE side of the chain, never the actual type/member — only the LAST name-shaped child of
+              // a qualified name is ever a candidate supertype, regardless of which field either side sits in.
+              if (b.qualName.has(anc.type)) {
+                let slot = prevChild;
+                while (slot.parent && slot.parent.id !== anc.id) slot = slot.parent;
+                for (const sib of anc.namedChildren)
+                  if (
+                    sib.id !== slot.id &&
+                    sib.startIndex > slot.startIndex &&
+                    (heritageIdTypeSet.has(sib.type) || b.qualName.has(sib.type))
+                  ) {
+                    inPrefix = true;
+                    break;
+                  }
+                if (inPrefix) break;
+              }
               if (!hKind) {
                 if (b.implementsClauseRe.test(anc.type)) hKind = 'impl';
                 else if (b.extendsClauseRe.test(anc.type)) hKind = 'ext';
               }
+              prevChild = anc;
               anc = anc.parent;
             }
-            if (!inArg) {
+            if (!inArg && !inPrefix) {
               if (!hKind)
                 hKind = b.implementsClauseRe.test(c2.type)
                   ? 'impl'
