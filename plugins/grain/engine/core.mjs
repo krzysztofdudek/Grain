@@ -5709,8 +5709,37 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       lead = null,
       detail;
     if (sc.m1 < CFG.minMemb) {
-      key = `nogroup#${s.kind}`;
-      detail = `matched no group (best ${sc.m1.toFixed(2)}, floor ${CFG.minMemb})`;
+      // (§047) below the floor is where exclusion is worst: the very feature a clean deviation omits is what
+      // similarity assignment leans on, so a member that cleanly violates a convention can score BELOW its own
+      // group's floor and never reach the population that would judge it. No accusation is made here (that
+      // would resurrect the rejected leave-one-feature-out fix) — this is the same disclosure the bestCert/
+      // secondCert branches below already make for an ambiguous scope, extended to the below-floor case using
+      // the identical certN/groupDesc reads, no new threshold.
+      //
+      // Measured (5-repo fire-rate check, 047): a bare certN>0 gate fires on every weak, near-universal role fact
+      // too (`returns:void`, `returns:t.Any`) — double digits on two of three corpora, one real group cited for a
+      // dozen unrelated scopes each. The fix reuses `Math.log2(CFG.lambda)` — the SAME bar `d < tau ||
+      // Math.log2(CFG.lambda)` already applies to every deviation accusation in this function — against the
+      // cited fact's own `bpi` (already computed by mine(), never recomputed here): a fact mine() itself would
+      // not consider strong enough to accuse a deviation over is not strong enough to name as "the nearest
+      // certifying group" either. This is the identical comparator, not a new one. It costs the real OZ
+      // `@onlyOwner` example nothing (bpi 5.63, comfortably clears it) while removing the generic-marker noise
+      // (bpi 1.4–2.7 on every measured false lead).
+      const strongCert = idx => roleFacts(idx, s.kind).some(f => f.bpi >= Math.log2(CFG.lambda));
+      const bestCert = strongCert(sc.best),
+        secondCert = sc.second >= 0 && strongCert(sc.second);
+      if (bestCert) {
+        lead = sc.best;
+        key = `nogroup#${s.kind}#${lead}`;
+        detail = `matched no group (best ${sc.m1.toFixed(2)}, floor ${CFG.minMemb}) — the nearest certifying group is ${groupDesc(sc.best, s.kind)} at ${sc.m1.toFixed(2)}`;
+      } else if (secondCert) {
+        lead = sc.second;
+        key = `nogroup#${s.kind}#${lead}`;
+        detail = `matched no group (best ${sc.m1.toFixed(2)}, floor ${CFG.minMemb}) — the nearest certifying group is ${groupDesc(sc.second, s.kind)} at ${sc.m2.toFixed(2)}`;
+      } else {
+        key = `nogroup#${s.kind}`;
+        detail = `matched no group (best ${sc.m1.toFixed(2)}, floor ${CFG.minMemb})`;
+      }
     } else {
       const bestCert = certN(sc.best, s.kind) > 0,
         secondCert = sc.second >= 0 && certN(sc.second, s.kind) > 0;
