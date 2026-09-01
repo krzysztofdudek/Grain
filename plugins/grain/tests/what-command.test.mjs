@@ -146,8 +146,10 @@ test('(a) `grain what status` reports declarations, values, spread and siblings 
   assert.match(j.siblings[0], /CANCELLED/);
   assert.doesNotMatch(j.siblings[0], /PENDING_STATUS|SHIPPED_STATUS/, 'an already-matched sibling is not "other" news');
 
-  // fan-in: importer.ts is the one file that imports one of the two declaration files
-  assert.equal(j.usedBy.files, 1, JSON.stringify(j.usedBy));
+  // fan-in: importer.ts is the one file that imports one of the two declaration files — §064: the actual name,
+  // not just a count
+  assert.deepEqual(j.usedBy.files, ['src/consumers/importer.ts'], JSON.stringify(j.usedBy));
+  assert.equal(j.usedBy.total, 1, JSON.stringify(j.usedBy));
 
   assert.match(typeof j.asOf === 'string' ? j.asOf : '', /^[0-9a-f]{7}/, 'asOf strips the "as of " prefix and carries a sha');
 });
@@ -170,7 +172,7 @@ test('(a2) the text rendering carries the same facts in the documented voices', 
   const siblings = lines.find(l => l.startsWith('siblings:'));
   assert.match(siblings, /CANCELLED/);
   const usedBy = lines.find(l => l.startsWith('used by:'));
-  assert.match(usedBy, /used by: 1 files/);
+  assert.equal(usedBy, 'used by: src/consumers/importer.ts', `§064: text output must show the actual file name, not a count: ${usedBy}`);
   assert.match(r.out, /\nas of [0-9a-f]{7}/, 'every answer ends with the freshness stamp');
 });
 

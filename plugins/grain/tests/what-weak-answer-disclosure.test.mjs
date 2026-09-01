@@ -188,13 +188,17 @@ test('(9) `spread` counts every hit file, not just the twelve shown', () => {
   assert.ok(total > 12, `spread must be computed over the full set, got ${total} across ${JSON.stringify(j.spread)}`);
 });
 
-test('(10) `used by: N files` counts fan-in into the true top declaration files', () => {
+test('(10) `used by:` names fan-in into the true top declaration files', () => {
   const j = JSON.parse(grainIn(repo2, ['what', 'payment handler', '--json']).out);
-  assert.ok(j.usedBy.files > 0, `fan-in must be reported: ${JSON.stringify(j.usedBy)}`);
+  assert.ok(Array.isArray(j.usedBy.files) && j.usedBy.files.length > 0, `fan-in must be reported: ${JSON.stringify(j.usedBy)}`);
+  assert.ok(j.usedBy.files.every(f => typeof f === 'string' && f.startsWith('src/')), `§064: names, not a count: ${JSON.stringify(j.usedBy)}`);
+  assert.equal(j.usedBy.total, j.usedBy.files.length, 'no truncation expected — only 3 importers exist here');
   // the ranking that picks the top-3 files now runs over all 30 hits; under the cap it could only ever consider
   // the 12 that survived an alphabetical sort
   const r = grainIn(repo2, ['what', 'payment handler']);
-  assert.match(r.out, /used by: \d+ files/, r.out);
+  const usedByLine = r.out.split('\n').find(l => l.startsWith('used by:'));
+  assert.ok(usedByLine, r.out);
+  assert.match(usedByLine, /used by: src\//, r.out);
 });
 
 test('teardown: display-cap repo', () => { if (tmp2) rmSync(tmp2, { recursive: true, force: true }); });
