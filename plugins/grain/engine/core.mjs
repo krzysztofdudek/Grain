@@ -7548,7 +7548,12 @@ export function whatCmd({
       };
   }
 
-  // (f) fan-in: incoming file-level edges into the top 3 declaration files, ranked by how many declarations matched
+  // (f) fan-in: incoming file-level edges into the top 3 declaration files, ranked by how many declarations matched.
+  // §064 — a bare count could not be acted on: a reader had to fall back to grep to find the actual files, making
+  // this the one answer measured worse than grep in the question-catalog study. The names are already sitting in
+  // model.edges (no new extraction), so this now carries the real fan-in FILE NAMES, deduped and sorted, with the
+  // rendered list capped the same way `defined`'s own display cap works two screens up (§039: a cap decides only
+  // what is SHOWN, never what is measured — `total` always carries the true count, uncapped).
   let usedBy = null;
   if (definedAll.length) {
     const byFile = new Map();
@@ -7559,8 +7564,8 @@ export function whatCmd({
         .slice(0, 3)
         .map(([rel]) => rel)
     );
-    const k = (model.edges || []).filter(e => top3.has(e.to)).length;
-    if (k > 0) usedBy = { files: k };
+    const userFiles = [...new Set((model.edges || []).filter(e => top3.has(e.to)).map(e => e.from))].sort();
+    if (userFiles.length) usedBy = { files: userFiles.slice(0, 12), total: userFiles.length };
   }
 
   // (g) structural references (§032) — see `typeRefHits`'s own note. Only consulted for a name with no exact
@@ -7602,7 +7607,13 @@ export function whatCmd({
         `changes: ${changes.commits} commit${changes.commits === 1 ? '' : 's'} mention it, last ${changes.last} — \`grain how "${q}"\` for the shape`
       )
     );
-  if (usedBy) lines.push(voice('practiced', `used by: ${usedBy.files} files`));
+  if (usedBy)
+    lines.push(
+      voice(
+        'practiced',
+        `used by: ${usedBy.files.join(', ')}${usedBy.total > usedBy.files.length ? ` · +${usedBy.total - usedBy.files.length} more` : ''}`
+      )
+    );
   if (referenced) {
     const bits = [];
     if (referenced.implements)
