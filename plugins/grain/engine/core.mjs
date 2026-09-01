@@ -37,6 +37,7 @@ import {
   makeEdgeResolver,
   parseJsonc,
   relSupported,
+  relPathOnly,
 } from './relations.mjs';
 
 const S = '\u0001'; // cell-key separator (was a literal SOH byte in the prototype)
@@ -7975,14 +7976,19 @@ export const TEMPLATE_DESCRIPTIVE_NOTE =
 // how much of the indexed file set the relation/architecture layer can even see — a grammar with no relSupported()
 // extractor contributes file/module edges of exactly zero, indistinguishable from a real, measured "this language
 // imports nothing" without this disclosure; pure render from data the model already has, zero heuristics about
-// WHICH languages (driven entirely by relSupported's own capability list) (§G21). The {n, grammars} shape is
-// exported (not just the prose below) so export.mjs (§027) can carry the identical fact `report`/`status` print —
-// one function computes it, so the two surfaces can never drift apart the way rules/report once did (§007).
+// WHICH languages (driven by relSupported's capability list, and relPathOnly's — relations.mjs, issue 041 — for
+// an extractor that IS registered but can only ever see a literal #include-style path, never a real symbol
+// reference) (§G21). `relSupported(g) && !relPathOnly(g)` is "genuinely covered"; either false lands a grammar in
+// `uncovered` — a path-only extractor's near-total real-world resolution failure (leveldb: 0 of 134 files'
+// dependencies computed, issue 041) must never read as "resolution covers this, the code just imports nothing".
+// The {n, grammars} shape is exported (not just the prose below) so export.mjs (§027) can carry the identical
+// fact `report`/`status` print — one function computes it, so the two surfaces can never drift apart the way
+// rules/report once did (§007).
 export function relCoverageData(model) {
   const uncovered = new Map(); // grammar name -> file count
   for (const f of model.filesAll || []) {
     const g = EXT2GRAMMAR[extname(f)];
-    if (g && !relSupported(g)) uncovered.set(g, (uncovered.get(g) || 0) + 1);
+    if (g && (!relSupported(g) || relPathOnly(g))) uncovered.set(g, (uncovered.get(g) || 0) + 1);
   }
   const n = [...uncovered.values()].reduce((a, b) => a + b, 0);
   return { n, grammars: [...uncovered.keys()].sort() };
