@@ -3722,14 +3722,23 @@ export function healthRows(model, outcomes) {
         + ` → grain decide waive ${dv.rel}#${dv.name} --on ${pid} --note "flagged and ignored ${k}×"`);
       else if (ex) rows.push(`${scopeLabel(pname)} keeps ignoring the \`${pid}\` warning (flagged and ignored ${k}×)`
         + ` → grain decide steer ${ex.rel}#${ex.name} --surfaces ${pid} --note "reconsider — flagged and ignored ${k}×"`); } }
-  for (const t of model.twins || []) { // 5: structural twins (J3.4)
-    const namedNote = t.namedDifferently ? `, named \`*${t.namedDifferently[0]}\`/\`*${t.namedDifferently[1]}\` there` : '';
-    const claim = `«${t.a.label}» (${t.a.part}) and «${t.b.label}» (${t.b.part}) are structurally the same shape${namedNote}`;
-    let side = 'a', anchor = roleExemplar(model, t.a.part, t.a.role);
-    if (!anchor) { side = 'b'; anchor = roleExemplar(model, t.b.part, t.b.role); }
-    if (!anchor) continue;
-    const other = side === 'a' ? t.b : t.a;
-    rows.push(`${claim} → grain decide steer ${anchor.ex.rel}#${anchor.ex.name} --surfaces ${anchor.f.pid} --note "duplicate of «${other.label}» in ${other.part} — unify or document why both exist"`); }
+  // 5 (structural twins, J3.4) is DELIBERATELY ABSENT — the slot is kept numbered so this stays legible against
+  // §J5.5's own list. `model.twins` still exists, `export` still publishes it, and `where`'s group card still
+  // prints `twin: structurally the same as «B» …`. What was removed is only the health row, which turned that
+  // observation into an unsolicited `grain decide steer … "duplicate of … unify or document why both exist"`.
+  // MEASURED (§044, 3 languages, 75 rows hand-adjudicated against a criterion fixed before the pairs were seen,
+  // ties scored in the tool's favour so the figure is an upper bound): precision 18/75 = 0.24 — 0.36 on
+  // OpenZeppelin, 0.32 on flask, 0.04 on gin. The cause is not a loose threshold but a MISSING BASELINE:
+  // `3*shared > A.shared + B.shared` is a within-pair test that never asks what two ARBITRARY role groups of that
+  // construct already share. Measured over 861 same-root pool pairs in gin the median shared core is 10 — and
+  // gin's ACCEPTED twins median 10 too, i.e. the gate admits pairs that are exactly typical. The cores it accepts
+  // there are bare declaration syntax (`func X(t *testing.T) { … }` and nothing else).
+  // Do NOT "fix" this with a minimum skeleton size: measured, gin's whole population is 6–23 nodes and flask's
+  // 5–12, so any floor clearing gin's noise deletes flask's true rows with it. Subtracting the measured per-root
+  // median (constant-free) was also tried: it lifts precision to 0.56 but zeroes Go and loses 4 of 18 true rows.
+  // Rows were also not independent — 33 of OpenZeppelin's 83 were `Packing.sol` pairing with itself, one fact
+  // rendered as 33 separate instructions — and `rules` wrote every one of them into the user's committed
+  // CONVENTIONS.md. Full measurement: .temp/issues/044-twins-duplicate-noise/log.md.
   for (const a of model.changeArchetypes || []) { // 6: incomplete change shapes (J4.1) — usually, not always: certification's
     // own λ bound puts every CERTIFIED cell's share at >= 0.89, so 0.6 <= share < certification is exactly "usually,
     // not always" without inventing a new upper-bound constant (the 0.6 floor already has three precedents in this file)
