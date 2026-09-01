@@ -1,2 +1,4 @@
 
 ## 2026-09-01 23:45 — Spec = question-catalog.md §6.4. Three signals already held: same-stem structure (UpdateTodoList.cs → UpdateTodoListTests.cs), model.cochange source↔test pairs the 0.75 gate suppresses (collection.js ↔ spec.collection.js at 0.84), model.edges. A 'tested by:' line on what costs no new extraction. Nine instances, 18 calls, no command answers it today.
+
+## 2026-09-02 01:49 — what <symbol> now names tested-by evidence: same-stem file-naming convention (highest confidence) falling back to model.cochange (single-file 1/3 floor, restricted to test-like partners) and model.edges (test-like importer); honest 'no test file identified' negative when none of the three fire. New tests/what-tested-by.test.mjs (4 tests) plus one existing what-honest-negative.test.mjs assertion updated for the new line.

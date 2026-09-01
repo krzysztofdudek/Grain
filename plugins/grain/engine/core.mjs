@@ -7389,6 +7389,90 @@ function typeRefHits(model, q) {
   }
   return hits;
 }
+// `tested by:` (§065) — the model already carries three signals for "which test file covers this symbol", and
+// no command answered that until now (G catalog §6.4: 9 instances, 18 calls in the measured corpus — a reader
+// had to already know the test's own name to look it up, which defeats the point of asking). Same-stem naming
+// wins outright when it fires: cheapest to compute and the most literal claim there is ("this IS the test file
+// for this source file/symbol, by the repo's own naming convention"). Co-change/import evidence — a real signal,
+// but a weaker "these tend to change/link together" claim — is only ever consulted as a fallback.
+const TEST_PATH_RE = /(^|[/_.-])(tests?|specs?)([/_.-]|$)/i;
+// the PascalCase convention glues the suffix straight onto the stem with no separator at all (`FooTests.cs`,
+// `FooTest.java`, `FooSpec.scala`) — requiring a capitalized `Test(s)`/`Spec(s)` right after a lowercase/digit
+// stem character is what keeps this from also matching an ordinary word that merely ends in "test" (`latest.cs`
+// is not a test file); a real identifier essentially never capitalizes mid-word the way a glued suffix does.
+const TEST_SUFFIX_RE = /[a-z0-9](Tests?|Specs?)\.[^./]+$/;
+function looksLikeTestPath(rel) {
+  return TEST_PATH_RE.test(rel) || TEST_SUFFIX_RE.test(rel);
+}
+// same-stem candidate basenames for ONE defining file — the conventions actually surveyed for this ticket: a
+// `Tests`/`Test`/`Spec` suffix glued onto the stem before the extension (`UpdateTodoList.cs` ->
+// `UpdateTodoListTests.cs`), a `.test`/`.spec` infix, or a `_test`/`test_`/`-test`/`-spec` affix. Matched on the
+// basename alone, case-insensitively (a naming convention holds regardless of a repo's own casing habits) and
+// never on directory — a file that merely LIVES under a `test/` directory without a matching stem is co-change/
+// edge evidence, not this.
+function sameStemTestCandidates(rel) {
+  const ext = extname(rel);
+  const base = basename(rel, ext);
+  if (!base) return new Set();
+  return new Set(
+    [
+      `${base}Tests${ext}`,
+      `${base}Test${ext}`,
+      `${base}Spec${ext}`,
+      `${base}.test${ext}`,
+      `${base}.spec${ext}`,
+      `${base}_test${ext}`,
+      `test_${base}${ext}`,
+      `${base}-test${ext}`,
+      `${base}-spec${ext}`,
+    ].map(s => s.toLowerCase())
+  );
+}
+// the full evidence gather for one `what` answer, over a bounded set of the symbol's own defining files (the
+// caller passes only the top-3 by declaration count — the same fan-in bound (f)'s `usedBy` already applies, for
+// the same reason: a symbol declared identically in dozens of files does not need dozens of separate co-change
+// lookups to answer "what tests this"). Same-stem (file-stem convention above, or the symbol's OWN name as an
+// exact dot/underscore/hyphen-delimited segment of an already test-like path's basename — the `res.sendStatus` ->
+// `test/res.sendStatus.js` shape, where the declaring file's own stem, `response`, shares nothing with the test
+// file at all) is tried first and wins outright when it fires. Otherwise: model.cochange, at the single-file 1/3
+// floor §063's cochangeData already established for this exact narrower-question shape (one file, not a multi-
+// file change), restricted to partners whose OWN path reads as a test — never a general co-change claim; and
+// model.edges, restricted to a test-like importer of the defining file. The two fallbacks are reported together —
+// different mechanisms, the same weaker tier of evidence for the same claim.
+export function testedByEvidence(model, definedFiles) {
+  const relSet = [...new Set((definedFiles || []).map(d => d.rel))];
+  if (!relSet.length) return null;
+  const pathsAll = model.pathsAll || model.filesAll || [];
+  const sameStem = new Set();
+  for (const rel of relSet) {
+    const cands = sameStemTestCandidates(rel);
+    if (!cands.size) continue;
+    for (const p of pathsAll) {
+      if (p === rel) continue;
+      if (cands.has(basename(p).toLowerCase())) sameStem.add(p);
+    }
+  }
+  const names = new Set((definedFiles || []).map(d => d.name).filter(Boolean));
+  if (names.size)
+    for (const p of pathsAll) {
+      if (relSet.includes(p) || !looksLikeTestPath(p)) continue;
+      if (basename(p).split(/[._-]/).some(seg => names.has(seg))) sameStem.add(p);
+    }
+  if (sameStem.size) return { kind: 'same-stem', files: [...sameStem].sort() };
+
+  const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
+  const weak = new Map();
+  for (const rel of relSet)
+    for (const h of cochangeData(model, [rel]))
+      if (looksLikeTestPath(h.file) && !weak.has(h.file))
+        weak.set(h.file, { file: h.file, sup: h.sup, commits: h.commits, dead: h.dead });
+  for (const rel of relSet)
+    for (const e of model.edges || [])
+      if (e.to === rel && looksLikeTestPath(e.from) && !weak.has(e.from))
+        weak.set(e.from, { file: e.from, dead: !live.has(e.from) });
+  if (!weak.size) return null;
+  return { kind: 'evidence', files: [...weak.values()].sort((a, b) => (a.file < b.file ? -1 : 1)) };
+}
 export function whatCmd({
   model,
   H,
@@ -7550,10 +7634,11 @@ export function whatCmd({
 
   // (f) fan-in: incoming file-level edges into the top 3 declaration files, ranked by how many declarations matched
   let usedBy = null;
+  let top3 = new Set();
   if (definedAll.length) {
     const byFile = new Map();
     for (const d of definedAll) byFile.set(d.rel, (byFile.get(d.rel) || 0) + 1); // §039: ranked over every hit, not the twelve shown
-    const top3 = new Set(
+    top3 = new Set(
       [...byFile]
         .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
         .slice(0, 3)
@@ -7562,6 +7647,10 @@ export function whatCmd({
     const k = (model.edges || []).filter(e => top3.has(e.to)).length;
     if (k > 0) usedBy = { files: k };
   }
+
+  // (f2) tested by (§065): same-stem naming, else co-change/import evidence — see testedByEvidence's own note.
+  // Bounded to the same top-3 declaration files (f) already ranked, for the same reason (f) is.
+  const testedBy = top3.size ? testedByEvidence(model, definedAll.filter(d => top3.has(d.rel))) : null;
 
   // (g) structural references (§032) — see `typeRefHits`'s own note. Only consulted for a name with no exact
   // local declaration; the count is real (an exact-name match against per-file structural facts, not token
@@ -7603,6 +7692,22 @@ export function whatCmd({
       )
     );
   if (usedBy) lines.push(voice('practiced', `used by: ${usedBy.files} files`));
+  if (testedBy)
+    lines.push(
+      voice(
+        'practiced',
+        testedBy.kind === 'same-stem'
+          ? `tested by: ${testedBy.files.join(', ')}`
+          : `tested by: ${testedBy.files.map(f => f.file + (f.dead ? ' (deleted)' : '')).join(', ')} (co-change/import evidence, not a same-stem match)`
+      )
+    );
+  else if (definedAll.length)
+    lines.push(
+      voice(
+        'map',
+        `tested by: no test file identified for this symbol — same-stem naming, co-change history and import edges found no match; that does not prove no test exists`
+      )
+    );
   if (referenced) {
     const bits = [];
     if (referenced.implements)
@@ -7728,6 +7833,7 @@ export function whatCmd({
     changes: changes || {},
     usedBy: usedBy || {},
     referenced,
+    testedBy: testedBy || null,
     note,
   };
 }
