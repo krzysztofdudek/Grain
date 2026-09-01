@@ -5014,3 +5014,14 @@ hooków bez `claude-code-guide`. Nie zaokrągla: „N/N testów" z własnego uru
 versions: EXTR_V g30→g31 (c2200e1)
 suite: 1958
 note: fala 1 zamknięta: 4 landings + instrumenty A/B/D + katalog G + badanie where + skill director z narzędziami + przeformatowanie silnika (88be159); instr/F wciąż w locie (Symfony), scali go lead
+
+# Fala 2 — start 2026-09-01
+- 2026-09-01 honesty (D/A/E fixes) interleaved with reach (wave-3 #1/#2); HIGH severity first, top wave-3 leverage items included
+- 2026-09-01 merged: 063 15fdce2
+- 2026-09-01 merged: 067 2bd2d57
+- 2026-09-01 merged: 047 f6e4ec5
+- 2026-09-01 merged: 054a 98844c1
+- 2026-09-01 merged: 054b 7d21fb7
+- 2026-09-01 merged: 055 9ee6e21
+- 2026-09-01 merged: 041 343aad0
+- 2026-09-01 merged: 057 b008c7d
