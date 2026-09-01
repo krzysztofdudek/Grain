@@ -1,0 +1,2 @@
+
+## 2026-09-01 23:45 — Spec = question-catalog.md §6.5. Filter how's 'places such a change touched' to files live at HEAD — liveness set (model.pathsAll ∪ filesAll) is already computed in cochangeData and not applied here; drop the 1/N tail. Add changes/concepts to map --json (= ticket 051, fold in). Test: a deleted file never appears in how's places; map --json carries what map renders.

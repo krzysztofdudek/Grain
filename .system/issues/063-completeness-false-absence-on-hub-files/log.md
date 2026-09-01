@@ -1,0 +1,2 @@
+
+## 2026-09-01 23:45 — Spec = question-catalog.md §6.1. Rank a partner by MAX of the two directional confidences (or lift vs partner base rate), print the number; never '(complete)' — say 'no partner above <n>' naming the threshold. model.cochange already carries confidenceAB/BA. Also closes the live where/completeness contradiction (class C): where prints CHANGES.rst (35/60) from the same data. Test: hub file gets partners; a genuinely partnerless file gets the named-threshold negative, not '(complete)'.
