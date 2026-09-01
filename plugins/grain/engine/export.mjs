@@ -38,6 +38,7 @@ import {
   valOf,
   shapeWords,
   relCoverageData,
+  decoLabel,
 } from './core.mjs';
 
 const UNSEEN = ' ';
@@ -101,11 +102,13 @@ function focusLines(lines, s, pid, exp) {
   };
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (enumerator === 'deco') {
-    const nm = argument.replace(/^[@[]|\]$/g, '');
+    // §054b: `#[` (PHP) is a two-character wrapping sigil, the same category as `@`/`[` — stripped and re-matched
+    // as a unit here too, or a PHP anchor line search would look for the never-occurring `@#[Name`/`[#[Name`.
+    const nm = argument.replace(/^(?:#\[|[@[])|\]$/g, '');
     const f = scan(
       from - 10,
       Math.min(from + 15, Math.max(to, from)),
-      new RegExp('[@[]\\s*' + esc(nm) + '\\b')
+      new RegExp('(?:#\\[|[@[])\\s*' + esc(nm) + '\\b')
     );
     return f.length ? [f[0]] : [from];
   } // the stack may sit above OR inside a multi-line declaration head
@@ -411,9 +414,7 @@ export function exportModel({
       P.markers.push({
         marker:
           pre === 'deco'
-            ? name.startsWith('[')
-              ? name
-              : '@' + name
+            ? decoLabel(name)
             : pre === 'sup'
               ? 'extends ' + name
               : 'returns ' + name,
