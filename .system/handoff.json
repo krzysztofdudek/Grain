@@ -1,62 +1,46 @@
 {
-  "at": "2026-09-01T21:46:33.021Z",
+  "at": "2026-09-01T21:51:29.862Z",
   "by": "director",
-  "head": "main@c02d103",
-  "summary": "Wave 1 closed except instr/F (waiting on Symfony full-history ladder) and research/where-lever (running). Main c02d103+, suite 1958/1958 (4 todo). Director skill + committed .system state landed (688efa8, tools via skill/director-tools and -2). G catalog merged: product gap = precedents yes, obligations no; wave 3 = completeness/adoption/usedBy/testedBy/how-liveness. 67 tickets, 22 open.",
+  "head": "main@7bb3844",
+  "summary": "Wave 1 CLOSED (7bb3844): engine reformatted (88be159, suite identical 1958), EXTR_V g31 (c2200e1), director skill + committed .system landed, G catalog + where-lever research merged. LEAD  (Sonnet, long-lived) spawned to run track 1 from the queue: 24 queued (wave 2 honesty + wave 3 reach), 1 running (instr/F on Symfony ladder). Director now: escalations (escalate list), sampled audit (wave audit), track 2.",
   "inFlight": [
     {
       "name": 1,
       "task": "",
-      "since": "2026-09-01T21:46:32.973Z",
+      "since": "2026-09-01T21:51:29.839Z",
       "reportsTo": "lead",
       "branch": "instr/corpus-ladder"
-    },
-    {
-      "name": 2,
-      "task": "",
-      "since": "2026-09-01T21:46:32.973Z",
-      "reportsTo": "lead",
-      "branch": "research/where-lever"
-    },
-    {
-      "name": "instr/F corpus-ladder",
-      "task": "corpus.json + scale ladder; blocked on its own Symfony run",
-      "since": "2026-09-01T21:46:32.999Z",
-      "reportsTo": "director",
-      "branch": "instr/corpus-ladder"
-    },
-    {
-      "name": "research/where-lever",
-      "task": "where ranking: failure attribution by evidence source, 3 lever experiments",
-      "since": "2026-09-01T21:46:33.022Z",
-      "reportsTo": "director",
-      "branch": "research/where-lever"
     }
   ],
   "pendingDecisions": [],
-  "waitingOn": [],
+  "waitingOn": [
+    {
+      "who": "grain-lead",
+      "what": "wave 2 start message (workers dispatched, count), then 'queue empty' escalation",
+      "since": "2026-09-01T21:51:29.863Z"
+    }
+  ],
   "lastActions": [
-    "- 2026-09-01 audit-claims.mjs had 4 literal NUL bytes (git saw binary) — replaced with \\0 escapes, fadc886",
-    "- 2026-09-01 merged: 045 9064c23",
-    "- 2026-09-01 merged: 044 423119e",
-    "- 2026-09-01 merged: 016 8d9a1a7",
-    "- 2026-09-01 merged: instr/D 5470fe4",
-    "- 2026-09-01 merged: instr/B 35f054b",
     "- 2026-09-01 merged: 049 17f5e08",
     "- 2026-09-01 merged: instr/A 7375fa1",
     "- 2026-09-01 merged: research/G-catalog cc66d8e",
-    "- 2026-09-01 merged: skill/director-tools-2 7ac3822"
+    "- 2026-09-01 merged: skill/director-tools-2 7ac3822",
+    "- 2026-09-01 merged: research/where-lever a9134a1",
+    "- 2026-09-01 merged: format/prettier 88be159",
+    "# Fala 1 — close 2026-09-01",
+    "versions: EXTR_V g30→g31 (c2200e1)",
+    "suite: 1958",
+    "note: fala 1 zamknięta: 4 landings + instrumenty A/B/D + katalog G + badanie where + skill director z narzędziami + przeformatowanie silnika (88be159); instr/F wciąż w locie (Symfony), scali go lead"
   ],
   "nextActions": [
-    "REFORMAT engine (Prettier, one statement per line, comments untouched, one no-logic commit) — window is open NOW: F and where-lever branches don't touch core.mjs",
-    "EXTR_V g30→g31 single bump covering 018/040/043/045/016/049 (after reformat or before — one commit either way)",
-    "spawn the LEAD (Sonnet, long-lived) with SKILL.md + system.md + queue: it runs wave 2+3 from the queue; director drops to escalations + audit",
-    "when research/where-lever lands: rule on the lever, then queue G rec 2 (where symbol-first)",
-    "chore for lead: prune finished agents' worktrees (15 listed; keep F's and where-lever's)"
+    "watch escalations: node .claude/skills/director/scripts/escalate.mjs list --state open — rule via escalate rule <id>",
+    "sampled audit once per wave: pick one merged ticket at random, full verification, record via wave audit",
+    "track 2: G rec 2 (where symbol-first for the NAMED stratum) needs a design brief once 068/069 fix the harness; leak-free where is a coverage boundary (decision where-leak-free-is-a-coverage-boundary) — new evidence = extraction work, candidate after wave 3",
+    "track 2: 'obligations not precedents' is the product gap (catalog §7) — Q15 migration obligation and N1 data-flow need new extraction; design pass after wave 3",
+    "handoff tool: auto-fill from queue duplicates explicit add-inflight entries and has no task text — small fix for the lead's queue when idle"
   ],
   "notes": [
-    "Worktree isolation branches from a stale ref: EVERY worker's first action is git merge main (5 agents hit it; 049 merge had to be aborted)",
-    "Agents' SendMessage to 'grain-34' resolved to peer session 'grain-4d' — reports arrive via task notifications regardless; give the lead an unambiguous name",
-    "Symfony petclinic fixture store under the session scratchpad was rebuilt on 0.2.1 by a stale-base agent — rebuild before measuring against it"
+    "Lead reports by file: escalations.json / handoff.json. SendMessage to grain-34 may route to peer grain-4d; task notifications still arrive.",
+    "Worktree isolation branches from a stale ref — every worker's FIRST ACTION is git merge main (in every brief)"
   ]
 }
