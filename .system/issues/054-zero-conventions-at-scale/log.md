@@ -243,3 +243,5 @@ settled the template asymmetry with a shipped disclosure.
 **Boundary to disclose honestly.** Even with R1 and R2, a *unanimous* local cell whose parent already agrees earns
 only a few bits and can never pay a repo-wide `log2(C)` that grows with the codebase. That is a real property of
 the discipline, not a bug, and it is the frontier `docs/mathematics.md` already promises to make visible.
+
+## 2026-09-02 00:25 — shallow-clone gate now keys on visible-window vs freshDays (state.firstTs-derived), not the boolean is-shallow flag: depth4/27d-window fixture recovers 85/85 conventions (0->85), depth1/0d-window still fails closed (0); suite 1960 (was 1958), 0 fail, 4 pre-existing todo unchanged.
