@@ -5009,3 +5009,8 @@ hooków bez `claude-code-guide`. Nie zaokrągla: „N/N testów" z własnego uru
 - 2026-09-01 merged: skill/director-tools-2 7ac3822
 - 2026-09-01 merged: research/where-lever a9134a1
 - 2026-09-01 merged: format/prettier 88be159
+
+# Fala 1 — close 2026-09-01
+versions: EXTR_V g30→g31 (c2200e1)
+suite: 1958
+note: fala 1 zamknięta: 4 landings + instrumenty A/B/D + katalog G + badanie where + skill director z narzędziami + przeformatowanie silnika (88be159); instr/F wciąż w locie (Symfony), scali go lead
