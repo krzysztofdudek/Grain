@@ -7,7 +7,18 @@
 //   · a HEAD that does not descend from lastSha (branch switch to a divergent line, rebase, history rewrite) makes
 //     the state unusable: the walk starts over from the root — still warm, because the blob cache survives
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  createReadStream,
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  renameSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
+import { createInterface } from 'node:readline';
 import { extname, join } from 'node:path';
 import { parseFile, bindingFor, extractScopes, hashStr, CODE_RE, normalizeCR } from './core.mjs';
 import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, FIX_RE } from './config.mjs';
@@ -336,7 +347,7 @@ export async function parseBlobs(gitdir, cache, blobExt, log) {
 }
 
 // ----- replay state (persisted) -----
-const freshState = () => ({
+export const freshState = () => ({
   x: EXTR_V,
   h: HIST_V,
   lastSha: null,
@@ -357,6 +368,88 @@ const freshState = () => ({
   scopePairSup: Object.create(null),
   scopeCommits: Object.create(null),
 }); // §J5.7b: the scope-level mirror of pairSup/fileCommits — a SEPARATE accumulator, gated by its own scopePairCap (megaCap bounds files per commit, not scopes)
+
+// ----- history state persistence: newline-delimited, never one monolithic JSON.stringify (§054/§055) -----
+// `freshState()`'s scalar fields fit in one row each; its object fields (`blobShas`, `msgAff`, `pairSup`, `lc`, …)
+// are accumulators with one entry per distinct blob/pair/path ever seen across the WHOLE history — on a
+// repository the size of Symfony (82,946 commits) that is millions of entries, and `JSON.stringify(state)` over
+// all of them at once builds a single JS string past V8's own hard string-length cap: measured, `RangeError:
+// Invalid string length` after a full, otherwise-successful 82,946-commit walk (§054 D3). No single entry is
+// remotely that large — every value here is bounded by a per-commit cap (`CFG.megaCap`/`CFG.scopePairCap`) or is
+// a lifecycle record for one path/scope — so writing and reading ONE JSON value per line, streamed, keeps every
+// string either side of this round-trip ever holds down to the size of one record, however large the file grows.
+const HIST_SCALAR_FIELDS = ['x', 'h', 'lastSha', 'commits', 'events', 'firstTs', 'nonMegaCommits'];
+const HIST_MAP_FIELDS = [
+  'blobShas',
+  'msgAff',
+  'msgAffEx',
+  'msgTokCommits',
+  'lc',
+  'vev',
+  'prevState',
+  'pairSup',
+  'fileCommits',
+  'scopePairSup',
+  'scopeCommits',
+];
+export async function writeHistoryState(path, state) {
+  const tmp = path + '.tmp-' + process.pid;
+  await new Promise((resolve, reject) => {
+    const out = createWriteStream(tmp);
+    // settled ONLY by these two listeners, never by `end()`'s own callback: measured (this fix), that callback
+    // can fire before a same-tick 'error' (e.g. the destination directory doesn't exist) — resolving on it would
+    // let a failed write masquerade as success, and worse, `renameSync` below would then either throw on a tmp
+    // file that was never created, or — had any bytes already landed — promote a truncated file to the real path.
+    let settled = false;
+    out.on('error', e => {
+      if (!settled) {
+        settled = true;
+        reject(e);
+      }
+    });
+    out.on('finish', () => {
+      if (!settled) {
+        settled = true;
+        resolve();
+      }
+    });
+    const rows = (function* () {
+      for (const f of HIST_SCALAR_FIELDS) yield ['s', f, state[f]];
+      for (const f of HIST_MAP_FIELDS) {
+        const m = state[f] || {};
+        for (const k of Object.keys(m)) yield ['m', f, k, m[k]];
+      }
+      for (const rec of state.fps || []) yield ['a', 'fps', rec];
+    })();
+    (function pump() {
+      let ok = true;
+      while (ok) {
+        const { value, done } = rows.next();
+        if (done) {
+          out.end();
+          return;
+        }
+        ok = out.write(JSON.stringify(value) + '\n');
+      }
+      out.once('drain', pump);
+    })();
+  });
+  renameSync(tmp, path); // same tmp-then-rename atomicity as `atomicWrite`, just over a stream instead of one string
+}
+export async function readHistoryState(path) {
+  const state = freshState();
+  const rl = createInterface({ input: createReadStream(path, { encoding: 'utf8' }), crlfDelay: Infinity });
+  for await (const line of rl) {
+    if (!line) continue;
+    const row = JSON.parse(line); // a pre-migration single-JSON-object file parses to a plain object here, not
+    const [tag, ...rest] = row; //   an array — array-destructuring it throws, correctly rejecting the old format
+    if (tag === 's') state[rest[0]] = rest[1];
+    else if (tag === 'm') (state[rest[0]] ||= Object.create(null))[rest[1]] = rest[2];
+    else if (tag === 'a' && rest[0] === 'fps') state.fps.push(rest[1]);
+    else throw new Error(`unrecognized history-state row: ${line.slice(0, 80)}`);
+  }
+  return state;
+}
 function replay(state, events, commits, cache) {
   const touched = new Map(); // sha -> Set of "path#scopeKey" born or body-changed in that commit (fps[*].scopes, §J2.1)
   // fps[*].renames covers CODE_RE paths only, because walk() (~line 96) only emits rename/lifecycle events for those —
@@ -583,9 +676,13 @@ export async function loadHistory({ gitdir, store, log = () => {}, full = false 
   let state = null;
   if (!full && existsSync(store.historyPath)) {
     try {
-      state = JSON.parse(readFileSync(store.historyPath, 'utf8'));
-    } catch {
+      state = await readHistoryState(store.historyPath);
+    } catch (e) {
+      // never swallowed silently (§055): a corrupt file, a pre-migration single-JSON-object history.json, or any
+      // other read failure all land here — loud on purpose, since the only consequence is a slower full re-walk,
+      // never a wrong answer, and a user watching a long `refresh` deserves to know why it isn't resuming.
       state = null;
+      log(`[history] saved history state unreadable (${e.message || e}) — walking full history instead of resuming`);
     }
   }
   let mode = 'full',
@@ -619,7 +716,19 @@ export async function loadHistory({ gitdir, store, log = () => {}, full = false 
     state.fps = state.fps.slice(dropped);
     log(`[history] fps cap ${CFG.fpsCap}: dropped ${dropped} oldest footprint(s)`);
   }
-  atomicWrite(store.historyPath, JSON.stringify(state));
+  try {
+    await writeHistoryState(store.historyPath, state);
+  } catch (e) {
+    // never swallowed silently (§055): this walk's results are already fully computed in memory and are returned
+    // below regardless — a save failure here costs only the NEXT run's ability to resume (it re-walks from the
+    // root instead), never this run's answer, so it must say so plainly rather than either crashing the whole
+    // command or vanishing with no trace. Streaming the write (writeHistoryState, above) already keeps any single
+    // JSON.stringify call far under V8's string-length cap, so this is the residual, hopefully-rare backstop —
+    // disk-full, permissions, or anything else — not the cap itself.
+    log(
+      `[history] could not save history state (${e.message || e}) — this run's results are unaffected, but the next run will re-walk the full history instead of resuming from ${head}`
+    );
+  }
   log(
     `[history] ${commits.length} commits, ${total} blobs (${total - parsed} cached, ${parsed} parsed), ${((Date.now() - t0) / 1000).toFixed(1)}s`
   );

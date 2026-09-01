@@ -10,14 +10,16 @@
 //     just mis-keyed. This holds through a rename too: the renamed-to path is quoted the same way, so it also
 //     never reaches replay()'s "a renamed file's scopes keep their timelines" transfer logic pre-fix.
 // This reads .grain/cache/history.json directly (the persisted replay state) since that is where the corruption
-// lives, before it ever reaches a query surface.
+// lives, before it ever reaches a query surface. (§055: that file is now newline-delimited, not one JSON object —
+// read back through history.mjs's own `readHistoryState`, the same reconstruction `loadHistory` itself uses.)
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readHistoryState } from '../engine/history.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo;
@@ -26,7 +28,7 @@ const git = (i, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'ut
 const w = (rel, content) => { mkdirSync(join(repo, dirname(rel)), { recursive: true }); writeFileSync(join(repo, rel), content); };
 const cls = (name, ret) => `export class ${name} {\n  run() {\n    return ${ret};\n  }\n}\n`;
 const status = () => { const r = spawnSync('node', [BIN, 'status'], { cwd: repo, encoding: 'utf8' }); assert.equal(r.status, 0, r.stdout + r.stderr); };
-const historyState = () => JSON.parse(readFileSync(join(repo, '.grain', 'cache', 'history.json'), 'utf8'));
+const historyState = () => readHistoryState(join(repo, '.grain', 'cache', 'history.json'));
 const QUOTED = '\\303\\251'; // git's octal escape for é's UTF-8 bytes when core.quotePath quotes a path
 
 before(() => {
@@ -49,8 +51,8 @@ before(() => {
 });
 after(() => { rmSync(tmp, { recursive: true, force: true }); });
 
-test('per-file commit counts key the non-ASCII file under its REAL path, never git-quoted octal garbage', () => {
-  const state = historyState();
+test('per-file commit counts key the non-ASCII file under its REAL path, never git-quoted octal garbage', async () => {
+  const state = await historyState();
   assert.equal(state.fileCommits['src/café.js'], 4, `expected src/café.js keyed by its real path with 4 commits, got: ${JSON.stringify(state.fileCommits)}`);
   assert.ok(!Object.keys(state.fileCommits).some(k => k.includes(QUOTED)), `no quoted/octal-escaped path may appear: ${JSON.stringify(Object.keys(state.fileCommits))}`);
   // regression control: the ordinary ASCII files are byte-identical to what they always were
@@ -58,8 +60,8 @@ test('per-file commit counts key the non-ASCII file under its REAL path, never g
   assert.equal(state.fileCommits['src/other.js'], 4);
 });
 
-test('co-change support is keyed on the REAL non-ASCII path in both pair positions', () => {
-  const state = historyState();
+test('co-change support is keyed on the REAL non-ASCII path in both pair positions', async () => {
+  const state = await historyState();
   const keys = Object.keys(state.pairSup);
   const cafePairs = keys.filter(k => k.includes('café.js'));
   assert.equal(cafePairs.length, 2, `expected café.js paired with plain.js and other.js: ${JSON.stringify(keys)}`);
@@ -69,8 +71,8 @@ test('co-change support is keyed on the REAL non-ASCII path in both pair positio
   assert.equal(state.pairSup['src/other.jssrc/plain.js'], 4);
 });
 
-test('the non-ASCII file gets real per-scope lifecycle rows — before the fix this data is silently ABSENT, not just mis-keyed', () => {
-  const state = historyState();
+test('the non-ASCII file gets real per-scope lifecycle rows — before the fix this data is silently ABSENT, not just mis-keyed', async () => {
+  const state = await historyState();
   const cafeKeys = Object.keys(state.lc).filter(k => k.startsWith('src/café.js#'));
   assert.equal(cafeKeys.length, 2, `expected a type and a method lifecycle row for src/café.js, got lc keys: ${JSON.stringify(Object.keys(state.lc))}`);
   for (const k of cafeKeys) { const L = state.lc[k];
@@ -81,12 +83,12 @@ test('the non-ASCII file gets real per-scope lifecycle rows — before the fix t
   assert.ok(Object.keys(state.lc).some(k => k.startsWith('src/other.js#')));
 });
 
-test('a rename of the non-ASCII file transfers its lifecycle rows to the new REAL path — before the fix nothing exists to transfer', () => {
+test('a rename of the non-ASCII file transfers its lifecycle rows to the new REAL path — before the fix nothing exists to transfer', async () => {
   mkdirSync(join(repo, 'src', 'moved'), { recursive: true });
   git(4, 'mv', 'src/café.js', 'src/moved/café2.js');
   git(4, 'commit', '-qm', 'move the cafe file under src/moved/');
   status();
-  const state = historyState();
+  const state = await historyState();
   assert.ok(!Object.keys(state.lc).some(k => k.startsWith('src/café.js#')), `the old path's lifecycle rows must be gone, not duplicated: ${JSON.stringify(Object.keys(state.lc))}`);
   const newKeys = Object.keys(state.lc).filter(k => k.startsWith('src/moved/café2.js#'));
   assert.equal(newKeys.length, 2, `expected both lifecycle rows transferred to the real new path: ${JSON.stringify(Object.keys(state.lc))}`);

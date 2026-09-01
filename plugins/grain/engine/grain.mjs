@@ -88,7 +88,7 @@ import {
   ptr,
   skipLineNote,
 } from './core.mjs';
-import { loadHistory, headSha, headTree, gitOk, isShallow } from './history.mjs';
+import { loadHistory, headSha, headTree, gitOk, isShallow, readHistoryState } from './history.mjs';
 import { exportModel } from './export.mjs';
 import { createHash } from 'node:crypto';
 import {
@@ -2394,8 +2394,18 @@ export async function main(argv) {
       const head = headSha(f.root);
       if (!head) return 0;
       // read-only: history.json is read directly and used ONLY if already fresh (lastSha === head) — this hook
-      // must never take the `loadHistory` walk-and-write path (that is what "never refreshes" forbids here)
-      const state = existsSync(st2.historyPath) ? readJson(st2.historyPath) : null;
+      // must never take the `loadHistory` walk-and-write path (that is what "never refreshes" forbids here).
+      // history.json is newline-delimited, not one JSON object (§055) — read through history.mjs's own
+      // `readHistoryState`, never the generic `readJson` every other cache file here uses; any read failure
+      // (missing, corrupt, mid-write) degrades exactly like `readJson` always has — `state = null`, hook stays silent.
+      let state = null;
+      if (existsSync(st2.historyPath)) {
+        try {
+          state = await readHistoryState(st2.historyPath);
+        } catch {
+          state = null;
+        }
+      }
       if (!state || state.x !== EXTR_V || state.h !== HIST_V || state.lastSha !== head) return 0;
       const H = { fps: state.fps || [] }; // the only field howCmd ever reads off H
       if (!H.fps.length) return 0;
