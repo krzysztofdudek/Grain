@@ -1,8 +1,9 @@
 // Tests for the claim auditor (loop v2, instrument A): tests/stress/audit-claims.mjs.
 //
 // Two kinds of coverage:
-//   1. End-to-end, against real `grain` output over a tiny planted-fabrication git repo (§049's constructor-arg
-//      heritage bug, the catch/finally scope-naming quirk, and an undisclosed no-grammar extension) and, separately,
+//   1. End-to-end, against real `grain` output over a tiny planted-fabrication git repo (a `extends ns.Member`
+//      member-expression heritage bug — the same class as the now-fixed §049 constructor-arg bug, still open for
+//      a namespace-qualified base — the catch/finally scope-naming quirk, and an undisclosed no-grammar extension) and, separately,
 //      against the SAME clean fixture the rest of the suite uses (tests/fixtures/build-fixture.mjs) — real,
 //      in-repo heritage (extends BaseService/BaseDto, implements CanActivate) must NOT be flagged.
 //   2. Direct unit tests of the exported check functions for the three claim types real-engine reproduction can't
@@ -39,20 +40,24 @@ before(() => {
   const git = (...args) => execFileSync('git', ['-C', planted, ...args], { env, stdio: ['ignore', 'pipe', 'pipe'] });
   const w = (rel, content) => { const p = join(planted, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
 
-  // §049 shape: `extends Baz(cc)` grabs the constructor ARGUMENT `cc`, not the type `Baz`, as the supertype.
-  // grain only records a marker (and so only exposes it as an auditable site) once ≥3 scopes carry it (core.mjs
-  // `learn`: "markers: every decorator / supertype / declared return type with ≥ 3 carriers") — the real playframework
-  // finding was many controllers sharing this exact shape, so three planted classes reproduces it rather than
-  // approximating it.
-  w('src/heritage.scala', [
-    'package demo',
+  // `extends ns.Member` (a namespace-qualified base, e.g. `extends ethers.AbstractSigner` in openzeppelin-contracts'
+  // test/helpers/signers.js) records the NAMESPACE (`lib`), not the member (`Base1`), as the supertype — the
+  // heritage-identifier scan (core.mjs extractScopes) matches node types identifier/type_identifier/… but never
+  // property_identifier, so a member_expression's object is picked up and its property never is. Same failure
+  // class as §049 (wrong identifier out of a compound heritage clause), fixed there for a constructor-call
+  // argument but NOT for this shape. Needs an actual `import` (not a same-file local binding) to reproduce — a
+  // locally-declared object was observed not to trigger it. grain only records a marker once >=3 scopes carry it
+  // (core.mjs `learn`), so three planted classes reproduces it rather than approximating it.
+  // the import target's file basename must NOT equal the namespace identifier, or this harness's own
+  // import-target allowance (a bare name matching an imported module's basename is treated as external/legitimate)
+  // would coincidentally clear `lib` for the wrong reason.
+  w('src/nsmod.js', 'export const lib = { Base1: class {} };\n');
+  w('src/heritage.js', [
+    "import { lib } from './nsmod.js';",
     '',
-    'trait Bar',
-    'class Baz(x: Bar)',
-    '',
-    'class Foo1(cc: Bar) extends Baz(cc) { def run(): Unit = () }',
-    'class Foo2(cc: Bar) extends Baz(cc) { def run(): Unit = () }',
-    'class Foo3(cc: Bar) extends Baz(cc) { def run(): Unit = () }',
+    'export class Foo1 extends lib.Base1 { run() { return 1; } }',
+    'export class Foo2 extends lib.Base1 { run() { return 2; } }',
+    'export class Foo3 extends lib.Base1 { run() { return 3; } }',
     '',
   ].join('\n'));
 
@@ -97,13 +102,13 @@ before(() => {
 });
 after(() => { rmSync(tmp1, { recursive: true, force: true }); });
 
-test('end-to-end: the §049 constructor-argument-as-supertype fabrication is caught', () => {
+test('end-to-end: the extends-namespace-member heritage fabrication is caught', () => {
   const out = runAudit(planted);
   assert.ok(out.byType.heritageTargetReal.fabricated >= 1, JSON.stringify(out.byType.heritageTargetReal));
-  const sample = out.samples.find(s => s.type === 'heritageTargetReal' && s.claim.includes('`cc`'));
-  assert.ok(sample, `expected a heritageTargetReal sample naming \`cc\`: ${JSON.stringify(out.samples)}`);
-  assert.equal(sample.file, 'src/heritage.scala');
-  assert.match(sample.detail, /§049 shape/);
+  const sample = out.samples.find(s => s.type === 'heritageTargetReal' && s.claim.includes('`lib`'));
+  assert.ok(sample, `expected a heritageTargetReal sample naming \`lib\`: ${JSON.stringify(out.samples)}`);
+  assert.equal(sample.file, 'src/heritage.js');
+  assert.match(sample.detail, /not declared as a type anywhere/);
 });
 
 test('end-to-end: a catch/finally scope claiming the enclosing method\'s name at its own line is caught', () => {
