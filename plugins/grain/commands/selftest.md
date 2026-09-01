@@ -1,6 +1,6 @@
 ---
-description: Plant synthetic deviations into conforming exemplars and report how many this repo's own model catches (or evaluate `how` or `where` against a naive baseline)
-argument-hint: [--json] | --how [--last N] [--json] | --where [--last N] [--json]
+description: Plant synthetic deviations into conforming exemplars and report how many this repo's own model catches (or evaluate `how`, `where` or extraction itself against a naive baseline/oracle)
+argument-hint: [--json] | --how [--last N] [--json] | --where [--last N] [--json] | --extract [--json]
 allowed-tools: Bash(node:*)
 ---
 ## grain selftest: $ARGUMENTS
@@ -18,5 +18,12 @@ asks how `where` ranks that file — and the place holding it — from the commi
 that ranks paths by how many of the same words they contain. It reports the pooled numbers and, beside them, the
 same numbers over only the commits whose message does NOT contain the added file's own name — the half no name
 matcher can win.
+`selftest --extract` checks extraction itself, per grammar: an oracle derived from the grammar's own node-types.json
+(every named node type with a `name` field, or a C/C++-style `declarator`, and a body-shaped child — no language or
+keyword named anywhere) says what a declaration looks like; recall is the fraction of the oracle's candidates that
+extraction actually recorded as a scope, precision is the fraction of extraction's recorded scopes the oracle agrees
+are declarations. A grammar with no such node type at all (JSON/YAML/TOML) is reported as a boundary, not a score.
+`--json` adds the first 10 misses (a declaration the oracle sees that extraction did not record) and 10 extras
+(a scope extraction recorded that the oracle does not consider a declaration), each as `file:line name`.
 Relay the numbers as reported; do not round them further or editorialize about whether they are "good enough" —
 that is a maintainer judgment, not something to assert on grain's behalf.

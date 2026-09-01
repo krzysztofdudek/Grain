@@ -33,6 +33,7 @@ worktree.
 | `selftest` | `--json` | plant synthetic deviations into conforming exemplars and report how many this repo's own model catches |
 | `selftest --how` | `--last N`, `--json` | leave-one-out precision/recall/F1 of `how` predicting a past commit's files, against a grep baseline |
 | `selftest --where` | `--last N`, `--json` | how `where` ranks the file a past commit added, from that commit's own message, against a path-match baseline |
+| `selftest --extract` | `--json` | per grammar, what fraction of the declarations a node-types.json-derived oracle sees does extraction actually record as a scope (recall), and what fraction of recorded scopes the oracle agrees are declarations (precision) |
 | `refresh` | `--full` | rebuild now (queries auto-refresh anyway); `--full` re-walks the whole history |
 | `version` | | engine, extractor and grammar versions |
 

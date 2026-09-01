@@ -19,7 +19,7 @@ import { dirname as posixDirname } from 'node:path/posix'; // matches placementH
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { ENGINE_VERSION, EXTR_V, HIST_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, EXCL, EXT2GRAMMAR, HARD_EXCL } from './config.mjs';
-import { learn, checkFile, spectrum, whereCmd, howCmd, howEval, whereEval, whatCmd, blindFiles, report, rulesMarkdown, statusLines, completenessDirectional, cochangeData, scopeCochangeLines, missingLines, valueKinGaps, mutateTest, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel, placementHit, sufOf, nameTokens, fileLevelPreds, pct, scopeLine, part, voice, inLineForFile, mapSections, archCellLabel, ptr, skipLineNote } from './core.mjs';
+import { learn, checkFile, spectrum, whereCmd, howCmd, howEval, whereEval, whatCmd, blindFiles, report, rulesMarkdown, statusLines, completenessDirectional, cochangeData, scopeCochangeLines, missingLines, valueKinGaps, mutateTest, extractCoverage, walkFiles, verbalize, toPosix, scopeLabel, groupDeviations, factLabel, placementHit, sufOf, nameTokens, fileLevelPreds, pct, scopeLine, part, voice, inLineForFile, mapSections, archCellLabel, ptr, skipLineNote } from './core.mjs';
 import { loadHistory, headSha, headTree, gitOk, isShallow } from './history.mjs';
 import { exportModel } from './export.mjs';
 import { createHash } from 'node:crypto';
@@ -1031,7 +1031,20 @@ export async function main(argv) {
     // formats of the same underlying detection check — this asymmetry is intentional, not an oversight to fix
     case 'mutate-test': lines = [JSON.stringify(await mutateTest({ model, root }), null, 1), stamp()]; break; // dev harness
     case 'selftest': {
-      if (args.length) throw new Error('usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] — takes no positional arguments');
+      if (args.length) throw new Error('usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --extract [--json] — takes no positional arguments');
+      if (opts.extract) { // §3.B loop-v2: per-grammar declaration recall/precision against a node-types.json-derived oracle — no history needed, just the current tree
+        let files = null, read = null;
+        if (isGit) { try { const t = headTree(root); files = t.files; read = t.read; } catch (e) { log('HEAD tree unavailable for selftest --extract, falling back to a worktree walk: ' + e.message); } }
+        if (!files) files = [...walkFiles(root, root)].sort();
+        const res = await extractCoverage({ root, files, read });
+        if (opts.json) lines = [JSON.stringify({ ...res, asOf: stamp().replace(/^as of /, '') }, null, 1)];
+        else { const f = x => x == null ? 'n/a' : x.toFixed(2);
+          const gLines = Object.entries(res.grammars).sort((a, b) => a[0] < b[0] ? -1 : 1).map(([g, s]) =>
+            s.boundary ? `${g}: boundary — no declaration-shaped node type in this grammar's own schema (scopes=${s.scopes})`
+                       : `${g}: recall=${f(s.recall)} precision=${f(s.precision)} candidates=${s.candidates} scopes=${s.scopes}`);
+          lines = [...gLines, `total: recall=${f(res.total.recall)} precision=${f(res.total.precision)} candidates=${res.total.candidates} scopes=${res.total.scopes}`,
+            ...(res.noParse ? [`${res.noParse} file(s) could not be parsed and are excluded from these counts`] : []), stamp()]; }
+        break; }
       if (opts.where) { // J2.3's sibling: `where` ranked against the repository's own record of where an added file landed
         let H = null; if (isGit) { try { H = (await loadHistory({ gitdir: root, store, log })).H; } catch (e) { log('history unavailable for selftest --where: ' + e.message); } }
         if (!H || !H.fps || !H.fps.length) {
@@ -1087,6 +1100,7 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
   selftest [--json]                       plant synthetic deviations into conforming exemplars and report how many this repo's own model catches
   selftest --how [--last N] [--json]      leave-one-out: how's own precision/recall predicting a past commit's files, vs a grep baseline, over the last N commits
   selftest --where [--last N] [--json]    where's own ranking of the file a past commit ADDED, from that commit's message, vs a path-match baseline, over the last N such commits
+  selftest --extract [--json]             per grammar, what fraction of the declarations a node-types.json-derived oracle sees does extraction actually record as a scope
   refresh [--full]                        rebuild the index now (every query already auto-refreshes)
   version                                 engine, extractor and grammar versions
 aliases:
