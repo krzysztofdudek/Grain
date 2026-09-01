@@ -58,6 +58,7 @@ import {
   whereEval,
   whatCmd,
   blindFiles,
+  ungrammaredFiles,
   report,
   rulesMarkdown,
   statusLines,
@@ -459,13 +460,17 @@ function relPath(root, p) {
 // ----- commands -----
 export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
   if (!args.length) throw new Error('usage: grain where <intent words>');
-  const { lines } = whereCmd({
-    model,
-    query: args.join(' '),
-    top: +opts.top || 3,
-    mapRows: +opts['map-rows'] || 60,
-    exemplarOk: existsMemo(root),
-  });
+  const query = args.join(' ');
+  const whereArgs = { model, query, top: +opts.top || 3, mapRows: +opts['map-rows'] || 60, exemplarOk: existsMemo(root) };
+  let { lines, hits } = whereCmd(whereArgs);
+  // §057 — a zero-hit answer reads as "this concept isn't in the repository". Before accepting that, a bounded
+  // scan (never a repo-wide grep) checks whether the query's exact text lives, verbatim, in a tracked file grain
+  // never had a grammar for at all — a stronger, cheaper, deterministic sibling of the peer-anomalous blind-file
+  // hedge `what` already carries. Only paid when `hits` is already empty, same discipline as `cmdWhat` below.
+  if (!hits.length) {
+    const ungrammaredHit = findUngrammaredHit(model, root, query);
+    if (ungrammaredHit) ({ lines, hits } = whereCmd({ ...whereArgs, ungrammaredHit }));
+  }
   const sig = signal(model);
   if (/empty|sparse|no source/.test(sig.verdict))
     lines.push(`model note: ${sig.facts} conventions over ${sig.files} source files — ${sig.verdict}`);
@@ -655,6 +660,25 @@ function findBlindHit(model, root, query, strict = false) {
   }
   return best ? best.rel : null;
 }
+// (§057) `ungrammaredFiles` (core.mjs) names tracked paths grain never even ATTEMPTED to parse — no grammar
+// registered for the extension at all, a strictly stronger and cheaper fact than `blindFiles`' "parsed but
+// yielded zero scopes" (which still needed §037's peer-anomaly gate to mean anything). A plain, unbounded
+// substring match is enough here: no heuristic, no gate, because "this format was never read" is true or false,
+// never a matter of degree. Bounded to the ungrammared set only (never a repo-wide grep), and returns the FIRST
+// match — with no scope-level evidence to rank by, unlike `findBlindHit`'s occurrence-count tie-break, the first
+// hit is exactly as informative as any other.
+function findUngrammaredHit(model, root, query) {
+  for (const rel of ungrammaredFiles(model)) {
+    let text;
+    try {
+      text = readFileSync(join(root, rel), 'utf8');
+    } catch {
+      continue;
+    }
+    if (text.includes(query)) return { file: rel, ext: extname(rel) || '(no extension)' };
+  }
+  return null;
+}
 export async function cmdWhat({ model, root, isGit, args, opts, stamp, store, treeDirty }) {
   if (!args.length) throw new Error('usage: grain what <words>');
   const query = args.join(' ');
@@ -675,8 +699,19 @@ export async function cmdWhat({ model, root, isGit, args, opts, stamp, store, tr
   // substring — a "nothing found" answer cannot be made overconfident by a hedge), and the WEAK answer §037
   // describes, where nothing returned actually carries the queried name (strict — it interrupts a real answer).
   // Every other query, including every one with an exact-name hit, never opens a file at all.
-  if (res.note?.kind === 'absent' || res.weakName) {
-    const blindHit = findBlindHit(model, root, query, !!res.weakName);
+  if (res.note?.kind === 'absent') {
+    // §057 — the truly-empty case tries the ungrammared (never-parsed) set FIRST: a deterministic, stronger
+    // claim than the peer-anomalous blind-file heuristic below, and gatedValueEvidence (checked inside whatCmd
+    // itself, no I/O) already had first refusal — `note.kind` is only 'absent' here because that already came
+    // back empty.
+    const ungrammaredHit = findUngrammaredHit(model, root, query);
+    if (ungrammaredHit) res = whatCmd({ model, H, query, exemplarOk: existsMemo(root), rawScopes, ungrammaredHit });
+    else {
+      const blindHit = findBlindHit(model, root, query, false);
+      if (blindHit) res = whatCmd({ model, H, query, exemplarOk: existsMemo(root), rawScopes, blindHit });
+    }
+  } else if (res.weakName) {
+    const blindHit = findBlindHit(model, root, query, true);
     if (blindHit) res = whatCmd({ model, H, query, exemplarOk: existsMemo(root), rawScopes, blindHit });
   }
   const { lines, defined, values, spread, siblings, changes, usedBy, referenced, note } = res;
