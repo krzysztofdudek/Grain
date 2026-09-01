@@ -219,7 +219,7 @@ export const hashStr = s => { let h = 2166136261; for (let i = 0; i < s.length; 
 // follow `declarator` fields down to the leaf (C/C++: function_definition → function_declarator → identifier)
 function declaratorChain(n) { const out = []; let d = n.childForFieldName('declarator'); let g = 0; while (d && g++ < 8) { out.push(d); d = d.childForFieldName('declarator'); } return out; }
 const looseBody = n => n.namedChildren.find(c => /body|block/.test(c.type) && !/type|annotation|parameter/.test(c.type)) || null;
-function scopeName(ch) { const n = ch.childForFieldName('name'); if (n) return n.text;
+export function scopeName(ch) { const n = ch.childForFieldName('name'); if (n) return n.text;
   const chain = declaratorChain(ch); const leaf = chain[chain.length - 1];
   if (leaf && /identifier/.test(leaf.type) && !leaf.text.includes('\n')) return leaf.text;
   return '<anon>'; }
@@ -313,7 +313,7 @@ const stem0 = rel => basename(rel).split('.')[0];
 // word-bounded via the shared wordBounded() helper, never a plain substring, so Ruby's real type-like `module`
 // declaration is untouched (§G15b)
 const MOD_LOCATION_RE = wordBounded(['mod']);
-const isLocationNode = t => /namespace|package/.test(t) || MOD_LOCATION_RE.test(t);
+export const isLocationNode = t => /namespace|package/.test(t) || MOD_LOCATION_RE.test(t);
 // a function/arrow/lambda-shaped VALUE, for the assignment-side anonymous-function detector below — word-bounded
 // alone is not sufficient (PHP's plain call node `function_call_expression` still matches the segment `function`);
 // the detector additionally requires the value to have a real BODY, which a call node never does (§G16)
@@ -4176,3 +4176,74 @@ export async function mutateTest({ model, root }) { const res = { detected: 0, m
       res[hit ? 'detected' : 'missed']++;
       if (!hit) res.cases.push({ fact: f.cid + ' ' + f.pid + '=' + f.exp, file: ex.rel }); } }
   return res; }
+
+// ===== SELFTEST --extract: declaration RECALL/PRECISION against a grammar-derived oracle (§3.B, loop-v2) =====
+// The oracle answers "what does this grammar's OWN node-types.json say a declaration looks like", independent of
+// bindingFor's `b.scope` (whose loosebody branch additionally keyword-matches a type's own NAME — class/function/
+// object/…, §bindingFor above). A "declaration candidate" here is any NAMED node type that (a) carries a `name`
+// field or a `declarator` field — the same two ingredients `b.scope`'s PRIMARY rule uses — AND (b) has, somewhere
+// in its OWN node-types.json schema (a field's declared types, or an unnamed child's declared types), something
+// shaped like a body or a block. No language, keyword or per-grammar list: (b) is read off the same `fields`/
+// `children` schema bindingFor already parses, just without the loosebody branch's NAME-based keyword match —
+// "kod to kod", ask the grammar, don't pattern-match a word list. Where this makes the oracle DISAGREE with
+// bindingFor's own `b.scope` (wider on a `_declaration`-suffixed node whose schema shows a body-shaped child but
+// whose keyword prefix the loosebody list does not carry; narrower on a grammar with no such node at all) is
+// itself a finding, not a defect in either rule — see `extractCoverage`'s `boundary` flag below.
+// One exclusion, reused from extraction rather than reinvented: `isLocationNode` (namespace/package/mod) — a
+// location statement names WHERE code lives, not a unit of code, and extraction never turns one into a scope on
+// purpose (§extractScopes, the same predicate, same comment). Applying it here too keeps both artifacts agreed on
+// what "a declaration" fundamentally excludes; without it, every namespace block would count as a permanent,
+// uninteresting "miss" that swamps the real ones (measured on leveldb: 10 of the first 10 misses were `namespace
+// leveldb { … }`, none of them a genuine silence bug).
+const oracleTypesCache = {};
+export function declCandidateTypes(gname) {
+  if (oracleTypesCache[gname]) return oracleTypesCache[gname];
+  const nt = JSON.parse(readFileSync(join(GRAMMAR_DIR, `tree-sitter-${gname}.node-types.json`), 'utf8'));
+  const bodyShaped = t => /body|block/i.test(t);
+  const out = new Set();
+  for (const n of nt) { if (n.named === false || isLocationNode(n.type)) continue;
+    const f = n.fields || {};
+    if (!f.name && !f.declarator) continue;
+    if (f.body) { out.add(n.type); continue; } // a `body` FIELD is body-shaped by its own name, whatever type it holds
+    const fieldTypes = Object.values(f).flatMap(spec => (spec.types || []).map(t => t.type));
+    const childTypes = (n.children?.types || []).map(t => t.type);
+    if (fieldTypes.some(bodyShaped) || childTypes.some(bodyShaped)) out.add(n.type); }
+  oracleTypesCache[gname] = out; return out; }
+
+// per-file recall/precision of `extractScopes` against the oracle above, matched at the SAME LINE — never by
+// name (a right-line-wrong-name declaration is a different failure class; §A's claim auditor covers it). `files`
+// and `read` are supplied by the caller (grain.mjs decides whether the universe is the HEAD tree or a no-git
+// worktree walk, exactly as `learn()`'s own `tree` parameter does), so this stays as git-agnostic as
+// `extractScopes` itself. The mandatory `kind: 'file'` wrapper scope every file gets (line 1, always, regardless
+// of grammar) is excluded on both sides — it is a container, never a declaration, and counting it would make any
+// real declaration that happens to start on line 1 a free "hit" no matter what extractScopes actually saw.
+// `boundary: true` on a grammar means its node-types.json has NO node type shaped like (a)+(b) above at all (the
+// data grammars — JSON/YAML/TOML/properties — are exactly bindingFor's own `b.data` set, §bindingFor):
+// recall/precision are not meaningful there, and every scope extractScopes records for it is, by the oracle's own
+// admission, unfalsifiable — reported as a boundary, not a score.
+export async function extractCoverage({ root, files, read }) {
+  const readOne = read || (rel => { try { return readFileSync(join(root, rel), 'utf8'); } catch { return null; } });
+  const grammars = {}; let noParse = 0; const misses = [], extras = [];
+  for (const rel of files) {
+    const src = readOne(rel);
+    if (src == null) { noParse++; continue; }
+    let p, tree; try { ({ p, tree } = await parseFile(extname(rel), src)); } catch { noParse++; continue; }
+    const gname = p._g, b = bindingFor(gname);
+    const G = grammars[gname] || (grammars[gname] = { candidates: 0, scopes: 0, hits: 0, matchedScopes: 0, boundary: declCandidateTypes(gname).size === 0 });
+    const scopes = extractScopes(rel, tree, b, gname).filter(s => s.kind !== 'file');
+    G.scopes += scopes.length;
+    const scopeLines = new Set(scopes.map(s => s.line));
+    const types = [...declCandidateTypes(gname)];
+    const candLines = new Set();
+    if (types.length) for (const n of tree.rootNode.descendantsOfType(types)) {
+      if (n.isMissing) continue; // a synthetic recovery node names no real declaration in the source
+      const line = n.startPosition.row + 1; candLines.add(line); G.candidates++;
+      if (scopeLines.has(line)) G.hits++; else if (misses.length < 10) misses.push(`${rel}:${line} ${scopeName(n)}`); }
+    for (const s of scopes) { if (candLines.has(s.line)) G.matchedScopes++; else if (extras.length < 10) extras.push(`${rel}:${s.line} ${s.name}`); }
+    tree.delete(); }
+  const div = (a, d) => d > 0 ? a / d : null;
+  for (const g of Object.values(grammars)) { g.recall = div(g.hits, g.candidates); g.precision = div(g.matchedScopes, g.scopes); }
+  const total = { candidates: 0, scopes: 0, hits: 0, matchedScopes: 0 };
+  for (const g of Object.values(grammars)) for (const k of ['candidates', 'scopes', 'hits', 'matchedScopes']) total[k] += g[k];
+  total.recall = div(total.hits, total.candidates); total.precision = div(total.matchedScopes, total.scopes);
+  return { grammars, total, files: files.length, noParse, misses, extras }; }
