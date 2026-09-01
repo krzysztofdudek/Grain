@@ -1,0 +1,2 @@
+
+## 2026-09-02 00:25 — Fixed: where/what's honest-negative path and spectrum/explain's empty-scope path now consult ungrammaredFiles() (extension has no grammar at all, a stronger/deterministic sibling of blindFiles' peer-anomalous heuristic from 037) and disclose when the query text appears literally in an unread file, instead of certifying absence. Full suite green: 1958 tests, 1955 pass, 0 fail, 3 todo (041/046/053, unrelated). 057's disclosure-fixtures.test.mjs case is now a real passing test (todo marker removed).

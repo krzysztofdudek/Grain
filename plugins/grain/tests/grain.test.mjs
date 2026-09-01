@@ -143,10 +143,12 @@ test('spectrum on a new untracked file agrees with check, not "no scopes extract
     assert.match(s, /\[NORM\] d\[src\/dto\]:type auto\.extends:BaseDto = true/);
 
     // regression control: an untracked file with no minable declarations (unsupported extension, so the fallback
-    // parse in the fix can't run either) still gets an honest zero — the message isn't permanently silenced
+    // parse in the fix can't run either) still gets an honest message — the message isn't permanently silenced.
+    // (§057: an unsupported extension now says "no grammar", not "no scopes extracted" — the latter is reserved
+    // for a file grain CAN parse but which genuinely holds nothing scope-worthy; see disclosure-fixtures.test.mjs.)
     const notCode = join(repo, 'src', 'dto', 'notes.md');
     writeFileSync(notCode, 'just some prose, not a declaration\n');
-    try { assert.match(grain(['spectrum', 'src/dto/notes.md']).out, /^\(no scopes extracted for src\/dto\/notes\.md\)/); }
+    try { assert.match(grain(['spectrum', 'src/dto/notes.md']).out, /^\(no grammar for "\.md"/); }
     finally { rmSync(notCode); }
   } finally { rmSync(f); }
 });

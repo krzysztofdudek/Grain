@@ -16,6 +16,7 @@ import { basename, dirname, extname, join as pjoin, normalize as pnormalize } fr
 import {
   GRAMMAR_DIR,
   EXT2GRAMMAR,
+  GRAMMARS,
   EXT_ALT,
   CFG,
   SUP,
@@ -6076,7 +6077,22 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
   for (const s of ps) applyVocab(s, vocab);
   const { assign, amb } = assignAll(ps, part.medoids);
   const fileScopes = ps.filter(s => s.rel === rel);
-  if (!fileScopes.length) return { lines: [`(no scopes extracted for ${rel})`], rows: [] };
+  if (!fileScopes.length) {
+    // §057 — "(no scopes extracted)" reads as "this file's content has nothing worth extracting", which is true
+    // for a genuinely empty/pure-data file under a grammar grain HAS, and false — misleading by omission — for a
+    // format grain never reads at all (an extension absent from EXT2GRAMMAR, the same test `check` already makes
+    // for its own "no grammar for …" line). Distinguish them here rather than let every unsupported format read
+    // as content-free.
+    const ext = extname(rel);
+    if (!EXT2GRAMMAR[ext])
+      return {
+        lines: [
+          `(no grammar for "${ext || 'a file without extension'}" — grain never reads this format, so ${rel} was not parsed at all; grain parses ${GRAMMARS.join(', ')})`,
+        ],
+        rows: [],
+      };
+    return { lines: [`(no scopes extracted for ${rel})`], rows: [] };
+  }
   const roleOf = (s, i) => {
     const st = part.assignments[skeyR(s.rel, s)];
     if (st !== undefined && st !== -1) return st;
@@ -6543,7 +6559,14 @@ export function inLineForFile(model, rel) {
   const k = model.moduleGraph.edges.filter(e => e.to === mod).length;
   return `in: ${mod}${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
 }
-export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () => true }) {
+export function whereCmd({
+  model,
+  query,
+  top = 3,
+  mapRows = 60,
+  exemplarOk = () => true,
+  ungrammaredHit = null,
+}) {
   const q = query;
   const qt = new Set(tokenize(q).map(normTok));
   const cards = buildCards(model);
@@ -6683,10 +6706,17 @@ export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () 
     }
   }
   if (!hits.length) {
+    // §057 — a zero-hit answer here reads as "this concept isn't in the repository", which is only true of the
+    // code grain actually reads. `ungrammaredHit` (supplied by the caller — grain.mjs's `findUngrammaredHit`, a
+    // bounded substring scan over `ungrammaredFiles`, never a repo-wide grep) says the query's exact text lives,
+    // verbatim, in a tracked file whose extension has no grammar at all: a stronger, deterministic sibling of the
+    // parsed-but-empty case below, so it takes priority over both other messages when present.
     lines.push(
-      noConfidentHit
-        ? `no confident match for "${q}" — the best lexical hit scored ${Math.round(suppressedScore * 100)}% but its words are covered by unrelated, disagreeing parts of the repo, so it is not trustworthy. Compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`
-        : `no lexical match for "${q}" — compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`
+      ungrammaredHit
+        ? `no lexical match for "${q}" in parsed code — but that exact text appears in ${ungrammaredHit.file}, and grain has no grammar for "${ungrammaredHit.ext}" (never reads that format at all, so this file was never parsed). This may be a real hit grain cannot see. Compact map of the source groups, markers and directories follows regardless.`
+        : noConfidentHit
+          ? `no confident match for "${q}" — the best lexical hit scored ${Math.round(suppressedScore * 100)}% but its words are covered by unrelated, disagreeing parts of the repo, so it is not trustworthy. Compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`
+          : `no lexical match for "${q}" — compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`
     );
     lines.push(...bridgeLines(model, qt, df));
     const sorted = cards
@@ -7250,6 +7280,23 @@ export function blindFiles(model, { peerAnomalous = false } = {}) {
   }
   return blind.filter(f => yields.has(EXT2GRAMMAR[extname(f)]));
 }
+// `ungrammaredFiles` (§057) — a DISJOINT, stronger sibling of `blindFiles`. `blindFiles` names files grain
+// ATTEMPTED to parse (they carry a grammar, hence appear in `model.filesAll` — see `walkFiles`/`headTree`, both
+// of which only ever admit a path whose extension has an entry in `EXT2GRAMMAR`) but which yielded zero scopes.
+// This function names the files grain never attempted at all: tracked paths (`model.pathsAll`, every path at
+// HEAD/on disk, no grammar filter) whose extension has no registered grammar — a 455-file `.xml` tree, a `.md`
+// changelog, a `.png`. `model.filesAll` is exactly `model.pathsAll` restricted to grammared extensions, so this
+// is that restriction's complement, re-checked by extension defensively (a path could in principle be absent
+// from `filesAll` for an unrelated reason — CODE_RE, MINE_EXCL — and this must never call THAT a missing
+// grammar). Unlike `blindFiles`'s peer-anomalous gate (§037, needed because "parsed to zero scopes" is only
+// SOMETIMES suspicious — a data file with a working grammar can legitimately hold nothing scope-worthy), "this
+// extension has no grammar at all" is unconditionally true the moment it's true: no heuristic, no peer
+// comparison, no threshold. Callers pair this with a plain substring scan over the exact query text (grain.mjs's
+// `findUngrammaredHit`) to decide whether an honest-negative answer owes the reader a disclosure.
+export function ungrammaredFiles(model) {
+  const known = new Set(model.filesAll || []);
+  return (model.pathsAll || []).filter(p => !known.has(p) && !EXT2GRAMMAR[extname(p)]).sort();
+}
 // case B (§011): was the query's EXACT literal seen at all, before the df population gate (CFG.valueDfMin/
 // valueDfMaxShare, `learn()`'s `vPlaces`) removed it from model.valueIndex? That gate runs over each file-kind
 // scope's own `.vals`, the exact shape `rawScopes` already carries — the current tree's cached scope snapshot
@@ -7300,7 +7347,15 @@ function typeRefHits(model, q) {
   }
   return hits;
 }
-export function whatCmd({ model, H, query, exemplarOk = () => true, rawScopes = null, blindHit = null }) {
+export function whatCmd({
+  model,
+  H,
+  query,
+  exemplarOk = () => true,
+  rawScopes = null,
+  blindHit = null,
+  ungrammaredHit = null,
+}) {
   const q = query;
   const qt = new Set(tokenize(q).map(normTok));
   for (const t of [...qt]) if (QSTOP.has(t)) qt.delete(t); // instruction fillers never count — same cut whereCmd/howCmd make
@@ -7576,6 +7631,19 @@ export function whatCmd({ model, H, query, exemplarOk = () => true, rawScopes = 
           : `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} but was not retained in the value index. Seen, not absent.`;
       lines.push(voice('map', text));
       note = { kind: 'gated', value: q, valueKind: gv.valueKind, df: gv.df, files: gv.files };
+    } else if (ungrammaredHit) {
+      // §057 — a certified-absence sibling stronger than `blindHit` below: the exact text was found, on a
+      // bounded re-scan (grain.mjs's `findUngrammaredHit`), inside a tracked file whose extension has no
+      // grammar at all (`ungrammaredFiles`). Unlike `blindHit`'s "parsed to zero scopes" (a heuristic that needs
+      // peer-anomaly framing to mean anything), "grain has no grammar for this format" is unconditionally true —
+      // the plain absence claim below would be actively false here, not merely incomplete, so it is replaced.
+      lines.push(
+        voice(
+          'map',
+          `«${q}» has no declarations or values anywhere grain can parse — but that exact text appears in ${ungrammaredHit.file}: grain has no grammar for "${ungrammaredHit.ext}" and never reads that format at all. This may be a real declaration grain simply never looked at.`
+        )
+      );
+      note = { kind: 'ungrammared', value: q, file: ungrammaredHit.file, ext: ungrammaredHit.ext };
     } else if (blindHit) {
       // the exact text was found, on a bounded re-scan, inside a file that parsed to zero real scopes
       lines.push(

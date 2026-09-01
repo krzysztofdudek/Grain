@@ -82,8 +82,11 @@ const cases = [
   // negative ("no scopes", "no lexical match") instead of naming the ungrammared files ----
   {
     name: '057: spectrum/where must disclose ungrammared files, not read the absence as empty content',
-    todo: true, // today: spectrum says "(no scopes extracted for …)" — reads as empty, not "unsupported format";
-                // where says "no lexical match" with zero mention that 5 .xml files literally contain the term
+    // fixed: spectrum now distinguishes "no grammar for .xml" (never parsed) from "(no scopes extracted)"
+    // (parsed, genuinely empty); where's zero-hit path now checks the ungrammared file set (core.mjs
+    // `ungrammaredFiles`, grain.mjs `findUngrammaredHit`) for the query's literal text before claiming absence —
+    // regression pin for the same invariant as the `check` line below, which already got this right.
+    todo: false,
     buildRepo(tmp) {
       const repo = join(tmp, 'r'); initRepo(repo);
       padFiller(repo, 'src');
