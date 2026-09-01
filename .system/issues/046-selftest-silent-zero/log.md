@@ -1,0 +1,2 @@
+
+## 2026-09-02 01:41 — Reproduced live on telescope.nvim (9 certified conventions, all auto.has/filebirth/lex/stshape — 0 plantable) — unsupported was 0 too, confirming reading 2 (harness bug: facts of a non-plantable pid dropped before the unsupported tally ran). Fixed mutateTest (core.mjs) to count them into unsupported without touching the plantable pool/cap. telescope.nvim now reports 9 unsupported instead of a bare 0/0/0/0. Test 046 in disclosure-fixtures.test.mjs turned green (todo:false). Commit 686c6e3.
