@@ -629,11 +629,15 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
       let tgt = str.text.replace(/^["'`]|["'`]$/g, ''); if (/relative|once$/.test(fn.text) && !tgt.startsWith('.')) tgt = './' + tgt; // require_relative / require_once are file-relative
       if (tgt && !imports.includes(resolveImport(tgt, rel))) imports.push(resolveImport(tgt, rel)); } }
   const fPreds = { 'auto.filenameshape': nameShape(basename(rel, extname(rel))), ...lexicalPreds(tree, b), ...exportShape(tree) };
-  let macroDoc = []; let macroDefs = [];
-  if (b.nodeTypes.has('macro_invocation')) { const ids = [];
-    for (const m of tree.rootNode.descendantsOfType('macro_invocation').slice(0, 60)) for (const id of m.descendantsOfType(['identifier', 'type_identifier']).slice(0, 12)) { if (ids.length < 60) ids.push(id.text); }
-    if (ids.length) { macroDoc = docTokens([...new Set(ids)].join(' '));
-      macroDefs = [...new Set(ids.filter(x => tokenize(x).length >= 2))].slice(0, 12); } } // multi-token names are the DEFINITIONS a macro emits (FailedToBufferBody) — they pin the defining file
+  // §045 — a macro invocation's own identifiers are a MENTION signal (macroDoc), never a HERITAGE claim: ~90%
+  // of what the old `macroDefs` heuristic called "the definitions a macro emits" was either the invoked macro's
+  // own name or a bare reference declared nowhere (measured on 5 real Rust repos, 5656 names, 85.5% phantom).
+  // `fileSups` feeds `what`'s implements/extends claim, which a mention can never support — only `fileDocs` may
+  // carry these tokens now.
+  let macroDoc = [];
+  if (b.macroCall.size) { const ids = [];
+    for (const m of tree.rootNode.descendantsOfType([...b.macroCall]).slice(0, 60)) for (const id of m.descendantsOfType(['identifier', 'type_identifier']).slice(0, 12)) { if (ids.length < 60) ids.push(id.text); }
+    if (ids.length) macroDoc = docTokens([...new Set(ids)].join(' ')); }
   dirname(rel).split('/').filter(s => s !== '.').slice(0, 3).forEach((s, k) => fPreds['auto.dir' + (k + 1)] = s);
   // ===== VALUE CONCORDANCE (§J3.1): the values this file NAMES — enum members and short string literals — each
   // tagged with the container it sits in, so `learn()` can say where a value lives and which values are siblings.
@@ -697,7 +701,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
     const keyPath = cont && b.data ? keyPathOf(cont, b) : null;
     const contId = hashStr(keyPath != null ? cont.type + '|' + grammar + '#' + keyPath : cont ? cont.type + '|' + rel + '@' + cont.startIndex : 'file|' + rel);
     addVal(v, k, sn.startPosition.row + 1, contId, keyPath); } // no container: the file itself is one
-  scopes.push({ kind: 'file', name: basename(rel), rel, line: 1, g: grammar, sup: macroDefs, decos: [], rets: [], calls: new Set(), seen: new Set(), shapes: new Set(), preds: fPreds, doc: macroDoc, vals: valsCapped ? [] : vals });
+  scopes.push({ kind: 'file', name: basename(rel), rel, line: 1, g: grammar, sup: [], decos: [], rets: [], calls: new Set(), seen: new Set(), shapes: new Set(), preds: fPreds, doc: macroDoc, vals: valsCapped ? [] : vals });
   const occ = new Map(); // ordinal disambiguates same-named scopes of a kind within one file (overloads, repeated nested classes)
   for (const s of scopes) { const k = s.kind + S + s.name; const n = occ.get(k) || 0; s.ord = n; occ.set(k, n + 1); }
   for (const s of scopes) { s.imports = imports;
