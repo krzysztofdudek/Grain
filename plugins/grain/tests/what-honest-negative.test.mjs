@@ -149,11 +149,14 @@ test('setup: regression repo — a real declaration and a real df=2 value', () =
   const st = grainIn(repoReg, ['status']); assert.equal(st.code, 0, st.err);
 });
 
-test('(4a) a real declaration renders exactly as before — no hedge text leaks into a found answer', () => {
+test('(4a) a real declaration renders exactly as before, plus §065\'s own honest "tested by" negative — no OTHER hedge text leaks into a found answer', () => {
   const r = grainIn(repoReg, ['what', 'widgetHandler']);
   assert.equal(r.code, 0, r.err);
-  assert.equal(r.out.split('\n').length, 4, `expected header + defined + spread + stamp only, got:\n${r.out}`);
+  // §065: a real declaration with no test coverage by any of the three signals now also carries the honest
+  // "tested by: no test file identified" negative — header + defined + spread + tested-by + stamp.
+  assert.equal(r.out.split('\n').length, 5, `expected header + defined + spread + tested-by + stamp only, got:\n${r.out}`);
   assert.match(r.out, /defined: src\/widget\.ts:1 `widgetHandler` \(method\)/, r.out);
+  assert.match(r.out, /^map: tested by: no test file identified for this symbol/m, r.out);
   assert.ok(!r.out.includes('Seen, not absent') && !r.out.includes('cannot see'), r.out);
 });
 
