@@ -2,8 +2,13 @@
 // together the repo-wide signals that suggest a maintainer should make a decision. This composes seven fields
 // already built by earlier tickets (never reimplemented here): f.cost (J5.1), f.rejected (J5.2), f.agentShare
 // (J5.3), check-outcomes.json (J5.4, passed in as `outcomes` since report()/rulesMarkdown() are pure functions of
-// `model` and cannot read files), model.twins (J3.4), model.changeArchetypes (J4.1), model.waivers (J1.3), and
-// baselineClause's own "no movement" case (E4).
+// `model` and cannot read files), model.changeArchetypes (J4.1), model.waivers (J1.3), and baselineClause's own
+// "no movement" case (E4).
+//
+// model.twins (J3.4) was the EIGHTH such input and is deliberately no longer one — see §044: the twin health row
+// measured 0.24 precision over 75 hand-adjudicated rows on three languages (0.04 on Go), so it was removed while
+// model.twins, the export schema and `where`'s group card kept it. The absence is pinned below and, in full,
+// in tests/twins-not-a-health-row.test.mjs.
 //
 // Models here are hand-built directly (report-fact-tiers.test.mjs's own pattern) rather than grown through git —
 // the upstream construction of every one of these fields is already tested elsewhere; this file only exercises
@@ -13,7 +18,9 @@ import assert from 'node:assert/strict';
 import { report, rulesMarkdown } from '../engine/core.mjs';
 
 // pkgA carries every anchor a health row needs: a partition-wide fact (cid '_all') for the cost/rejected/agentShare
-// rows, and a role-defining fact (cid 'r0:'/'r1:') for the twins/archetype rows to resolve a real <path>#<name>.
+// rows, and a role-defining fact (cid 'r0:'/'r1:') for the archetype row to resolve a real <path>#<name>. The
+// `twins` field below is still built — it is what proves the row's absence is a rendering decision (§044) and not
+// a missing input, and the r0:/r1: facts stay for the same reason: the anchor machinery is untouched.
 function baseModel() {
   const costFact = { cid: '_all', kind: 'method', pid: 'auto.call:validate', exp: 'true', share: 0.9, sraw: 120, deviantsN: 12,
     exemplars: [{ rel: 'alpha/T0.ts', name: 'run', line: 2, endLine: 4 }],
@@ -125,11 +132,24 @@ test('(f) check-outcomes.json wiring: present -> ignored row shows; absent -> si
   assert.doesNotMatch(withoutOutcomes, /keeps ignoring/, 'no outcomes file must mean the row is silently absent, not a crash');
 });
 
-test('twins and dead-steer rows render with real, resolvable exemplars', () => {
+test('dead-steer rows render with real, resolvable exemplars', () => {
   const model = baseModel();
   const text = report(model, {}).join('\n');
-  assert.match(text, /«Foo group» \(pkgA\) and «Bar group» \(pkgA\) are structurally the same shape, named `\*Foo`\/`\*Bar` there/, text);
-  assert.match(text, /→ grain decide steer src\/pkgA\/(Foo0|Bar0)\.ts#(Foo0|Bar0) --surfaces auto\.deco:@(Foo|Bar)/, text);
-
   assert.match(text, /steer sd1 on src\/pkgA\/Steered\.ts#Steered has not moved the needle \(no movement since 2026-01-01: 5 of 10 then, 5 of 10 now\) → grain decide rm sd1/, text);
+});
+
+// CONTRACT CHANGE (§044). This test previously asserted the opposite — that a twin pair renders a health row with
+// a resolvable `grain decide steer … "duplicate of … unify or document why both exist"`. Measured across
+// OpenZeppelin/gin/flask that row was right 18 times in 75 (upper bound: unsure adjudications were scored in the
+// tool's favour), and `rules` wrote every one of them into the user's committed CONVENTIONS.md. The model field,
+// the export schema and `where`'s one-line group-card observation all survive; only the instruction is gone.
+test('(§044) a twin pair renders NO health row, even with both role anchors resolvable', () => {
+  const model = baseModel();
+  const text = report(model, {}).join('\n');
+  assert.doesNotMatch(text, /are structurally the same shape/, text);
+  assert.doesNotMatch(text, /unify or document why both exist/, text);
+  // the anchors the deleted row used are still here and still resolvable — the change is the rendering, not the data
+  assert.ok(model.twins.length === 1 && model.twins[0].namedDifferently, 'the fixture must still carry a twin pair');
+  assert.ok(model.partitions[0].facts.some(f => f.cid === 'r0:method' && f.exemplars[0]), 'role anchors must still exist');
+  assert.match(text, /== health/, 'the section itself must survive — only signal 5 was removed');
 });

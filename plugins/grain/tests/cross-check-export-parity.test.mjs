@@ -25,7 +25,7 @@
 //   conventions       | conventions[]                           | report                     | extractHandlerFact
 //   deviants/exemplars| conventions[].deviatingSites[]/.nearest  | check --all                | extractWaiverVoiceLine
 //   moves             | moves{}                                 | check (placementHit, via `where`'s placement advice) | extractMoveSentence
-//   twins             | twins[]                                 | report (== health ==)      | extractTwinHealthLine
+//   twins             | twins[]                                 | where (group card `twin:`) | extractTwinCardLine
 //   changeArchetypes  | changeArchetypes[]                      | report (== changes ==), map| extractArchetypeLine
 //   valueSiblings     | valueSiblings{}                         | what                       | extractWhatValuesLine
 //   decisions         | waivers[]/boundaries[]                  | decide list, report        | extractDecideListLines
@@ -117,10 +117,12 @@ const extractMoveSentence = checkText => {
   const m = checkText.match(/(\d+) of (\d+) such files born here were later moved to `([^`]+)\/`/);
   return m && { moved: +m[1], total: +m[2], dir: m[3] };
 };
-const extractTwinHealthLine = (reportText, a, b) => {
-  const esc = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const re = new RegExp(`«${esc(a.label)}» \\(${esc(a.part)}\\) and «${esc(b.label)}» \\(${esc(b.part)}\\) are structurally the same shape([^\\n]*)`);
-  return reportText.match(re);
+// §044 re-pointed this extractor from report's `== health ==` row to `where`'s group card, which is now the only
+// renderer of model.twins. The card names ONE partner per group (`model.twins.find`), so the parity claim is
+// "the side the card names is a twin partner export agrees on", not "this exact pair".
+const extractTwinCardLine = whereText => {
+  const m = whereText.match(/twin: structurally the same as «([^»]+)» \(([^)]+)\)(?:, named `\*([^`]+)` there)?/);
+  return m && { label: m[1], part: m[2], suffix: m[3] || null };
 };
 const extractArchetypeLine = (text, label) => {
   const esc = label.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -234,21 +236,39 @@ test('moves: export.moves agrees with the fixture\'s renames, and the ONE render
   } finally { rmSync(join(repo, freshRel)); }
 });
 
-test('twins: report\'s health-signal line for a twin pair names the same (label, partition) pairing and namedDifferently tokens as export.twins', () => {
+test('twins: `where`\'s group-card `twin:` line names a (label, partition) pairing and namedDifferently token export.twins agrees with', () => {
   const d = dump();
-  const full = grain(['report', '--top', '999']).out;
   if (!d.twins.length) {
     console.log('[cross-check-export-parity] LIMITATION: model.twins is empty on this run (an engine change may have altered certification) — asserting only the well-formed-empty-shape minimum.');
     assert.ok(Array.isArray(d.twins));
     return;
   }
   const t = d.twins.find(x => x.namedDifferently) || d.twins[0];
-  const m = extractTwinHealthLine(full, t.a, t.b) || extractTwinHealthLine(full, t.b, t.a);
-  assert.ok(m, `expected a health-signal line for twin pair «${t.a.label}»/«${t.b.label}»:\n${full}`);
-  if (t.namedDifferently) {
-    const [x, y] = t.namedDifferently;
-    assert.match(m[1], new RegExp(`named \`\\*${x}\`/\`\\*${y}\``), `report's namedDifferently note must name the same tokens export carries: ${JSON.stringify(t.namedDifferently)}`);
+  // drive `where` at side a using the group label's own tokens — the same words the card is keyed on
+  const card = grain(['where', ...t.a.label.split(/[^A-Za-z0-9]+/).filter(Boolean)]).out;
+  const got = extractTwinCardLine(card);
+  assert.ok(got, `expected a group-card twin: line for «${t.a.label}» (${t.a.part}):\n${card}`);
+  // the named side must be a partner export really does record for this group — not necessarily `t` itself
+  const partners = d.twins.filter(x => (x.a.part === t.a.part && x.a.label === t.a.label) || (x.b.part === t.a.part && x.b.label === t.a.label))
+    .map(x => (x.a.label === t.a.label && x.a.part === t.a.part) ? x.b : x.a);
+  const match = partners.find(pr => pr.label === got.label && pr.part === got.part);
+  assert.ok(match, `card names «${got.label}» (${got.part}); export's partners for «${t.a.label}» are ${JSON.stringify(partners)}`);
+  const pair = d.twins.find(x => [x.a, x.b].some(z => z.label === t.a.label && z.part === t.a.part) && [x.a, x.b].some(z => z.label === got.label && z.part === got.part));
+  if (pair && pair.namedDifferently) {
+    assert.ok(got.suffix, `export carries namedDifferently ${JSON.stringify(pair.namedDifferently)} but the card printed no suffix: ${card}`);
+    assert.ok(pair.namedDifferently.some(tok => tok.toLowerCase() === got.suffix.toLowerCase()),
+      `the card's suffix \`*${got.suffix}\` must be one of export's namedDifferently tokens ${JSON.stringify(pair.namedDifferently)}`);
   }
+});
+
+// §044: the same evidence must NOT come back as an actionable health row. Guarding the removal here, next to the
+// parity claim, is what stops a future export extension quietly re-adding the renderer this row used to describe.
+test('twins: report\'s health section carries no twin row (§044 — measured 0.24 precision, removed)', () => {
+  const full = grain(['report', '--top', '999']).out;
+  assert.doesNotMatch(full, /are structurally the same shape/, full);
+  assert.doesNotMatch(full, /unify or document why both exist/, full);
+  const md = grain(['rules']).out;
+  assert.doesNotMatch(md, /unify or document why both exist/, 'a committed conventions document must not carry it either');
 });
 
 test('changeArchetypes: report\'s "== changes ==" section and map\'s "changes:" line agree with export.changeArchetypes on label and population', () => {
