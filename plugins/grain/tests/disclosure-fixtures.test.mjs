@@ -52,27 +52,34 @@ const cases = [
   // ---- §041: C/C++ has no dependency graph, and relCoverageNote certifies that absence as real ----
   {
     name: '041: coverage note must name cpp when it yields zero edges — not just a genuinely-uncovered grammar',
-    todo: true, // today: names only bash; cpp (10 files, 0 edges) is silently treated as "covered" — see comment below
+    todo: false, // fixed: relCoverageData (core.mjs) now also folds in relPathOnly(g) grammars (relations.mjs) —
+    // c/cpp's extractor is registered (relSupported is true) but its ENTIRE `uses` is the shared include-only
+    // walker, so it is named alongside bash instead of silently passing as "covered".
     buildRepo(tmp) {
       const repo = join(tmp, 'r'); initRepo(repo);
-      // 5 cpp files whose only #include is their own header (same dir → 0 cross-module edges even if resolved)
+      // 5 cpp files whose only #include is their own header (same dir → 0 cross-module edges even if resolved) —
+      // this quoted, same-directory include DOES resolve today (resolveIncludePath is dir-relative), so this half
+      // alone contributes real, nonzero file-level edges; it's the cross-module/architecture signal that stays 0.
       for (let i = 1; i <= 5; i++) { w(repo, `src/a/mod${i}.h`, `#pragma once\nclass Mod${i} {\npublic:\n  int compute();\n};\n`);
         w(repo, `src/a/mod${i}.cpp`, `#include "mod${i}.h"\nint Mod${i}::compute() {\n  return ${i};\n}\n`); }
       // 5 more in a second module, whose header include is angle-bracket (toolchain-style, not repo-relative) —
-      // the extractor's candidate resolves against nothing in fileSet, so this also yields zero edges, the exact
-      // leveldb symptom (issue 041: "#include" edges silently uncomputed while relCoverageNote stays silent)
+      // the extractor never even forms a candidate for an angle-bracket include (c-cpp-shared.mjs's
+      // quotedIncludePath requires a string_literal node), so this cross-module reference is invisible from the
+      // start — the exact leveldb symptom in miniature (issue 041: most of a real C++ repo's #include edges are
+      // silently uncomputed while relCoverageNote used to stay silent about it)
       for (let i = 6; i <= 10; i++) { w(repo, `src/b/mod${i}.h`, `#pragma once\n#include <mod${i - 5}.h>\nclass Mod${i} {\npublic:\n  int compute();\n};\n`);
         w(repo, `src/b/mod${i}.cpp`, `#include "mod${i}.h"\nint Mod${i}::compute() {\n  return ${i};\n}\n`); }
-      // bash: a real grammar with NO relation extractor (relations.mjs's registry) — the honest "uncovered" case,
-      // standing in for the yaml file in the original leveldb report (this build's ALL_EXT2GRAMMAR, config.mjs,
-      // ships no yaml/toml/json grammar at all, so yaml itself can never appear in relCoverageNote here)
+      // bash: a real grammar with NO relation extractor at all (relations.mjs's registry) — the "zero capability"
+      // uncovered case, standing in for the yaml file in the original leveldb report (this build's ALL_EXT2GRAMMAR,
+      // config.mjs, ships no yaml/toml/json grammar at all, so yaml itself can never appear in relCoverageNote here)
       w(repo, 'scripts/build.sh', '#!/bin/bash\necho building\n');
       commitAll(repo, 'base');
       return repo; },
     commands: [
-      // today's real output: "== architecture — 3 modules · 0 directed dependencies · 0 cycle(s) ==" then
-      // "  resolution does not cover 1 file (bash) — conventions layer only for those" — bash named, cpp silent,
-      // even though the 10 cpp files contribute exactly as many computed edges as bash: zero.
+      // fixed output: "== architecture — 3 modules · 0 directed dependencies · 0 cycle(s) ==" then
+      // "  resolution does not cover 11 files (bash, cpp) — conventions layer only for those" — bash (zero
+      // capability) and cpp (include-only, near-zero real-world resolution) both named, instead of cpp silently
+      // passing as covered because SOME of its same-directory includes happen to resolve.
       { args: ['report'], mustContain: [
         /== architecture — 3 modules · 0 directed dependencies · 0 cycle\(s\) ==/,
         /resolution does not cover[^\n]*\bcpp\b/ ] } ],
