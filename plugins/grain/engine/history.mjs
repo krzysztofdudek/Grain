@@ -58,6 +58,21 @@ export function isShallow(gitdir) {
     return false;
   }
 }
+// §054a: the earliest commit VISIBLE from HEAD — for a full clone this is the root commit; for a shallow clone
+// it is the shallow boundary (`git log` simply stops there, no error, no network — unlike partial-clone's
+// blob-fetch crawl, walking a shallow repo is exactly as cheap as walking a full one down to its boundary).
+// Used only to size the visible window (headTs - this), never to date any individual file — that stays H.lc's job.
+export function oldestCommitTs(gitdir) {
+  try {
+    // `-1` limits the traversal BEFORE `--reverse` reorders it, so `log --reverse -1` returns the NEWEST commit,
+    // not the oldest — a real git ordering gotcha. Only called for already-shallow repos, so the full (reversed)
+    // list is bounded by the clone's own depth; take its first line.
+    const out = git(gitdir, ['log', '--reverse', '--format=%ct']).split('\n', 1)[0];
+    return +out || 0;
+  } catch {
+    return 0;
+  }
+}
 // §035: a `blob:none`/`tree:0`/`blob:limit=N` partial clone (the default shape of `actions/checkout` and most CI)
 // makes the history walk crawl — every historical blob not already present triggers its own serialized `git
 // fetch` to the promisor remote (measured: 16+ min to reach 8000/8502 blobs) — or hard-fail outright on a ref the
@@ -658,8 +673,23 @@ function toH(state, gitdir) {
 export async function loadHistory({ gitdir, store, log = () => {}, full = false }) {
   const head = headSha(gitdir);
   if (!head) return { H: null, mode: 'none', reason: 'not a git repository (or no commits yet)' };
-  if (isShallow(gitdir))
-    return { H: null, mode: 'none', reason: 'shallow clone — history unavailable, weights flat' };
+  // §054a: "shallow" is a boolean git flag with no notion of depth — a repo cloned `--depth=1` and one cloned
+  // `--depth=5000` (or `--shallow-since=<2 years ago>`) both report `is-shallow-repository=true`, but only the
+  // first genuinely lacks the signal core.mjs's survival gate needs. That gate requires, per scope, age ≥
+  // CFG.freshDays (§9.4c fail-closed default); the OLDEST a scope's recorded first-touch can ever be is the
+  // oldest commit visible from HEAD, so if even THAT commit is younger than freshDays, no scope in this repo could
+  // ever clear the bound — genuinely no usable signal, fail closed exactly as before. But once the visible window
+  // is at least freshDays wide, walking it is safe (same local `git log`, no network, unlike partial-clone below)
+  // and gives every scope touched inside that window a real, if left-truncated, lifecycle: a scope's recorded
+  // `first` can only be pushed LATER than its true creation (never earlier) by the missing pre-boundary history,
+  // so recorded age is always a legitimate lower bound on true age — the survival check can safely use it. This
+  // is what let 14,674 Symfony cells that had already cleared bits>0 and the λ bound survive to being spoken,
+  // instead of being vetoed purely because the clone happened to be flagged shallow.
+  if (isShallow(gitdir)) {
+    const oldest = oldestCommitTs(gitdir);
+    if (!oldest || headTs(gitdir) - oldest < CFG.freshDays * 86400)
+      return { H: null, mode: 'none', reason: 'shallow clone — history unavailable, weights flat' };
+  }
   const pcf = partialCloneFilter(gitdir);
   // §035: same guard site, same shape, same "degrade, never crawl or crash" verdict as the shallow-clone check
   // just above — checked independently, so neither detection interferes with the other. `git backfill` is named
