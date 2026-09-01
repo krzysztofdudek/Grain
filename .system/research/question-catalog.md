@@ -123,7 +123,7 @@ expensive the more implicit the language is.
 ### 2.2 The replay runs — where the question mix changes
 
 The six john-brief runs are the realistic end of the corpus: a private monorepo whose history begins
-after the worker model's cutoff, 100-turn budget, 134–180 tool calls each, **960** `without`-side
+after the worker model's cutoff, 100-turn budget, 109–180 tool calls each (the without-grain runs are 134–169; 109 is the replay3 with-grain run), **960** `without`-side
 calls in total. **Orientation dominates absolutely** — mean `reads_before_first_write` is **97.3** against
 160.0 total tool calls, so **61% of the run happens before the first line is written.**
 
