@@ -77,6 +77,27 @@ test('(c) a where card and check both start with an "in:" locator line when a mo
   assert.match(chk.split('\n')[0], /^in: \S.* · used by \d+ modules$/, `expected check's first line to be an in: locator: ${chk}`);
 });
 
+// §067c: file vs directory ambiguity (question-catalog §4.1c) — an agent had grain's correct FILE answer on
+// screen and treated it as a directory reference, writing a new sibling file instead of editing the one grain
+// named. The `in:` line prints first, one line above a file card's own unambiguous `→ file <path>` header, and
+// used to print the containing directory bare (no marker at all) — exactly the kind of un-tagged path that
+// reads as "the answer" on its own. It now carries the SAME trailing `/` grain's own `lives in:`/`depends on:`/
+// `used by:` lines and every directory CARD's own label already use, so a directory locator can never be
+// mistaken for the specific file named immediately below it.
+test("(c') the \"in:\" locator's module carries a trailing / — the same directory marker grain's other directory references use — never mistakable for the file hit printed right below it", () => {
+  const { out } = grain(['where', 'handler']);
+  const outLines = out.split('\n');
+  const idx = outLines.findIndex(l => l.includes('» → '));
+  assert.ok(idx > 0, `expected a map-voice card header: ${out}`);
+  const inLine = outLines[idx - 1];
+  assert.match(inLine, /^in: \S+\/(?: |\()/, `the in: locator's module must end in / before its next token: ${inLine}`);
+  const fileLine = outLines[idx];
+  if (fileLine.includes('→ file ')) {
+    const dirPart = inLine.match(/^in: (\S+)\//)[1];
+    assert.ok(!fileLine.includes(`file ${dirPart} `), `a file hit must never render as if its containing directory alone were the target: ${fileLine}`);
+  }
+});
+
 test('(d) no "in:" line at all when the model holds no module graph', async () => {
   const model = loadModel();
   delete model.moduleGraph;
