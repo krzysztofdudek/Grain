@@ -49,6 +49,19 @@ export function bindingFor(gname) {
     // `type_arguments`, C++ `template_argument_list`): `AbstractValidator<TQuery>`'s `TQuery` is not a base type, it's a slot
     // filled with one — identifiers under this node are excluded from `sup`, never matched on a language's own type/class name
     genArgRe: /type_argument|template_argument/,
+    // a CALL ARGUMENT list — the parenthesised operands of a call, never a type. `argument_list` sits in
+    // heritageRe above for exactly one reason across every shipped grammar: Python holds a class's base list
+    // in a `superclasses` FIELD that happens to BE an argument_list (`class Foo(Bar)`), so the token buys real
+    // heritage there and nowhere else. Everywhere else an argument-shaped node reached from a heritage node is
+    // the SUPER-CONSTRUCTOR CALL, in one of two roles, both noise:
+    //   · it IS the clause, held in an argument-named field — Java/Groovy `enum_constant.arguments`;
+    //   · it is NESTED inside a genuine parent clause, beside the type — Scala `extends AbstractController(cc)`,
+    //     Kotlin `: B(x)`, C# `: Bar(x)`, Solidity `is B(x)`, C++ `: Base(x)`.
+    // Which role applies is read off the FIELD NAME that holds the clause (heritage-named → parent
+    // specification, argument-named → a call), so the type-named child of a clause always wins over its
+    // argument list. Singular and plural both: Solidity's operands are `call_argument`, Kotlin's
+    // `value_argument`, C#'s `argument`; `varargs`-style names (no separator) are deliberately not matched.
+    argRe: /(^|_)arg(ument)?s?(_list)?$/,
     // a "named slot" node type — one whose OWN fields (per node-types.json) declare BOTH a `name` and a `type`:
     // Go's `parameter_declaration`/`variadic_parameter_declaration`, TS's `required_parameter`/`optional_parameter`,
     // Scala 3's `name_and_type` (named-tuple elements), C#'s `tuple_element`, and every ordinary function-parameter
@@ -485,12 +498,16 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
       // interfaces, always inheritance-shaped) and heritageRe's generic `argument_list` match are never classified
       // by anything more specific than that, so their names stay 'ext' below, unchanged from before this fact existed.
       const sup = []; const supKind = {}; const sc = ch.childForFieldName('superclasses'); if (sc) for (const id of sc.descendantsOfType('identifier').concat(sc.descendantsOfType('attribute'))) { sup.push(id.text); supKind[id.text] = 'ext'; }
-      for (const c2 of ch.namedChildren) if (b.heritageRe.test(c2.type) && !(bodyN && c2.id === bodyN.id)) for (const id of c2.descendantsOfType(['identifier', 'type_identifier', 'scoped_type_identifier', 'name', 'qualified_name', 'relative_name'])) {
-        let anc = id.parent, inGenArg = false, hKind = null;
-        while (anc && anc.id !== c2.id) { if (b.genArgRe.test(anc.type)) { inGenArg = true; break; } // `AbstractValidator<TQuery>`: TQuery sits under a type_argument_list — a slot, not a base type
+      // which field holds each child, so a heritage-shaped clause can be told from a CONSTRUCTOR CALL by the name
+      // the grammar gives the slot: Python's base list is `class_definition.superclasses` (an argument_list that IS
+      // the parent specification), Java/Groovy's is `enum_constant.arguments` (a call, carrying no heritage at all)
+      const fieldOf = new Map(); for (let i = 0; i < ch.childCount; i++) { const fn = ch.fieldNameForChild(i); if (fn) fieldOf.set(ch.child(i).id, fn); }
+      for (const c2 of ch.namedChildren) if (b.heritageRe.test(c2.type) && !(bodyN && c2.id === bodyN.id) && !b.argRe.test(fieldOf.get(c2.id) || '')) for (const id of c2.descendantsOfType(['identifier', 'type_identifier', 'scoped_type_identifier', 'name', 'qualified_name', 'relative_name'])) {
+        let anc = id.parent, inArg = false, hKind = null;
+        while (anc && anc.id !== c2.id) { if (b.genArgRe.test(anc.type) || b.argRe.test(anc.type)) { inArg = true; break; } // `AbstractValidator<TQuery>`: TQuery sits under a type_argument_list — a slot, not a base type. `AbstractController(cc)`: cc sits under an argument list — a call operand, not a base type
           if (!hKind) { if (b.implementsClauseRe.test(anc.type)) hKind = 'impl'; else if (b.extendsClauseRe.test(anc.type)) hKind = 'ext'; }
           anc = anc.parent; }
-        if (!inGenArg) { if (!hKind) hKind = b.implementsClauseRe.test(c2.type) ? 'impl' : b.extendsClauseRe.test(c2.type) ? 'ext' : null; // c2 itself IS the specific clause where there is no wrapper (PHP/Java/Groovy)
+        if (!inArg) { if (!hKind) hKind = b.implementsClauseRe.test(c2.type) ? 'impl' : b.extendsClauseRe.test(c2.type) ? 'ext' : null; // c2 itself IS the specific clause where there is no wrapper (PHP/Java/Groovy)
           const nm = id.type === 'qualified_name' || id.type === 'relative_name' ? id.text.split('\\').pop() : id.text; // PHP names its identifiers `name`/`qualified_name`; the FQCN's tail is the vocabulary an agent uses
           sup.push(nm); if (hKind && !(nm in supKind)) supKind[nm] = hKind; } }
       // decoration attribution: the stack of decoration siblings directly above this scope (any height, comments allowed in
