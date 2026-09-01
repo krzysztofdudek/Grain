@@ -56,6 +56,12 @@ polarna: *grain odpowiada na więcej pytań niż miesiąc temu i lepiej niż gre
 **Nigdy nie robisz**: scalania, uruchamiania suit, zakładania ticketów z macierzy, potwierdzeń, rozdawania
 kolejki — chyba że lead nie istnieje (wtedy jesteś tymczasowym hubem i używasz `premerge.mjs`).
 
+**Lead nazywa się `grain-lead`** i jest spawnowany raz na sesję z `reference/lead-brief.md` (Agent tool,
+Sonnet, bez izolacji worktree — scala do main). Po boocie: jeśli kolejka ma pozycje `running`, a
+`SendMessage(to='grain-lead')` nie dociera, **respawnij go z tym briefem** — stan jest w plikach, lead nic
+nie trzyma w głowie. Twoja sesja może się nazywać inaczej niż zakładają briefy; dlatego kanałem pewnym są
+pliki (`escalations.json`, `handoff.json`), nie wiadomości.
+
 ## Lista eskalacji — do ciebie, zawsze (lead nie decyduje; zgłasza `escalate add`)
 
 1. nowa stała lub zmiana akceptacji (MDL/λ, `idxCost`, `neff`, `featW`, progi grup)
