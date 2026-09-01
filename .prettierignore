@@ -1,0 +1,4 @@
+plugins/grain/engine/grammars/
+plugins/grain/tests/fixtures/
+*.json
+*.md
