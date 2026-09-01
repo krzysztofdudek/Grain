@@ -2,7 +2,9 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (916 tests, one file per ported case) runs in CI on node 22 and 24 on every push.
+suite (1772 tests under engine 0.3.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
+(below) are the two of those checks any user can also run, unmodified, against their own repository.
 
 ## Truth audits
 
@@ -67,12 +69,21 @@ laptop, no parallelism.
 | okhttp | 6 444 | 2.8 min | 1 021 MB | 170 ms | 141 MB |
 | typeorm | 6 052 | 2.9 min | 1 483 MB | 312 ms | 117 MB |
 
+Measured under engine 0.2.0, one machine, one point in time — not a ceiling and not current: grammar support added
+since (JSON/YAML/TOML, `.properties`) walks and parses more files in every cold build by construction, so a run on
+a later engine reads higher than the row above for that reason alone, before any other machine difference is even
+considered (see Known boundaries below for the one direct remeasurement taken, and a same-repo cross-check on a
+later engine and a different machine).
+
 The cold build is the explicit `refresh`, which deliberately keeps V8's optimising compiler; queries re-run under the
 baseline compiler and answer in 0.08 to 0.31 s across the corpus. The post edit hook is one warm check, about 0.12 s.
 
 ## The mutation harness
 
-For each mined convention the harness takes a real conforming exemplar, plants a violation in its source (removes the
+`grain selftest` runs this exact procedure against the repository it is called in — the numbers below are what
+`tests/stress/run-corpus.mjs` recorded running the same harness on the twelve public repositories above; a
+maintainer can reproduce the shape of this table on their own repository with one command. For each mined
+convention the harness takes a real conforming exemplar, plants a violation in its source (removes the
 decorator, renames against the shape, injects the forbidden import), and asks `check` to catch it. The harness holds
 itself to a contract: a mutation that breaks the parse (proved by re-extraction with the scope's node type intact)
 counts unsupported, not missed; a fact that does not actually govern its exemplar before the mutation (an ambiguous
@@ -95,6 +106,48 @@ accusation prints.
 all three cells sit at 7.0 to 7.8 : 1 odds, below the 8 : 1 that λ demands before grain accuses an instance
 (see [mathematics.md](mathematics.md)). Lower the constant and they fire, at the price the constant exists to refuse.
 
+## Match-by-example (`how`) vs. a grep baseline
+
+`grain selftest --how [--last N]` runs a leave-one-out evaluation of `how`: for each of the last N real commits
+touching ≥2 files, the commit's own message tokens become the intent, the commit itself is removed from the
+evidence, and `how` is asked to predict which files that intent touched — scored against a naive baseline that
+greps every tracked path's name and content for the same tokens. Both arms run over the same file universe, truth
+is the commit's own files, and a candidate with zero predicted places still counts as a P=0/R=0 result — a "no
+match" is never excluded, which would make the gate gameable by only ever answering the easy intents.
+
+The originally-frozen criterion asked for `how`'s coverage (recall) to meet or beat the grep baseline's, at ≥2×
+grep's precision, in the median. Run on ten of the twelve public repositories above (chi/CleanArchitecture/gin/
+flask/axum/express/sinatra/Slim/nest/spring-petclinic; okhttp and typeorm skipped for cold-build time once the
+signal was already consistent across ten):
+
+| | `how` median precision | `how` median recall | grep median precision | grep median recall |
+| --- | --- | --- | --- | --- |
+| aggregate (median of medians) | 0.154 | 0.442 | 0.033 | 1.000 |
+
+`how` cleared 2× grep's precision in 7 of 10 repositories (4.6× in aggregate) but never approached grep's recall in
+9 of 10: grep's baseline, built from the same path/content tokens `how` itself uses, returns 8–79% of the entire
+repository at that recall (measured directly: 91–102 of gin's 130 files, 520 of nest's 2307) — a baseline that
+answers "almost everything" is close to unbeatable on recall by construction, precision entirely aside. The
+recall half of the frozen criterion effectively demanded that `how` also return most of the repository, which a
+precise answer cannot do by design; the precision half passed with a wide margin. **Verdict on the frozen
+criterion: not met (1 of 10 repositories passed both halves).**
+
+Re-run on the same ten repositories and indexes with F1 (the harmonic mean of precision and recall) added as an
+additional, purely additive metric — the same run, no change to `how`'s own matching:
+
+| | `how` median F1 | grep median F1 |
+| --- | --- | --- |
+| aggregate (median of medians) | 0.223 | 0.064 |
+
+`how` beat grep's F1 in 7 of 10 repositories, tied in 1 (spring-petclinic), and lost in 2 (CleanArchitecture, chi)
+— both of the losses are the two repositories with the highest "no match" rate (30% and 51% of intents), where
+`how` is not wrong so much as silent, and silence there is the same honest "no match, see the map instead" `where`
+already gives, never a fabricated answer. **Decision: proceed** (the recall-parity framing measured a baseline's
+breadth, not `how`'s quality; F1, computed on the identical evidence with no code change, shows a real, repeatable
+precision advantage in most of the corpus). `no-match` ranged 6–51% across the ten repositories (mean 21.6%) —
+recorded here as a real, named limitation: on some repositories, especially smaller or older ones, `how` has
+nothing to say for a meaningful share of past intents.
+
 ## Hostile repositories
 
 `tests/stress/edge-cases.mjs` builds 25 hostile repositories and asserts the contract "degrade, never crash, never
@@ -113,5 +166,37 @@ many: an external field report on a production codebase measured 460.6 s (277.6 
 repository with fewer commits than either corpus outlier, and confirming what the table alone already hints (nest's
 21 648 commits build in 55.7 s, faster than typeorm's 6 052): commit count does not predict cold-build cost, a
 densely-scoped or generic-heavy codebase can run well past this corpus's range, and 1.5 GB is this corpus's own peak
-RSS (typeorm), not a ceiling; and `where` closes no semantic gaps by itself, which is what the compact map and the
-history bridge are for.
+RSS (typeorm), not a ceiling; `where` closes no semantic gaps by itself, which is what the compact map and the
+example-voice bridge line are for; and the corpus table above was measured under engine 0.2.0, predates JSON/YAML/
+TOML and `.properties` support, and has not been re-run end-to-end since — the one full remeasurement taken at the
+time was narrower: walking the newly-widened `CODE_RE` through history on CleanArchitecture cost +361% wall time
+before a scopeless-blob skip in the blob-parsing path (data files carry no scopes worth extracting a skeleton for)
+brought it back down to +3.0%, which is the number that shipped. A later, different-machine cross-check on nest
+alone (engine 0.3.0, pre-release) timed its cold build at 114 s against the table's 55.7 s — roughly 2× — consistent
+with more files now entering every build plus ordinary hardware/OS/node-version drift, not a regression; the table
+above is left as originally measured rather than quietly overwritten to match one new machine, which is exactly why
+this note exists instead; and value concordance's own container-membership fix (see [mathematics.md](mathematics.md))
+was measured on this repository's own model before and after: 76 certified value norms collapsed to 8 distinct
+(evidence, population) signatures once membership was read globally rather than per container — one signature
+repeated 19 times — and to 0 once membership was read per container as specified, on a repository whose containers
+turned out not to clear the acceptance floor at that granularity; the same fix measured on two other real
+repositories (in the corpus table above) produced 3–4 distinct, non-duplicated norms each, confirming the fix does
+not certify zero by construction, only when a repository's own data does not support more; and a role group's
+defining decorator or base type is measured by the same signal that forms the group's own membership, so a new
+scope omitting it is placed outside the group by that very omission and judged only against the package-wide
+baseline — grain cannot judge it against that group, and says so rather than staying silent: such a scope is
+named in `check` as new to the index, with its nearest certifying group and what that group requires, and the
+summary line counts it as an unclassified scope so a clean deviation count is never read as approval of code
+grain could not place; the underlying
+tautology (a role fact whose own pid is the marker that formed the group, so unanimity is guaranteed by
+construction) measured 82%, 55%, 33% and 100% of role facts across four partitions in three repositories (flask,
+CleanArchitecture, spring-petclinic) — a measured range, not a law; and a declaration that exists only as a
+runtime product of metaprogramming is invisible to `what`, with no disclosure — Sinatra's `views`, `root` and every
+`set :x` value are created in `base.rb` through `define_singleton`/`define_method`, with no literal `def` anywhere,
+and every signal grain's blind-file disclosure runs on is absent there by construction: measured on sinatra,
+`base.rb` parses to real scopes so it is not a blind file at all, neither `environment` nor `views` appears in any
+blind file, and both queries carry a genuine exact-name match somewhere else (`environment` is a real method in
+`test/integration_helper.rb`), which is precisely the condition under which the disclosure must stay silent; the
+file-level fallback that suggests itself — flag any file containing a dynamic-definition construct — was measured
+too and is not selective enough to disclose anything, firing on 26% of sinatra's parsed files and 24% of flask's,
+which tells a reader only that a quarter of the repository might hold their answer.

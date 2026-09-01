@@ -61,7 +61,7 @@ test('the PRE-write hook names the kin directory from the path alone, and the po
   const pre = spawnSync('node', [BIN, 'check-hook', '--pre'], { cwd: repo, encoding: 'utf8', input: JSON.stringify({ cwd: repo, tool_name: 'Write', tool_input: { file_path: fp } }) });
   const j = JSON.parse(pre.stdout);
   assert.equal(j.hookSpecificOutput.hookEventName, 'PreToolUse');
-  assert.equal(j.hookSpecificOutput.permissionDecision, 'allow');
+  assert.equal(j.hookSpecificOutput.permissionDecision, undefined, 'PreToolUse must never auto-approve the Write — additionalContext alone is delivered regardless of permissionDecision');
   assert.match(j.hookSpecificOutput.additionalContext, /placement: `\*\.handler\.ts` files named like `order` live in `src\/orders\/`/);
   w('src/stray/order-voided.handler.ts', 'export function hv() { return 0; }\n');
   const post = spawnSync('node', [BIN, 'check-hook'], { cwd: repo, encoding: 'utf8', input: JSON.stringify({ cwd: repo, tool_name: 'Write', tool_input: { file_path: fp } }) });

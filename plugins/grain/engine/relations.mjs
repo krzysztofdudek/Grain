@@ -46,12 +46,28 @@ export function relFactsFor(rel, content, tree, grammar) {
 
 // workspace packages: bare specifiers (`@scope/name`, `name/sub`) resolve to the package's own files — a pnpm/yarn
 // monorepo's ENTIRE cross-package architecture flows through these, and the path resolver rightly refuses to guess them
+//
+// §017: the SAME channel also carries Cargo workspaces. The vendored rust-resolve.mjs's `resolveRustPath` can only
+// ever resolve a `use` path back into the CALLING file's own crate (it derives `crate`/root-name meaning purely from
+// `deps.crateRootFor(fromFile)`, which walks UP from fromFile — it has no notion of a sibling crate at all), so
+// `use axum_core::extract::Request` written inside `axum` never resolves there. `model.workspaces` (core.mjs) now
+// carries each Cargo crate's own declared name (`Cargo.toml`'s `[package] name`, dash/underscore-normalized) next
+// to its `srcDir` — this resolver maps the specifier's root segment to that crate and re-runs the identical
+// segment-shrinking module search the vendored resolver uses for `crate::…` (`<part>.rs` before `<part>/mod.rs`,
+// longest prefix first), just rooted at a FOREIGN crate's `srcDir` instead of the calling file's own.
 export function wsResolverFor({ workspaces, fileSet }) {
   if (!workspaces || !workspaces.length) return () => undefined;
   const byName = new Map();
   for (const w of [...workspaces].sort((a, b) => a.dir.length - b.dir.length || (a.dir < b.dir ? -1 : 1))) if (!byName.has(w.name)) byName.set(w.name, w); // a vendored/worktree COPY of a package never shadows the real one
   const EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '/index.ts', '/index.tsx', '/index.js'];
+  const rustFromSrcDir = (srcDir, tail) => {
+    for (let k = tail.length; k >= 1; k--) { const part = tail.slice(0, k).join('/');
+      for (const cand of [srcDir + '/' + part + '.rs', srcDir + '/' + part + '/mod.rs']) if (fileSet.has(cand)) return cand; }
+    for (const cand of [srcDir + '.rs', srcDir + '/mod.rs', srcDir + '/lib.rs', srcDir + '/main.rs']) if (fileSet.has(cand)) return cand;
+    return undefined; };
   return (specifier, language) => {
+    if (language === 'rust') { const segs = specifier.split('::').filter(Boolean); if (!segs.length) return undefined;
+      const w = byName.get(segs[0]); return w && w.srcDir ? rustFromSrcDir(w.srcDir, segs.slice(1)) : undefined; }
     if (!/^(typescript|tsx|javascript)$/.test(language) || specifier.startsWith('.') || specifier.startsWith('/')) return undefined;
     for (const [name, w] of byName) {
       if (specifier === name) return w.entry;
@@ -182,15 +198,38 @@ export function moduleGraph(edges, files, pkgs = []) {
   const medges = [...em].map(([k, v]) => { const [from, to] = k.split(SEP); return { from, to, ...v }; })
     .sort((a, b) => b.n - a.n || (a.from < b.from ? -1 : a.from > b.from ? 1 : a.to < b.to ? -1 : 1));
   const nodes = [...filesPer].map(([id, n]) => ({ id, files: n })).sort((a, b) => (a.id < b.id ? -1 : 1));
-  // cycles: strongly connected components of size ≥ 2 (Tarjan), deterministic order
+  // cycles: strongly connected components of size ≥ 2 (Tarjan), deterministic order. Every node — singleton or
+  // not — is captured into compOf (comp[0], the same deterministic sort-picked representative cycles already
+  // used) so J4.3's layer pass below can condense the graph before measuring depth.
   const adj = new Map(); for (const e of medges) (adj.get(e.from) || adj.set(e.from, []).get(e.from)).push(e.to);
-  let idx = 0; const st = []; const low = new Map(), num = new Map(), on = new Set(); const cycles = [];
+  let idx = 0; const st = []; const low = new Map(), num = new Map(), on = new Set(); const cycles = []; const compOf = new Map();
   const strong = v => { num.set(v, idx); low.set(v, idx); idx++; st.push(v); on.add(v);
     for (const w of adj.get(v) || []) { if (!num.has(w)) { strong(w); low.set(v, Math.min(low.get(v), low.get(w))); }
       else if (on.has(w)) low.set(v, Math.min(low.get(v), num.get(w))); }
     if (low.get(v) === num.get(v)) { const comp = []; let w; do { w = st.pop(); on.delete(w); comp.push(w); } while (w !== v);
-      if (comp.length >= 2) cycles.push(comp.sort()); } };
+      comp.sort(); for (const m of comp) compOf.set(m, comp[0]);
+      if (comp.length >= 2) cycles.push(comp); } };
   for (const n of nodes.map(x => x.id)) if (!num.has(n)) strong(n);
   cycles.sort((a, b) => (a[0] < b[0] ? -1 : 1));
+  // layer = longest path to a leaf on the SCC-condensed DAG (a module with no outgoing condensed edge = 0); every
+  // member of a collapsed cycle inherits its component's layer, and the intra-component edges a cycle collapses
+  // to self-edges are dropped first (`cf === ct`) so they cannot corrupt that measurement. Computed iteratively
+  // (explicit stack, no native recursion) — `strong` above is recursive and stays that way (out of scope here),
+  // but a wide/deep graph must not be able to overflow the call stack on THIS new pass (§G1).
+  const condAdj = new Map(); const condSeen = new Set();
+  for (const e of medges) { const cf = compOf.get(e.from), ct = compOf.get(e.to); if (cf === ct) continue;
+    const k = cf + SEP + ct; if (condSeen.has(k)) continue; condSeen.add(k);
+    (condAdj.get(cf) || condAdj.set(cf, []).get(cf)).push(ct); }
+  const layerOf = new Map();
+  for (const start of new Set(compOf.values())) {
+    if (layerOf.has(start)) continue;
+    const stack = [{ id: start, i: 0 }]; const onStack = new Set([start]);
+    while (stack.length) { const fr = stack[stack.length - 1]; const nb = condAdj.get(fr.id) || [];
+      if (fr.i < nb.length) { const next = nb[fr.i++];
+        if (!layerOf.has(next) && !onStack.has(next)) { stack.push({ id: next, i: 0 }); onStack.add(next); }
+        continue; }
+      let maxL = -1; for (const n2 of nb) { const l = layerOf.get(n2); if (l !== undefined && l > maxL) maxL = l; }
+      layerOf.set(fr.id, maxL + 1); onStack.delete(fr.id); stack.pop(); } }
+  for (const node of nodes) node.layer = layerOf.get(compOf.get(node.id));
   return { nodes, edges: medges, cycles };
 }

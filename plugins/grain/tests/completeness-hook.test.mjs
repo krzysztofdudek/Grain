@@ -66,7 +66,10 @@ test('the co-change line obeys the SAME repeat-suppression window as other findi
   assert.equal(r2.out, '', 'an unchanged co-change finding must not repeat within the TTL');
   const seenPath = join(repo, '.grain', 'cache', 'hook-seen.json');
   const seen = JSON.parse(readFileSync(seenPath, 'utf8'));
-  seen['src/pair-a.ts'].t = 1; writeFileSync(seenPath, JSON.stringify(seen)); // age the record past any TTL
+  // both keys must age: `check:` (this hook's own finding-set signature) AND the shared `cochange:` key the
+  // co-change line itself is now gated through (§J6.4, shared with edit-hook's PreToolUse line) — aging only one
+  // leaves the other still suppressing the co-change line within its own TTL window
+  seen['check:src/pair-a.ts'].t = 1; seen['cochange:src/pair-a.ts'].t = 1; writeFileSync(seenPath, JSON.stringify(seen));
   const r3 = hook(join(repo, 'src/pair-a.ts'));
   assert.match(r3.out, /edits like this also touch/, 'an aged record reminds again');
 });

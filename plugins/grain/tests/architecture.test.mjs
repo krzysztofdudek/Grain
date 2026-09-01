@@ -64,13 +64,13 @@ test('a committed boundary decision flags the crossing as a maintainer decision,
   w('apps/a/main.ts', "import { db } from '../../packages/infra/db';\n" + orig.replace('util();', 'util() + db();'));
   try {
     const c = grain(['check', 'apps/a/main.ts']);
-    assert.match(c.out, /\[grain\] maintainer decision \(kd [\d-]+\): apps\/a\/ never imports packages\/infra\/ — your import of `packages\/infra\/db\.ts` \(line 1\) crosses it\.\n  apps go through core - ADR-3/);
+    assert.match(c.out, /\[grain\] decision boundary \(kd [\d-]+\): apps\/a\/ never imports packages\/infra\/ — your import of `packages\/infra\/db\.ts` \(line 1\) crosses it\.\n  apps go through core - ADR-3/);
     assert.match(grain(['report']).out, /== boundaries — 1 architecture decision\(s\)/);
     assert.match(grain(['status']).out, /boundaries: 1 architecture decision/);
   } finally { w('apps/a/main.ts', orig); }
   assert.match(grain(['seed', 'rm', id]).out, /removed seed/);
   const orig2 = readFileSync(join(repo, 'apps/a/main.ts'), 'utf8');
   w('apps/a/main.ts', "import { db } from '../../packages/infra/db';\n" + orig2.replace('util();', 'util() + db();'));
-  try { assert.doesNotMatch(grain(['check', 'apps/a/main.ts']).out, /maintainer decision.*never imports/); }
+  try { assert.doesNotMatch(grain(['check', 'apps/a/main.ts']).out, /decision boundary .*never imports/); }
   finally { w('apps/a/main.ts', orig2); }
 });

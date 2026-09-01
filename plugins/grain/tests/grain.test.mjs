@@ -24,7 +24,7 @@ test('first query builds the index from the full history and stamps the answer',
   const { out, err, code } = grain(['status']);
   assert.equal(code, 0, err);
   assert.match(err, /walking full history/);
-  assert.match(out, /history: 16 commits, 171 blobs/);
+  assert.match(out, /history: 16 non-merge commits, 172 blobs/); // §J7.2: the fixture's package.json is now a code blob too (json grammar); §034a: qualified — merges never enter this count
   assert.match(out, /up to date · history full/);
   assert.match(out, /\nas of [0-9a-f]{7}$/);
   assert.ok(existsSync(join(repo, '.grain', 'cache', 'model.json')));
@@ -32,21 +32,59 @@ test('first query builds the index from the full history and stamps the answer',
   assert.equal(git('status', '--porcelain').split('\n').filter(l => l.includes('.grain')).join(), '?? .grain/'); // only .grain/.gitignore is visible to git
 });
 
+test('§034a: the reported commit count excludes merges and says so, and the excluded merge really is one fewer than plain `git log`', () => {
+  const tmp2 = mkdtempSync(join(tmpdir(), 'grain-merge-count-'));
+  const repo2 = join(tmp2, 'r');
+  try {
+    execFileSync('git', ['init', '-q', '-b', 'main', repo2]);
+    const g2 = (...args) => execFileSync('git', ['-C', repo2, ...args], { encoding: 'utf8', env: { ...process.env, ...gitEnv } }).trim();
+    g2('config', 'commit.gpgsign', 'false');
+    writeFileSync(join(repo2, 'a.ts'), 'export const a = 1;\n');
+    g2('add', '-A'); g2('commit', '-qm', 'base');
+    g2('checkout', '-qb', 'feature');
+    writeFileSync(join(repo2, 'b.ts'), 'export const b = 2;\n');
+    g2('add', '-A'); g2('commit', '-qm', 'feature work');
+    g2('checkout', '-q', 'main');
+    writeFileSync(join(repo2, 'c.ts'), 'export const c = 3;\n');
+    g2('add', '-A'); g2('commit', '-qm', 'main work');
+    g2('merge', '--no-ff', '-q', '-m', 'merge feature', 'feature');
+    // base, "feature work", "main work", and the merge itself — 4 commits reachable from HEAD, one of them a merge
+    const totalOneline = g2('log', '--oneline').split('\n').filter(Boolean).length;
+    assert.equal(totalOneline, 4, 'fixture sanity: 4 commits including the merge');
+    const r = spawnSync('node', [BIN, 'status'], { cwd: repo2, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    const m = (r.stdout || '').match(/history: (\d+) non-merge commits/);
+    assert.ok(m, `status must qualify the commit count as non-merge:\n${r.stdout}`);
+    assert.equal(+m[1], 3, 'the merge commit itself must not be in the count');
+    assert.ok(+m[1] < totalOneline, 'sanity: the qualified count really is smaller than what plain `git log` reports — that gap is exactly the point of the qualifier');
+  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+});
+
 test('report finds the planted conventions', () => {
   const { out } = grain(['report', '--top', '40']);
-  for (const phrase of ['types here are annotated with `@Handler`', 'types here extend `CanActivate`', 'types here extend `BaseDto`', 'files here import `~/src/core/handler`'])
+  // `CanActivate` is a TS interface (`.../guard.ts`'s `${cap(n)}Guard implements CanActivate`, never `extends`) — §033
+  // fixed the label to say so; `BaseDto`/`BaseService` are genuine classes (`extends`) and keep the old wording
+  for (const phrase of ['types here are annotated with `@Handler`', 'types here implement `CanActivate`', 'types here extend `BaseDto`', 'files here import `~/src/core/handler`'])
     assert.ok(out.includes(phrase), `missing convention: ${phrase}\n${out}`);
   assert.ok(!out.includes('import `Command`'), 'an imported identifier is not a module: the import node\'s children must not be re-matched as imports');
   assert.doesNotMatch(out, /_root|_repo|\[_all|\[d\[|\[r\d/, 'no internal cell ids in the report');
   // `extends BaseService` and `@Injectable` share one conform set, so correlation dedup (§9.4e) folds them into ONE fact: the lead speaks, the other is counted in nSurfaces
   assert.ok(out.includes('types here extend `BaseService`') || out.includes('types here are annotated with `@Injectable`'));
+  // §030: a template line (mineTemplates/profileOf, unclustered residue) has no cell in part.facts — check/review/
+  // hooks cannot fail a member for breaking it — so it must say so; a genuine, ENFORCED part.facts convention
+  // (the @Handler line already asserted above) must not carry the same disclaimer.
+  const templateLines = out.split('\n').filter(l => l.includes('template (unclustered'));
+  assert.ok(templateLines.length >= 1, 'no template line found — fixture regressed:\n' + out);
+  for (const l of templateLines) assert.match(l, /descriptive only — check has no cell for a template's shape, so a member breaking it is never flagged/, `template line must be marked descriptive: ${l}`);
+  const handlerLine = out.split('\n').find(l => l.includes('types here are annotated with `@Handler`'));
+  assert.doesNotMatch(handlerLine, /descriptive only/, `a genuine, enforced convention must not carry the template disclaimer: ${handlerLine}`);
 });
 
 test('where: intent → directory card with expectations and exemplars; no match → compact map', () => {
   const { out } = grain(['where', 'handler']);
   assert.match(out, /«handler» → directory src\/handlers\//);
   assert.match(out, /types here are annotated with `@Handler` — 100% of \d+/);
-  assert.match(out, /pattern to copy: src\/handlers\/[a-z]+\.handler\.ts:\d+ `\w+`/);
+  assert.match(out, /pattern to copy: src\/handlers\/[a-z]+\.handler\.ts:\d+(?:–\d+)? `\w+`/);
   const map = grain(['where', 'kafka', 'consumer']).out;
   assert.match(map, /no lexical match for "kafka consumer" — compact map/);
   assert.match(map, /\[directory\] src\/handlers\//);
@@ -62,7 +100,7 @@ test('check: the planted deviant is reported with evidence, the locality line an
   assert.match(dev, /(local \(src\/handlers\/\)|package src\/handlers) convention: types here are annotated with `@Handler`/); // MDL cuts made src/handlers its own partition — the norm speaks partition-wide
   assert.match(dev, /\d+\/\d+ established types conform\. Pre-existing: 1 type not touched by your change \(`CreateDisputeHandler` \(line \d+\)\) is not annotated with `@Handler`\./);
   // (pre-MDL-cuts the @Handler norm was directory-local and drew a locality-contrast line; as a partition norm it draws none)
-  assert.match(dev, /See: src\/handlers\/\w+\.handler\.ts:\d+ `\w+Handler`/);
+  assert.match(dev, /See: src\/handlers\/\w+\.handler\.ts:\d+(?:–\d+)? `\w+Handler`/);
   assert.match(dev, /\(preference gap \d+\.\d+ bits\)/);
   const ok = grain(['check', 'src/handlers/order.handler.ts']).out;
   assert.doesNotMatch(ok, /is not annotated with `@Handler`/);
@@ -75,7 +113,10 @@ test('check reads the worktree version and marks it +dirty; worktree edits never
   try { const { out, err } = grain(['check', 'src/guards/order.guard.ts']);
     assert.match(out, /as of [0-9a-f]{7}\+dirty$/);
     assert.doesNotMatch(err, /indexing/);
-    assert.match(out, /1 deviation\(s\) in your change/);
+    // two, not one: the edited `return false;` departs from the group's `auto.stshape:` convention AND from the
+    // group's structural shape (§J5.8) — the template of all 30 `canActivate` bodies carries the `true` literal
+    assert.match(out, /2 deviation\(s\) in your change/);
+    assert.match(out, /activate\+can shape: methods here all carry `true`/);
     assert.match(out, /Your method `canActivate` \(line \d+\)/, 'the dirty content is what gets checked, and the edited scope is reported as part of the change'); }
   finally { writeFileSync(f, orig); }
 });
@@ -108,6 +149,15 @@ test('spectrum on a new untracked file agrees with check, not "no scopes extract
     try { assert.match(grain(['spectrum', 'src/dto/notes.md']).out, /^\(no scopes extracted for src\/dto\/notes\.md\)/); }
     finally { rmSync(notCode); }
   } finally { rmSync(f); }
+});
+
+test('explain is a byte-identical alias for spectrum (J1.4), including its flags', () => {
+  const a = grain(['spectrum', 'src/dto/order.dto.ts']).out;
+  const b = grain(['explain', 'src/dto/order.dto.ts']).out;
+  assert.equal(b, a, 'explain must produce exactly the same output as spectrum for the same file');
+  const aFlags = grain(['spectrum', 'src/dto/order.dto.ts', '--minbits', '1', '--top', '3']).out;
+  const bFlags = grain(['explain', 'src/dto/order.dto.ts', '--minbits', '1', '--top', '3']).out;
+  assert.equal(bFlags, aFlags, 'explain must honor --minbits/--top identically to spectrum');
 });
 
 test('export: every convention with its sites, anchors and nearest exemplar; check --json mirrors the verdict', () => {
@@ -145,18 +195,23 @@ test('steering: a committed seed promotes a pattern — the retired rule mutes, 
   assert.doesNotMatch(after.out, /call `validate`/); assert.doesNotMatch(after.out, /sibling surface/); assert.match(after.out, /@Handler/);
   // where: the decision renders on the directory and group cards, beside what is practiced
   const w = grain(['where', 'handler', 'validation']).out;
-  assert.match(w, /steer \(maintainer decision, kd \d{4}-\d{2}-\d{2}\): methods here never call `validate` — practiced by \d+% of \d+ in group «handle» today · validate\(\) moves into the framework — ADR-7 · copy src\/handlers\/dispute\.handler\.ts:\d+ `handle`/);
+  assert.match(w, /decision steer \(kd \d{4}-\d{2}-\d{2}\): methods here never call `validate` — practiced by \d+% of \d+ in group «handle» today · validate\(\) moves into the framework — ADR-7 · copy src\/handlers\/dispute\.handler\.ts:\d+ `handle`/);
   // check: a new file written the old way is told about the decision (not as a deviation), one written the new way is clean
   const old = readFileSync(join(repo, 'src', 'handlers', 'order.handler.ts'), 'utf8');
   writeFileSync(join(repo, 'src', 'handlers', 'zz.handler.ts'), old);
   try { const c = grain(['check', 'src/handlers/zz.handler.ts']).out;
-    assert.match(c, /0 deviation\(s\) in your change, 0 pre-existing · 1 maintainer decision\(s\) your change departs from/);
-    assert.match(c, /\[grain\] maintainer decision \(kd [\d-]+\): methods here never call `validate`[^\n]*Your method `handle` \(line \d+\) calls `validate`\.\n  validate\(\) moves into the framework — ADR-7\n  Copy: src\/handlers\/dispute\.handler\.ts:\d+ `handle`/);
+    // zz.handler.ts is itself a brand-new file, so its own 3 top-level scopes (§010) are ALSO disclosed as new to
+    // the index — the headline's own "known deviation(s)" + "unclassified scope(s)" wording reflects that pending
+    // disclosure, in the same clause as the deviation count (§010-c), ahead of the (unrelated) steer clause
+    assert.match(c, /0 known deviation\(s\) in your change, 0 pre-existing, 3 unclassified scope\(s\) · 1 maintainer decision\(s\) your change departs from/);
+    assert.match(c, /\[grain\] decision steer \(kd [\d-]+\): methods here never call `validate`[^\n]*Your method `handle` \(line \d+\) calls `validate`\.\n  validate\(\) moves into the framework — ADR-7\n  Copy: src\/handlers\/dispute\.handler\.ts:\d+ `handle`/);
     writeFileSync(join(repo, 'src', 'handlers', 'zz.handler.ts'), old.replace(/^\s*validate\(cmd\);\n/m, ''));
     const c2 = grain(['check', 'src/handlers/zz.handler.ts']).out;
-    assert.match(c2, /0 deviation\(s\) in your change, 0 pre-existing\n/); assert.doesNotMatch(c2, /maintainer decision/);
+    // the validate() removal drops the steer violation, not the file's own new-scope disclosures (same 3 scopes,
+    // unaffected by an inner statement edit) — so the headline still carries them, just without the steer clause
+    assert.match(c2, /0 known deviation\(s\) in your change, 0 pre-existing, 3 unclassified scope\(s\)\n/); assert.doesNotMatch(c2, /decision steer \(/);
   } finally { rmSync(join(repo, 'src', 'handlers', 'zz.handler.ts')); }
-  const rep = grain(['report']).out; assert.match(rep, /== steers — 1 maintainer decision\(s\)/); assert.match(rep, new RegExp(id + ': methods here never call `validate` — practiced by'));
+  const rep = grain(['report']).out; assert.match(rep, /== steers — 1 maintainer decision\(s\)/); assert.match(rep, new RegExp('decision steer \\(id ' + id + ', kd [\\d-]+\\): methods here never call `validate` — practiced by'));
   assert.match(grain(['status']).out, /steers: 1 active/);
   assert.match(grain(['seed', 'list']).out, new RegExp('^' + id + '  src/handlers/dispute.handler.ts#handle  auto.call:validate  weight 8'));
   // the export carries the decision and marks the contested rule

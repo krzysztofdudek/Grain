@@ -14,7 +14,7 @@
 // optimization cost. A server answers many tool calls over its lifetime, so the opposite trade applies — it should
 // keep the optimizing compiler on, like `grain refresh` already does.
 import { createInterface } from 'node:readline';
-import { findRoot, storeFor, ensureFresh, cmdWhere, cmdCheck, cmdStatus, cmdReport, short } from '../engine/grain.mjs';
+import { findRoot, storeFor, ensureFresh, cmdWhere, cmdHow, cmdWhat, cmdCheck, cmdReview, cmdStatus, cmdReport, short } from '../engine/grain.mjs';
 import { ENGINE_VERSION } from '../engine/config.mjs';
 
 const PROTOCOL_VERSION = '2025-06-18';
@@ -50,15 +50,36 @@ const TOOLS = {
     validate(a) { if (typeof a?.query !== 'string' || !a.query.trim()) throw invalidParams('grain_where: "query" (a non-empty string) is required'); },
     async exec(a) { const ctx = await buildCtx(a.repo, [a.query], { json: true }); const [json] = await cmdWhere(ctx); return json; },
   },
-  grain_check: {
-    description: 'Ask how one file, as it currently sits on disk, holds up against this repository\'s own established conventions — deviations with evidence and exemplars. Call this AFTER writing or editing a file.',
+  grain_how: {
+    description: 'Ask this repository how a change like <query> has actually been made here before: the past commits whose message and touched files match the intent, and the files such a change reached — enum, DTO, fixture, test, wiring. Call this when the question is "what does a change like this involve here", not "where does this one thing live" (that is grain_where). Answers from real commits only; it says so plainly when no past change matches.',
     inputSchema: {
       type: 'object',
-      properties: { file: { type: 'string', description: 'Path to the file to check, absolute or relative to the repository root.' }, ...optionalRepoProp },
-      required: ['file'], additionalProperties: false,
+      properties: { query: { type: 'string', description: 'The intended change, in the repo\'s own vocabulary (e.g. "add a new order status", "add a rate limit to an endpoint").' }, top: { type: 'number', description: 'How many past commits to cite as examples (default 5).' }, ...optionalRepoProp },
+      required: ['query'], additionalProperties: false,
     },
-    validate(a) { if (typeof a?.file !== 'string' || !a.file.trim()) throw invalidParams('grain_check: "file" (a non-empty string) is required'); },
-    async exec(a) { const ctx = await buildCtx(a.repo, [a.file], { json: true }); const [json] = await cmdCheck(ctx); return json; },
+    validate(a) { if (typeof a?.query !== 'string' || !a.query.trim()) throw invalidParams('grain_how: "query" (a non-empty string) is required');
+      if (a?.top !== undefined && typeof a.top !== 'number') throw invalidParams('grain_how: "top" must be a number'); },
+    async exec(a) { const ctx = await buildCtx(a.repo, [a.query], { json: true, top: a.top }); const [json] = await cmdHow(ctx); return json; },
+  },
+  grain_what: {
+    description: 'Ask this repository what <query> already IS here: its declarations, the indexed values that belong to it, its spread across modules, sibling values from the same enum/switch/object, historical commit mentions and file-level fan-in — all in one concept card. Call this when the question is "what is this concept in this codebase already", not "where should new code go" (grain_where) or "what did past changes touching it look like" (grain_how).',
+    inputSchema: {
+      type: 'object',
+      properties: { query: { type: 'string', description: 'A word or short phrase naming the concept, in the repo\'s own vocabulary (e.g. "order status", "rate limit").' }, ...optionalRepoProp },
+      required: ['query'], additionalProperties: false,
+    },
+    validate(a) { if (typeof a?.query !== 'string' || !a.query.trim()) throw invalidParams('grain_what: "query" (a non-empty string) is required'); },
+    async exec(a) { const ctx = await buildCtx(a.repo, [a.query], { json: true }); const [json] = await cmdWhat(ctx); return json; },
+  },
+  grain_check: {
+    description: 'Ask how one file, as it currently sits on disk, holds up against this repository\'s own established conventions — deviations with evidence and exemplars. Call this AFTER writing or editing a file. Omit "file" to check the whole uncommitted change instead of a single file.',
+    inputSchema: {
+      type: 'object',
+      properties: { file: { type: 'string', description: 'Path to the file to check, absolute or relative to the repository root. Omit to check the whole uncommitted change instead.' }, ...optionalRepoProp },
+      additionalProperties: false,
+    },
+    validate(a) { if (a?.file !== undefined && (typeof a.file !== 'string' || !a.file.trim())) throw invalidParams('grain_check: "file", if present, must be a non-empty string'); },
+    async exec(a) { const ctx = await buildCtx(a.repo, a.file !== undefined ? [a.file] : [], { json: true }); const [json] = a.file !== undefined ? await cmdCheck(ctx) : await cmdReview(ctx); return json; },
   },
   grain_status: {
     description: 'Get the size, freshness and health of this repository\'s mined convention model: how many conventions, over how many files, and whether the index is up to date with HEAD.',

@@ -137,7 +137,7 @@ The full cards, the `check` view and everything the hooks say unbidden are furth
 | `grain spectrum <file>` | the full local-to-global convention lattice around one file, with no acceptance cut — `NORM` rows are accepted conventions, `obs` rows are observations below the gate. |
 | `grain status` / `grain report` | model size, a signal verdict ("a sparse model — expect placement, not shape"), freshness, history, the top conventions with trends, deviant counts and age. |
 | `grain rules [--out <file>]` | the same top conventions `report` prints, generated as a standalone Markdown document with its own staleness header naming the commit it was computed from — for a maintainer or a coding tool with no terminal and no grain plugin installed. No `--out` prints it to stdout, so `grain rules > CONVENTIONS.md` already works. |
-| `grain seed add <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/seeds.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `steer (maintainer decision, who when)`, beside how far practice has caught up. `seed list` / `seed rm <id>`; `.grain/decisions.jsonl` is the audit trail. |
+| `grain seed add <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/seeds.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `decision steer (who when)`, beside how far practice has caught up. `seed list` / `seed rm <id>`; `.grain/decisions.jsonl` is the audit trail. |
 | `grain export --out model.json` | the whole model as data: every convention with its context, evidence, trend, lifecycle, every conforming and deviating site (with the lines where the convention manifests and the nearest conforming exemplar), a machine check per convention, groups with their templates, markers, directories, co-change and the commit-message affinity. The schema is a published interface with a downstream consumer (a fine-tuning pipeline cuts training samples from the anchor lines): it changes deliberately or not at all. `where`, `check`, `report` and `status` take `--json` too. |
 
 ## The evidence
@@ -260,8 +260,8 @@ Every commit is a translation pair — natural language in the message, code in 
 appears in no code card, grain consults the commits that say it and cites them:
 
 ```
-history bridge: «endpoint» appears in no code card here, but commits saying it
-touched: `src/health/controller.ts` (2) — e.g. "add health endpoint liveness probe" (a1b2c3d)
+example (a1b2c3d): «endpoint» appears in no code card here, but commits saying it touched:
+`src/health/controller.ts` (2) — e.g. "add health endpoint liveness probe" (a1b2c3d)
 ```
 
 Never a global dictionary: a repo whose history never says the word stays silent, and repo fillers (`feat`, `fix`)
@@ -299,12 +299,12 @@ recorded seed 95a3c9fc in .grain/seeds.jsonl — methods here never call `valida
 
 $ grain where handler validation
 «handler validation» → group handle — 30 members …
-  steer (maintainer decision, kd 2026-08-26): methods here never call `validate` — practiced by 3% of 30 in group «handle» today · validate() moves into the framework — ADR-7 · copy src/handlers/dispute.handler.ts:9 `handle`
+  decision steer (kd 2026-08-26): methods here never call `validate` — practiced by 3% of 30 in group «handle» today · validate() moves into the framework — ADR-7 · copy src/handlers/dispute.handler.ts:9 `handle`
   …
 
 $ grain check src/handlers/new.handler.ts          # a NEW file written the old way
 … · 1 maintainer decision(s) your change departs from
-[grain] maintainer decision (kd 2026-08-26): methods here never call `validate` — practiced by 3% of 30 in group «handle» today. Your method `handle` (line 10) calls `validate`.
+[grain] decision steer (kd 2026-08-26): methods here never call `validate` — practiced by 3% of 30 in group «handle» today. Your method `handle` (line 10) calls `validate`.
   validate() moves into the framework — ADR-7
   Copy: src/handlers/dispute.handler.ts:9 `handle`
 as of 47da000+dirty

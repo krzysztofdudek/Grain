@@ -48,9 +48,9 @@ test('seed add captures a real baseline from an already-accepted fact, and repor
   // planted (still-fresh, not yet "established") deviant that the baseline's survivor-filtered fact excluded, so the
   // very first read already shows real, non-zero movement (down) even before any new commit lands
   const afterSeed = grain(['report', '--top', '60']).out;
-  assert.match(afterSeed, new RegExp(`${id}: types here are annotated with \`@Handler\` — practiced by \\d+% of \\d+ in [^(]+ today \\(down from ${n} of ${n} in package src/handlers when recorded ${today} to \\d+ of \\d+ now\\) · weight 8`));
+  assert.match(afterSeed, new RegExp(`decision steer \\(id ${id}, kd [\\d-]+\\): types here are annotated with \`@Handler\` — practiced by \\d+% of \\d+ in [^(]+ today \\(down from ${n} of ${n} in package src/handlers when recorded ${today} to \\d+ of \\d+ now\\) · weight 8`));
   const whereSeed = grain(['where', 'handler']).out;
-  assert.match(whereSeed, new RegExp(`steer \\(maintainer decision, kd ${today}\\): types here are annotated with \`@Handler\` — practiced by \\d+% of \\d+ in [^(]+ today \\(down from ${n} of ${n} in package src/handlers when recorded ${today} to \\d+ of \\d+ now\\)`));
+  assert.match(whereSeed, new RegExp(`decision steer \\(kd ${today}\\): types here are annotated with \`@Handler\` — practiced by \\d+% of \\d+ in [^(]+ today \\(down from ${n} of ${n} in package src/handlers when recorded ${today} to \\d+ of \\d+ now\\)`));
 
   // fix the planted deviant (mirrors grain.test.mjs's own "decorate dispute handler" commit) — a real commit changes
   // HEAD, so the next query re-mines and the live cascade's numbers genuinely move
@@ -62,7 +62,7 @@ test('seed add captures a real baseline from an already-accepted fact, and repor
   git('commit', '-qam', 'fix: decorate dispute handler');
 
   const afterFix = grain(['report', '--top', '60']).out;
-  assert.match(afterFix, new RegExp(`${id}: types here are annotated with \`@Handler\` — practiced by 100% of \\d+ in [^(]+ today \\(up from ${n} of ${n} in package src/handlers when recorded ${today} to \\d+ of \\d+ now\\) · weight 8`));
+  assert.match(afterFix, new RegExp(`decision steer \\(id ${id}, kd [\\d-]+\\): types here are annotated with \`@Handler\` — practiced by 100% of \\d+ in [^(]+ today \\(up from ${n} of ${n} in package src/handlers when recorded ${today} to \\d+ of \\d+ now\\) · weight 8`));
 });
 
 test('seed add on a surface with no partition-wide accepted fact records baseline: null, and report/where print no delta clause', () => {
@@ -80,7 +80,7 @@ test('seed add on a surface with no partition-wide accepted fact records baselin
   assert.strictEqual(rec.baseline, null, `expected no fabricated baseline: ${JSON.stringify(rec)}`);
 
   const report = grain(['report', '--top', '60']).out;
-  const line = report.split('\n').find(l => l.includes(`${id}: methods here never call`));
+  const line = report.split('\n').find(l => l.includes(`id ${id}, kd`) && l.includes('methods here never call'));
   assert.ok(line, `expected the steer line in report:\n${report}`);
   assert.match(line, /practiced by \d+% of \d+ in group «handle» today · weight 8/, 'no delta clause, no crash, no fabricated 0 of 0');
   assert.doesNotMatch(line, /\(no movement|\(up from|\(down from/);

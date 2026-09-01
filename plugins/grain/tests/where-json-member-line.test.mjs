@@ -92,9 +92,9 @@ test('where --json: a marker card\'s members report real source lines, not the i
 
 test('where (text, non-JSON) already reports correct lines for every carrier — unaffected by the JSON fix', () => {
   const { out } = grain(['where', '@Trace marker', '--top', '5']);
-  assert.match(out, /carriers to copy:.*src\/svc\/other\.ts:3 `run`/s, out);
-  assert.match(out, /carriers to copy:.*src\/svc\/multi\.ts:3 `handle`/s, out);
-  assert.match(out, /carriers to copy:.*src\/svc\/multi\.ts:9 `handle`/s, out);
+  assert.match(out, /carriers to copy:.*src\/svc\/other\.ts:3–5 `run`/s, out);
+  assert.match(out, /carriers to copy:.*src\/svc\/multi\.ts:3–5 `handle`/s, out);
+  assert.match(out, /carriers to copy:.*src\/svc\/multi\.ts:9–11 `handle`/s, out);
 });
 
 test('where --json: a `file`-type card\'s members (a different key shape, real line already baked in) keep their correct lines, not scopeLine\'s skeyR-keyed null', () => {

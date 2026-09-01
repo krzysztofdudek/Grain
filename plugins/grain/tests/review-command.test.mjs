@@ -1,7 +1,8 @@
 // `grain review` aggregates the per-file `check` machinery (checkFile + the shared fileFindings() split of
-// in-change vs pre-existing) across every file in an agent's WHOLE change, plus one whole-set co-change line from
-// completenessDirectional — where every other command answers about one file or the whole repo's history, review
-// is the one moment grain looks at everything touched since the last commit and gives one aggregated answer.
+// in-change vs pre-existing) across every file in an agent's WHOLE change, plus one whole-set `missing from your
+// change:` block from `missingLines` (co-change partners via `cochangeData`, recipes for new marker/group carriers)
+// — where every other command answers about one file or the whole repo's history, review is the one moment grain
+// looks at everything touched since the last commit and gives one aggregated answer.
 import { test, before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -11,6 +12,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
+const CMDS = ['review', 'check']; // `check` with zero positional args is documented as an alias of `review` (J1.1) — every worktree-resettable test below runs through both
 let tmp, repo, pairStartSha, pairEndSha;
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
 const git = (env, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', env: { ...process.env, ...env } }).trim();
@@ -51,84 +53,96 @@ before(() => {
 beforeEach(() => reset());
 after(() => { rmSync(tmp, { recursive: true, force: true }); });
 
-test('default/--worktree mode: reports a real deviation in changed lines, stays silent on a clean edit, includes an untracked file in scope', () => {
-  w('src/handlers/Handler0.ts', 'export class Handler0Handler {\n  run() {\n    return 0;\n  }\n}\n'); // decorator dropped — a real deviation on the changed lines
-  w('src/handlers/Handler1.ts', handler(1, '999 // edited, still conforms'));
-  w('src/handlers/HandlerNew.ts', handler('New', 99)); // untracked, conforms
-  const j = JSON.parse(grain(['review', '--json']).out);
-  assert.deepEqual([...j.files].sort(), ['src/handlers/Handler0.ts', 'src/handlers/Handler1.ts', 'src/handlers/HandlerNew.ts'].sort(), 'all three changed/untracked files are in scope');
-  assert.ok(Array.isArray(j.findings) && Array.isArray(j.cochangePartners) && typeof j.asOf === 'string', `expected the documented top-level --json shape: ${JSON.stringify(j)}`);
-  assert.deepEqual(j.findings.map(f => f.file), ['src/handlers/Handler0.ts'], 'only the file WITH a finding appears in findings — a clean file, tracked or untracked, contributes nothing');
-  assert.ok(j.findings[0].deviationsInChange.length, `Handler0.ts should carry the decorator deviation in --json too: ${JSON.stringify(j.findings[0])}`);
-  const { out } = grain(['review']);
-  assert.match(out, /^review 3 files · \d+ finding\(s\) across 1 file\(s\)$/m, out);
-  assert.match(out, /== src\/handlers\/Handler0\.ts/, out);
-  assert.match(out, /@Handler/, out);
-  assert.doesNotMatch(out, /Handler1\.ts —/, 'a clean edit gets no section');
-  assert.doesNotMatch(out, /HandlerNew\.ts —/, 'a clean untracked file gets no section (but is still in scope, per --json above)');
-});
+for (const cmd of CMDS) {
+  test(`default/--worktree mode: reports a real deviation in changed lines, stays silent on a clean edit, includes an untracked file in scope [${cmd}]`, () => {
+    w('src/handlers/Handler0.ts', 'export class Handler0Handler {\n  run() {\n    return 0;\n  }\n}\n'); // decorator dropped — a real deviation on the changed lines
+    w('src/handlers/Handler1.ts', handler(1, '999 // edited, still conforms'));
+    w('src/handlers/HandlerNew.ts', handler('New', 99)); // untracked, conforms
+    const j = JSON.parse(grain([cmd, '--json']).out);
+    assert.deepEqual([...j.files].sort(), ['src/handlers/Handler0.ts', 'src/handlers/Handler1.ts', 'src/handlers/HandlerNew.ts'].sort(), 'all three changed/untracked files are in scope');
+    assert.ok(Array.isArray(j.findings) && Array.isArray(j.cochangePartners) && typeof j.asOf === 'string', `expected the documented top-level --json shape: ${JSON.stringify(j)}`);
+    assert.deepEqual(j.findings.map(f => f.file), ['src/handlers/Handler0.ts'], 'only the file WITH a finding appears in findings — a clean file, tracked or untracked, contributes nothing');
+    assert.ok(j.findings[0].deviationsInChange.length, `Handler0.ts should carry the decorator deviation in --json too: ${JSON.stringify(j.findings[0])}`);
+    const { out } = grain([cmd]);
+    assert.match(out, /^review 3 files · \d+ finding\(s\) across 1 file\(s\)$/m, out);
+    assert.match(out, /== src\/handlers\/Handler0\.ts/, out);
+    assert.match(out, /@Handler/, out);
+    assert.doesNotMatch(out, /Handler1\.ts —/, 'a clean edit gets no section');
+    assert.doesNotMatch(out, /HandlerNew\.ts —/, 'a clean untracked file gets no section (but is still in scope, per --json above)');
+  });
 
-test('--staged reports only staged files, ignoring an unstaged-only change', () => {
-  w('src/handlers/Handler0.ts', 'export class Handler0Handler {\n  run() {\n    return 0;\n  }\n}\n');
-  git({}, 'add', 'src/handlers/Handler0.ts');
-  w('src/handlers/Handler1.ts', handler(1, 1000)); // unstaged only
-  const j = JSON.parse(grain(['review', '--staged', '--json']).out);
-  assert.deepEqual(j.files, ['src/handlers/Handler0.ts']);
-  const { out } = grain(['review', '--staged']);
-  assert.match(out, /Handler0\.ts/, out);
-  assert.doesNotMatch(out, /== src\/handlers\/Handler1\.ts/, 'the unstaged-only file must not get its own section'); // it may still be cited as an exemplar of Handler0's own finding
-});
+  test(`--staged reports only staged files, ignoring an unstaged-only change [${cmd}]`, () => {
+    w('src/handlers/Handler0.ts', 'export class Handler0Handler {\n  run() {\n    return 0;\n  }\n}\n');
+    git({}, 'add', 'src/handlers/Handler0.ts');
+    w('src/handlers/Handler1.ts', handler(1, 1000)); // unstaged only
+    const j = JSON.parse(grain([cmd, '--staged', '--json']).out);
+    assert.deepEqual(j.files, ['src/handlers/Handler0.ts']);
+    const { out } = grain([cmd, '--staged']);
+    assert.match(out, /Handler0\.ts/, out);
+    assert.doesNotMatch(out, /== src\/handlers\/Handler1\.ts/, 'the unstaged-only file must not get its own section'); // it may still be cited as an exemplar of Handler0's own finding
+  });
 
-test('the whole-set co-change line names an established partner outside the changed set', () => {
-  w('src/pair-a.ts', 'export const a = () => 999; // edited\n'); // pair-b.ts not touched
-  const { out } = grain(['review']);
-  assert.match(out, /\[grain\] Edits like this historically also touch:/, out);
-  assert.match(out, /src\/pair-b\.ts \(co-changed in 9\/9 commits\)/, out);
-});
+  test(`the whole-set co-change line names an established partner outside the changed set [${cmd}]`, () => {
+    w('src/pair-a.ts', 'export const a = () => 999; // edited\n'); // pair-b.ts not touched
+    const { out } = grain([cmd]);
+    assert.match(out, /^missing from your change:$/m, out);
+    assert.match(out, /^co-change: src\/pair-b\.ts \(co-changed in 9\/9 commits\)$/m, out);
+  });
 
-test('a changed set with a finding but no co-change partner prints nothing extra', () => {
-  w('src/handlers/Handler0.ts', 'export class Handler0Handler {\n  run() {\n    return 0;\n  }\n}\n'); // has a finding, no cochange partner
-  const { out } = grain(['review']);
-  assert.match(out, /Handler0/, out);
-  assert.doesNotMatch(out, /also touch/, out);
-});
+  test(`a changed set with a finding but no co-change partner prints nothing extra [${cmd}]`, () => {
+    w('src/handlers/Handler0.ts', 'export class Handler0Handler {\n  run() {\n    return 0;\n  }\n}\n'); // has a finding, no cochange partner
+    const { out } = grain([cmd]);
+    assert.match(out, /Handler0/, out);
+    assert.doesNotMatch(out, /also touch/, out);
+  });
 
-test('a worktree with changes but zero findings and zero co-change hits still prints a clear non-empty line, not silence', () => {
-  w('src/handlers/Handler7.ts', handler(7, '7000 // edited, still conforms'));
-  const { out, code } = grain(['review']);
+  test(`a worktree with changes but zero findings and zero co-change hits still prints a clear non-empty line, not silence [${cmd}]`, () => {
+    w('src/handlers/Handler7.ts', handler(7, '7000 // edited, still conforms'));
+    const { out, code } = grain([cmd]);
+    assert.equal(code, 0, out);
+    assert.notEqual(out.trim(), '');
+    assert.match(out, /clean/i, out);
+    assert.doesNotMatch(out, /also touch/, out);
+  });
+
+  test(`--json is valid JSON with the documented top-level shape, on both a finding and the all-clean path [${cmd}]`, () => {
+    w('src/handlers/Handler8.ts', handler(8, '8000')); // conforms — the all-clean path
+    const j = JSON.parse(grain([cmd, '--json']).out);
+    assert.deepEqual(j.files, ['src/handlers/Handler8.ts']);
+    assert.deepEqual(j.findings, [], 'a conforming file contributes no findings entry');
+    assert.deepEqual(j.cochangePartners, []);
+    assert.match(j.asOf, /^[0-9a-f]{7}/);
+  });
+
+  test(`--range reports files changed between two refs [${cmd}]`, () => {
+    const j = JSON.parse(grain([cmd, '--range', `${pairStartSha}..${pairEndSha}`, '--json']).out);
+    assert.deepEqual([...j.files].sort(), ['src/pair-a.ts', 'src/pair-b.ts']);
+  });
+
+  test(`--range with a bad ref surfaces git\'s own error instead of a silent/garbled failure [${cmd}]`, () => {
+    const r = spawnSync('node', [BIN, cmd, '--range', 'not-a-real-ref..HEAD'], { cwd: repo, encoding: 'utf8' });
+    assert.notEqual(r.status, 0);
+    assert.match(r.stderr, /\[grain\]/);
+  });
+
+  test(`a non-git directory gets one clear line instead of crashing [${cmd}]`, () => {
+    const nogit = mkdtempSync(join(tmpdir(), 'grain-review-nogit-'));
+    writeFileSync(join(nogit, 'a.ts'), 'export const a = 1;\n');
+    const r = spawnSync('node', [BIN, cmd], { cwd: nogit, encoding: 'utf8' });
+    assert.equal(r.status, 0, r.stderr);
+    assert.match(r.stdout, /not a git repository/);
+    rmSync(nogit, { recursive: true, force: true });
+  });
+}
+
+// `check <file>` (WITH a positional file argument) is a completely different path (cmdCheck, not the cmdReview
+// alias above) and must be untouched by J1.1 routing bare `check` to `review` — regression control.
+test('check <file> with a file argument still runs the single-file cmdCheck path, not the review alias', () => {
+  w('src/handlers/Handler0.ts', 'export class Handler0Handler {\n  run() {\n    return 0;\n  }\n}\n'); // decorator dropped
+  const { out, code } = grain(['check', 'src/handlers/Handler0.ts']);
   assert.equal(code, 0, out);
-  assert.notEqual(out.trim(), '');
-  assert.match(out, /clean/i, out);
-  assert.doesNotMatch(out, /also touch/, out);
-});
-
-test('--json is valid JSON with the documented top-level shape, on both a finding and the all-clean path', () => {
-  w('src/handlers/Handler8.ts', handler(8, '8000')); // conforms — the all-clean path
-  const j = JSON.parse(grain(['review', '--json']).out);
-  assert.deepEqual(j.files, ['src/handlers/Handler8.ts']);
-  assert.deepEqual(j.findings, [], 'a conforming file contributes no findings entry');
-  assert.deepEqual(j.cochangePartners, []);
-  assert.match(j.asOf, /^[0-9a-f]{7}/);
-});
-
-test('--range reports files changed between two refs', () => {
-  const j = JSON.parse(grain(['review', '--range', `${pairStartSha}..${pairEndSha}`, '--json']).out);
-  assert.deepEqual([...j.files].sort(), ['src/pair-a.ts', 'src/pair-b.ts']);
-});
-
-test('--range with a bad ref surfaces git\'s own error instead of a silent/garbled failure', () => {
-  const r = spawnSync('node', [BIN, 'review', '--range', 'not-a-real-ref..HEAD'], { cwd: repo, encoding: 'utf8' });
-  assert.notEqual(r.status, 0);
-  assert.match(r.stderr, /\[grain\]/);
-});
-
-test('a non-git directory gets one clear line instead of crashing', () => {
-  const nogit = mkdtempSync(join(tmpdir(), 'grain-review-nogit-'));
-  writeFileSync(join(nogit, 'a.ts'), 'export const a = 1;\n');
-  const r = spawnSync('node', [BIN, 'review'], { cwd: nogit, encoding: 'utf8' });
-  assert.equal(r.status, 0, r.stderr);
-  assert.match(r.stdout, /not a git repository/);
-  rmSync(nogit, { recursive: true, force: true });
+  assert.match(out, /^check src\/handlers\/Handler0\.ts —/m, out);
+  assert.doesNotMatch(out, /^review \d+ files?/m, out);
 });
 
 // The tests below append further commits to the shared fixture repo (rather than only editing the worktree, as
@@ -221,4 +235,22 @@ test('--range a..b: a file with a non-ASCII name introduced in the range is not 
   const f = j.findings.find(x => x.file === 'src/handlers/café.ts');
   assert.ok(f, `expected a findings entry for café.ts, got: ${JSON.stringify(j)}`);
   assert.ok(f.deviationsInChange.length, `expected the missing @Handler() deviation reported for café.ts in range mode: ${JSON.stringify(f)}`);
+});
+
+// J7.1: `check <file> --range a..b` (WITH a positional file argument, cmdCheck) previously ignored --range
+// entirely — no diffArgs ever reached fileFindings, and content was always read off disk instead of the range's
+// end ref, so the in-change/pre-existing split was silently computed against literal HEAD. This mirrors the
+// already-fixed `review --range` regression tests above (line 152, line 166), applied to the single-file path.
+test('check <file> --range a..b: reads content as of b (not disk) and classifies the introduced deviation as in-change, not pre-existing', () => {
+  const a = git({}, 'rev-parse', 'HEAD');
+  w('src/handlers/HandlerCheckRange.ts', 'export class HandlerCheckRangeHandler {\n  run() {\n    return 1;\n  }\n}\n'); // decorator dropped — the in-range deviation
+  git(dateEnv('2026-03-10T12:00:00Z'), 'add', '-A'); git(dateEnv('2026-03-10T12:00:00Z'), 'commit', '-qm', 'introduce HandlerCheckRange (decorator dropped)');
+  const b = git({}, 'rev-parse', 'HEAD');
+  // a disk-only edit made AFTER b (never committed): restores the decorator — if `check --range` read content off
+  // disk instead of ref b, this deviation would vanish entirely, and if diffArgs never reached fileFindings, it
+  // would be classified pre-existing (computed against literal HEAD) rather than in-change
+  w('src/handlers/HandlerCheckRange.ts', '@Handler()\nexport class HandlerCheckRangeHandler {\n  run() {\n    return 1;\n  }\n}\n');
+  const j = JSON.parse(grain(['check', 'src/handlers/HandlerCheckRange.ts', '--range', `${a}..${b}`, '--json']).out);
+  assert.ok(j.deviationsInChange && j.deviationsInChange.length, `expected the missing @Handler() reported as an in-change deviation at b, not silently ignored by --range: ${JSON.stringify(j)}`);
+  assert.equal(j.deviationsPreExisting.length, 0, `must not be misclassified as pre-existing: ${JSON.stringify(j)}`);
 });

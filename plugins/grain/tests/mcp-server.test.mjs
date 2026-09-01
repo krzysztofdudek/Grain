@@ -59,18 +59,20 @@ test('initialize handshake: a valid protocol version, the tools capability, and 
   server.notify('notifications/initialized', {}); // a notification: no response is sent for this, by design — the next request proves the server is still fine with that
 });
 
-test('tools/list returns exactly the four curated tools, each with a valid JSON-Schema inputSchema', async () => {
+test('tools/list returns exactly the six curated tools, each with a valid JSON-Schema inputSchema', async () => {
   const r = await server.send('tools/list', {});
   assert.ok(!r.error, JSON.stringify(r));
   const tools = r.result.tools;
-  assert.deepEqual(tools.map(t => t.name).sort(), ['grain_check', 'grain_report', 'grain_status', 'grain_where']);
+  assert.deepEqual(tools.map(t => t.name).sort(), ['grain_check', 'grain_how', 'grain_report', 'grain_status', 'grain_what', 'grain_where']); // grain_what joined the set with J3.3
   for (const t of tools) {
     assert.equal(typeof t.description, 'string'); assert.ok(t.description.length > 10, `${t.name} needs a real description`);
     assert.equal(t.inputSchema.type, 'object');
     assert.equal(typeof t.inputSchema.properties, 'object');
   }
   assert.deepEqual(tools.find(t => t.name === 'grain_where').inputSchema.required, ['query']);
-  assert.deepEqual(tools.find(t => t.name === 'grain_check').inputSchema.required, ['file']);
+  assert.deepEqual(tools.find(t => t.name === 'grain_how').inputSchema.required, ['query']);
+  assert.deepEqual(tools.find(t => t.name === 'grain_what').inputSchema.required, ['query']);
+  assert.equal(tools.find(t => t.name === 'grain_check').inputSchema.required, undefined); // `file` is optional (J1.5)
 });
 
 test('tools/call grain_where answers a real query the fixture is known to answer', async () => {
@@ -93,6 +95,28 @@ test('tools/call grain_check answers valid JSON for a real file', async () => {
   assert.equal(typeof data.partition, 'string');
 });
 
+test('tools/call grain_check without a "file" argument checks the whole uncommitted change (review --json shape) (J1.5)', async () => {
+  const r = await server.send('tools/call', { name: 'grain_check', arguments: {} });
+  assert.ok(!r.error, JSON.stringify(r));
+  assert.equal(r.result.isError, false);
+  const data = JSON.parse(r.result.content[0].text);
+  assert.ok(Array.isArray(data.files), JSON.stringify(data));
+  assert.ok(Array.isArray(data.findings), JSON.stringify(data));
+  assert.equal(typeof data.asOf, 'string');
+});
+
+test('tools/call grain_check rejects a non-string "file" argument even though it is now optional (J1.5)', async () => {
+  const r = await server.send('tools/call', { name: 'grain_check', arguments: { file: 123 } });
+  assert.ok(r.error, JSON.stringify(r));
+  assert.equal(r.error.code, -32602);
+});
+
+test('tools/call grain_check rejects an empty-string "file" argument even though it is now optional (J1.5)', async () => {
+  const r = await server.send('tools/call', { name: 'grain_check', arguments: { file: '' } });
+  assert.ok(r.error, JSON.stringify(r));
+  assert.equal(r.error.code, -32602);
+});
+
 test('tools/call with a deliberately bad tool name is a protocol-level error, not a crash — and the server keeps answering afterward', async () => {
   const bad = await server.send('tools/call', { name: 'grain_bogus_tool', arguments: {} });
   assert.ok(bad.error, JSON.stringify(bad));
@@ -106,10 +130,8 @@ test('tools/call with a deliberately bad tool name is a protocol-level error, no
 test('tools/call with a missing required argument is a clean protocol-level error, not a crash', async () => {
   const r1 = await server.send('tools/call', { name: 'grain_where', arguments: {} });
   assert.ok(r1.error, JSON.stringify(r1)); assert.equal(r1.error.code, -32602);
-  const r2 = await server.send('tools/call', { name: 'grain_check', arguments: {} });
-  assert.ok(r2.error, JSON.stringify(r2)); assert.equal(r2.error.code, -32602);
   const r3 = await server.send('tools/call', { name: 'grain_status', arguments: {} });
-  assert.ok(!r3.error, JSON.stringify(r3)); // survives both bad calls above
+  assert.ok(!r3.error, JSON.stringify(r3)); // survives the bad call above
 });
 
 test('tools/call grain_check on a file that does not exist is a tool EXECUTION error (isError: true), not a protocol error and not a crash', async () => {

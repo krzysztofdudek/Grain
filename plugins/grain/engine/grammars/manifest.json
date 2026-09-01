@@ -74,5 +74,21 @@
   "solidity": {
     "package": "tree-sitter-solidity",
     "version": "1.2.13"
+  },
+  "json": {
+    "package": "tree-sitter-json",
+    "version": "0.24.8"
+  },
+  "yaml": {
+    "package": "@tree-sitter-grammars/tree-sitter-yaml",
+    "version": "0.7.1"
+  },
+  "toml": {
+    "package": "@tree-sitter-grammars/tree-sitter-toml",
+    "version": "0.7.0"
+  },
+  "properties": {
+    "package": "tree-sitter-properties",
+    "version": "0.3.0"
   }
 }

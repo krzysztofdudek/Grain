@@ -33,6 +33,7 @@ test('check --json on a file with no grammar is parseable JSON carrying noGramma
   assert.equal(code, 0, err);
   const j = JSON.parse(out);
   assert.equal(j.file, 'weird.zzz'); assert.equal(j.noGrammar, '.zzz'); assert.equal(j.dirty, true); assert.ok(j.asOf);
+  assert.equal(j.schema, 'grain-check/1', `noGrammar shape must carry the published schema marker: ${JSON.stringify(j)}`);
 });
 
 test('check --json on a file outside any partition is parseable JSON carrying noPartition (red before the fix: plain text)', () => {
@@ -50,6 +51,7 @@ test('check --json on a file outside any partition is parseable JSON carrying no
     assert.equal(code, 0, err);
     const j = JSON.parse(out);
     assert.equal(j.file, 'new.ts'); assert.equal(j.noPartition, true); assert.ok(j.reason);
+    assert.equal(j.schema, 'grain-check/1', `noPartition shape must carry the published schema marker: ${JSON.stringify(j)}`);
   } finally { rmSync(tmp2, { recursive: true, force: true }); }
 });
 
@@ -70,6 +72,8 @@ test('groovy: --json carries parseFailed for the broken file, not for the empty 
   const ej = JSON.parse(grain(['check', 'empty.groovy', '--json']).out);
   assert.equal(bj.parseFailed, true); assert.equal(bj.hasError, true);
   assert.notEqual(ej.parseFailed, true);
+  assert.equal(bj.schema, 'grain-check/1', `parseFailed shape must carry the published schema marker: ${JSON.stringify(bj)}`);
+  assert.equal(ej.schema, 'grain-check/1', `the full verdict shape (empty.groovy, no parse failure) must also carry it: ${JSON.stringify(ej)}`);
 });
 
 test('check (text mode) on a normal, fully-parseable file shows no parse-degraded note', () => {
@@ -88,4 +92,5 @@ test('bats-core-style heredoc-with-a-lone-backslash: current hasError/scope-coun
   const j = JSON.parse(grain(['check', 'batscore.bash', '--json']).out);
   assert.equal(j.hasError, false);
   assert.equal(j.scopes, 3);
+  assert.equal(j.schema, 'grain-check/1', `the full verdict shape must carry the published schema marker: ${JSON.stringify(j)}`);
 });

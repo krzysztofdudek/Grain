@@ -35,11 +35,19 @@ const GRAMMARS = {
   zig:        { pkg: '@tree-sitter-grammars/tree-sitter-zig', wasm: 'tree-sitter-zig.wasm', nodeTypes: 'src/node-types.json' },
   groovy:     { pkg: 'tree-sitter-groovy',     wasm: 'tree-sitter-groovy.wasm',     nodeTypes: 'src/node-types.json' },
   solidity:   { pkg: 'tree-sitter-solidity',   wasm: 'tree-sitter-solidity.wasm',   nodeTypes: 'src/node-types.json' },
+  json:       { pkg: 'tree-sitter-json',       wasm: 'tree-sitter-json.wasm',       nodeTypes: 'src/node-types.json' },
+  yaml:       { pkg: '@tree-sitter-grammars/tree-sitter-yaml', wasm: 'tree-sitter-yaml.wasm', nodeTypes: 'src/node-types.json' },
+  toml:       { pkg: '@tree-sitter-grammars/tree-sitter-toml', wasm: 'tree-sitter-toml.wasm', nodeTypes: 'src/node-types.json' },
+  properties: { pkg: 'tree-sitter-properties',  wasm: 'tree-sitter-properties.wasm', nodeTypes: 'src/node-types.json' },
 };
 
 // Tried and left out: dart (its npm wasm does not load in web-tree-sitter 0.26), elixir, haskell, ocaml, julia,
 // powershell, fsharp (their grammars expose no name+body structure the generic binding rules can read — they would
-// yield file-level facts only, at 1–12 MB each). swift ships no prebuilt wasm.
+// yield file-level facts only, at 1–12 MB each). swift ships no prebuilt wasm. The UNSCOPED `tree-sitter-yaml` and
+// `tree-sitter-toml` packages are abandoned and ship NO wasm at all (same failure mode as Dart above) — use
+// `@tree-sitter-grammars/tree-sitter-yaml` / `@tree-sitter-grammars/tree-sitter-toml` instead. XML
+// (`@tree-sitter-grammars/tree-sitter-xml`) ships `src/node-types.json` but NO prebuilt wasm either — same failure
+// mode, declined (issue 006) rather than building wasm ourselves, which would be a separate build-tooling decision.
 const manifest = {};
 let missing = 0;
 for (const [g, spec] of Object.entries(GRAMMARS)) {

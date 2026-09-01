@@ -15,12 +15,15 @@
 //   · lifecycle per site and per convention from the replayed history (first seen, last touched, repairs/departures)
 //   · groups (roles) with members, markers, directory distribution and file-name shape — the directory grammar
 //   · markers with carriers, directories, co-change pairs with directional confidence
+//   · recurring, certified shapes of past commits (changeArchetypes), structurally identical role groups kept
+//     under different names (twins), historical rename affinity (moves), and certified value concordance
+//     (valueSiblings) — see schemaNotes for each
 // The dump is a pure function of the index (HEAD tree + history); uncommitted edits never enter it.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dirname, basename, extname } from 'node:path/posix';
 import { CFG, ENGINE_VERSION, EXTR_V } from './config.mjs';
-import { hydrateScope, addModuleScopes, applyVocab, skeyR, isBool, kt, verbalize, deviationPhrase, unitOf, scopeLabel, nameShape, valOf, shapeWords } from './core.mjs';
+import { hydrateScope, addModuleScopes, applyVocab, skeyR, isBool, kt, verbalize, deviationPhrase, unitOf, scopeLabel, nameShape, valOf, shapeWords, relCoverageData } from './core.mjs';
 
 const UNSEEN = ' ';
 const iso = ts => ts ? new Date(ts * 1000).toISOString().slice(0, 10) : null;
@@ -85,10 +88,19 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
       focus: 'the line(s) inside a site where the convention manifests. For `negated`/absence conventions there is no positive occurrence: focus is the declaration line by construction.',
       applicableNodeTypes: 'null = the enumerator is not domain-restricted (any scope of the kind is decidable); an array = only these node types can carry the surface.',
       calibration: 'available only when the history holds >= calibMinEv value-transition events inside the horizon — rare on ordinary repos; trend/lifecycle do not depend on it.',
-      archNorms: 'established layering per (source module, target module) pair, decided by the identical KT/lambda test every other convention uses (§mathematics, "Placement"): `exp` is the established majority ("true" = the module reaches the target, "false" = it does not), `ne`/`neff` its evidence and population, `share` = ne/neff. A pair absent here cleared no acceptance floor — no claim, not "false".' },
+      waivers: 'maintainer exceptions: one named scope excused from ONE surface (`pid`), recorded in .grain/seeds.jsonl. A waiver only changes how `check` SPEAKS about that deviation (a decided voice instead of an accusation) — it never enters mining or weighting, and the scope still counts as governed and non-conforming in every number here. `found: false` = the scope no longer exists at HEAD (inert).',
+      archNorms: 'established layering per (source module, target module) pair, decided by the identical KT/lambda test every other convention uses (§mathematics, "Placement"): `exp` is the established majority ("true" = the module reaches the target, "false" = it does not), `ne`/`neff` its evidence and population, `share` = ne/neff. A pair absent here cleared no acceptance floor — no claim, not "false". The in-memory model also carries finer (role-group, target module) rows (`fromKind: "group"`) — deliberately excluded here: this export\'s schema describes a (module, module) pair, and a group-level row would need a second, differently-shaped entry a consumer could not tell apart from this one without also checking `fromKind` on every row; left internal until there is a concrete consumer for it.',
+      exemplars: 'the in-memory model may attach `.why` to a convention\'s first exemplar (a one-line reason it is the canonical pattern to copy). This export deliberately drops it — `.why` is a render-facing hint, not part of the published schema.',
+      changeArchetypes: 'recurring shapes of past commits (§mathematics, "Commit archetypes"): `cells[]` is the archetype\'s FULL candidate cell bag, not only the certified ones — `certified: true` marks the cells that actually cleared the codelength test and make up the shape\'s `label`; an uncertified cell is retained because `grain how`/`grain map` match against the whole bag, and is not itself a claim.',
+      twins: 'role groups whose superposition templates anti-unify to a shared core exceeding the two sides\' non-shared remainders combined (§mathematics, "Structural twins") — the same code shape kept under two different names/directories. `namedDifferently` is present only when the two groups\' dominant name-token suffix differs.',
+      moves: 'compressed rename affinity, keyed `<file-suffix>#<name-token>`: how many times a file born under that suffix/token has historically moved from one directory to another (§mathematics, "Placement"). Lets placement advice cite a supermajority historical move without touching git history at query time.',
+      valueSiblings: 'certified value concordance (§mathematics, "Value concordance"): one entry per container (an enum, or a positionally-identified string set) whose members were found to travel together above the acceptance floor. `members` names every surviving sibling value; `norm` (present only when the co-travel itself cleared the KT/lambda test) gives the population/evidence a `kin:` gap is measured against. The raw per-value place index this is built from (`model.valueIndex` — every indexed value and everywhere it occurs, not only ones with a sibling) is NOT exported: it is internal working data on the order of `summary.valueIndexSize` entries, most of them singletons with no concordance to report; `valueSiblings`/its `norm` are the certified, bounded facts that raw index would otherwise duplicate less usefully.',
+      relCoverage: 'how much of the indexed file set the relation/architecture layer (edges/moduleGraph) can even see (§G21, same fact `report`/`status` print as the "resolution does not cover N files (...)" line): `n` files sit in a grammar with no relSupported() resolution extractor, `grammars` names which; those files still carry conventions-layer facts, only file/module edges are silent for them. Without this, "N modules · 0 directed dependencies" and a real, measured "this code imports nothing" are indistinguishable from the export alone. `n: 0, grammars: []` is the honest complete-coverage shape — read it as "no gap", never as "field not populated".' },
     indexedAt: meta?.builtAt || null, history: model.historyStats ? { ...model.historyStats, mode: meta?.historyMode || null, agentShare: model.agentShare } : null,
-    summary: { files: model.files, partitions: model.partitions.length, groups: 0, conventions: 0, scopes: 0, deviations: 0, calibrationAvailable: 0, trendAvailable: 0 },
-    steers: (model.steers || []).map(st => ({ ...st })), boundaries: model.boundaries || [], edges: model.edges || [], edgesTruncated: model.edgesTruncated || 0, moduleGraph: model.moduleGraph || { nodes: [], edges: [], cycles: [] }, archNorms: model.archNorms || [], partitions: [], conventions: [], cochange: [] };
+    summary: { files: model.files, partitions: model.partitions.length, groups: 0, conventions: 0, scopes: 0, deviations: 0, calibrationAvailable: 0, trendAvailable: 0, valueIndexSize: Object.keys(model.valueIndex || {}).length },
+    steers: (model.steers || []).map(st => ({ ...st })), boundaries: model.boundaries || [], waivers: model.waivers || [], edges: model.edges || [], edgesTruncated: model.edgesTruncated || 0, moduleGraph: model.moduleGraph || { nodes: [], edges: [], cycles: [] }, relCoverage: relCoverageData(model), archNorms: (model.archNorms || []).filter(n => n.fromKind !== 'group'), changeArchetypes: model.changeArchetypes || [], twins: model.twins || [], moves: model.moves || {},
+    valueSiblings: Object.fromEntries(Object.entries(model.valueSiblings || {}).map(([c, members]) => [c, { container: model.valueContainer?.[c] ?? null, members, norm: model.valueNorms?.[c] || null }])),
+    partitions: [], conventions: [], cochange: [] };
   const lcOf = key => H ? H.lc.get(key) || null : null;
   for (const part of model.partitions) {
     const fileSet = new Set(part.files || []);
@@ -104,9 +116,11 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
       groups: [], directories: [], markers: [], conventions: [], templates: (part.templates || []) };
     // ---- groups: the directory grammar — who belongs, where they live, how their files are named, which markers define them
     const byRole = new Map(); for (const [k, r] of Object.entries(part.assignments)) { if (r === -1) continue; (byRole.get(r) || byRole.set(r, []).get(r)).push(k); }
-    // scope key → line: fileScopes is in line order, so the k-th same-named scope of a kind in a file is ordinal k (overloads, repeated nested classes)
-    const lineOf = new Map(); for (const [rel, list] of Object.entries(part.fileScopes || {})) { const occ = new Map(); for (const [kind, name, line] of list) { const k = rel + '#' + kind + '#' + name; const o = occ.get(k) || 0; occ.set(k, o + 1); lineOf.set(k + (o ? '#' + o : ''), line); } }
+    // scope key → line/endLine: fileScopes is in line order, so the k-th same-named scope of a kind in a file is ordinal k (overloads, repeated nested classes)
+    const lineOf = new Map(); const endLineOf = new Map();
+    for (const [rel, list] of Object.entries(part.fileScopes || {})) { const occ = new Map(); for (const [kind, name, line, endLine] of list) { const k = rel + '#' + kind + '#' + name; const o = occ.get(k) || 0; occ.set(k, o + 1); const kk = k + (o ? '#' + o : ''); lineOf.set(kk, line); endLineOf.set(kk, endLine ?? null); } }
     const lineOfKey = k => lineOf.get(k) ?? null;
+    const endLineOfKey = k => endLineOf.get(k) ?? null;
     part.medoids.forEach((md, r) => { const members = (byRole.get(r) || []).sort(); if (!members.length) return;
       const dirs = new Map(); const shapes = new Map();
       for (const k of members) { const rel = k.split('#')[0]; const d = dirname(rel); dirs.set(d, (dirs.get(d) || 0) + 1); const sh = nameShape(basename(rel, extname(rel))); shapes.set(sh, (shapes.get(sh) || 0) + 1); }
@@ -116,7 +130,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
         directories: [...dirs].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).map(([dir, n]) => ({ dir, n })),
         fileNameShape: topShape ? { shape: topShape[0], words: shapeWords(topShape[0]), share: +(topShape[1] / members.length).toFixed(2) } : null,
         conventions: part.facts.filter(f => f.cid.startsWith('r' + r + ':')).map(f => part.name + '::' + f.cid + '::' + f.pid),
-        members: members.slice(0, 200).map(k => { const [rel, kind, name] = k.split('#'); return { rel, kind, name, line: lineOfKey(k) }; }) }); });
+        members: members.slice(0, 200).map(k => { const [rel, kind, name] = k.split('#'); return { rel, kind, name, line: lineOfKey(k), endLine: endLineOfKey(k) }; }) }); });
     // ---- directories that are places (≥ 8 scopes), with their local conventions
     const dirScopes = new Map(); for (const k of Object.keys(part.assignments)) { const segs = k.split('#')[0].split('/').slice(0, -1); for (let i = 1; i <= segs.length; i++) { const d = segs.slice(0, i).join('/'); dirScopes.set(d, (dirScopes.get(d) || 0) + 1); } }
     const localDirs = new Set(part.facts.filter(f => f.cid.startsWith('d[')).map(f => f.cid.slice(2, f.cid.indexOf(']'))));
@@ -125,7 +139,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
     // ---- markers with their carriers
     for (const [mk, keys] of Object.entries(part.markers || {}).sort((a, b) => a[0] < b[0] ? -1 : 1)) { const pre = mk.slice(0, mk.indexOf(':')), name = mk.slice(mk.indexOf(':') + 1);
       P.markers.push({ marker: pre === 'deco' ? (name.startsWith('[') ? name : '@' + name) : pre === 'sup' ? 'extends ' + name : 'returns ' + name, type: pre === 'deco' ? 'decorator' : pre === 'sup' ? 'supertype' : 'returnType', name,
-        carriers: keys.map(k => { const [rel, kind, nm] = k.split('#'); return { rel, kind, name: nm, line: lineOfKey(k) }; }) }); }
+        carriers: keys.map(k => { const [rel, kind, nm] = k.split('#'); return { rel, kind, name: nm, line: lineOfKey(k), endLine: endLineOfKey(k) }; }) }); }
     // ---- conventions with every site
     for (const f of part.facts) {
       const id = part.name + '::' + f.cid + '::' + f.pid; const ctx = contextOf(f.cid, part);
@@ -158,7 +172,7 @@ export function exportModel({ model, root, scopesAll, H = null, meta = null, hea
         trend: f.trend ? { shares: f.trend.shares.map(x => ({ until: iso(x.end), share: x.share, n: x.n })), attractor: f.trend.attractor, nucleating: f.trend.nucleating } : null,
         calibration: f.calib || null, lifecycle,
         sites: { conforming: conforming.length, deviating: deviating.length, firing: deviating.filter(d => d.fires).length, truncated: conforming.length > maxSites ? conforming.length - maxSites : 0 },
-        exemplars: f.exemplars,
+        exemplars: f.exemplars.map(({ why, ...e }) => e), // `.why` is render-facing only — see schemaNotes.exemplars
         conformingSites: conforming.slice(0, maxSites).map(decorate),
         deviatingSites: deviating.map(d => ({ ...decorate(d), observed: d.observed, phrase: d.phrase, novel: d.novel, gapBits: d.gapBits, fires: d.fires, risingAlternative: d.risingAlternative, nearest: nearestExemplar(d, conforming, roleOfKey) })),
         check: { scope: f.kind, context: ctx, enumerator: feat.enumerator, argument: feat.argument, expected: f.exp, negated,

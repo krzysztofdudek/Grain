@@ -66,7 +66,7 @@ test('new fallback: no same-file neighbour falls back to the nearest conforming 
   const out = grain(['check', 'src/svc/HotelOnly.ts', '--all']);
   assert.match(out, /is not annotated with `@Service`/);
   assert.doesNotMatch(out, /In this file,/, 'sanity: HotelOnly.ts has no other type-kind scope to be a same-file neighbour');
-  assert.match(out, /\n  Nearest conforming exemplar: src\/svc\/alpha\.service\.ts:2 `AlphaService`\.\n/,
+  assert.match(out, /\n  Nearest conforming exemplar: src\/svc\/alpha\.service\.ts:2–10 `AlphaService`\.\n/,
     `expected a real cross-file pointer, not silence: ${out}`);
 });
 
@@ -78,7 +78,7 @@ test('edge case: an exemplar list that (defensively) contains the deviant\'s own
   const msg = r.msgs.find(m => m.pid === 'auto.deco:@Service');
   assert.ok(msg, 'expected the deviation to still fire');
   assert.doesNotMatch(msg.text, /Nearest conforming exemplar: src\/svc\/HotelOnly\.ts/, 'must never point a file at itself');
-  assert.match(msg.text, /Nearest conforming exemplar: src\/svc\/alpha\.service\.ts:2 `AlphaService`\./, 'falls through to the next, real exemplar');
+  assert.match(msg.text, /Nearest conforming exemplar: src\/svc\/alpha\.service\.ts:2–10 `AlphaService`\./, 'falls through to the next, real exemplar');
 });
 
 test('edge case: zero exemplars available at render time falls back to the current (silent) behavior — never fabricated, never a crash', async () => {

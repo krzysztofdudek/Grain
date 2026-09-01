@@ -22,6 +22,9 @@ Everything the tool prints is a special case:
 | a partition | a cut of the directory tree that compresses the file style distributions |
 | a deviation | an instance whose pointwise codelength excess clears the loss bound |
 | drift, nucleation | the arrival process of a rule's instances along the history |
+| a commit archetype | a sub-population of past commit footprints whose codelength gain, against the whole history's own base rate, is positive |
+| a value concordance | a set of values whose joint presence across files compresses better than treating them independently |
+| a structural twin | two role groups whose anti-unified templates share a core exceeding both sides combined |
 
 ## The one loss constant
 
@@ -63,6 +66,33 @@ The vindication: the test and example name heuristics this project deleted re-em
 cut finds `examples/`, `lib/`, `test/`, `test/acceptance/`, `test/support/`; on flask it finds `docs/`, `examples/`,
 `src/`, `tests/`. No name list exists anywhere in the product.
 
+## Groups, and the ambiguous member's half vote
+
+A role group is a mixture component, so membership in one is a number rather than a fact: `m1` is a scope's weighted
+Jaccard to the nearest medoid, `m2` its best score against a genuinely different one. A scope is *ambiguous* when
+those two sit within `ambGap`, or when `m1` alone falls below `minMemb`; it fits one reading barely better than a
+rival, or fits nothing well. Ambiguity is silence. An ambiguous scope receives no role conditioned speech, is absent
+from the printed population of every role fact, and is never an exemplar, a deviant, a template instance or a profile
+member. It enters its nearest group's evidence counts at half weight, and that is the only place it enters at all.
+
+The half is a responsibility, not a hedge. A scope torn between two readings holds about half the mixture weight of
+each, and measured over 4350 ambiguous scopes in eight repositories the mean rank one responsibility m1/(m1+m2) is
+0.557, or 0.533 over the gap case alone. Crediting the nearest medoid only, at half a vote, is the soft assignment
+that number describes; the rank two contribution is dropped rather than shared, which is the conservative side.
+
+The cost is real and it runs both ways, which is the reason the weighted side was not simply aligned with the printed
+one. A group whose established members are unanimous can fail to certify because ambiguous non members disagreed: on
+flask one setup method group carries `expression_statement(call(attribute,argument_list))` in 12 of 12 established
+members and stays silent, because ambiguous scopes contribute 1.5 of opposing weight against 0.5 supporting.
+Dropping ambiguous scopes from the evidence entirely, so that the evidence population equals the governed one, was
+measured across nine repositories: 110 further facts certify and 31 stop speaking, and the 31 are the mirror image —
+groups whose ambiguous members had been agreeing. gin's `ginS` wrappers lose "these call `engine()`, 10 of 10"
+because the other wrappers in that same file, ambiguous by clustering, also call `engine()`, and it was their
+agreement that carried the fact over the bar. Ambiguous members are not noise: they agree with their group's
+established majority 91.4% of the time by weight against 95.8% for unambiguous members, and inside a cell whose
+established side is unanimous they agree 95.9%. Nor are they a fringe: they are 48.7% of every role eligible scope
+in the corpus and 29.2% of a role cell's weight.
+
 ## Superposition
 
 Every scope carries a skeleton of its syntax tree: nested scopes fold to opaque leaves so a class does not drown in
@@ -75,22 +105,69 @@ identifiers folded, so a per instance name cannot split a bucket the way it spli
 template stands only on its own terms. A template's time axis is the arrival process of its instances, read from the
 lifecycle rows without re-extracting any old blob.
 
+## Commit archetypes
+
+A commit's footprint is a feature bag — the refined module of each file it touched, the role group of each scope it
+changed, each touched file's suffix — and the same greedy MDL agglomeration that clusters scopes into role groups
+(generalised to take any feature bag, not only a scope's own) clusters footprints into recurring shapes. A cell of a
+shape is certified only when coding its rate WITHIN the shape's own members costs fewer bits than coding it at the
+rate of every footprint the history holds — a likelihood-ratio contrast against the whole population, the same
+branch `mine()` uses to test a role cell against its partition, never the uniform coin-flip null a package-wide
+predicate is judged by. A cell every commit in the repository touches carries no shape, however unanimous it is
+inside one archetype; the contrast is what tells the two apart, where a flat evidence-only test cannot. `how`'s
+certified-shape line and `missing: change shape:`'s residual cells both read straight off this certification —
+which commits cluster together is a modelling choice, not itself a claim; only which of the resulting cells survive
+the contrast is.
+
+## Value concordance
+
+An enum's members, and the string literals that appear inside one syntactic container (a switch, an object literal,
+another enum), are values; a shared container identity groups them into siblings. Whether a set of siblings
+travels together — every file carrying most of them carries all of them — is a codelength question over a
+two-outcome cell (complete carrier vs. not) coded against a flat 50/50 null, not a fitted base rate: unlike the
+language bridge below, there is no natural per-file prior for "carries the whole set". A candidate is one whole
+container, never one (container, file) or (container, value) pair, so the index cost does not grow with how many
+files a set could appear in. A file counts as carrying a member only when that member sits inside THAT container
+in THAT file, never merely somewhere in the file — reading membership globally would silently inflate both the
+sibling set and its carrier count on any repository with more than one container reusing an identifier, and was
+measured to do exactly that before the fix (see [validation.md](validation.md)).
+
+## Structural twins
+
+Two role groups' superposition templates can themselves be anti-unified against each other, the same operation
+that builds either group's own template from its members. A shared core exceeding what each side keeps to itself —
+more than half of the combined, non-shared total — makes them twins: one shape, developed twice under two
+different names or in two different directories. The threshold is the same supermajority proportion a marker's
+established value, a deviation's rejected-value verdict, and a rename's placement precedent (below) all use, not
+a distance metric invented for this one comparison.
+
 ## The language bridge
 
-Every commit is a translation pair: natural language in the message, code in the touched files. The history walk
-accumulates message token to file affinity (the bulk commit cap is the only gate; a single file commit is the
-sharpest pair there is), and `where` consults it only for query words no code card carries, always citing the
-evidence. Repo fillers such as `feat` and `fix` are demoted by document frequency over that repository's own commits,
-never by a word list.
+Every commit is a translation pair: natural language in the message, code in the touched files. A token-file pair
+is a bridge when coding the file's touched/untouched outcome at the token-conditional rate (the file's own share of
+the commits that say the token) compresses better than coding it at the file's plain base rate over the same
+commit population — the identical KT/BIC/index-cost cell every other convention uses, so evidence grows linearly
+with how many commits say the token, never demoted for being common. There is no separate filler list: a
+genuinely uninformative but frequent word (`feat`, `fix`) fails on the ratio itself — its rate on any one file
+barely differs from that file's base rate — not on a document-frequency cutoff bolted on afterward. An earlier,
+cheaper heuristic filtered by raw frequency instead; it was removed once the acceptance test alone was shown to
+reject the same filler words for the right reason, and to certify at least one bridge the heuristic had been
+discarding purely for being common. The file's base rate is counted over the SAME commit population the token's
+rate is drawn from (messages a commit actually has, mass commits aside) — counting it over every commit including
+the mass ones once silently deflated that base rate, and with it inflated the apparent strength of a token that
+merely said what most ordinary commits already say.
 
 ## Placement
 
 For a file the accepted tree does not know, three path only rules ask whether its name kin already concentrate
 somewhere else: same suffix files sharing a basename token (two thirds in one directory, none where the file is), the
 suffix subtree (80 percent under one prefix, file outside it), and the root dweller case (every kin lives one level
-deeper). Competing kin argue inside one note, strongest count first, and the note is delivered *before* the write,
-because the third agent trial measured that a note after the write loses to sunk cost. Everything is phrased as an
-observation with counts; deliberate placement is explicitly left alone.
+deeper). A fourth signal joins these once history is available: a compressed record of historical renames, grouped
+by a moved file's suffix and name token, and when a supermajority of the recorded moves out of the kin directory
+already named went the same way, the note names the destination directory as one more path already taken — counts only, same as
+the other three. Competing kin argue inside one note, strongest count first, and the note is delivered *before* the
+write, because the third agent trial measured that a note after the write loses to sunk cost. Everything is phrased
+as an observation with counts; deliberate placement is explicitly left alone.
 
 ## The honest residue
 
@@ -102,9 +179,21 @@ What remains that mathematics does not decide, on the record:
   conclusions;
 - λ = 8 itself, one interpretable constant in place of six tuned ones;
 - statistical power floors kept as compute short circuits (a partition below 30 scopes says nothing; below the raw
-  minimum, positive bits are unreachable anyway) and the clustering ambiguity constants;
+  minimum, positive bits are unreachable anyway) and the clustering ambiguity constants `ambGap`/`minMemb` (the
+  half vote those two gate is derived, not tuned — see *Groups, and the ambiguous member's half vote*);
 - the co-change thresholds `cochangeMinSup` (a pair must co-occur in at least 8 commits before it is named at all)
   and `cochangeMinConf` (a partner is spoken only once it covers 75% of the edited file's own commits) — configured
   floors in the same family as the statistical power floors above, not a conclusion the KT/λ test derives;
+- `fpsCap` (20 000 per-commit footprints retained, newest kept) and `scopePairCap` (200 scope-pairs per commit) —
+  compute/memory guards on how much of history a match-by-example query or a scope-level co-change count walks,
+  the same role `megaCap` already plays for files per commit; no MDL role, and no claim rests on where they sit;
+- `valueDfMin`/`valueDfMaxShare` — a population gate on what enters the value-concordance index (a value in one
+  file has no concordance to report; a value in a fifth of the repository is furniture, not a concept), the same
+  kind of floor as the vocabulary support constants above, not a second or third λ; whether anything is SAID about
+  a value that clears the gate is still decided downstream by the one loss constant;
+- the two-thirds supermajority — one interpretable share behind a marker's own established value, a value
+  container's certified population threshold, a structural twin's shared core, and a historical rename's placement
+  precedent, named once here rather than re-derived at each site (a role group's name-stem kinship with another
+  group uses a different, deliberately non-MDL floor — 0.6 over at least 4 members, see `impliedOf.companion`);
 - the boundary between form and meaning: grain measures the shape of code, not its semantics; two behaviourally
   identical implementations with different trees are different to it, and it never pretends otherwise.
