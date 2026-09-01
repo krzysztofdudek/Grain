@@ -38,6 +38,7 @@ import {
   valOf,
   shapeWords,
   relCoverageData,
+  decoLabel,
 } from './core.mjs';
 
 const UNSEEN = ' ';
@@ -101,11 +102,13 @@ function focusLines(lines, s, pid, exp) {
   };
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (enumerator === 'deco') {
-    const nm = argument.replace(/^[@[]|\]$/g, '');
+    // §054b: `#[` (PHP) is a two-character wrapping sigil, the same category as `@`/`[` — stripped and re-matched
+    // as a unit here too, or a PHP anchor line search would look for the never-occurring `@#[Name`/`[#[Name`.
+    const nm = argument.replace(/^(?:#\[|[@[])|\]$/g, '');
     const f = scan(
       from - 10,
       Math.min(from + 15, Math.max(to, from)),
-      new RegExp('[@[]\\s*' + esc(nm) + '\\b')
+      new RegExp('(?:#\\[|[@[])\\s*' + esc(nm) + '\\b')
     );
     return f.length ? [f[0]] : [from];
   } // the stack may sit above OR inside a multi-line declaration head
@@ -228,7 +231,7 @@ export function exportModel({
       valueSiblings:
         'certified value concordance (§mathematics, "Value concordance"): one entry per container (an enum, or a positionally-identified string set) whose members were found to travel together above the acceptance floor. `members` names every surviving sibling value; `norm` (present only when the co-travel itself cleared the KT/lambda test) gives the population/evidence a `kin:` gap is measured against. The raw per-value place index this is built from (`model.valueIndex` — every indexed value and everywhere it occurs, not only ones with a sibling) is NOT exported: it is internal working data on the order of `summary.valueIndexSize` entries, most of them singletons with no concordance to report; `valueSiblings`/its `norm` are the certified, bounded facts that raw index would otherwise duplicate less usefully.',
       relCoverage:
-        'how much of the indexed file set the relation/architecture layer (edges/moduleGraph) can even see (§G21, same fact `report`/`status` print as the "resolution does not cover N files (...)" line): `n` files sit in a grammar with no relSupported() resolution extractor, `grammars` names which; those files still carry conventions-layer facts, only file/module edges are silent for them. Without this, "N modules · 0 directed dependencies" and a real, measured "this code imports nothing" are indistinguishable from the export alone. `n: 0, grammars: []` is the honest complete-coverage shape — read it as "no gap", never as "field not populated".',
+        'how much of the indexed file set the relation/architecture layer (edges/moduleGraph) can even see (§G21, same fact `report`/`status` print as the "resolution does not cover N files (...)" line): `n` files sit in a grammar that is either missing a resolution extractor entirely, or (issue 041) registered but structurally limited to a literal `#include`-style path — never a real symbol reference, so it resolves close to nothing on a repo whose headers are not addressed relative to the including file\'s own directory; `grammars` names which. Those files still carry conventions-layer facts, only file/module edges are silent or near-silent for them. Without this, "N modules · 0 directed dependencies" and a real, measured "this code imports nothing" are indistinguishable from the export alone. `n: 0, grammars: []` is the honest complete-coverage shape — read it as "no gap", never as "field not populated".',
     },
     indexedAt: meta?.builtAt || null,
     history: model.historyStats
@@ -411,9 +414,7 @@ export function exportModel({
       P.markers.push({
         marker:
           pre === 'deco'
-            ? name.startsWith('[')
-              ? name
-              : '@' + name
+            ? decoLabel(name)
             : pre === 'sup'
               ? 'extends ' + name
               : 'returns ' + name,

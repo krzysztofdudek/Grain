@@ -7,6 +7,7 @@
 // an edge into an unindexed file is a coverage matter, never an edge).
 import { extractorForLanguage } from './vendor/relations/extractors/registry.mjs';
 import { extractCsharpRefs, assembleCsharpCandidates } from './vendor/relations/extractors/csharp.mjs';
+import { includeUses } from './vendor/relations/extractors/c-cpp-shared.mjs';
 import { SymbolTable } from './vendor/relations/symbol-table.mjs';
 import { makeResolver, resolveCandidateGroup } from './vendor/relations/resolver.mjs';
 import { makeResolvePathToFile } from './vendor/relations/resolve-path.mjs';
@@ -15,6 +16,17 @@ const SEP = '\u0001'; // a control byte, never inside a path; kept as an ESCAPE 
 const LANG = { c_sharp: 'csharp' }; // grain grammar name → extractor language id (identity otherwise)
 export const relLanguage = g => (g ? LANG[g] || g : null);
 export const relSupported = g => !!extractorForLanguage(relLanguage(g));
+// issue 041: `relSupported` alone answers "is ANY extractor registered", which is true for c/cpp — but c.mjs/cpp.mjs
+// (both vendored from Yggdrasil) are the only REL_LANGS extractors whose entire `uses` IS the shared `includeUses`
+// walker (c-cpp-shared.mjs): a `#include` grep, nothing else. Every other language's `uses` also resolves
+// call/type-ref/extends/implements/construct references through the symbol table. An include-only extractor can
+// only ever emit a `path` candidate for a literal `#include`, and `resolveIncludePath` (resolve-path.mjs) tries
+// just ONE path — relative to the including file's OWN directory — never a project include-root, so a repo whose
+// headers are addressed from a shared include/ root (leveldb's own layout, and the dominant real-world C/C++
+// convention) resolves close to nothing while `relSupported` still reads "covered". This is a STRUCTURAL fact
+// about the extractor (referential identity against the one shared function), not a hardcoded "c"/"cpp" name
+// check, so it generalizes to any future REL_LANGS extractor built the same thin way.
+export const relPathOnly = g => { const ex = extractorForLanguage(relLanguage(g)); return !!ex && ex.uses === includeUses; };
 export const REL_LANGS = [
   'typescript',
   'tsx',
