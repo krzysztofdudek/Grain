@@ -67,7 +67,14 @@ export function bindingFor(gname) {
     retField: new Map(),
     // §014 — node types shaped like a MULTI-NAME value binding with no body of its own (Go's const_spec/var_spec).
     // See the derivation rule below, in the main field loop.
-    namedValueSpec: new Set() };
+    namedValueSpec: new Set(),
+    // §016 — a callable that states, in its own signature, the NAMED TYPE it is bound to: a callable-shaped node
+    // (its own `body` AND its own `parameters`) that ALSO declares its own `receiver` field. Derived, never named:
+    // across every shipped grammar exactly one node type qualifies (Go's `method_declaration`) — Ruby's `call` also
+    // declares a `receiver`, but has neither a body nor a parameter list of its own and so is correctly excluded.
+    // Every OTHER language states the same binding by NESTING (a method inside its class/trait/impl), which is
+    // already visible to extraction; this is the one shape where the binding would otherwise be invisible.
+    rcvCallable: new Set() };
   const RESULT_EXCLUDE = new Set(['body', 'name', 'parameters', 'type_parameters', 'receiver', 'attributes']);
   for (const n of nt) {
     const f = n.fields || {};
@@ -90,7 +97,8 @@ export function bindingFor(gname) {
     // shipped grammar's own name+value-no-body node (JS/TS `variable_declarator`, Python `keyword_argument`,
     // Rust `const_item`, PHP `enum_case`, …) — every one of those binds exactly ONE name; only Go's const/var
     // spec declares `name.multiple: true`, so this fires there and nowhere else, without naming Go.
-    if (f.name && f.name.multiple && f.value && !f.body) b.namedValueSpec.add(n.type); }
+    if (f.name && f.name.multiple && f.value && !f.body) b.namedValueSpec.add(n.type);
+    if (f.body && f.parameters && f.receiver) b.rcvCallable.add(n.type); }
   // §018 phase 2 — an UNPARSED TOKEN REGION and the CALL that consists of one, both read off node-types.json:
   //   · a token region is a NAMED node type with no fields of its own whose own declared children include ITSELF
   //     — a nested, structureless run of tokens the grammar deliberately declined to analyse (Rust `token_tree`);
@@ -234,6 +242,11 @@ const DECO_ARG_RE = wordBounded(['call', 'argument', 'arguments', 'invocation'])
 // `static_modifier`, `interfaces`, `object`, `arguments`, a lone unparenthesized arrow `parameter`) — none of
 // those fields' declared child types contain the word "type" (§014/§021 log).
 const RESULT_FIELD_RE = wordBounded(['type']);
+// the identifier node types a declared TYPE reference resolves to, in document order so the OUTER name wins
+// (`Stack[T]` -> `Stack`, `Promise<void>` -> `Promise`). Hoisted to module scope: return-type extraction (§021)
+// and receiver extraction (§016) must resolve a type reference the same way, or one of them will read a generic
+// instantiation where the other reads the type.
+const TYPE_REF_ID_TYPES = ['type_identifier', 'predefined_type', 'primitive_type', 'builtin_type', 'scoped_type_identifier', 'qualified_type', 'attribute', 'dotted_name', 'scoped_identifier', 'identifier'];
 // the string-literal node types, shared by the lexical layer's quote-style scan and the value concordance (§J3.1) —
 // one list, so "what counts as a string in this repository" cannot drift between the two. `bare_key`/`quoted_key`/
 // `dotted_key` are TOML's data-grammar KEY types (JSON/YAML have no key-shaped node of their own — a JSON key IS a
@@ -400,6 +413,16 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   // REVERSE order so the first child pops first, preserving the exact visitation order `scopes` array order,
   // decoration attribution and the same-name ordinal disambiguation all depend on
   const pushKids = (node, stack) => { const kids = node.namedChildren; for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]); };
+  // §016 — the type a callable declares itself bound to. The receiver is a list of `paramLike` NAMED SLOTS, so the
+  // type is read off the slot's own `.type` field: taking the first identifier instead would record the receiver's
+  // BINDING NAME (`c` in `func (c *Context) …`), the same name-vs-type confusion §G26 fixed for named returns.
+  const ownerFor = ch => { if (!b.rcvCallable.has(ch.type)) return null;
+    const rf = ch.childForFieldName('receiver');
+    const slot = rf && rf.namedChildren.find(c2 => b.paramLike.has(c2.type));
+    const tn = slot && slot.childForFieldName('type'); if (!tn) return null;
+    const id = tn.descendantsOfType(TYPE_REF_ID_TYPES)[0] || tn;
+    const t2 = id.text.replace(/^[*&]+/, '').replace(/<.*$/, '');
+    return (t2 && t2.length <= 40) ? t2 : null; };
   const treeStack = []; pushKids(tree.rootNode, treeStack);
   while (treeStack.length) { const ch = treeStack.pop();
     if (ch.isError || ch.isMissing) continue; // a malformed node is skipped, never its ancestor (a class with one broken method keeps its other methods)
@@ -504,7 +527,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
       // this is the strongest role signal there is (measured on gin: middlewares are the functions returning
       // `HandlerFunc`, and nothing else names them)
       const rets = []; const retFieldName = b.retField.get(ch.type); const retN = retFieldName ? ch.childForFieldName(retFieldName) : null;
-      const RET_ID_TYPES = ['type_identifier', 'predefined_type', 'primitive_type', 'builtin_type', 'scoped_type_identifier', 'qualified_type', 'attribute', 'dotted_name', 'scoped_identifier', 'identifier'];
+      const RET_ID_TYPES = TYPE_REF_ID_TYPES;
       if (retN && !(bodyN && retN.id === bodyN.id)) {
         // a NAMED-RESULT node — Go `func f() (err error)`'s `parameter_list`, Scala 3's named-tuple return
         // `(name: String, age: Int)`'s `named_tuple_type`: every one of retN's OWN direct children is a `paramLike`
@@ -537,7 +560,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
       const doc = docTokens(docText);
       if (decoLits.length) for (const t of docTokens(decoLits.slice(0, 12).join(' '))) if (!doc.includes(t)) doc.push(t);
       const mods = modifiersOf(ch, b);
-      if (noBody) { scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, noBody: true, sup: [...new Set(sup)], supKind, decos: [...new Set(decos)], rets, calls: new Set(), seen: new Set(), shapes: new Set(), preds: Object.assign({ 'auto.mods': mods }, name !== '<anon>' ? { 'auto.nameshape': nameShape(name), 'auto.namesuffix': nameSuffix(name) } : {}, kind === 'type' ? { 'auto.ctorshape': ctorShape } : {}), sk: skelOf(ch, isScope) }); pushKids(ch, treeStack); continue; }
+      if (noBody) { scopes.push({ kind, name, own: kind === 'method' ? ownerFor(ch) : null, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, noBody: true, sup: [...new Set(sup)], supKind, decos: [...new Set(decos)], rets, calls: new Set(), seen: new Set(), shapes: new Set(), preds: Object.assign({ 'auto.mods': mods }, name !== '<anon>' ? { 'auto.nameshape': nameShape(name), 'auto.namesuffix': nameSuffix(name) } : {}, kind === 'type' ? { 'auto.ctorshape': ctorShape } : {}), sk: skelOf(ch, isScope) }); pushKids(ch, treeStack); continue; }
       const seen = new Set(); const calls = new Set(); const varNames = []; const stack = [...stmts]; let g = 0;
       while (stack.length && g++ < 4000) { const n = stack.pop(); seen.add(n.type);
         if (/call/.test(n.type) && n.childForFieldName('function')) { const fn = n.childForFieldName('function'); if (fn.text.length <= 40 && !fn.text.includes('\n')) calls.add(fn.text); }
@@ -556,7 +579,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         if (stmts.length >= 1) preds['auto.first1'] = stmts[0].type;
         if (retStmts.length) preds['auto.ret'] = retStmts[retStmts.length - 1].namedChildren[0]?.type || 'bare';
         if (varNames.length >= 2) { const c = {}; for (const v of varNames.slice(0, 20)) { const sh = nameShape(v); c[sh] = (c[sh] || 0) + 1; } preds['auto.varshape'] = Object.entries(c).sort((a, x) => x[1] - a[1])[0][0]; } }
-      scopes.push({ kind, name, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, sup: [...new Set(sup)], supKind, decos: [...new Set(decos)], rets, ptypes, calls, seen, shapes, preds, doc, sk: skelOf(ch, isScope) });
+      scopes.push({ kind, name, own: kind === 'method' ? ownerFor(ch) : null, rel, line: ch.startPosition.row + 1, endLine: ch.endPosition.row + 1, g: grammar, nt: ch.type, sup: [...new Set(sup)], supKind, decos: [...new Set(decos)], rets, ptypes, calls, seen, shapes, preds, doc, sk: skelOf(ch, isScope) });
       // catch/finally micro-scopes: "catch blocks here call `logger.error`" is a convention no per-method surface carries
       // (a method's call bag cannot say WHERE the logging sits); the block is its own population, named after its owner
       if (bodyN) for (const blk of bodyN.descendantsOfType(['catch_clause', 'except_clause', 'rescue', 'finally_clause', 'ensure', 'defer_statement'])) {
@@ -707,7 +730,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   for (const s of scopes) { s.imports = imports;
     // parameter types are a FACT surface, not a clustering feature: every handler takes its own `XCommand`, and putting
     // `pt:` into the bags split same-role scopes apart (measured on the fixture: the deviant fell out of its group)
-    s.feats = [...new Set([...tokenize(s.name).map(t => 'tok:' + t), ...s.sup.map(x => 'sup:' + x), ...s.decos.map(d => 'dec:' + d), ...(s.rets || []).map(x => 'ret:' + x),
+    s.feats = [...new Set([...tokenize(s.name).map(t => 'tok:' + t), ...s.sup.map(x => 'sup:' + x), ...s.decos.map(d => 'dec:' + d), ...(s.rets || []).map(x => 'ret:' + x), ...(s.own ? ['own:' + s.own] : []),
       ...[...new Set(imports.filter(i => !i.startsWith('~/')).map(i => i.split('/').pop()))].slice(0, 5).map(x => 'imp:' + x)])];
     s.ownCount = new Set([...tokenize(s.name), ...s.sup, ...s.decos, ...(s.rets || [])]).size; }
   return scopes; }
@@ -1075,7 +1098,7 @@ export function induceRoles(ps) {
   const medoids = clusters.map(c => {
     // label (display only): the three name/decorator/supertype features most shared across the cluster, not the medoid's
     // first three — a medoid named `AddressGuard` would otherwise label the whole guard role "address+guard+CanActivate"
-    const fc = new Map(); for (const i of c.members) for (const f of ps[i].feats) if (/^(tok|dec|sup):/.test(f)) fc.set(f, (fc.get(f) || 0) + 1);
+    const fc = new Map(); for (const i of c.members) for (const f of ps[i].feats) if (/^(tok|dec|sup|own):/.test(f)) fc.set(f, (fc.get(f) || 0) + 1);
     // the label may only name what a MAJORITY carries — 3 of 9 members' @UseGuards must not baptize the group
     const label = [...fc].filter(([, w2]) => w2 >= c.weight / 2).sort((x, y) => y[1] - x[1] || (x[0] < y[0] ? -1 : 1)).slice(0, 3).map(([f]) => f.slice(4)).join('+') || 'group';
     return { feats: ps[c.medoid].feats, label }; });
@@ -2247,7 +2270,7 @@ export async function learn({ root, H, seeds = [], boundaries = [], waivers = []
   model.files = files.length;
   return { model, ms: Date.now() - t0, scopes: all.length, rawScopes, treeCacheOut }; }
 // scope records round-trip through JSON (sets → sorted arrays) for the current-tree scope cache
-export const serializeScope = s => ({ kind: s.kind, name: s.name, rel: s.rel, line: s.line, endLine: s.endLine || s.line, ord: s.ord, g: s.g || null, nt: s.nt || null, noBody: !!s.noBody, doc: s.doc || [], sk: s.sk || null, sup: s.sup, supKind: s.supKind || {}, decos: s.decos, rets: s.rets || [], ptypes: s.ptypes || [], calls: [...s.calls].sort(), seen: [...s.seen].sort(), shapes: [...s.shapes].sort(), preds: { ...s.preds }, imports: s.imports, feats: s.feats, ownCount: s.ownCount, vals: s.vals || [] });
+export const serializeScope = s => ({ kind: s.kind, name: s.name, own: s.own || null, rel: s.rel, line: s.line, endLine: s.endLine || s.line, ord: s.ord, g: s.g || null, nt: s.nt || null, noBody: !!s.noBody, doc: s.doc || [], sk: s.sk || null, sup: s.sup, supKind: s.supKind || {}, decos: s.decos, rets: s.rets || [], ptypes: s.ptypes || [], calls: [...s.calls].sort(), seen: [...s.seen].sort(), shapes: [...s.shapes].sort(), preds: { ...s.preds }, imports: s.imports, feats: s.feats, ownCount: s.ownCount, vals: s.vals || [] });
 export const hydrateScope = r => ({ ...r, calls: new Set(r.calls), seen: new Set(r.seen), shapes: new Set(r.shapes), preds: { ...r.preds } });
 
 // ===== CHECK (verdict for one file against the model; hermetic — same input ⇒ same answer, no session state) =====
