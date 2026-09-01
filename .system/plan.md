@@ -5007,3 +5007,5 @@ hooków bez `claude-code-guide`. Nie zaokrągla: „N/N testów" z własnego uru
 - 2026-09-01 merged: instr/A 7375fa1
 - 2026-09-01 merged: research/G-catalog cc66d8e
 - 2026-09-01 merged: skill/director-tools-2 7ac3822
+- 2026-09-01 merged: research/where-lever a9134a1
+- 2026-09-01 merged: format/prettier 88be159

@@ -1,0 +1,2 @@
+
+## 2026-09-01 23:49 — On the leak-free stratum 36% of true files score 0 on where's lexical scale — the answer shown is ranked among cards the query happens to touch, none of which is the truth. Disclose: 'no card matches these words; the ranking below is by <what>' — the 037 pattern (an answer already weak cannot be made overconfident by saying so). Gate on measured fire rate (018/037 standard).
