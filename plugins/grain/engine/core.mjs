@@ -9131,12 +9131,18 @@ function mutate(src, f, ex) {
   }
   return null;
 }
+const PLANTABLE_PID = /^auto\.(deco|extends|imp|call):|^auto\.nameshape$/;
 export async function mutateTest({ model, root }) {
   const res = { detected: 0, missed: 0, silentOK: 0, falseFire: 0, unsupported: 0, cases: [] };
   for (const part of model.partitions) {
-    const cands = part.facts
-      .filter(f => /^auto\.(deco|extends|imp|call):|^auto\.nameshape$/.test(f.pid) && f.exemplars.length)
-      .slice(0, 16);
+    const withExemplars = part.facts.filter(f => f.exemplars.length);
+    // §046: a certified fact whose pid carries no mutation strategy below (lexical/shape/birth facts, not
+    // deco/extends/imp/call/nameshape) used to be dropped HERE, before the loop, so it never touched `unsupported`
+    // either — a repo whose only certified conventions are of such a kind (telescope.nvim: auto.has/auto.filebirth/
+    // auto.lex/auto.stshape) got a bare, unexplained 0/0/0/0 instead of an accounted "N unsupported". Count it now,
+    // without touching the plantable candidate pool or its 16-per-partition cap below.
+    for (const f of withExemplars) if (!PLANTABLE_PID.test(f.pid)) res.unsupported++;
+    const cands = withExemplars.filter(f => PLANTABLE_PID.test(f.pid)).slice(0, 16);
     for (const f of cands) {
       const ex = f.exemplars[0];
       let src;
