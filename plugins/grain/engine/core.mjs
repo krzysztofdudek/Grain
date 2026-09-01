@@ -6524,24 +6524,32 @@ function cardModule(h) {
 // STRUCTURE, not a claim (never voice()'d): the same category as the card's own unvoiced `lives in:`/`depends
 // on:`/`used by:` lines. `(layer n)` (J4.3) reads straight off the resolved moduleGraph node — omitted only if
 // the module somehow resolves to no node at all (never crashes on it).
+// §067c: the trailing `/` on the printed module is the SAME directory marker `lives in:`/`depends on:`/`used
+// by:`/a directory card's own `label` already use — `cardModule`'s `module` itself stays bare (moduleGraph node
+// ids and edge endpoints are unslashed, and this value feeds both the node lookup two lines below and the edge
+// filter), so the slash is appended only at render time, never on the value used to resolve or match anything.
+// Motivated by a real misread (question-catalog §4.1c): this `in:` line prints FIRST, one line above a file
+// card's own unambiguous `→ file <path>` header — a bare directory string sitting there un-marked let an agent
+// read the file hit that followed as if it named a place to put a new sibling file, not the file to edit.
 export function inLineForCard(model, h) {
   if (!model.moduleGraph) return null;
   const cm = cardModule(h);
   if (!cm) return null;
   const node = model.moduleGraph.nodes.find(n => n.id === cm.module);
   const k = model.moduleGraph.edges.filter(e => e.to === cm.module).length;
-  return `in: ${cm.module}${cm.suffix}${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
+  return `in: ${cm.module}/${cm.suffix}${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
 }
 // the same locator for a single checked file — the SAME refined module assignment moduleGraph's own nodes/edges
 // use (computeArchHits' own memoization pattern: a closure can't survive model.json serialization, so it is
-// recomputed once per in-memory model and cached on it, never persisted)
+// recomputed once per in-memory model and cached on it, never persisted). §067c: trailing `/` for the same reason
+// as inLineForCard above — `check <file>`'s own first line is this same locator, so it gets the same marker.
 export function inLineForFile(model, rel) {
   if (!model.moduleGraph || !model.filesAll) return null;
   const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll, model.pkgs || []));
   const mod = refined(rel);
   const node = model.moduleGraph.nodes.find(n => n.id === mod);
   const k = model.moduleGraph.edges.filter(e => e.to === mod).length;
-  return `in: ${mod}${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
+  return `in: ${mod}/${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
 }
 export function whereCmd({ model, query, top = 3, mapRows = 60, exemplarOk = () => true }) {
   const q = query;
