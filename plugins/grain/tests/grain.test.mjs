@@ -271,6 +271,26 @@ test('session-context prints one JSON envelope per runtime and never rebuilds', 
   assert.equal(elsewhere.code, 0); assert.match(elsewhere.out, /not built yet/);
 });
 
+// §067a: a real transcript (question-catalog §4.1a) had an agent see an unrelated `pnpm` command denied, generalize
+// that into "node invocations all require approval", and never attempt grain at all — because the advertised
+// invocation opened with the literal runtime name `node`. No advertised command line may open that way any more;
+// the actual `node "<path>" <cmd> ...` invocation is still given (there is no `grain` shim reliably on PATH for a
+// Claude Code plugin install — see hooks.json/hooks/*, which all shell out via `node "${PLUGIN_ROOT}/bin/grain.mjs"`),
+// but as a `Run:` aside, never as the line's first word.
+test('§067a: no advertised session-context command line opens with the runtime name `node`', () => {
+  const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
+  const cmdLines = ctx.split('\n').filter(l => /^\s*(node|grain)\b/.test(l));
+  assert.ok(cmdLines.length >= 3, `expected at least 3 advertised command lines: ${ctx}`);
+  for (const l of cmdLines)
+    assert.ok(!/^\s*node\b/.test(l), `advertised line must not open with "node" (pattern-matches other blocked runtimes): ${l}`);
+  assert.match(ctx, /grain where <intent words>/);
+  assert.match(ctx, /grain check <file>/);
+  assert.match(ctx, /grain status \| report/);
+  // the real, runnable invocation must still be present — just not leading the line
+  assert.match(ctx, /Run: `node "[^"]+grain\.mjs" where <intent words>`/);
+  assert.match(ctx, /grain is its own tool, invoked via node/);
+});
+
 test('mutation harness: planted deviations are detected, conforming exemplars stay silent', () => {
   grain(['status']);
   const res = JSON.parse(grain(['mutate-test']).out.replace(/\nas of .*$/, ''));

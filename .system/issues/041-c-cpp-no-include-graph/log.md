@@ -1,0 +1,2 @@
+
+## 2026-09-02 00:35 — fixed: relCoverageNote now folds in relPathOnly(g) (relations.mjs) — c/cpp are the only REL_LANGS extractors whose uses is exactly the shared include-only walker, so they're named alongside genuinely-unsupported grammars instead of silently passing as covered; general structural check (uses===includeUses), no other REL_LANGS language is in this state; suite 1958, 1955 pass, 0 fail, 3 todo (046/053/057 remain, 041 now green)

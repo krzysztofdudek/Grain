@@ -38,6 +38,7 @@ import {
   makeEdgeResolver,
   parseJsonc,
   relSupported,
+  relPathOnly,
 } from './relations.mjs';
 
 const S = '\u0001'; // cell-key separator (was a literal SOH byte in the prototype)
@@ -905,7 +906,9 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         // linear: walk back over decoration/comment siblings (the stack), then scan the scope's own pre-body subtree
         const decoTypes = [...b.deco];
         const limit = bodyN ? bodyN.startIndex : ch.endIndex;
-        // the sigil travels with the name: `[Test]` (C#) and `@Test` (Java/Kotlin) are different tokens and render as written.
+        // the sigil travels with the name: `[Test]` (C#), `#[Test]` (PHP) and `@Test` (Java/Kotlin) are different
+        // tokens and render as written. §054b: `#[` is the same category of sigil as `@` and `[` — a decoration
+        // marker, not a PHP special case — so it is matched by character pattern here exactly like the other two.
         // §043 — a decoration may also be written with NO sigil at all (Solidity's modifiers: `onlyOwner`), in which case
         // the whole text is a bare name, optionally applied to an argument list, and renders bare. Admitted ONLY for the
         // node types `b.decoBare` holds — the structurally-derived ones — because the node-type-NAME vocabulary that
@@ -915,13 +918,13 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         // too, never a prefix, so a bare name followed by anything else is not a decoration either.
         const take = d => {
           const t = d.text.trimStart();
-          const m = /^[@[]/.test(t)
-            ? t.match(/^[@[]\s*([\w.]+)/)
+          const m = /^(?:#\[|[@[])/.test(t)
+            ? t.match(/^(?:#\[|[@[])\s*([\w.]+)/)
             : b.decoBare.has(d.type)
               ? t.match(/^([A-Za-z_$][\w.$]*)\s*(?:\(|$)/)
               : null;
           if (m) {
-            decos.push(t[0] === '[' ? '[' + m[1] + ']' : m[1]);
+            decos.push(t.startsWith('#[') ? '#[' + m[1] + ']' : t[0] === '[' ? '[' + m[1] + ']' : m[1]);
             if (decoLits.length < 12)
               for (const lm of t.matchAll(/["'`]([^"'`\n]{1,60})["'`]/g)) decoLits.push(lm[1]);
           }
@@ -2086,6 +2089,11 @@ const inGrammar = (s, nt) => {
   const b = bindings[s.g];
   return !b || b.nodeTypes.has(nt);
 };
+// a deco string already carries its own wrapping sigil — `[Route]` (C#), `#[AsCommand]` (PHP) — versus a bare
+// name (`Test`) that still needs its `@` prefix reconstructed wherever a deco is turned into a pid or a display
+// label (§054b: `#[` joins `[` here as a self-delimiting sigil, the same way it joined `take()`'s sigil test above).
+export const decoSigiled = d => d[0] === '[' || d.startsWith('#[');
+export const decoLabel = d => (decoSigiled(d) ? d : '@' + d);
 export function applyVocab(s, vb) {
   if (BODY_KINDS.has(s.kind) && !s.noBody) {
     for (const nt of vb.NT)
@@ -2099,8 +2107,7 @@ export function applyVocab(s, vb) {
   // must be counted over classes, not over classes+interfaces; a method extends nothing at all)
   const inDom = (list, nt) => !list || !nt || list.includes(nt);
   if (s.kind !== 'file' && inDom(vb.DNT, s.nt))
-    for (const d of vb.DECO)
-      s.preds['auto.deco:' + (d.startsWith('[') ? d : '@' + d)] = s.decos.includes(d) ? 'true' : 'false';
+    for (const d of vb.DECO) s.preds['auto.deco:' + decoLabel(d)] = s.decos.includes(d) ? 'true' : 'false';
   if (s.kind === 'type' && inDom(vb.ENT, s.nt))
     for (const e of vb.EXT) s.preds['auto.extends:' + e] = s.sup.includes(e) ? 'true' : 'false';
   if (s.kind === 'method' && inDom(vb.RNT, s.nt))
@@ -4159,7 +4166,7 @@ export async function learn({
       const dc = new Map();
       for (const s2 of cs) for (const d of s2.decos) if (d !== own) dc.set(d, (dc.get(d) || 0) + 1);
       for (const [d, k] of [...dc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 2))
-        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${d.startsWith('[') ? d : '@' + d} (${k}/${n})`);
+        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${decoLabel(d)} (${k}/${n})`);
       const cc = new Map();
       for (const s2 of cs) for (const c2 of s2.calls) cc.set(c2, (cc.get(c2) || 0) + 1);
       for (const [c2, k] of [...cc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3))
@@ -5710,8 +5717,37 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       lead = null,
       detail;
     if (sc.m1 < CFG.minMemb) {
-      key = `nogroup#${s.kind}`;
-      detail = `matched no group (best ${sc.m1.toFixed(2)}, floor ${CFG.minMemb})`;
+      // (§047) below the floor is where exclusion is worst: the very feature a clean deviation omits is what
+      // similarity assignment leans on, so a member that cleanly violates a convention can score BELOW its own
+      // group's floor and never reach the population that would judge it. No accusation is made here (that
+      // would resurrect the rejected leave-one-feature-out fix) — this is the same disclosure the bestCert/
+      // secondCert branches below already make for an ambiguous scope, extended to the below-floor case using
+      // the identical certN/groupDesc reads, no new threshold.
+      //
+      // Measured (5-repo fire-rate check, 047): a bare certN>0 gate fires on every weak, near-universal role fact
+      // too (`returns:void`, `returns:t.Any`) — double digits on two of three corpora, one real group cited for a
+      // dozen unrelated scopes each. The fix reuses `Math.log2(CFG.lambda)` — the SAME bar `d < tau ||
+      // Math.log2(CFG.lambda)` already applies to every deviation accusation in this function — against the
+      // cited fact's own `bpi` (already computed by mine(), never recomputed here): a fact mine() itself would
+      // not consider strong enough to accuse a deviation over is not strong enough to name as "the nearest
+      // certifying group" either. This is the identical comparator, not a new one. It costs the real OZ
+      // `@onlyOwner` example nothing (bpi 5.63, comfortably clears it) while removing the generic-marker noise
+      // (bpi 1.4–2.7 on every measured false lead).
+      const strongCert = idx => roleFacts(idx, s.kind).some(f => f.bpi >= Math.log2(CFG.lambda));
+      const bestCert = strongCert(sc.best),
+        secondCert = sc.second >= 0 && strongCert(sc.second);
+      if (bestCert) {
+        lead = sc.best;
+        key = `nogroup#${s.kind}#${lead}`;
+        detail = `matched no group (best ${sc.m1.toFixed(2)}, floor ${CFG.minMemb}) — the nearest certifying group is ${groupDesc(sc.best, s.kind)} at ${sc.m1.toFixed(2)}`;
+      } else if (secondCert) {
+        lead = sc.second;
+        key = `nogroup#${s.kind}#${lead}`;
+        detail = `matched no group (best ${sc.m1.toFixed(2)}, floor ${CFG.minMemb}) — the nearest certifying group is ${groupDesc(sc.second, s.kind)} at ${sc.m2.toFixed(2)}`;
+      } else {
+        key = `nogroup#${s.kind}`;
+        detail = `matched no group (best ${sc.m1.toFixed(2)}, floor ${CFG.minMemb})`;
+      }
     } else {
       const bestCert = certN(sc.best, s.kind) > 0,
         secondCert = sc.second >= 0 && certN(sc.second, s.kind) > 0;
@@ -6343,15 +6379,13 @@ export function buildCards(model) {
       const degenerate = carrierNames.size === 1 && keys.length > 1; // three fixtures all named `test` are not a pattern to copy (three commands in one cli.py are)
       const label =
         pre === 'deco'
-          ? name.startsWith('[')
-            ? name
-            : '@' + name
+          ? decoLabel(name)
           : pre === 'sup'
             ? `extends ${name}`
             : `returns ${name}`;
       const mpid =
         pre === 'deco'
-          ? 'auto.deco:' + (name.startsWith('[') ? name : '@' + name)
+          ? 'auto.deco:' + decoLabel(name)
           : pre === 'sup'
             ? 'auto.extends:' + name
             : 'auto.returns:' + name;
@@ -6540,24 +6574,32 @@ function cardModule(h) {
 // STRUCTURE, not a claim (never voice()'d): the same category as the card's own unvoiced `lives in:`/`depends
 // on:`/`used by:` lines. `(layer n)` (J4.3) reads straight off the resolved moduleGraph node — omitted only if
 // the module somehow resolves to no node at all (never crashes on it).
+// §067c: the trailing `/` on the printed module is the SAME directory marker `lives in:`/`depends on:`/`used
+// by:`/a directory card's own `label` already use — `cardModule`'s `module` itself stays bare (moduleGraph node
+// ids and edge endpoints are unslashed, and this value feeds both the node lookup two lines below and the edge
+// filter), so the slash is appended only at render time, never on the value used to resolve or match anything.
+// Motivated by a real misread (question-catalog §4.1c): this `in:` line prints FIRST, one line above a file
+// card's own unambiguous `→ file <path>` header — a bare directory string sitting there un-marked let an agent
+// read the file hit that followed as if it named a place to put a new sibling file, not the file to edit.
 export function inLineForCard(model, h) {
   if (!model.moduleGraph) return null;
   const cm = cardModule(h);
   if (!cm) return null;
   const node = model.moduleGraph.nodes.find(n => n.id === cm.module);
   const k = model.moduleGraph.edges.filter(e => e.to === cm.module).length;
-  return `in: ${cm.module}${cm.suffix}${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
+  return `in: ${cm.module}/${cm.suffix}${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
 }
 // the same locator for a single checked file — the SAME refined module assignment moduleGraph's own nodes/edges
 // use (computeArchHits' own memoization pattern: a closure can't survive model.json serialization, so it is
-// recomputed once per in-memory model and cached on it, never persisted)
+// recomputed once per in-memory model and cached on it, never persisted). §067c: trailing `/` for the same reason
+// as inLineForCard above — `check <file>`'s own first line is this same locator, so it gets the same marker.
 export function inLineForFile(model, rel) {
   if (!model.moduleGraph || !model.filesAll) return null;
   const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll, model.pkgs || []));
   const mod = refined(rel);
   const node = model.moduleGraph.nodes.find(n => n.id === mod);
   const k = model.moduleGraph.edges.filter(e => e.to === mod).length;
-  return `in: ${mod}${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
+  return `in: ${mod}/${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
 }
 export function whereCmd({
   model,
@@ -6782,7 +6824,7 @@ export function whereCmd({
             .slice(0, 5)
             .map(
               ([mk, n]) =>
-                `${mk.startsWith('deco:') ? (mk.slice(5).startsWith('[') ? mk.slice(5) : '@' + mk.slice(5)) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
+                `${mk.startsWith('deco:') ? decoLabel(mk.slice(5)) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
             )
             .join(' · ')}`
         );
@@ -8043,14 +8085,19 @@ export const TEMPLATE_DESCRIPTIVE_NOTE =
 // how much of the indexed file set the relation/architecture layer can even see — a grammar with no relSupported()
 // extractor contributes file/module edges of exactly zero, indistinguishable from a real, measured "this language
 // imports nothing" without this disclosure; pure render from data the model already has, zero heuristics about
-// WHICH languages (driven entirely by relSupported's own capability list) (§G21). The {n, grammars} shape is
-// exported (not just the prose below) so export.mjs (§027) can carry the identical fact `report`/`status` print —
-// one function computes it, so the two surfaces can never drift apart the way rules/report once did (§007).
+// WHICH languages (driven by relSupported's capability list, and relPathOnly's — relations.mjs, issue 041 — for
+// an extractor that IS registered but can only ever see a literal #include-style path, never a real symbol
+// reference) (§G21). `relSupported(g) && !relPathOnly(g)` is "genuinely covered"; either false lands a grammar in
+// `uncovered` — a path-only extractor's near-total real-world resolution failure (leveldb: 0 of 134 files'
+// dependencies computed, issue 041) must never read as "resolution covers this, the code just imports nothing".
+// The {n, grammars} shape is exported (not just the prose below) so export.mjs (§027) can carry the identical
+// fact `report`/`status` print — one function computes it, so the two surfaces can never drift apart the way
+// rules/report once did (§007).
 export function relCoverageData(model) {
   const uncovered = new Map(); // grammar name -> file count
   for (const f of model.filesAll || []) {
     const g = EXT2GRAMMAR[extname(f)];
-    if (g && !relSupported(g)) uncovered.set(g, (uncovered.get(g) || 0) + 1);
+    if (g && (!relSupported(g) || relPathOnly(g))) uncovered.set(g, (uncovered.get(g) || 0) + 1);
   }
   const n = [...uncovered.values()].reduce((a, b) => a + b, 0);
   return { n, grammars: [...uncovered.keys()].sort() };
@@ -8685,24 +8732,44 @@ export function completeness(model, changed) {
     ? [`[grain] Edits like this historically also touch:`, ...[...exp].slice(0, 5).map(x => '  - ' + x)]
     : ['(complete)'];
 }
-// the same loop and CFG.cochangeMinConf threshold `completenessDirectional` has always used, factored out so
-// `missingLines` and `check-hook` can read the same DATA `completeness <file>` prints — never `cochangePartners`
-// above, whose single-file mode leans on a deliberately looser threshold (1/3) that would silently change what
-// `review`/`check-hook` consider a real partner
+// the same loop `completenessDirectional` has always used, factored out so `missingLines` and `check-hook` can
+// read the same DATA `completeness <file>` prints.
+// §063: gated/ranked by the MAX of the two directional confidences, never the changed side's own forward
+// confidence alone — a heavily-committed hub's own commit count as denominator makes even a near-certain partner
+// read as noise (support=8, commitsA=392 -> 0.02) while the partner's OWN base rate (support=8, commitsB=10 ->
+// 0.80, "when the partner changes, the hub changes 80% of the time") shows the real signal. A single changed file
+// (completeness <file>, check <file>, both hooks) also gets the SAME looser 1/3 floor `cochangePartners`'s own
+// single-file mode already uses below ("one file's history is sparse; a third of its commits is a real signal")
+// — this function was the one place that floor was deliberately withheld, which is exactly what made
+// `completeness` disagree with `where` on the same file (44 of the 45 hottest files in the measured corpus got a
+// false "no file historically changes with these" — see .system/research/question-catalog.md §3.2). A multi-file
+// `changed` set (`review` over several touched files) keeps the stricter CFG.cochangeMinConf: more files already
+// means more corroborating evidence, so the sparse-history case for the looser floor doesn't apply.
 export function cochangeData(model, changed) {
   const hits = new Map();
   // §023: same liveness source and idiom as `cochangePartners`'s own `live` (core.mjs ~2552, added for §020) and
   // `howCmd`'s places[] `exists` flag (~2817) — one house-wide answer to "is this path still here at HEAD", never
   // a second/third liveness check invented per renderer.
   const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
-  for (const c of model.cochange)
+  const minConf = changed.length === 1 ? 1 / 3 : CFG.cochangeMinConf;
+  for (const c of model.cochange) {
+    const confAB = c.sup / (c.commitsA || 1),
+      confBA = c.sup / (c.commitsB || 1);
+    if (Math.max(confAB, confBA) < minConf) continue;
+    // report the denominator of whichever direction actually cleared the bar — the honest number, not always
+    // the changed side's own count (§063: `test/res.attachment.js (8/10)`, not the hub's own `8/392`)
+    const commits = confAB >= confBA ? c.commitsA || c.sup : c.commitsB || c.sup;
     for (const f of changed) {
-      if (c.a === f && !changed.includes(c.b) && c.sup / (c.commitsA || 1) >= CFG.cochangeMinConf)
-        hits.set(c.b, { file: c.b, sup: c.sup, commits: c.commitsA || c.sup, dead: !live.has(c.b) });
-      if (c.b === f && !changed.includes(c.a) && c.sup / (c.commitsB || 1) >= CFG.cochangeMinConf)
-        hits.set(c.a, { file: c.a, sup: c.sup, commits: c.commitsB || c.sup, dead: !live.has(c.a) });
+      if (c.a === f && !changed.includes(c.b)) hits.set(c.b, { file: c.b, sup: c.sup, commits, dead: !live.has(c.b) });
+      if (c.b === f && !changed.includes(c.a)) hits.set(c.a, { file: c.a, sup: c.sup, commits, dead: !live.has(c.a) });
     }
-  return [...hits.values()].sort((a, b) => (a.file < b.file ? -1 : a.file > b.file ? 1 : 0));
+  }
+  // strongest partner first (confidence, then raw support), file only as the final tiebreak — under the looser
+  // single-file floor there can be more than 5 candidates, and slice(0,5) below must keep the best ones, not
+  // whichever sort alphabetically first
+  return [...hits.values()].sort(
+    (a, b) => b.sup / b.commits - a.sup / a.commits || b.sup - a.sup || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0)
+  );
 }
 // scope-level co-change for `check <file>` (§J5.7b): the same directional-confidence test cochangeData applies to
 // file pairs, over model.scopeCochange's SCOPE-key pairs instead — every pair with a scope in the checked file,
@@ -8737,22 +8804,24 @@ export function scopeCochangeLines(model, rel, partitionName) {
       )
     );
 }
-// stable contract: the standalone `completeness <file>` command prints this text verbatim — do not change it
-// (§023: except the new `(deleted)` marker on a dead partner, which the ticket's own acceptance requires — the
-// live-partner case below is byte-for-byte unchanged, so the frozen contract holds for every fixture that predates it)
+// stable contract: the standalone `completeness <file>` command prints this text verbatim on a hit — do not
+// change it (§023: except the new `(deleted)` marker on a dead partner, which the ticket's own acceptance
+// requires — the live-partner case below is byte-for-byte unchanged, so the frozen contract holds for every
+// fixture that predates it). The NO-hit case changed under §063: never certify `(complete)` — that phrase claims
+// an absence this model cannot actually see (44 of the 45 hottest files in the measured corpus got exactly that
+// false claim). Name the threshold that was actually applied instead.
 export function completenessDirectional(model, changed) {
-  // partner named only from the edited side's own confidence
+  // ranked by the max of the two directional confidences — see cochangeData's own §063 comment
   const hits = cochangeData(model, changed);
-  return hits.length
-    ? [
-        `[grain] Edits like this historically also touch:`,
-        ...hits
-          .slice(0, 5)
-          .map(
-            h => `  - ${h.file}${h.dead ? ' (deleted)' : ''} (co-changed in ${h.sup}/${h.commits} commits)`
-          ),
-      ]
-    : ['(complete — no file historically changes with these)'];
+  if (hits.length)
+    return [
+      `[grain] Edits like this historically also touch:`,
+      ...hits
+        .slice(0, 5)
+        .map(h => `  - ${h.file}${h.dead ? ' (deleted)' : ''} (co-changed in ${h.sup}/${h.commits} commits)`),
+    ];
+  const minConf = changed.length === 1 ? 1 / 3 : CFG.cochangeMinConf;
+  return [`no partner above ${pct(minConf)}% co-change confidence`];
 }
 // the recipe half of `missingLines`: a NEW file's own carried marker (decorator/supertype/return type) or group role
 // borrows exactly the "a new carrier/member comes with" mechanism `whereCmd` already reads off markerImplied/

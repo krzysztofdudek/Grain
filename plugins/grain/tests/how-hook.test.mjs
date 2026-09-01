@@ -13,6 +13,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { readHistoryState, writeHistoryState } from '../engine/history.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -111,16 +112,17 @@ test('the same matching prompt repeated within the TTL stays silent the second t
   assert.equal(r2.out, '', 'a repeat landing on the same matched commits must stay silent inside the TTL window');
 });
 
-test('a stale history.json (lastSha no longer HEAD) makes the hook bail cleanly, and never rewrites it', () => {
+test('a stale history.json (lastSha no longer HEAD) makes the hook bail cleanly, and never rewrites it', async () => {
   rmSync(seenPath(), { force: true });
-  const raw = readFileSync(historyPath(), 'utf8');
-  const state = JSON.parse(raw); state.lastSha = 'f'.repeat(40);
-  writeFileSync(historyPath(), JSON.stringify(state));
+  const raw = readFileSync(historyPath(), 'utf8'); // backup for exact restore — format-agnostic
+  const state = await readHistoryState(historyPath()); state.lastSha = 'f'.repeat(40);
+  await writeHistoryState(historyPath(), state);
+  const tampered = readFileSync(historyPath(), 'utf8');
   try {
     const r = hook('please add status');
     assert.equal(r.code, 0, r.err);
     assert.equal(r.out, '', 'a stale history state must never speak, and must never trigger a walk to refresh itself');
-    assert.equal(readFileSync(historyPath(), 'utf8'), JSON.stringify(state), 'the hook must never write history.json');
+    assert.equal(readFileSync(historyPath(), 'utf8'), tampered, 'the hook must never write history.json');
   } finally { writeFileSync(historyPath(), raw); }
 });
 

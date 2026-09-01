@@ -55,6 +55,9 @@ import { fileURLToPath } from 'node:url';
 // READ-ONLY import: used only to assert a healed cache file was restamped with the LIVE constant, never assigned
 // to, never used to "bump" anything — the whole point of this file is testing a bump from the OUTSIDE.
 import { EXTR_V, HIST_V, MODEL_V } from '../engine/config.mjs';
+// history.json is newline-delimited, not one JSON object (§055) — read/written through history.mjs's own
+// (de)serializer everywhere below, never through the generic readJ/writeJ this file uses for every other cache file.
+import { readHistoryState, writeHistoryState } from '../engine/history.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -151,13 +154,13 @@ test('HIST_V — persisted history replay is version-gated separately from the b
   buildFixture(repo);
   refreshOk(repo);
   const histPath = join(cacheDir(repo), 'history.json'), blobsDir = join(cacheDir(repo), 'blobs');
-  const hist0 = readJ(histPath);
+  const hist0 = await readHistoryState(histPath);
   assert.equal(hist0.h, HIST_V, 'fixture sanity'); assert.equal(hist0.x, EXTR_V, 'fixture sanity');
   const realCommits = hist0.commits;
   assert.ok(realCommits >= 2, 'fixture sanity: two real commits must have been walked');
 
-  await t.test('negative control: an unchanged HEAD serves the persisted replay state (and its tamper) straight off disk', () => {
-    const hist = readJ(histPath); hist.commits = 424242; writeJ(histPath, hist); // sentinel: a value the real walk could never produce
+  await t.test('negative control: an unchanged HEAD serves the persisted replay state (and its tamper) straight off disk', async () => {
+    const hist = await readHistoryState(histPath); hist.commits = 424242; await writeHistoryState(histPath, hist); // sentinel: a value the real walk could never produce
     const shardsBefore = jsonShards(blobsDir).map(f => [f, readFileSync(join(blobsDir, f), 'utf8')]);
     const histMtimeBefore = mtimeOf(histPath);
 
@@ -168,16 +171,16 @@ test('HIST_V — persisted history replay is version-gated separately from the b
     assert.equal(mtimeOf(histPath), histMtimeBefore, 'an "unchanged" replay (mode=unchanged) must not even rewrite history.json');
     for (const [f, content] of shardsBefore) assert.equal(readFileSync(join(blobsDir, f), 'utf8'), content, `blob shard ${f} must be untouched on an unchanged-HEAD refresh`); });
 
-  await t.test('invalidation: a stale recorded history version forces a full re-walk, but the blob cache is kept', () => {
-    const hist = readJ(histPath); assert.equal(hist.commits, 424242, 'carry the previous sentinel forward — this subtest is what must erase it');
-    hist.h = 'STALE-' + HIST_V; writeJ(histPath, hist); // simulate a HIST_V bump from the outside
+  await t.test('invalidation: a stale recorded history version forces a full re-walk, but the blob cache is kept', async () => {
+    const hist = await readHistoryState(histPath); assert.equal(hist.commits, 424242, 'carry the previous sentinel forward — this subtest is what must erase it');
+    hist.h = 'STALE-' + HIST_V; await writeHistoryState(histPath, hist); // simulate a HIST_V bump from the outside
     const shardsBefore = jsonShards(blobsDir).map(f => [f, readFileSync(join(blobsDir, f), 'utf8'), mtimeOf(join(blobsDir, f))]);
 
     refreshOk(repo);
     const status = JSON.parse(grainIn(repo, ['status', '--json']).out);
     assert.equal(status.history.commits, realCommits,
       'INVALIDATION: a stale recorded history version must force a full re-walk that recomputes the real commit count, discarding the sentinel');
-    const healed = readJ(histPath);
+    const healed = await readHistoryState(histPath);
     assert.equal(healed.h, HIST_V, 'grain must restamp the live history-replay version'); assert.equal(healed.x, EXTR_V, 'extractor field must be untouched/correct too');
     for (const [f, content, mt] of shardsBefore) {
       assert.equal(readFileSync(join(blobsDir, f), 'utf8'), content,
