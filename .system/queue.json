@@ -1,0 +1,264 @@
+{
+  "items": [
+    {
+      "id": 1,
+      "ticket": "instr/F corpus-ladder",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "instr/corpus-ladder",
+      "state": "running",
+      "note": "waiting on its Symfony full-history ladder run (the completed:false row we want)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 2,
+      "ticket": "research/where-lever",
+      "kind": "research",
+      "agent": "opus",
+      "branch": "research/where-lever",
+      "state": "running",
+      "note": "leak-free failure attribution by evidence source; ≤3 lever experiments",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 3,
+      "ticket": "063",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/063",
+      "state": "queued",
+      "note": "WAVE 3 #1 completeness: max directional confidence, print number, never (complete)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 4,
+      "ticket": "067",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/067",
+      "state": "queued",
+      "note": "WAVE 3 #2 adoption: grain shim, sub-agent advertisement, file-vs-dir wording; no engine work",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 5,
+      "ticket": "064",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/064",
+      "state": "queued",
+      "note": "WAVE 3 #3 used by: names from model.edges",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 6,
+      "ticket": "065",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/065",
+      "state": "queued",
+      "note": "WAVE 3 #4 tested by: on what",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 7,
+      "ticket": "066",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/066",
+      "state": "queued",
+      "note": "WAVE 3 #5 how liveness filter + map --json changes/concepts (folds 051)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 8,
+      "ticket": "047",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/047",
+      "state": "queued",
+      "note": "HIGH below-floor disclosure naming nearest certifying group; gated on fire rate (spec in ticket)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 9,
+      "ticket": "054a",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/054a",
+      "state": "queued",
+      "note": "HIGH shallow-clone gate kills 14,674 accepted cells; key on need not shallow flag",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 10,
+      "ticket": "054b",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/054b",
+      "state": "queued",
+      "note": "HIGH PHP #[ sigil in deco regex; EXTR_V",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 11,
+      "ticket": "055",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/055",
+      "state": "queued",
+      "note": "HIGH chunked history serialisation + loud failure; history.mjs JSON.stringify V8 cap",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 12,
+      "ticket": "041",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/041",
+      "state": "queued",
+      "note": "HIGH coverage note must not certify absence; floor = truthful note (D fixture todo)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 13,
+      "ticket": "057",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/057",
+      "state": "queued",
+      "note": "HIGH what honest-negative consults no-grammar files; explain no-grammar≠no-scopes (D fixture todo)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 14,
+      "ticket": "059",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/059",
+      "state": "queued",
+      "note": "HIGH PHP PSR-4 use edges unresolved",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 15,
+      "ticket": "062",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/062",
+      "state": "queued",
+      "note": "HIGH qualified heritage takes namespace (049-class)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 16,
+      "ticket": "050",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/050",
+      "state": "queued",
+      "note": "Scala object_definition not type-like; derive + all-23-grammar test",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 17,
+      "ticket": "053",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/053",
+      "state": "queued",
+      "note": "review drops check's parse-degraded caveat (D fixture todo)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 18,
+      "ticket": "046",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/046",
+      "state": "queued",
+      "note": "selftest 0/0/0/0 must say why (D fixture todo)",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 19,
+      "ticket": "061",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/061",
+      "state": "queued",
+      "note": "catch/finally scope named by parent",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 20,
+      "ticket": "042",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/042",
+      "state": "queued",
+      "note": "style convention file-vs-literal granularity",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 21,
+      "ticket": "052",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/052",
+      "state": "queued",
+      "note": "what siblings precision, 044 method",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 22,
+      "ticket": "056",
+      "kind": "measure",
+      "agent": "sonnet",
+      "branch": "research/056",
+      "state": "queued",
+      "note": "data-grammar keys as declarations? decide, document",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 23,
+      "ticket": "058",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/058",
+      "state": "queued",
+      "note": "JSON scored against PHP-shaped cells; grammar-scoped populations",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 24,
+      "ticket": "060",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/060",
+      "state": "queued",
+      "note": "Scala braced-package/DI ctor error swallows nested object",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 25,
+      "ticket": "048",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/048",
+      "state": "queued",
+      "note": "low: @ sigil rendered for sigil-less languages",
+      "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 26,
+      "ticket": "instr/C cross-check",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "instr/cross-check",
+      "state": "queued",
+      "note": "all surface pairs text⇔json, report⇔rules, check⇔review, map⇔report",
+      "updated": "2026-09-01 23:46"
+    }
+  ]
+}

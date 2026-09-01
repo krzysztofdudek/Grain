@@ -1,0 +1,2 @@
+
+## 2026-09-01 23:45 — 049-class shape, still real on main after 049 landed: test/helpers/signers.js:6 'extends ethers.AbstractSigner' → sup 'ethers'; Java FQN variant at GuiceApplicationLoaderTest.java:74. Fix in the same place as 049's argRe: within a heritage clause prefer the LAST name-shaped child of a qualified/member expression, derived from node-types.json (member_expression/scoped_identifier field shapes), no language names. Test per grammar that has a qualified-name node.
