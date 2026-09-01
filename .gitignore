@@ -1,4 +1,5 @@
 .temp/
+.system/cache/
 node_modules/
 .grain/
 .DS_Store
