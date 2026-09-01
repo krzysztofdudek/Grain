@@ -7906,10 +7906,13 @@ export function howEval({ model, H, root, last = 100 }) {
 //     token with the query: the half no name matcher can win, reported BESIDE the pooled numbers, never instead
 //     of them. Together with the baseline arm that is two independent controls on the one confound this ground
 //     truth cannot remove — the query and the answer were written by the same person in the same sitting.
-// Returns { where, base, unnamed: { n, where, base }, n, silent }, each arm { hit3, mrr, place3 }: `n` is the
-// candidate count, `silent` counts candidates where `where` ranked nothing at all (a genuine no-match or the
-// concentration safeguard suppressing an untrustworthy top hit — both still count as a 0, or the gate would be
-// gameable by staying quiet on everything hard).
+// Returns { where, base, unnamed: { n, where, base }, n, silent }, each arm { hit3, mrr, place3, placeWidth }: `n`
+// is the candidate count, `silent` counts candidates where `where` ranked nothing at all (a genuine no-match or
+// the concentration safeguard suppressing an untrustworthy top hit — both still count as a 0, or the gate would
+// be gameable by staying quiet on everything hard). `place3` discounts a containment-only credit by 1/cardWidth
+// (§068) so a directory or group wide enough to cover most of the repository cannot pass as a precise hit;
+// `placeWidth` is the mean file-count of the cards actually credited, printed beside place3 so that artifact is
+// visible directly instead of requiring a researcher to dig it out by hand.
 export function whereEval({ model, H, last = 100 }) {
   const DEPTH = 10; // the ranked list is read this deep: `hit3`/`place3` are the product's OWN default `--top 3`; the rest of the depth is there so `mrr` can tell "just missed" from "nowhere at all"
   const fps = (H && H.fps) || [];
@@ -7969,6 +7972,26 @@ export function whereEval({ model, H, last = 100 }) {
     return v;
   };
   const dirOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '.');
+  // §068 — `place` was gameable by card width: a directory or group card wide enough to cover most of the
+  // repository contains the truth file almost by construction, so crediting it the same 1 a precise hit earns
+  // measures the harness's own leniency, not the ranker (found live: a candidate "card" was 64% of its repo).
+  // `cardWidth` is the number of DISTINCT files the credited card actually spans — a directory's own `files`
+  // list, or the distinct file paths behind a group/marker's member scopes — with no reference to total repo
+  // size and no tunable cutoff: a card of its own single file (== a `hit`) is width 1 and keeps full credit: the
+  // discount is purely the card's own composition, structurally derived, never a hardcoded number.
+  const cardWidth = h => {
+    if (h.type === 'directory') return (h.files && h.files.length) || 1;
+    const files = new Set((h.members || []).map(k => String(k).split('#')[0]));
+    return files.size || 1;
+  };
+  // the naive baseline's own notion of a "card" is a ranked file's immediate directory — precomputed once since
+  // it depends only on `filesAll`, not on any one candidate — so the same 1/width discount can be applied to
+  // BOTH arms and the two place@3 numbers stay comparable rather than one being graded on a coarser curve
+  const dirFileCount = new Map();
+  for (const p of filesAll) {
+    const d = dirOf(p);
+    dirFileCount.set(d, (dirFileCount.get(d) || 0) + 1);
+  }
   const rows = [];
   let silent = 0;
   for (const C of candidates) {
@@ -7983,17 +8006,28 @@ export function whereEval({ model, H, last = 100 }) {
     const { hits } = whereCmd({ model, query, top: DEPTH, mapRows: 0 }); // mapRows 0: the compact map is render-only and this reads ranks
     if (!hits.length) silent++;
     let wHit = 0,
-      wPlace = 0;
+      wPlace = 0,
+      wContainRank = 0,
+      wContainWidth = 0;
     hits.forEach((h, i) => {
       const hit = h.type === 'file' && truth.has(h.label);
-      const place =
-        hit ||
-        (h.type === 'directory'
+      const contain =
+        h.type === 'directory'
           ? C.truth.some(t => t.startsWith(h.label))
-          : (h.members || []).some(k => truth.has(String(k).split('#')[0])));
+          : (h.members || []).some(k => truth.has(String(k).split('#')[0]));
       if (hit && !wHit) wHit = i + 1;
-      if (place && !wPlace) wPlace = i + 1;
+      if ((hit || contain) && !wPlace) wPlace = i + 1;
+      if (contain && !hit && !wContainRank) {
+        wContainRank = i + 1;
+        wContainWidth = cardWidth(h);
+      }
     });
+    // an actual hit inside top@3 is never discounted — the file that NAMES the answer is exactly what "place"
+    // was always meant to reward at full value; only a place earned purely by CONTAINMENT (no card named the
+    // file, one merely happened to be wide enough to include it) is worth 1/cardWidth, and only when no real
+    // hit also landed inside the same top-3 window
+    const wPlaceW = wHit && wHit <= 3 ? 1 : wContainRank && wContainRank <= 3 ? wContainWidth : 0;
+    const wPlaceCredit = wHit && wHit <= 3 ? 1 : wContainRank && wContainRank <= 3 ? 1 / wContainWidth : 0;
     const ranked = [];
     for (const p of filesAll) {
       const pt = tokensOfPath(p);
@@ -8005,26 +8039,59 @@ export function whereEval({ model, H, last = 100 }) {
     // specific of two equal matches), then lexical — no relevance model of any kind, that is the arm being beaten
     ranked.sort((a, b) => b[1] - a[1] || a[0].length - b[0].length || (a[0] < b[0] ? -1 : 1));
     let bHit = 0,
-      bPlace = 0;
+      bContainRank = 0,
+      bContainWidth = 0;
     ranked.slice(0, DEPTH).forEach(([p], i) => {
-      if (truth.has(p) && !bHit) bHit = i + 1;
-      if (truthDirs.has(dirOf(p)) && !bPlace) bPlace = i + 1;
+      const hit = truth.has(p);
+      const contain = truthDirs.has(dirOf(p));
+      if (hit && !bHit) bHit = i + 1;
+      if (contain && !hit && !bContainRank) {
+        bContainRank = i + 1;
+        bContainWidth = dirFileCount.get(dirOf(p)) || 1;
+      }
     });
+    const bPlaceW = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? bContainWidth : 0;
+    const bPlaceCredit = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? 1 / bContainWidth : 0;
     const nameToks = new Set(C.truth.flatMap(f => nameTokens(f).map(normTok)));
-    rows.push({ named: [...qt].some(t => nameToks.has(t)), wHit, wPlace, bHit, bPlace });
+    rows.push({
+      named: [...qt].some(t => nameToks.has(t)),
+      wHit,
+      wPlaceCredit,
+      wPlaceW,
+      bHit,
+      bPlaceCredit,
+      bPlaceW,
+    });
   }
 
   const at = (rs, f, k) => (rs.length ? rs.filter(r => r[f] && r[f] <= k).length / rs.length : 0);
   const mrr = (rs, f) => (rs.length ? rs.reduce((a, r) => a + (r[f] ? 1 / r[f] : 0), 0) / rs.length : 0);
-  const arm = (rs, h, p) => ({ hit3: at(rs, h, 3), mrr: mrr(rs, h), place3: at(rs, p, 3) });
+  // place@3 is now the MEAN of each row's (already rank- and width-resolved) credit rather than a share of
+  // nonzero ranks — a strict generalization: every row that used to contribute 1 (a real hit within top@3)
+  // still contributes exactly 1, so place3 can still never fall below hit3, it can only stop being inflated by
+  // wide, uninformative cards
+  const place3 = (rs, credit) => (rs.length ? rs.reduce((a, r) => a + r[credit], 0) / rs.length : 0);
+  // the credited card's own width, reported beside place@3 so a future researcher sees a gameable-by-width
+  // artifact (a card covering most of the repo) directly in the harness output instead of rediscovering it by
+  // hand — averaged over the rows that actually earned place credit; 0 when none did
+  const placeWidth = (rs, credit, width) => {
+    const credited = rs.filter(r => r[credit] > 0);
+    return credited.length ? credited.reduce((a, r) => a + r[width], 0) / credited.length : 0;
+  };
+  const arm = (rs, h, credit, width) => ({
+    hit3: at(rs, h, 3),
+    mrr: mrr(rs, h),
+    place3: place3(rs, credit),
+    placeWidth: placeWidth(rs, credit, width),
+  });
   const unnamed = rows.filter(r => !r.named);
   return {
-    where: arm(rows, 'wHit', 'wPlace'),
-    base: arm(rows, 'bHit', 'bPlace'),
+    where: arm(rows, 'wHit', 'wPlaceCredit', 'wPlaceW'),
+    base: arm(rows, 'bHit', 'bPlaceCredit', 'bPlaceW'),
     unnamed: {
       n: unnamed.length,
-      where: arm(unnamed, 'wHit', 'wPlace'),
-      base: arm(unnamed, 'bHit', 'bPlace'),
+      where: arm(unnamed, 'wHit', 'wPlaceCredit', 'wPlaceW'),
+      base: arm(unnamed, 'bHit', 'bPlaceCredit', 'bPlaceW'),
     },
     n: rows.length,
     silent,
