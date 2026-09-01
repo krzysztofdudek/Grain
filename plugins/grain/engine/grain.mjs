@@ -1244,7 +1244,10 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
         f.inChange,
         content ?? readFileSync(join(root, rel), 'utf8')
       );
-    if (!f.lines.length) continue; // no finding at all — contributes nothing, not even a placeholder
+    // §053: a degraded parse (r.hasError — part of the file sat in error nodes) must survive into review even
+    // when the parseable remainder deviates from nothing, or the file vanishes from the aggregate exactly like a
+    // clean one — the same absence `check` never allows (grain.mjs's check branch always prints the caveat).
+    if (!f.lines.length && !r.hasError) continue; // no finding at all and nothing to disclose — contributes nothing, not even a placeholder
     perFile.push({ rel, dirty, r, f });
   }
   // presentation order, not a mathematically constrained gate: maintainer-decision/architecture hits first (the
@@ -1262,6 +1265,14 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
     return a.rel < b.rel ? -1 : 1;
   });
   const totalFindings = perFile.reduce((a, e) => a + e.f.lines.length, 0);
+  // §053: which of THIS review's files carry the same parse-degraded caveat `check` prints for them individually
+  // (r.hasError — part of the file sat in error nodes, so its scope list may be incomplete). Named here, once, so
+  // both the text and JSON renderers below read one list rather than recomputing it two different ways.
+  const degradedRels = perFile.filter(e => e.r && e.r.hasError).map(e => e.rel);
+  // above this many, naming the caveat under every file drowns the actual findings in repeated boilerplate — one
+  // summary line instead (same cap `cochangePartners`/health-row lists already use elsewhere in this file for the
+  // identical reason: name a few, count the rest)
+  const DEGRADED_CAVEAT_LIST_CAP = 5;
   const missing = missingLines(model, files, {
     sources: ['cochange', 'recipe', 'kin', 'shape'],
     newFileScopes,
@@ -1308,12 +1319,22 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
   const lines = [
     `review ${files.length} file${files.length === 1 ? '' : 's'} · ${totalFindings} finding(s) across ${perFile.length} file(s)`,
   ];
-  if (!totalFindings && !missing.length)
+  if (!totalFindings && !missing.length && !degradedRels.length)
     lines.push(
       `clean — nothing to report across ${files.length} file${files.length === 1 ? '' : 's'} reviewed`
     );
+  // §053: over the cap, one summary line names the count instead of repeating the full sentence under every file
+  // (below the cap, each degraded file still gets its own line inline, same wording `check` uses for the file alone)
+  if (degradedRels.length > DEGRADED_CAVEAT_LIST_CAP)
+    lines.push(
+      `${degradedRels.length} of ${files.length} files reviewed have a degraded parse (part of each sits in error nodes) — their findings below may be incomplete`
+    );
   for (const e of perFile) {
     lines.push(`== ${e.rel} — ${e.f.lines.length} finding(s) ==`);
+    if (e.r && e.r.hasError && degradedRels.length <= DEGRADED_CAVEAT_LIST_CAP)
+      lines.push(
+        `  (parse degraded — part of this file sits in error nodes; the scope list above may be incomplete)`
+      );
     for (const l of e.f.lines) lines.push(l);
   }
   lines.push(...missing);
