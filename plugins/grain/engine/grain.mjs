@@ -1854,12 +1854,19 @@ export function sessionContext({ root, isGit, store, mode }) {
     const sig = signal(model);
     state = `${meta.headSha === head ? 'ready' : 'built at ' + short(meta.headSha) + ', HEAD moved to ' + short(head) + ' — the first query refreshes it incrementally'}: ${model.files} files, ${sig.groups} groups, ${sig.facts} conventions in source code (${sig.verdict})`;
   }
+  // §067a: the advertised commands below lead with the conceptual name `grain`, never with `node` — a real
+  // transcript (question-catalog §4.1a) had an agent see `pnpm` denied, generalize that to "node invocations all
+  // require approval", and never attempt grain at all, even though nothing had shown grain itself would be
+  // blocked. `bin` (the literal `node "<path>"` form the plugin actually shells out to — see hooks.json/hooks/*,
+  // there is no installed `grain` shim on PATH; the package.json `bin` field only applies to an `npm install -g`
+  // this plugin's distribution mechanism never performs) is still shown, once per command, but as the answer to
+  // "how do I run this", not as the first word the agent reads.
   const bin = `node "${BIN}"`;
   const text = [
-    `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence — then open that exemplar. Run from the repo root via Bash; every answer ends with \`as of <sha>\`.`,
-    `  ${bin} where <intent words>   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms.`,
-    `  ${bin} check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''}`,
-    `  ${bin} status | report        — size, freshness, top conventions.`,
+    `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence — then open that exemplar. Run the grain command below from the repo root via Bash; every answer ends with \`as of <sha>\`. grain is its own tool, invoked via node — a denial of some unrelated command (pnpm, npm, a bare node script, …) earlier in this session says nothing about whether grain itself is blocked; it has not been tried yet.`,
+    `  grain where <intent words>   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms. Run: \`${bin} where <intent words>\`.`,
+    `  grain check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''} Run: \`${bin} check <file>\`.`,
+    `  grain status | report        — size, freshness, top conventions. Run: \`${bin} status\` or \`${bin} report\`.`,
     `Index: ${state}.`,
     ...(model && model.moduleGraph && model.moduleGraph.edges.length
       ? [

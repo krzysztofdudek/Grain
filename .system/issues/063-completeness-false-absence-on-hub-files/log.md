@@ -1,2 +1,4 @@
 
 ## 2026-09-01 23:45 — Spec = question-catalog.md §6.1. Rank a partner by MAX of the two directional confidences (or lift vs partner base rate), print the number; never '(complete)' — say 'no partner above <n>' naming the threshold. model.cochange already carries confidenceAB/BA. Also closes the live where/completeness contradiction (class C): where prints CHANGES.rst (35/60) from the same data. Test: hub file gets partners; a genuinely partnerless file gets the named-threshold negative, not '(complete)'.
+
+## 2026-09-02 00:22 — Fixed: cochangeData now gates/ranks by max(confidenceAB,confidenceBA) and, for a single changed file, the same 1/3 floor where's cochangePartners already uses; negative reply is 'no partner above N% co-change confidence', never (complete). Suite 1962/1962 (was 1958), +4 new tests, 0 regressions.
