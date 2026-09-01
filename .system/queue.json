@@ -16,9 +16,10 @@
       "kind": "research",
       "agent": "opus",
       "branch": "research/where-lever",
-      "state": "running",
+      "state": "merged",
       "note": "leak-free failure attribution by evidence source; ≤3 lever experiments",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-01 23:49",
+      "sha": "a9134a1"
     },
     {
       "id": 3,
@@ -259,6 +260,36 @@
       "state": "queued",
       "note": "all surface pairs text⇔json, report⇔rules, check⇔review, map⇔report",
       "updated": "2026-09-01 23:46"
+    },
+    {
+      "id": 27,
+      "ticket": "068",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "fix/068",
+      "state": "queued",
+      "note": "HIGH instrument: place@3 weight by card width",
+      "updated": "2026-09-01 23:49"
+    },
+    {
+      "id": 28,
+      "ticket": "069",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "fix/069",
+      "state": "queued",
+      "note": "HIGH instrument: hide candidate's own commit from history signals in whereEval",
+      "updated": "2026-09-01 23:49"
+    },
+    {
+      "id": 29,
+      "ticket": "070",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/070",
+      "state": "queued",
+      "note": "where discloses zero lexical foothold; fire-rate gated",
+      "updated": "2026-09-01 23:49"
     }
   ]
 }

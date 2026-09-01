@@ -1,0 +1,2 @@
+
+## 2026-09-01 23:49 — openzeppelin: 0.500 leaky vs 0.000 clean. The candidate's birth commit is in the history the lever reads, so the lever 'predicts' the file from the commit that created it. Fix the instrument: whereEval must hide the candidate's own commit from every history-derived signal (cochange, message affinity, birth-place) before scoring. Without this the harness cannot judge any history lever.
