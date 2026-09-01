@@ -25,6 +25,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { howCmd } from '../engine/core.mjs';
+import { readHistoryState } from '../engine/history.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -110,12 +111,12 @@ test('(1) the strong match\'s files rank above the weak match\'s disjoint files,
   assert.doesNotMatch(lines[hdr + 1], /src\/aaa\/weak/, `a weak-match file must not lead the rendered list, got:\n${text}`);
 });
 
-test('(2) guard: the matcher itself is unchanged — same matches[], same shas, same scores', () => {
+test('(2) guard: the matcher itself is unchanged — same matches[], same shas, same scores', async () => {
   // `how --json`'s own CLI projection drops `score` (grain.mjs cmdHow), so this reads howCmd's real return value
   // directly, over the model+history the CLI run above already built in the fixture's cache — the same inputs
   // `cmdHow`/`how-hook` themselves pass it.
   const model = JSON.parse(readFileSync(join(disjointRepo, '.grain', 'cache', 'model.json'), 'utf8'));
-  const history = JSON.parse(readFileSync(join(disjointRepo, '.grain', 'cache', 'history.json'), 'utf8'));
+  const history = await readHistoryState(join(disjointRepo, '.grain', 'cache', 'history.json'));
   const { matches } = howCmd({ model, H: { fps: history.fps || [] }, query: 'alpha bravo', top: 5 });
   const strongSha = shaOf(disjointRepo, 'alpha bravo rollout');
   const weakSha = shaOf(disjointRepo, 'alpha only tweak');

@@ -30,6 +30,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { howCmd } from '../engine/core.mjs';
+import { readHistoryState } from '../engine/history.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -270,10 +271,10 @@ describe('how-hook agrees with `how --json` (places/shape); howCmd direct (score
       if (ctx.includes(p.rel)) assert.match(ctx, new RegExp(`${esc(p.rel)} \\(${p.k}/${p.of}\\)`), `place ${p.rel}'s own k/of must match how --json's: ${ctx}`);
   });
 
-  test('the gate is real: howCmd direct (score visible) shows THIS query fires the hook via the certified-shape disjunct, not a fabricated strong-match count — and `how --json` (score hidden, ticket 009) computes over the IDENTICAL match set', () => {
+  test('the gate is real: howCmd direct (score visible) shows THIS query fires the hook via the certified-shape disjunct, not a fabricated strong-match count — and `how --json` (score hidden, ticket 009) computes over the IDENTICAL match set', async () => {
     resetSeen(repo);
     const model = JSON.parse(readFileSync(join(repo, '.grain', 'cache', 'model.json'), 'utf8'));
-    const history = JSON.parse(readFileSync(join(repo, '.grain', 'cache', 'history.json'), 'utf8'));
+    const history = await readHistoryState(join(repo, '.grain', 'cache', 'history.json'));
     const direct = howCmd({ model, H: { fps: history.fps || [] }, query: 'please add status', top: 3, msgOf: null, shapes: true, exemplarOk: () => true });
     // how-hook's own gate (grain.mjs): `certified = shape && shape.cells.some(c => c.certified)`; `strong =
     // matches.filter(m => m.score >= 0.5).length >= 2`; speaks iff `certified || strong`. `how --json` cannot show
