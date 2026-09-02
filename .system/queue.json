@@ -480,6 +480,26 @@
       "state": "queued",
       "note": "WAVE 4 #3 where for a not-yet-existing directory; design + instrument",
       "updated": "2026-09-02 06:46"
+    },
+    {
+      "id": 45,
+      "ticket": "085",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/085",
+      "state": "queued",
+      "note": "measure whether where's confident-wrong-on-no-grammar-file rate (8-58% across 20/22 corpus repos) is fixable without a ranking redesign, or is a boundary to disclose like the 070 zero-foothold precedent",
+      "updated": "2026-09-02 08:18"
+    },
+    {
+      "id": 46,
+      "ticket": "087",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/087",
+      "state": "queued",
+      "note": "WAVE 3/4: profile learn() on symfony-full; incremental derivation or disclosed cap; judged by the ladder row",
+      "updated": "2026-09-02 08:21"
     }
   ]
 }
