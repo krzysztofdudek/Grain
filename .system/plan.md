@@ -5063,3 +5063,4 @@ note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 disco
 
 # Fala 3 — start 2026-09-02
 - 2026-09-02 opened by director after wave-2 close; items (a)(b) independent of the trial; the rest decided by research/trial-0.4.0
+- 2026-09-02 merged: where-named 6f50d9f
