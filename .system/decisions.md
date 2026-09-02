@@ -280,3 +280,6 @@ WERDYKT DRUGIEJ PRÓBY (.system/research/trial-0.4.0-b.md, 12 przebiegów z 088,
 
 ## 2026-09-02 · measure-on-tasks-agents-fail-counterfactual-first · ticket 092 · class G
 PROCES (dyrektor, po pytaniu użytkownika 'dlaczego nie poszliśmy dalej'): w 25 przebiegach grain ani razu nie powiedział czegoś, czego agent nie wiedział, a co było prawdą — odpowiedzi były nieistotne, puste albo potwierdzające. Mój błąd metody: po każdej próbie naprawiałem wskazany mechanizm (promocja współzmian → odrzucona; osiągalność obligation → pustka) zamiast zrobić kontrfaktyczny rozbiór per przebieg. I mierzyliśmy na łatwych zadaniach (~16 wywołań przed zapisem), gdy rynek to ~99. REGUŁA: żadna nowa zdolność bez (1) zadań, na których agent bez graina udokumentowanie zawodzi, i (2) tabeli kontrfaktycznej per przebieg ('jakie jedno zdanie w tym momencie by go zawróciło'). Tor utrzymania w trybie minimalnym (tylko HIGH), dopóki 092 nie odpowie.
+
+## 2026-09-02 · esc-21
+Acknowledged — record-only housekeeping, no ruling changed. 045/073 fixed status stands.

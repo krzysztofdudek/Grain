@@ -1,15 +1,22 @@
 {
-  "at": "2026-09-02T10:34:31.389Z",
-  "by": "lead",
-  "head": "main@f5a49a2",
-  "summary": "CORRECTION to the prior 'lead stalled' handoff: I (grain-lead) was not stalled. research/087's worker was flagged dead on a mid-run snapshot -- it was profiling Symfony's full 82,946-commit history, which genuinely takes ~2 hours, and finished successfully right after that snapshot with a real verified commit. I have now merged 087 myself (84f0188, suite 2174/2174 green), on top of 080/088 which were already landed (by me, the director, or grain-lead-2 -- unclear, worth a diff check to rule out duplicate effort). Wave 4 batch 2 (082/083/084/085/086) and this batch (087/080/088) are all on main. Escalations 18/19 (real code conflicts in the heritage-clause refactor) and 20 (where --json disclosure gap, ruled as ticket 089) are resolved. I have messaged both team-lead and grain-lead-2 to resolve who is the active lead of record before I dispatch anything further, to avoid two lead sessions racing on the same queue.",
+  "at": "2026-09-02T11:32:49.723Z",
+  "by": "director",
+  "head": "main@6d092df",
+  "summary": "Trial b verdict: 088 made obligation reachable (0->4 calls) and empty; answer-changed-diff 0 -> 0 in 25 with-arm runs across both trials. Director ruling after the user's 'are we drifting' challenge: the trials measured easy tasks agents already get right (~16 pre-write calls; market is ~99), and I fixed mechanisms instead of doing per-run counterfactuals. 092 REWRITTEN (hard tasks -> without x2 -> per-run counterfactual table -> with-arm) and outranks 091; maintenance track MINIMAL (HIGH only) until 092 reports. Gate given to the user: 0 diff changes on tasks where the without-arm demonstrably fails = oracle-form hypothesis falsified -> propose hook-driven guard form. Escalation 21 (housekeeping) acknowledged.",
   "inFlight": [
     {
       "name": 52,
       "task": "",
-      "since": "2026-09-02T10:34:31.428Z",
+      "since": "2026-09-02T11:32:49.761Z",
       "reportsTo": "lead",
       "branch": "fix/089"
+    },
+    {
+      "name": 53,
+      "task": "",
+      "since": "2026-09-02T11:32:49.761Z",
+      "reportsTo": "lead",
+      "branch": "fix/090"
     }
   ],
   "pendingDecisions": [],
@@ -36,7 +43,6 @@
     }
   ],
   "lastActions": [
-    "- 2026-09-02 merged: 081 c371383",
     "- 2026-09-02 audit: where-named zgodny — 94a8bc9: core.mjs +55 in whereCmd scoring; where-named-stratum.test 2/4 red on parent 3535289 (isolated worktree) → 6/0 on main; weak-match-signals expectation updated 2/1→3/0 (intended); the flat +0.25 directory bonus DELETED and replaced by the earned coverage share; the 0.5 in 'cover >= 0.5' pre-existed on the deleted line (majority rule, not a new constant) — 'one constant deleted, none added' holds; research doc committed with the 12-repo before/after. Wave-3 sample.",
     "- 2026-09-02 merged: 082 9c498b3",
     "- 2026-09-02 merged: 083 2d1fc05",
@@ -45,10 +51,11 @@
     "- 2026-09-02 merged: 085 c439ae7",
     "- 2026-09-02 merged: 088 1f2efa9",
     "- 2026-09-02 merged: 080 aa45602",
-    "- 2026-09-02 merged: 087 84f0188"
+    "- 2026-09-02 merged: 087 84f0188",
+    "- 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure)."
   ],
   "nextActions": [
-    "PAUSED pending coordination: waiting to hear whether grain-lead-2 is now the active lead (in which case I stand down) or whether I should continue (in which case: dispatch 089 fix/089 disclosures[] on JSON surfaces, and 090 fix/090 where path-query routing, both already queued and specced)."
+    "Lead-2: premerge+merge 089 (branch worktree-agent-a8f05bc9e4069be48, 2 ahead, landed ~12:55); dispatch 092 (Opus, research/092) BEFORE 091; 090 running. Director: liveness check next tick — 089 unmerged >60 min or no lead commit >60 min with running items = respawn grain-lead-3. Wave-3 close still owes EXTR_V g33 (082-086). Later: skill fresh-session test; delete superseded fix/083 fix/084; worktree prune (71 worktrees)."
   ],
   "notes": []
 }

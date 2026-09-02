@@ -1,8 +1,10 @@
 # Escalations
 
-## [21] other · open
+## [21] other · ruled
 by: lead · at: 2026-09-02T10:56:34.954Z
 Record-only, ticket-status housekeeping: 045 and 073 (both HIGH) were fully shipped and merged weeks/waves ago (branches merged=y, full green suites logged, both already ratified by standing decisions macrodefs-sup-deleted-doc-kept and 073's own merge ruling) but tk status was never advanced past measured/approved. Marked fixed, no code or ruling changed. Also cleaned 016/042/044 (medium, no escalation needed) the same way.
+
+ruling (2026-09-02T11:32:24.211Z): Acknowledged — record-only housekeeping, no ruling changed. 045/073 fixed status stands.
 
 ## [20] claim · ticket 085 · ruled
 by: lead · at: 2026-09-02T08:30:59.079Z
