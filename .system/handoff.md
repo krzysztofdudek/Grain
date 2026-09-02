@@ -1,14 +1,14 @@
 # Handoff
 
-at: 2026-09-02T04:30:46.094Z
+at: 2026-09-02T04:43:28.804Z
 by: lead
-head: main@9ac2bde
+head: main@bab5345
 
 ## Summary
-Caught up on a large batch of delivered messages (worker confirmations already processed via Agent tool results, plus team-lead guidance spanning the whole session). Two concrete gaps closed: (1) fix/where-named (ticket 012, director-approved ranking change) was assigned to the lead but never merged -- merged now at 6f50d9f, suite 2128/2128. (2) escalation records backfilled for 065/046/053/057/067 individually plus a consolidated record for the rest of this wave's user-facing changes, per the corrected process (escalate before merging, don't wait on the ruling). Also corrected a stale queue entry (instr/corpus-ladder-2 showed running; director had landed it directly in the 0.4.0 wave-close commits). Queue is empty. Going forward: will escalate at merge time for every user-facing change, not batch it.
+Wave 3 opened. package-json-0.4.0 landed (9d15850): plugins/grain's package.json/lockfile bumped 0.2.0->0.4.0 via npm version, README.md's Status line caught too, zero dependency drift. instr/F-2 (Symfony full-history ladder retry) is confirmed live (pid 91828, ~18min into a 30-min timeout as of this write) -- waiting on it to complete or fail loudly, which is itself the ticket's success criterion either way (per ticket 055's fix). corpus-validation-run stays queued behind it. Queue otherwise empty. Suite 2128/2128, 0 fail, 0 todo.
 
 ## In flight
-(none)
+- 38 branch:instr/corpus-ladder-2 —  (since 2026-09-02T04:43:28.847Z, reports to lead)
 
 ## Pending decisions
 (none)
@@ -20,9 +20,6 @@ Caught up on a large batch of delivered messages (worker confirmations already p
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
 
 ## Last actions
-- - 2026-09-02 merged: 073 25971e4
-- - 2026-09-02 0.4.0 landed: 113ef97 (ENGINE 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24, validation.md re-anchored) + c847bb0 (three plugin manifests; a blind sed corruption of dependency versions caught and reverted). Suite 2115/2115.
-- - 2026-09-02 merged: 074 5bce5ef
 - - 2026-09-02 merged: 078 0a67b89
 - # Fala 2 — close 2026-09-02
 - suite: 2122
@@ -30,9 +27,12 @@ Caught up on a large batch of delivered messages (worker confirmations already p
 - # Fala 3 — start 2026-09-02
 - - 2026-09-02 opened by director after wave-2 close; items (a)(b) independent of the trial; the rest decided by research/trial-0.4.0
 - - 2026-09-02 merged: where-named 6f50d9f
+- # Fala 3 — start 2026-09-02
+- - 2026-09-02 two items independent of research/trial-0.4.0's verdict: package-json-0.4.0 (dispatched now), corpus-validation-run (queued behind instr/F-2's Symfony ladder completion)
+- - 2026-09-02 merged: package-json-0.4.0 9d15850
 
 ## Next actions
-- Awaiting the director's next assignment. Queue is empty; nothing running that reports to the lead.
+- When instr/F-2 finishes (or times out): premerge/merge it like any other, then dispatch corpus-validation-run (instruments A/B/D/E across corpus.json -> docs/validation.md table).
 
 ## Notes
 (none)

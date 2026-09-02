@@ -448,6 +448,36 @@
       "note": "director-approved ranking change: volume-channel normalisation in whereCmd, named hit@3 +0.184, leak-free guard also up, one constant deleted",
       "updated": "2026-09-02 06:29",
       "sha": "6f50d9f"
+    },
+    {
+      "id": 42,
+      "ticket": "079",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/079",
+      "state": "queued",
+      "note": "WAVE 4 #1 where: co-change above lexical cards; judged on selftest --where + trial harness",
+      "updated": "2026-09-02 06:46"
+    },
+    {
+      "id": 43,
+      "ticket": "081",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/reachability",
+      "state": "queued",
+      "note": "WAVE 4 #2 command reachability instrument; gates new commands",
+      "updated": "2026-09-02 06:46"
+    },
+    {
+      "id": 44,
+      "ticket": "080",
+      "kind": "research",
+      "agent": "opus",
+      "branch": "research/where-newdir",
+      "state": "queued",
+      "note": "WAVE 4 #3 where for a not-yet-existing directory; design + instrument",
+      "updated": "2026-09-02 06:46"
     }
   ]
 }
