@@ -7186,6 +7186,7 @@ export function whereCmd({
           (c.memberW ?? TOKW.name) * ((c.memberTok.get(t) || 0) / Math.max(1, c.n || 1))
         )
       : c.toks.get(t) || 0;
+  let anyExact = false; // §085 — set inside the scoring loop below; see `unknownIdent` at the return
   for (const c of cards) {
     let s = 0;
     for (const [t, w] of idf) s += tw(c, t) * w;
@@ -7197,6 +7198,7 @@ export function whereCmd({
     // this line changes what `c.score` becomes or how `hits` gets filtered/sorted/sliced.
     c.lex0 = c.score;
     c.exact = c.names ? [...qraw].some(t => c.names.has(t)) : false; // a query word that IS a function/class name in this file
+    if (c.exact) anyExact = true; // §085 — read-only bookkeeping: does the PARSED model declare any of the query's identifier words, anywhere?
     // a pinned identifier that IS most of the query wins outright (`where sendStatus`); one that covers a minority of the
     // query's words only adds to the lexical score — `where command handler for TodoList archive` must rank the command
     // handlers carrying `command`+`handler`+`todo`+`list` above `Entities/TodoList.cs`, which carries only the name (measured)
@@ -7310,6 +7312,27 @@ export function whereCmd({
           `note: the top hit matches only «${contributing.join('», «')}» of your ${qt.size} words — verify before building on it.`
         );
     }
+  }
+  // §085 — the THIRD path into §057's honest negative, and the only one neither §057 nor §070 could reach.
+  // §057 asks for the never-parsed file only when `hits` is EMPTY; §070 only when every shown hit has zero
+  // content overlap (`lex0`). Between them sits the measured failure: a compound identifier (`indent_style`,
+  // `AppleScript`, `ClangFormat`) that `tokenize` SPLITS into ordinary words, each of which really does occur in
+  // the code — so hits are non-empty AND `lex0 > 0`, the score clears the 0.34 floor, and a one-word query never
+  // reaches the `qt.size >= 3` note either. Every existing check stands down while the ranking is built entirely
+  // out of fragments of a name the parsed model never declares. `ungrammaredHit` arrives here exactly when the
+  // caller (grain.mjs's `cmdWhere`) found that same text verbatim in a file grain has no grammar for, so the
+  // answer the reader wants sits in a file grain cannot read. Nothing new is tuned: the gate is `unknownIdent`
+  // (see the return) plus the deterministic verbatim scan §057 already owns.
+  //
+  // Placed AFTER the whole ladder above and gated on `hits.length` on purpose. The ladder's last arm can SUPPRESS
+  // an uncorroborated top hit (`hits = []`, `noConfidentHit`) — a stronger honest negative than any banner — and
+  // an earlier placement pre-empted it, measurably: it kept 6 of opencode's rankings that the suppression arm had
+  // been discarding. Running last means a suppressed answer stays suppressed and falls through to §057's own
+  // message below, which names this same file anyway; only an answer that SURVIVES the ladder is disclosed here.
+  if (ungrammaredHit && hits.length) {
+    lines.push(
+      `"${q}" is not a name grain parsed anywhere — the ranking below matches its separate words, not the whole. That exact text appears in ${ungrammaredHit.file}, and grain has no grammar for "${ungrammaredHit.ext}" (never reads that format at all, so this file was never parsed). The answer may be there, unreadable to grain: verify before building on it.`
+    );
   }
   if (!hits.length) {
     // §057 — a zero-hit answer here reads as "this concept isn't in the repository", which is only true of the
@@ -7621,7 +7644,21 @@ export function whereCmd({
       );
   }
   lines.push(...bridged);
-  return { lines, hits, cards };
+  // §085 `unknownIdent` — the caller's cue to pay for §057's bounded never-parsed scan on a RANKED answer. Three
+  // structural facts, no tunable among them:
+  //   · the whole query is ONE word — this is an identifier lookup, not a sentence. It is also what makes the
+  //     scan able to succeed at all: §057 matches the query's text VERBATIM, and a multi-word intent ("add rate
+  //     limiting") essentially never appears verbatim in a config file, so scanning for it is pure cost.
+  //     Measured on spec-kit before this clause: `unknownIdent` was true for 36.9% of commit-message queries and
+  //     found something in 0% of them — the scan discipline §057 states ("every other query never opens a file
+  //     at all") is kept by this line.
+  //   · it is identifier-SHAPED (`qraw`: `tokenize` splits it in two, or it holds a `.`/`_`/`$`). A plain word is
+  //     not, so `where users` never asks — and must not: answering a common word from code is correct, not a
+  //     fabrication (40 of spec-kit's 51 "confident-wrong" rows are that, an artefact of instrument A's oracle).
+  //   · no card's own `names` declares it (`anyExact`). A name the repo really has (`sendStatus`) is something
+  //     grain is not blind to, so there is nothing to disclose and no file is opened.
+  const oneWord = !/\s/.test(q.trim());
+  return { lines, hits, cards, unknownIdent: oneWord && qraw.size > 0 && !anyExact };
 }
 
 // `how <intent>` — change by example (§J2.2). `where` answers "what governs the place this belongs in"; `how`

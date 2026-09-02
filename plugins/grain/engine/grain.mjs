@@ -467,12 +467,19 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
   if (!args.length) throw new Error('usage: grain where <intent words>');
   const query = args.join(' ');
   const whereArgs = { model, query, top: +opts.top || 3, mapRows: +opts['map-rows'] || 60, exemplarOk: existsMemo(root) };
-  let { lines, hits } = whereCmd(whereArgs);
+  let { lines, hits, unknownIdent } = whereCmd(whereArgs);
   // §057 — a zero-hit answer reads as "this concept isn't in the repository". Before accepting that, a bounded
   // scan (never a repo-wide grep) checks whether the query's exact text lives, verbatim, in a tracked file grain
   // never had a grammar for at all — a stronger, cheaper, deterministic sibling of the peer-anomalous blind-file
   // hedge `what` already carries. Only paid when `hits` is already empty, same discipline as `cmdWhat` below.
-  if (!hits.length) {
+  //
+  // §085 adds the ONE other path that pays for it, and no more: a RANKED answer to an identifier the parsed
+  // model never declares (`unknownIdent`). Measured on 4 repos, that is where every silent confident-wrong
+  // absence claim lives — `tokenize` splits `indent_style` into `indent`+`style`, both of which occur in real
+  // code, so hits are non-empty, `lex0 > 0`, and neither §057 above nor §070's zero-foothold banner can fire
+  // while the whole ranking is assembled from fragments of a name grain has never seen. Every other query —
+  // plain words, and every identifier the repo actually declares — still opens no file at all.
+  if (!hits.length || unknownIdent) {
     const ungrammaredHit = findUngrammaredHit(model, root, query);
     if (ungrammaredHit) ({ lines, hits } = whereCmd({ ...whereArgs, ungrammaredHit }));
   }
