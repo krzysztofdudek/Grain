@@ -412,9 +412,10 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/corpus-ladder-2",
-      "state": "running",
-      "note": "port salvaged run-corpus.mjs + corpus.json onto main; run ladder; Symfony must complete or fail loudly (055)",
-      "updated": "2026-09-02 06:06"
+      "state": "merged",
+      "note": "landed directly by the director as part of the 0.4.0 wave-close commits (113ef97/c847bb0/7ca251b) rather than a separate lead-merged branch; queue entry corrected to match reality",
+      "updated": "2026-09-02 06:24",
+      "sha": "6a65969"
     },
     {
       "id": 39,
@@ -435,6 +436,17 @@
       "state": "queued",
       "note": "WAVE 3 (b): package.json 0.2.0→0.4.0 via npm install (lockfile root), never sed; docs-audit stays green",
       "updated": "2026-09-02 06:23"
+    },
+    {
+      "id": 41,
+      "ticket": "where-named",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/where-named",
+      "state": "merged",
+      "note": "director-approved ranking change: volume-channel normalisation in whereCmd, named hit@3 +0.184, leak-free guard also up, one constant deleted",
+      "updated": "2026-09-02 06:29",
+      "sha": "6f50d9f"
     }
   ]
 }

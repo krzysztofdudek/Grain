@@ -1,5 +1,33 @@
 # Escalations
 
+## [10] claim · open
+by: lead · at: 2026-09-02T04:30:26.003Z
+Consolidated backfill for the rest of this wave's user-facing changes, all already merged and covered by their own ticket logs: 041 (coverage note names c/cpp instead of certifying them covered), 063 (completeness ranks by max-directional confidence, never '(complete)'), 064/066/051 (used-by shows names, how filters to live files, map/report --json gain concepts/changes/edges/architecture — the 072/074 pair extends this to report --json and completeness's ambient/specific split), 070 (where discloses zero-lexical-foothold), 048 (Solidity modifiers render bare), 077 (per-literal quote flag). Full detail in each ticket's log.md and the wave-close handoff; flagging for the record per the retroactive-escalation instruction, not asking for a re-ruling.
+
+## [9] claim · ticket 067 · open
+by: lead · at: 2026-09-02T04:30:18.071Z
+067: session-context's advertised commands lead with 'grain', not 'node'; where/check's 'in:' locator line gets a trailing '/' to disambiguate file vs directory. Already merged.
+
+## [8] claim · ticket 057 · open
+by: lead · at: 2026-09-02T04:30:18.040Z
+057: what's honest-negative path now consults ungrammared files (deterministic, no grammar at all) and discloses them; explain distinguishes 'no grammar' from 'no scopes extracted'. Already merged.
+
+## [7] claim · ticket 053 · open
+by: lead · at: 2026-09-02T04:30:18.009Z
+053: review now carries check's 'parse degraded' caveat for a hasError file instead of dropping it silently (capped at 5 files, else a summary line). Already merged.
+
+## [6] claim · ticket 046 · open
+by: lead · at: 2026-09-02T04:30:17.978Z
+046: selftest's 0/0/0/0 now says why — non-plantable-pid-kind certified facts are counted into 'unsupported' instead of vanishing from the accounting entirely (harness bug, not a disclosure gap). Already merged.
+
+## [5] claim · ticket 065 · open
+by: lead · at: 2026-09-02T04:30:17.947Z
+065: what <symbol> gains a 'tested by:' line (same-stem match, then cochange/edges fallback, else an honest negative). Already merged.
+
+## [4] claim · ticket 012 · open
+by: lead · at: 2026-09-02T04:28:29.951Z
+where-named (ticket 012): volume-channel normalisation in whereCmd's ranking — a scope-name token weighed by share of the file it names, a directory bonus by earned coverage instead of a flat +0.25 (one constant deleted). Named-stratum hit@3 0.459->0.643 (+0.184, up in all 12 repos), leak-free guard 0.226->0.253, place@3 0.247->0.300, nothing-ranked 75->47 of 733. Already director-approved (decision where-named-volume-normalisation) — merging now, escalating for the record since this changes what where ranks for the user.
+
 ## [3] other · ruled
 by: lead · at: 2026-09-02T04:22:08.639Z
 queue empty — wave 2 closed (suite 2122, 0 fail, 0 todo). 36 tickets merged this wave: all wave-2 honesty fixes, all 5 wave-3 reach items, wave-4 #1 (grain obligation command, merged per your direct ruling), 2 Opus measurements with rulings applied (042 approved+shipped as 077, 052 both follow-ups declined), plus 5 follow-up tickets discovered mid-wave (075/076/077/078 all merged). Version bump already applied by you mid-wave (0.4.0/g32/h11/m24), unblocking 073/074. Bookkeeping note, not urgent: tickets 040 and 043 (both HIGH, pre-dating my session) still show issue.md Status: OPEN, but 043's fix is verifiably in core.mjs (search '§043' comment, the Solidity bare-sigil decoration path my own dispatched tickets 047/048 built on) — I did not touch their status since I can't verify 040's leveldb/export-macro fix landed anywhere; worth a quick check on your end. Ready for next assignment — instr/F-2 corpus-ladder (Symfony retry) still running and reports to you directly per the original handoff.
