@@ -119,6 +119,20 @@ certified-shape line and `missing: change shape:`'s residual cells both read str
 which commits cluster together is a modelling choice, not itself a claim; only which of the resulting cells survive
 the contrast is.
 
+## Birth obligations
+
+A class is every file ever ADDED under one (refined module, suffix) pair — the same two features a commit
+footprint's `m:`/`k:` cells above already carry, read here off the git status byte instead of a scope. For each
+class and each other file the class's births ever touched, coding that co-occurrence at the class's own rate is
+contrasted, by the identical likelihood-ratio test commit archetypes use, against coding it at the file's own rate
+over the whole history; the display bound (above, "The one loss constant") and a five-birth support floor gate the result the same way
+they gate everything else in this document — the floor is not a convenience default, it is what a corpus
+measurement found necessary: below it, a single three-birth class produced a fabricated rule that fired repeatedly
+and was wrong every time. A file whose own history-wide rate already clears the display bound needs no class to
+explain it — it is reported separately, as ambient, so a genuinely class-specific companion is never crowded out
+by one every commit happens to touch anyway. A rename is never mined as a birth: git already reports it as a
+distinct status, and only a genuine add counts.
+
 ## Value concordance
 
 An enum's members, and the string literals that appear inside one syntactic container (a switch, an object literal,

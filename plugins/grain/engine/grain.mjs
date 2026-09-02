@@ -56,6 +56,9 @@ import {
   howCmd,
   howEval,
   whereEval,
+  obligationFor,
+  obligationLines,
+  obligationEval,
   whatCmd,
   blindFiles,
   ungrammaredFiles,
@@ -754,12 +757,48 @@ export async function cmdMap({ model, args, opts, stamp, treeDirty }) {
         concepts: model.concepts || [],
         changes: (model.changeArchetypes || []).map(a => ({ id: a.id, label: a.label, n: a.n })),
         edges: (model.moduleGraph?.edges || []).map(e => ({ from: e.from, to: e.to, n: e.n })),
+        // §073: the FULL birth-obligation table, uncapped — same additive-only discipline as `changes`/`concepts`
+        // above; `grain obligation <path>` is the per-path renderer of this exact data (`model.obligations`).
+        obligations: model.obligations || [],
         decisions:
           (model.steers || []).length + (model.boundaries || []).length + (model.waivers || []).length,
         asOf: stamp().replace(/^as of /, ''),
       }),
     ];
   return [...mapSections(model), ...(treeDirty ? [DIRTY_TREE_NOTE] : []), stamp()];
+}
+// `grain obligation <path>` (ticket 073) — what a NEW file under this path's (module, suffix) class has
+// historically come with. `<path>` need not exist: the whole point is asking BEFORE the file is written, so this
+// never touches the filesystem or git — it is a pure read of `model.obligations` (learn-time derived) keyed by
+// the path's structural class alone. `schemaNotes` follows export.mjs's own convention (§export.mjs:~210) for a
+// JSON surface whose field meanings are not self-evident from their names.
+export async function cmdObligation({ model, root, args, opts, stamp }) {
+  if (!args[0] || args.length > 1) throw new Error('usage: grain obligation <path> [--top N] [--json]');
+  const rel = relPath(root, args[0]);
+  const top = +opts.top || 5;
+  const data = obligationFor(model, rel);
+  if (opts.json)
+    return [
+      JSON.stringify({
+        schema: 'grain-obligation/1',
+        path: rel,
+        module: data.module,
+        suffix: data.suffix,
+        births: data.n,
+        rules: data.rules.slice(0, top),
+        ambient: data.ambient.slice(0, top),
+        schemaNotes: {
+          births:
+            'how many recorded commits ever ADDED a file in this (module, suffix) class — never a rename, only a genuine new file. 0 means the class has no history at all; a non-zero `births` with empty `rules`/`ambient` means the class exists but sits below the certification floor (CFG.minRaw = 5) or nothing certified — both are real, disclosed outcomes, never a hollow zero.',
+          rules:
+            'specific obligations: files whose co-occurrence with this class beats their OWN base rate over the whole history by the same KT/BIC codelength contrast + λ=8 display bound + CFG.minRaw support floor every other certified convention in this model uses. `k` of `n` = of the `n` births in this class, how many also touched `file`.',
+          ambient:
+            "files that touch almost every commit REGARDLESS of class (their own global rate already clears the same λ bound) — reported separately so they never crowd out a specific obligation (§obligations-design.md §2). `k` of `n` here is the file's OWN global touch count over the whole history, not a class-conditional count.",
+        },
+        asOf: stamp().replace(/^as of /, ''),
+      }),
+    ];
+  return [...obligationLines(model, rel, { top }), stamp()];
 }
 // per-scope conformance tally from a checkFile() result — shared by `check` (its own "conforms to:" line) and
 // `review`'s --json (the same `governed` shape, per file). `touched` (optional, cmdCheck's own line-range test)
@@ -1162,6 +1201,22 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   // `review`'s many-file changed set, where that test is meaningful
   lines.push(...missingLines(model, files, { sources: ['cochange'], newFileScopes }));
   lines.push(...scopeCochangeLines(model, rel, r.partition));
+  // §073: the birth-obligation table's own structural silence — a file `--as` simulates at a path that does not
+  // exist yet has no co-change history (the block above), but its (module, suffix) CLASS may still certify a
+  // specific companion. One line, top rule only (`obligationLines`' full two-set report is `grain obligation`'s
+  // own job); silent when nothing certifies, the same restraint `scopeCochangeLines` already shows here.
+  const oblig = obligationFor(model, opts.as || rel);
+  if (oblig.rules.length) {
+    const top = oblig.rules[0];
+    const kindWord = oblig.suffix ? `*.${oblig.suffix}` : '(no extension)';
+    const dirWord = oblig.module === '.' ? 'the repo root' : oblig.module + '/';
+    lines.push(
+      voice(
+        'practiced',
+        `obligation: a new ${kindWord} under ${dirWord} has come with ${top.file} (${top.k} of ${top.n})`
+      )
+    );
+  }
   lines.push(stamp(dirty));
   return lines;
 }
@@ -2660,6 +2715,9 @@ export async function main(argv) {
     case 'map':
       lines = await cmdMap(ctx);
       break;
+    case 'obligation':
+      lines = await cmdObligation(ctx);
+      break;
     case 'check':
       lines = args.length === 0 ? await cmdReview(ctx) : await cmdCheck(ctx);
       break; // no file argument: `check` is an alias of `review` — the whole uncommitted change (J1.1)
@@ -2708,7 +2766,7 @@ export async function main(argv) {
     case 'selftest': {
       if (args.length)
         throw new Error(
-          'usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --extract [--json] — takes no positional arguments'
+          'usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --obligation [--last N] [--json] | grain selftest --extract [--json] — takes no positional arguments'
         );
       if (opts.extract) {
         // §3.B loop-v2: per-grammar declaration recall/precision against a node-types.json-derived oracle — no history needed, just the current tree
@@ -2828,6 +2886,51 @@ export async function main(argv) {
         }
         break;
       }
+      if (opts.obligation) {
+        // §073: leave-one-out coverage/precision of the birth-obligation table, over the repo's own history —
+        // the candidate's own commit is never in the table that scores it (obligationEval builds the table
+        // chronologically, folding a footprint in only AFTER scoring it — see the function's own comment).
+        let H = null;
+        if (isGit) {
+          try {
+            H = (await loadHistory({ gitdir: root, store, log })).H;
+          } catch (e) {
+            log('history unavailable for selftest --obligation: ' + e.message);
+          }
+        }
+        if (!H || !H.fps || !H.fps.length) {
+          const note = `selftest --obligation needs commit history to evaluate against (${!isGit ? 'this is not a git repository' : 'this repository has no readable commit history'})`;
+          lines = opts.json
+            ? [
+                JSON.stringify({
+                  note,
+                  n: 0,
+                  coverage: null,
+                  precision1: null,
+                  precision3: null,
+                  nonObviousN: 0,
+                  nonObviousPrecision: null,
+                  nullHot: null,
+                  nullRandom: null,
+                  asOf: stamp().replace(/^as of /, ''),
+                }),
+              ]
+            : [note, stamp()];
+          break;
+        }
+        const res = obligationEval({ model, H, last: +opts.last || 100 });
+        if (opts.json) lines = [JSON.stringify({ ...res, asOf: stamp().replace(/^as of /, '') }, null, 1)];
+        else {
+          const f = x => (x == null ? 'n/a' : x.toFixed(2));
+          lines = res.n
+            ? [
+                `obligation: coverage=${f(res.coverage)} precision@1=${f(res.precision1)} precision@3=${f(res.precision3)} · non-obvious precision=${f(res.nonObviousPrecision)} (n=${res.nonObviousN}) · nulls on the fired subset: hottest=${f(res.nullHot)} random=${f(res.nullRandom)} · n=${res.n}`,
+                stamp(),
+              ]
+            : [`selftest --obligation: no new-file events in the last ${+opts.last || 100} commits to evaluate`, stamp()];
+        }
+        break;
+      }
       const res = await mutateTest({ model, root });
       if (opts.json) lines = [JSON.stringify({ ...res, asOf: stamp().replace(/^as of /, '') }, null, 1)];
       else {
@@ -2852,6 +2955,7 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
   how <intent words> [--top N] [--json]   intent → the past commits that look like it, and which files such a change touched
   what <words> [--json]                   words → the concept card: declarations, values, spread, siblings, commit mentions, fan-in
   map [--json]                            a structural overview: dependency layers (leaves to top) and how many maintainer decisions are in force
+  obligation <path> [--top N] [--json]    what a NEW file under this path (module + extension) has historically come with — <path> need not exist
   check [<file>] [--as <path>] [--content <file>] [--all] [--staged | --range <a>..<b> | --worktree] [--json]
                                           <file>: how its worktree version sits against the local norm; no <file>: one
                                           aggregated report over your whole uncommitted change (default: uncommitted + untracked)
@@ -2869,6 +2973,7 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
   selftest [--json]                       plant synthetic deviations into conforming exemplars and report how many this repo's own model catches
   selftest --how [--last N] [--json]      leave-one-out: how's own precision/recall predicting a past commit's files, vs a grep baseline, over the last N commits
   selftest --where [--last N] [--json]    where's own ranking of the file a past commit ADDED, from that commit's message, vs a path-match baseline, over the last N such commits
+  selftest --obligation [--last N] [--json]  leave-one-out: the birth-obligation table's own coverage/precision predicting what a past commit that ADDED a file also touched, over the last N such events
   selftest --extract [--json]             per grammar, what fraction of the declarations a node-types.json-derived oracle sees does extraction actually record as a scope
   refresh [--full]                        rebuild the index now (every query already auto-refreshes)
   version                                 engine, extractor and grammar versions
