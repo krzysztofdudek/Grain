@@ -423,9 +423,10 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/corpus-validation",
-      "state": "running",
-      "note": "verify against main: its conflict (esc 13) was resolved — check whether its output landed; if not, redispatch",
-      "updated": "2026-09-02 12:06"
+      "state": "merged",
+      "note": "verified already on main via 714e374 (docs: corpus validation A/B/D/E table); esc-13 resolved this earlier, no redispatch needed",
+      "updated": "2026-09-02 12:13",
+      "sha": "714e374"
     },
     {
       "id": 40,
@@ -477,10 +478,10 @@
       "kind": "research",
       "agent": "opus",
       "branch": "research/where-newdir",
-      "state": "landed",
-      "note": "worker finished 10:55 (research/where-newdir): measured negative — a new directory has no mineable birth signal; doc only, merge",
-      "updated": "2026-09-02 12:06",
-      "sha": "0bae57e"
+      "state": "merged",
+      "note": "premerge READY, merged clean, 2164/2164; measured negative on directory-birth mining, doc committed",
+      "updated": "2026-09-02 12:13",
+      "sha": "aa45602"
     },
     {
       "id": 45,
@@ -553,10 +554,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/088",
-      "state": "landed",
-      "note": "worker finished 10:50 (fix/088); premerge+merge pending — old lead stalled",
-      "updated": "2026-09-02 12:06",
-      "sha": "3379101"
+      "state": "merged",
+      "note": "premerge READY, merged clean, 2164/2164",
+      "updated": "2026-09-02 12:13",
+      "sha": "1f2efa9"
     },
     {
       "id": 52,
@@ -567,6 +568,16 @@
       "state": "queued",
       "note": "HIGH class C: disclosures[] on every --json surface, generic; instrument A consumes it",
       "updated": "2026-09-02 11:01"
+    },
+    {
+      "id": 53,
+      "ticket": "090",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/090",
+      "state": "queued",
+      "note": "where <path> query routing: tokenize destroys path structure before ranker; medium/G; instrument required before ship per acceptance",
+      "updated": "2026-09-02 12:13"
     }
   ]
 }
