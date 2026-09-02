@@ -789,7 +789,18 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   pushKids(tree.rootNode, treeStack);
   while (treeStack.length) {
     const ch = treeStack.pop();
-    if (ch.isError || ch.isMissing) continue; // a malformed node is skipped, never its ancestor (a class with one broken method keeps its other methods)
+    // §060 — the malformed node itself is never a declaration (its own boundary is garbage), but tree-sitter's
+    // error recovery routinely parses PART of what falls inside an ERROR node into fully clean, correctly-typed
+    // children — a nested `package … { }` holding a well-formed `object` sits right next to a Scala class whose
+    // `@Inject()`-annotated curried constructor the grammar can't parse (Play framework's braced-package idiom,
+    // the same root cause §053 measured). Skipping descent entirely dropped that object and every method inside
+    // it with no disclosure. Push the error node's own children so the walk keeps going, exactly as it does for
+    // any other non-scope node — a MISSING node has no children, so this is a no-op for it; a doubly-broken child
+    // is still an ERROR/MISSING node itself and is skipped on its own next pop. Nothing is ever extracted from
+    // the ERROR node itself, only from descendants the grammar already typed with zero errors of their own — no
+    // re-parse, no guess about what the broken span "should" mean, same zero-fabrication instinct as §018.
+    if (ch.isError) pushKids(ch, treeStack);
+    if (ch.isError || ch.isMissing) continue;
     if (b.imp.has(ch.type)) {
       // every string inside the import node (Go's grouped imports hold one per spec); else the first name-like child
       const strs = ch

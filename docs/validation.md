@@ -209,3 +209,21 @@ curried implicit parameter list (`(implicit ec: ExecutionContext)`); a long tail
 ascriptions (12) and inline XML literals (2) accounts for most of the rest, and 14 files carry an error under none
 of the three. Both dominant idioms are ordinary Play/Guice convention, not exotic syntax — the corpus is not
 unusual, so the gap is the grammar's.
+
+That the grammar cannot parse the broken constructor does not mean it recovers nothing else nearby: §060 found
+that of those same 97 error-bearing files, tree-sitter's own error recovery had already parsed a fully clean,
+correctly-typed subtree — a nested `package … { }` holding a well-formed `object`, or a sibling `class`/`def` —
+sitting right beside the unparseable constructor inside the SAME error node, in 58 of the 97 (60%); the tutorial's
+own canonical example (`HelloController.scala`) nests a `package views { object html { … } }` right above the
+broken `class HelloController @Inject() (cc: …)(implicit …)`. Grain's walk was throwing that clean subtree away
+too, unconditionally, because it stopped descending the instant it hit the ERROR node wrapping the whole
+statement list rather than only the broken statement — a walk-logic gap, not a second grammar limitation. Fixed
+by pushing an ERROR node's own children onto the walk (engine/core.mjs, `extractScopes`) so the traversal keeps
+going exactly as it does past any other non-scope node; nothing is ever extracted from the ERROR node itself, only
+from descendants the grammar already typed with zero errors of their own, so this adds no fabrication risk (the
+same instinct as §018's macro-body reparse, applied at node granularity instead of re-parsing a text span — a
+whole-region reparse would refail on the still-broken constructor sharing the same span and recover nothing at
+all, measured directly against this exact file). Measured on the same clone/commit: 145 declarations recovered
+across those 58 files: 81 types, 58 methods, 6 `finally` micro-scopes. The genuinely unparseable
+part is unaffected and stays disclosed exactly as before — the file's own `hasError` never flips, so `check`'s
+"parse degraded" caveat and `review`'s aggregate (§053) still fire for every one of the 97 files.
