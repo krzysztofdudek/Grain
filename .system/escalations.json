@@ -182,6 +182,28 @@
       "ticket": "086",
       "ruling": "HIGH acknowledged, proceed. 086 is the 041 family: the coverage note must NAME the secondary grammar whose files yield zero edges (not silently count it as covered), and the resolver gap itself is a separate question — floor is the truthful note (D fixture case), the resolver fix only if the grammar has a working resolver elsewhere. Disclosure fixtures (instrument D) must gain a mixed-source-set case so this cannot regress.",
       "ruledAt": "2026-09-02T06:54:30.977Z"
+    },
+    {
+      "id": "18",
+      "kind": "conflict",
+      "why": "Merge conflict on fix/083 -> main, in plugins/grain/engine/core.mjs's heritage-name extraction (real code, not .system/ bookkeeping). fix/083 (Kotlin by-delegation fix, ticket 083) added its inDelegate/delegateClauseType/typeSuperSet check INSIDE the old inline per-clause walk loop. Between 083's dispatch and now, fix/082 (already merged) refactored that exact inline loop into a shared heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) helper function, reused by both the superclasses-field walk and this call site. So 083's new logic needs to be integrated INTO heritageNamesOf's body, not left as a competing inline copy -- a real code integration, not a mechanical pick-one-side resolution. I aborted the merge rather than hand-resolve it. Not blocking the rest of the queue -- dispatching a fresh worker to reapply 083's fix against the current heritageNamesOf helper.",
+      "by": "lead",
+      "at": "2026-09-02T07:58:40.285Z",
+      "state": "ruled",
+      "ticket": "083",
+      "ruling": "Handled correctly: conflict in heritage-name extraction escalated, not hand-resolved; the 083 worker re-landed onto 082's heritageNamesOf refactor (2d1fc05) and it merged clean. This is the rule working. Ack.",
+      "ruledAt": "2026-09-02T08:29:57.562Z"
+    },
+    {
+      "id": "19",
+      "kind": "conflict",
+      "why": "Merge conflict on fix/084 -> main, in plugins/grain/engine/core.mjs's heritage-name extraction (real code, not .system/ bookkeeping). Same root cause as 083's conflict: fix/084 (Rust 'static lifetime fix, ticket 084) added its lifetimeRe exclusion INSIDE the old inline per-clause walk loop, which ticket 082 has since refactored into a shared heritageNamesOf() helper. Aborted the merge rather than hand-resolve; dispatching a fresh worker to reapply 084's fix against the current helper, same pattern as 083's successful rebase (fix/083b, 2d1fc05).",
+      "by": "lead",
+      "at": "2026-09-02T08:11:29.323Z",
+      "state": "ruled",
+      "ticket": "084",
+      "ruling": "Handled correctly: same shape as 18; the 084 worker re-landed onto 082/083 (f231b26), merged clean. Ack. Three heritage fixes in one function landed in order without a hand-resolved line — that is the process paying for itself.",
+      "ruledAt": "2026-09-02T08:29:57.654Z"
     }
   ]
 }
