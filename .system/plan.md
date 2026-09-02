@@ -5080,3 +5080,4 @@ note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 disco
 - 2026-09-02 merged: 085 c439ae7
 - 2026-09-02 merged: 088 1f2efa9
 - 2026-09-02 merged: 080 aa45602
+- 2026-09-02 merged: 087 84f0188

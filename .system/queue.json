@@ -500,9 +500,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/087",
-      "state": "running",
+      "state": "merged",
       "note": "worker STALLED: 3 uncommitted files in research/087 worktree, no process running since ~10:31 — new lead: message the worker; if dead, salvage the diff to scratchpad and redispatch",
-      "updated": "2026-09-02 12:06"
+      "updated": "2026-09-02 12:33",
+      "sha": "84f0188"
     },
     {
       "id": 47,
@@ -565,9 +566,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/089",
-      "state": "queued",
+      "state": "running",
       "note": "HIGH class C: disclosures[] on every --json surface, generic; instrument A consumes it",
-      "updated": "2026-09-02 11:01"
+      "updated": "2026-09-02 12:14"
     },
     {
       "id": 53,

@@ -154,7 +154,21 @@ function atomicWrite(path, data) {
   renameSync(tmp, path);
 }
 
-// ----- blob cache: blobs/<2hex>.json = { "<sha>": scopeRecords[] } -----
+// ----- blob cache: blobs/<SHARD_HEX hex>.json = { "<sha>": scopeRecords[] } -----
+// How wide the shard key is decides how much of the cache one flush cycle has to move, and on a big history that
+// is the difference between linear and quadratic work (§087). `parseBlobs` walks blobs in batches of 400 and calls
+// `flush()` after each, and `flush()` must evict what it writes to keep the live heap bounded (see its own note).
+// Eviction means the next batch RE-READS every shard it touches. With a 2-hex key there are only 256 shards, so a
+// 400-blob batch touches essentially all of them — every batch re-read, re-parsed, re-serialized and rewrote the
+// ENTIRE cache, once per batch, against a cache growing to the repository's whole blob history. Measured on
+// Symfony (82,946 commits, 211,065 blobs, 528 batches, 1986 s cold build): `shard` 296.8 s inclusive (14.9 %, of
+// which 227.2 s self time in JSON.parse) plus `flush` 233.7 s inclusive (11.8 %, 156.5 s self in JSON.stringify)
+// — 530 s, 26.7 % of the whole build, spent moving bytes that had just been written.
+// A 3-hex key makes 4096 shards, so a 400-blob batch can touch at most 400 of them and each holds ~1/4096 of the
+// cache: the bytes re-read and rewritten per batch fall by roughly an order of magnitude, with the eviction — and
+// therefore the memory bound — completely unchanged. This is a sharding width, not an evidence threshold: it
+// changes only how the same records are grouped into files, never which blobs are cached or what they contain.
+const SHARD_HEX = 3;
 export class BlobCache {
   constructor(dir) {
     this.dir = dir;
@@ -166,10 +180,16 @@ export class BlobCache {
       // extractor changed ⇒ the whole cache is invalid by key
       for (const f of readdirSync(dir)) if (f.endsWith('.json')) rmSync(join(dir, f));
       writeFileSync(vf, EXTR_V + '\n');
+    } else {
+      // a store written at a different shard width is not wrong, just unreadable by key — its entries would all
+      // read as misses and be re-parsed while the old files sat there forever. Dropped on sight instead: this is a
+      // cache, and the only cost of dropping it is the re-parse that was going to happen anyway.
+      for (const f of readdirSync(dir))
+        if (f.endsWith('.json') && f.length !== SHARD_HEX + 5) rmSync(join(dir, f));
     }
   }
   shard(sha) {
-    const k = sha.slice(0, 2);
+    const k = sha.slice(0, SHARD_HEX);
     let s = this.shards.get(k);
     if (!s) {
       const f = join(this.dir, k + '.json');
@@ -186,8 +206,14 @@ export class BlobCache {
   }
   set(sha, sc) {
     this.shard(sha)[sha] = sc;
-    this.dirty.add(sha.slice(0, 2));
+    this.dirty.add(sha.slice(0, SHARD_HEX));
   }
+  // Evicting on flush is what keeps this cache's LIVE heap bounded: `parseBlobs` calls flush once per 400-blob
+  // batch, and dropping each shard as it is written means the parsed scope records of the whole blob history are
+  // never all live at once. Measured, removing the eviction OOMs — Symfony's walk finished all 211,065 blobs and
+  // then died in `replay` with "Ineffective mark-compacts near heap limit" at a 4.08 GB heap. So the eviction
+  // stays; what SHARD_HEX (above) fixes is the re-read it forces, by making each batch touch a thin slice of the
+  // cache instead of all of it.
   flush() {
     for (const k of this.dirty) {
       atomicWrite(join(this.dir, k + '.json'), JSON.stringify(this.shards.get(k)));
