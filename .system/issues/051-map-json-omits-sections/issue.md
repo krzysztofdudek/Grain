@@ -1,6 +1,6 @@
 # 051 · `map --json` omits `concepts`, `changes` and edges that the text output carries
 
-**Status:** OPEN
+**Status:** FIXED — closed as duplicate/subset of 066 - map --json now carries concepts/changes/edges
 **Found by:** round 4 field test, Scala/playframework, 2026-09-01
 **Severity:** medium — a machine-readable contract that is strictly poorer than the human one
 
