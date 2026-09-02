@@ -477,7 +477,28 @@ export function scopeName(ch) {
 // whole word, so `struct` matches the segment `struct` in `struct_declaration` but not the letters s-t-r-u-c-t
 // buried inside `constructor_declaration` — a raw substring test misclassified every constructor as `typeLike`
 const wordBounded = words => new RegExp('(?:^|_)(?:' + words.join('|') + ')(?:_|$)');
-const TYPE_LIKE_RE = wordBounded([
+// §050 — `object`, not the FULL node-type name `object_declaration` (Kotlin's own name for this construct, the
+// PRE-§050 entry here — and exactly the near-miss this bug was: Scala's equivalent construct is named
+// `object_definition`, one word off, so a companion object holding only vals — no nested scope for
+// `extractScopes`'s `hasChildScope` fallback to catch — was silently invisible as a type). TYPE_LIKE_RE is ONLY
+// ever tested against a node type already gated through `isScope` (b.scope — a real name+body/loosebody
+// declaration, bindingFor above), so the bare word is safe here in a way it would not be on an unrestricted
+// node-type string: a JS/TS object LITERAL (`{a: 1}`, node type `object`) and Java/C#'s
+// `object_creation_expression`/`anonymous_object_creation_expression` never reach this regex at all, because
+// none of them is a b.scope member (no name+body of their own). Measured against all 23 shipped node-types.json
+// (tests/scala-object-type.test.mjs and tests/type-like-coverage.test.mjs): the bare word `object` occurs in
+// exactly THREE b.scope node types across every grammar — Kotlin's `object_declaration`, Scala's
+// `object_definition`, and Scala's `package_object` — of which the first two actually reach this regex (the
+// third, `package_object`, is a location per `isLocationNode`'s own `/package/` match — same rule that already
+// walks through a Scala `package` clause — so it never reaches TYPE_LIKE_RE at all; harmless either way, since
+// its own vals still surface on the enclosing file scope). Widening `object_declaration` to `object` fixes
+// Scala with no new false positive anywhere else. Two other structural derivations were tried and measured to
+// NOT generalize: "declares a
+// heritage-capable field/child per node-types.json" misses every heritage-less struct/enum/union across
+// C/C++/Rust/TS/Solidity — the bulk of TYPE_LIKE_RE's existing entries — and gains only the two Scala node types
+// already covered here; "declares no `parameters` field" wrongly promotes Java/Groovy's `record_declaration`,
+// which legitimately carries one for its primary constructor.
+export const TYPE_LIKE_RE = wordBounded([
   'class',
   'struct',
   'record',
@@ -485,7 +506,7 @@ const TYPE_LIKE_RE = wordBounded([
   'interface',
   'trait',
   'protocol',
-  'object_declaration',
+  'object',
   'impl_item',
   'type_declaration',
   'companion',
@@ -493,7 +514,7 @@ const TYPE_LIKE_RE = wordBounded([
   'union',
   'contract',
 ]);
-const FUNC_LIKE_RE = wordBounded([
+export const FUNC_LIKE_RE = wordBounded([
   'function',
   'method',
   'lambda',
