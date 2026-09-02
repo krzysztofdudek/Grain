@@ -5034,3 +5034,32 @@ note: fala 1 zamknięta: 4 landings + instrumenty A/B/D + katalog G + badanie wh
 - 2026-09-02 merged: 053 64ebca6
 - 2026-09-02 merged: 064 b1394f8
 - 2026-09-02 merged: 065 574bafa
+- 2026-09-02 audit: 062 zgodny — qualified-heritage.test 0/11 red on parent b478847 (isolated worktree) → 11/11 green on main; audit-claims.test 12/1 → 13/0; predicate derived from node-types.json field shape (two-part chain, one purely name-shaped field; fieldless grammars via children list) — 0 language names in added code, 7 only in the explanatory comment; ticket status+log set. Second sample of wave 2 (16 merges) — lead's batch quality holds.
+- 2026-09-02 merged: 061 230cf0a
+- 2026-09-02 merged: 048 76cc470e78c0983814a9ca8a787842f3e9ccad9e
+- 2026-09-02 merged: 070 194ce2e
+- 2026-09-02 merged: 042 4179121
+- 2026-09-02 merged: 052 941e721da7f73a8a7cab1b66231311078987eda1
+- 2026-09-02 merged: 056 7f72a9e
+- 2026-09-02 merged: 066 d9e0eaf
+- 2026-09-02 merged: 058 7a262c4
+- 2026-09-02 merged: 060 c1808a5
+- 2026-09-02 merged: instr/C cross-check 9485001
+- 2026-09-02 merged: 050 1080ad7
+- 2026-09-02 audit: 060 zgodny — engine diff = 2 lines in extractScopes (descend into ERROR node's children, extract nothing from the ERROR itself); scala-error-region-salvage.test 9/4 on parent 4d84b66 (isolated worktree) → 13/0 on main; validation.md Scala coverage note updated; hasError unchanged so 053's caveat still fires. Third sample of wave 2 (batch 3, 11 merges).
+- 2026-09-02 merged: 071 d494386bb42bd2f5e857233b29395325f4917500
+- 2026-09-02 merged: 072 c146442
+- 2026-09-02 merged: 075 a7fd8e9
+- 2026-09-02 merged: 076 dee0d99
+- 2026-09-02 merged: 077 73d78dcc4b2c7540f113c833cec3459af18a8453
+- 2026-09-02 merged: 073 25971e4
+- 2026-09-02 0.4.0 landed: 113ef97 (ENGINE 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24, validation.md re-anchored) + c847bb0 (three plugin manifests; a blind sed corruption of dependency versions caught and reverted). Suite 2115/2115.
+- 2026-09-02 merged: 074 5bce5ef
+- 2026-09-02 merged: 078 0a67b89
+
+# Fala 2 — close 2026-09-02
+suite: 2122
+note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 discovered mid-wave): all 5 disclosure-fixtures todos now real green (041/046/053/057 + the original 4 from wave 1's close); wave-3 reach items 1-5 all shipped (completeness max-directional+ambient split, adoption fixes, used-by names, tested-by, how liveness+map --json parity); wave-4 #1 (grain obligation command) shipped and measured (precision clears 0.80 bar, coverage 0.048 below the 0.08 target, disclosed honestly per director ruling); both whereEval instrument bugs fixed (card-width gaming, own-commit leak — the latter found no shipped bug, landed as prospective harness guard); PHP PSR-4 cross-component resolution and #[ attribute sigil; Scala object/type classification plus 5 more grammar gaps; catch/finally fabricated-name and double-count fixes; two Opus measurements shipped honest dispositions (042 per-file vote confirmed correct then extended per director approval, 052's siblings line deleted at 0.364 measured precision). Suite 1958->2122, 0 fail, 0 todo throughout. Version bump (ENGINE_VERSION 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24) already applied by the director mid-wave to unblock 073/074's dependent work.
+
+# Fala 3 — start 2026-09-02
+- 2026-09-02 opened by director after wave-2 close; items (a)(b) independent of the trial; the rest decided by research/trial-0.4.0

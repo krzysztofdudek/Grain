@@ -295,6 +295,26 @@ export function bindingFor(gname) {
       b.qualName.add(n.type);
     }
   }
+  // §056 — a DATA-GRAMMAR mapping container, derived from node-types.json alone (never consulted for a code
+  // grammar — see the `b.data` guard at its one call site, core.mjs's value-scan walk): CONTAINER_RE below
+  // already recognizes JSON's own container node-type NAME ("object"), but YAML's `block_mapping`/`flow_mapping`
+  // are named nothing CONTAINER_RE's plain keyword list matches. A node type qualifies here when its OWN
+  // declared children admit a `b.keyField` type (above) — JSON's `object` (child `pair`), YAML's
+  // `block_mapping`/`flow_mapping` (child `block_mapping_pair`/`flow_pair`) — so every data-grammar mapping
+  // whose pairs carry a genuine `key` FIELD is grouped the same way, with no grammar named in the derivation
+  // itself. Left unfixed, a mapping's own top-level string/number/boolean children were never grouped as
+  // siblings of the container they actually share for YAML specifically, which is what made a service id
+  // declared once in one YAML mapping indistinguishable, container-wise, from an unrelated string anywhere else
+  // in the same file (§056's own field report). TOML's `pair` carries no `key` FIELD at all (only a
+  // `bare_key`/`quoted_key`/`dotted_key` CHILD) and stays exactly as gated before this change — a real,
+  // separately pre-existing gap (already measured and flagged as "reported to the orchestrator, out of scope"
+  // by container-keypath.test.mjs) that a fieldless-pair heuristic could chase, but only by risking the walk
+  // below stopping AT the pair itself instead of the table that actually holds it (TOML's own `table`/
+  // `inline_table` nodes structurally admit a bare/dotted/quoted key as a DIRECT child too, for their own
+  // header, not just through a nested `pair`) — left for its own dedicated, separately-measured fix instead.
+  b.dataContainer = new Set(
+    nt.filter(n => ((n.children && n.children.types) || []).some(t => b.keyField.has(t.type))).map(n => n.type)
+  );
   // a grammar that declares no name+body scope at all (JSON/YAML/TOML): its files carry no name+body units to
   // mine, only a file-level scope and the raw values it names (§J7.2) — derived, not a name list: 0 for the three
   // data grammars, >=1 for every one of the 19 shipped code grammars
@@ -477,7 +497,48 @@ export function scopeName(ch) {
 // whole word, so `struct` matches the segment `struct` in `struct_declaration` but not the letters s-t-r-u-c-t
 // buried inside `constructor_declaration` — a raw substring test misclassified every constructor as `typeLike`
 const wordBounded = words => new RegExp('(?:^|_)(?:' + words.join('|') + ')(?:_|$)');
-const TYPE_LIKE_RE = wordBounded([
+// §050 — `object`, not the FULL node-type name `object_declaration` (Kotlin's own name for this construct, the
+// PRE-§050 entry here — and exactly the near-miss this bug was: Scala's equivalent construct is named
+// `object_definition`, one word off, so a companion object holding only vals — no nested scope for
+// `extractScopes`'s `hasChildScope` fallback to catch — was silently invisible as a type). TYPE_LIKE_RE is ONLY
+// ever tested against a node type already gated through `isScope` (b.scope — a real name+body/loosebody
+// declaration, bindingFor above), so the bare word is safe here in a way it would not be on an unrestricted
+// node-type string: a JS/TS object LITERAL (`{a: 1}`, node type `object`) and Java/C#'s
+// `object_creation_expression`/`anonymous_object_creation_expression` never reach this regex at all, because
+// none of them is a b.scope member (no name+body of their own). Measured against all 23 shipped node-types.json
+// (tests/scala-object-type.test.mjs and tests/type-like-coverage.test.mjs): the bare word `object` occurs in
+// exactly THREE b.scope node types across every grammar — Kotlin's `object_declaration`, Scala's
+// `object_definition`, and Scala's `package_object` — of which the first two actually reach this regex (the
+// third, `package_object`, is a location per `isLocationNode`'s own `/package/` match — same rule that already
+// walks through a Scala `package` clause — so it never reaches TYPE_LIKE_RE at all; harmless either way, since
+// its own vals still surface on the enclosing file scope). Widening `object_declaration` to `object` fixes
+// Scala with no new false positive anywhere else. Two other structural derivations were tried and measured to
+// NOT generalize: "declares a
+// heritage-capable field/child per node-types.json" misses every heritage-less struct/enum/union across
+// C/C++/Rust/TS/Solidity — the bulk of TYPE_LIKE_RE's existing entries — and gains only the two Scala node types
+// already covered here; "declares no `parameters` field" wrongly promotes Java/Groovy's `record_declaration`,
+// which legitimately carries one for its primary constructor.
+// §076 — the SAME childless-companion gap §050 fixed for Scala's `object`, now for five more node types that
+// §050's own type-like-coverage.test.mjs surfaced: a bodiless/vals-only Java or Groovy `module_declaration`, Ruby
+// `module`, TS `internal_module`/`module` (`namespace Foo {}`/`module Foo {}`), and Solidity `library_declaration`
+// all fell through to kind `method` for want of a nested child scope, exactly like the pre-fix Scala `object`.
+// Fixed the same way: add the bare words `module` and `library` to this list. Verified against all 23 shipped
+// node-types.json (tests/type-like-coverage.test.mjs) by the same method as §050 — since TYPE_LIKE_RE only ever
+// runs on a node already gated through `isScope` (b.scope), the census that matters is over EACH GRAMMAR'S OWN
+// `b.scope` set, not the grammar's raw node-types.json: `module` occurs in exactly seven b.scope node types
+// across all 23 grammars — groovy/java `module_declaration`, ruby `module`, tsx/typescript `internal_module` and
+// `module` — every one of them genuinely type-like, and no others (C#'s own `module` token and Python's root
+// `module` node, and Java/Groovy's unrelated `module_directive`/`module_body`/`requires_module_directive`/etc.,
+// are none of them b.scope members, so they never reach this regex at all). `library` occurs in exactly one
+// b.scope node type anywhere — Solidity's `library_declaration` — so it carries no collision risk by construction.
+// Also removed the pre-existing `singleton` entry: a census of all 23 grammars' b.scope sets found it matches
+// exactly ONE node type anywhere — Ruby's `singleton_method` (a `def self.foo` class method) — which is a
+// METHOD, not a type, and was a straight false positive (typeLike wins ties in extractScopes below, so this
+// singleton_method was misclassified as kind `type` despite FUNC_LIKE_RE also correctly matching it via
+// `method`). Ruby's own `singleton_class` (`class << self`) and Scala's `singleton_type` are NOT b.scope members
+// (no name+body of their own) and were never reachable through this entry either, so `singleton` had zero
+// legitimate match in the entire corpus — removing it fixes the false positive with no loss of coverage anywhere.
+export const TYPE_LIKE_RE = wordBounded([
   'class',
   'struct',
   'record',
@@ -485,15 +546,16 @@ const TYPE_LIKE_RE = wordBounded([
   'interface',
   'trait',
   'protocol',
-  'object_declaration',
+  'object',
   'impl_item',
   'type_declaration',
   'companion',
-  'singleton',
+  'module',
+  'library',
   'union',
   'contract',
 ]);
-const FUNC_LIKE_RE = wordBounded([
+export const FUNC_LIKE_RE = wordBounded([
   'function',
   'method',
   'lambda',
@@ -764,6 +826,16 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   const scopes = [];
   const imports = [];
   const isScope = n => b.scope.has(n.type);
+  // §075 — a catch/finally clause's collection below searches bodyN's WHOLE subtree (descendantsOfType does not
+  // stop at a nested scope's own boundary), so the SAME physical clause is found once when its enclosing METHOD
+  // is walked and again when that method's enclosing CLASS is walked (and again for every further ancestor up
+  // the chain) — one clause in the source, one scope entry per body-bearing ancestor above it. The walk visits an
+  // ancestor strictly before any of its descendants (a scope's own catch/finally loop runs before its children
+  // are pushed onto `treeStack`), so the NEAREST enclosing scope always claims a given clause LAST. Keying each
+  // claim by the clause's own node id and letting a later claim overwrite an earlier one — instead of pushing a
+  // second `scopes` entry — leaves exactly one entry per physical clause, claimed by its nearest enclosing scope,
+  // regardless of nesting depth or grammar (no per-language special case: purely a fact about tree structure).
+  const catchOwnerIdx = new Map();
   // iterative pre-order, left-to-right traversal (no call-stack frame per AST level — a recursive `walk` overflowed
   // the stack on a deeply left-nested `binary_expression`, one JS frame per operator): children are pushed in
   // REVERSE order so the first child pops first, preserving the exact visitation order `scopes` array order,
@@ -789,7 +861,18 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   pushKids(tree.rootNode, treeStack);
   while (treeStack.length) {
     const ch = treeStack.pop();
-    if (ch.isError || ch.isMissing) continue; // a malformed node is skipped, never its ancestor (a class with one broken method keeps its other methods)
+    // §060 — the malformed node itself is never a declaration (its own boundary is garbage), but tree-sitter's
+    // error recovery routinely parses PART of what falls inside an ERROR node into fully clean, correctly-typed
+    // children — a nested `package … { }` holding a well-formed `object` sits right next to a Scala class whose
+    // `@Inject()`-annotated curried constructor the grammar can't parse (Play framework's braced-package idiom,
+    // the same root cause §053 measured). Skipping descent entirely dropped that object and every method inside
+    // it with no disclosure. Push the error node's own children so the walk keeps going, exactly as it does for
+    // any other non-scope node — a MISSING node has no children, so this is a no-op for it; a doubly-broken child
+    // is still an ERROR/MISSING node itself and is skipped on its own next pop. Nothing is ever extracted from
+    // the ERROR node itself, only from descendants the grammar already typed with zero errors of their own — no
+    // re-parse, no guess about what the broken span "should" mean, same zero-fabrication instinct as §018.
+    if (ch.isError) pushKids(ch, treeStack);
+    if (ch.isError || ch.isMissing) continue;
     if (b.imp.has(ch.type)) {
       // every string inside the import node (Go's grouped imports hold one per spec); else the first name-like child
       const strs = ch
@@ -1261,7 +1344,14 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
           'defer_statement',
         ])) {
           const bkind = /finally|ensure/.test(blk.type) ? 'finally' : 'catch';
-          scopes.push(blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope));
+          const blkScope = blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope);
+          // §075 dedup (see the comment on `catchOwnerIdx` above): a later claim on the same physical clause
+          // replaces the earlier one in place, rather than adding a second `scopes` entry beside it.
+          if (catchOwnerIdx.has(blk.id)) scopes[catchOwnerIdx.get(blk.id)] = blkScope;
+          else {
+            catchOwnerIdx.set(blk.id, scopes.length);
+            scopes.push(blkScope);
+          }
         }
       pushKids(bodyN || ch, treeStack);
     } else {
@@ -1516,7 +1606,12 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         inImport = true;
         break;
       }
-      if (!cont && CONTAINER_RE.test(p.type)) cont = p;
+      // §056: `b.dataContainer` is consulted ONLY for a data grammar (b.data) — a code grammar's container
+      // detection is exactly CONTAINER_RE, byte-for-byte unchanged, even though b.dataContainer's own derivation
+      // above is structural enough to also match some code-grammar object/dict/map-literal container types
+      // (JS/Python's already covered by CONTAINER_RE's "object"/"dictionary" anyway; Go/Ruby's are not, and are
+      // deliberately left as they were — this ticket's own measurement covers data grammars only).
+      if (!cont && (CONTAINER_RE.test(p.type) || (b.data && b.dataContainer.has(p.type)))) cont = p;
       p = p.parent;
     }
     if (inImport) continue;
@@ -1981,7 +2076,18 @@ export function docTokens(text) {
 // whole gap between "the right file" and "the convention": 'use strict' 21/21, single quotes, var vs const, a UTF-8 BOM on
 // 70/108 C# files that no Read ever shows. Each is a categorical value per file; whether it is a CHOICE is decided per
 // grammar by the partition (lexDomain), never written down here.
-export function lexicalPreds(tree, b) {
+// `tally` (§042) is an optional OUT-parameter, written but never read here and never mixed into the returned preds:
+// per ratio-shaped surface, a map from the predicate's own VALUE to how many INSTANCES in this file carry it
+// (`{single: 3, double: 200}`). The returned categorical is a per-file majority vote, so it cannot say how many
+// literals actually conform; `check` needs that count to disclose what the vote hid. Keeping it out of `out` is
+// load-bearing: `out` is spread straight into a file scope's `preds` (extractScopes), so any extra key here would
+// become a mined predicate and widen the candidate universe.
+// §077 (director-approved follow-up to §042): `literals`, when supplied, is a second optional out-parameter —
+// one entry per scanned quote-style string node (`{q, body, line, endLine}`), raw and unfiltered. Like `tally`,
+// it is never mixed into `out`/spread into a scope's `preds`: it exists only so `checkFile` can compute, AFTER
+// the per-file vote, which minority-quote literals are genuine departures versus delimiter-forced (`quoteFlags`
+// below) — the exact content test §042 already measured, now reused rather than reimplemented.
+export function lexicalPreds(tree, b, tally = null, literals = null) {
   const root = tree.rootNode;
   const text = root.text || '';
   const out = {};
@@ -2021,16 +2127,26 @@ export function lexicalPreds(tree, b) {
       out['auto.lex:indent'] = unit ? 'space' + unit : 'other';
     } else out['auto.lex:indent'] = 'mixed';
   } // the unit is the smallest width that recurs (most lines sit deeper than one level)
+  if (tally) {
+    const t = { tab: tabs };
+    for (const w of [2, 3, 4, 8]) t['space' + w] = widths[w] || 0;
+    tally['auto.lex:indent'] = t;
+  }
   // quote style of string literals (delimiter of each string node; prefixes like f"…" / r'…' skipped; backticks ignored)
   let sq = 0,
     dq = 0;
   for (const n of root.descendantsOfType(STR_TYPES).slice(0, 2000)) {
     const t = n.text.replace(/^[A-Za-z@$]+/, '');
-    if (t[0] === "'") sq++;
-    else if (t[0] === '"') dq++;
+    const q = t[0];
+    if (q === "'") sq++;
+    else if (q === '"') dq++;
+    else continue;
+    if (literals)
+      literals.push({ q, body: t.slice(1, -1), line: n.startPosition.row + 1, endLine: n.endPosition.row + 1 });
   }
   if (sq + dq >= 2)
     out['auto.lex:quote'] = sq >= (sq + dq) * 0.8 ? 'single' : dq >= (sq + dq) * 0.8 ? 'double' : 'mixed';
+  if (tally) tally['auto.lex:quote'] = { single: sq, double: dq };
   // statement terminator: simple statements ending in `;` vs not (compound statements — blocks, declarations with bodies — skipped)
   let semi = 0,
     nosemi = 0;
@@ -2059,6 +2175,7 @@ export function lexicalPreds(tree, b) {
   if (semi + nosemi >= 5)
     out['auto.lex:semi'] =
       semi >= (semi + nosemi) * 0.8 ? 'semi' : nosemi >= (semi + nosemi) * 0.8 ? 'nosemi' : 'mixed';
+  if (tally) tally['auto.lex:semi'] = { semi, nosemi };
   // leading directive: a first statement that is a short string expression (`'use strict'`, `'use client'`)
   const first = root.namedChildren.find(c => c.type !== 'comment' && c.type !== 'hash_bang_line');
   if (
@@ -2077,6 +2194,7 @@ export function lexicalPreds(tree, b) {
     if (kw) decl[kw[1]] = (decl[kw[1]] || 0) + 1;
   }
   const tot = Object.values(decl).reduce((a, b) => a + b, 0);
+  if (tally) tally['auto.lex:decl'] = { ...decl };
   if (tot >= 2) {
     const [k, c] = Object.entries(decl).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
     out['auto.lex:decl'] = c >= tot * 0.8 ? k : 'mixed';
@@ -2189,8 +2307,19 @@ const inGrammar = (s, nt) => {
 // a deco string already carries its own wrapping sigil — `[Route]` (C#), `#[AsCommand]` (PHP) — versus a bare
 // name (`Test`) that still needs its `@` prefix reconstructed wherever a deco is turned into a pid or a display
 // label (§054b: `#[` joins `[` here as a self-delimiting sigil, the same way it joined `take()`'s sigil test above).
+// §048 — a bare-stored name is ambiguous by itself: it means "strip the `@` off Java/TS/…" for every sigiled
+// grammar, but for a grammar whose ENTIRE decoration vocabulary is sigil-less in the source (Solidity's
+// `modifier_invocation`, §043's `b.decoBare`) it means the opposite — there was never an `@` to strip, and
+// reconstructing one prints syntax the language does not have (`@onlyOwner`). Resolved with the caller's grammar,
+// derived from the SAME structural set §043 already built (never a language name): a grammar is sigil-less only
+// when every node type its `b.deco` derivation found is also in `b.decoBare` — today that is Solidity alone.
+const sigilLessGrammar = g => {
+  if (!g || !GRAMMARS.includes(g)) return false;
+  const b = bindingFor(g);
+  return b.deco.size > 0 && b.decoBare.size === b.deco.size;
+};
 export const decoSigiled = d => d[0] === '[' || d.startsWith('#[');
-export const decoLabel = d => (decoSigiled(d) ? d : '@' + d);
+export const decoLabel = (d, g) => (decoSigiled(d) || sigilLessGrammar(g) ? d : '@' + d);
 export function applyVocab(s, vb) {
   if (BODY_KINDS.has(s.kind) && !s.noBody) {
     for (const nt of vb.NT)
@@ -2204,7 +2333,7 @@ export function applyVocab(s, vb) {
   // must be counted over classes, not over classes+interfaces; a method extends nothing at all)
   const inDom = (list, nt) => !list || !nt || list.includes(nt);
   if (s.kind !== 'file' && inDom(vb.DNT, s.nt))
-    for (const d of vb.DECO) s.preds['auto.deco:' + decoLabel(d)] = s.decos.includes(d) ? 'true' : 'false';
+    for (const d of vb.DECO) s.preds['auto.deco:' + decoLabel(d, s.g)] = s.decos.includes(d) ? 'true' : 'false';
   if (s.kind === 'type' && inDom(vb.ENT, s.nt))
     for (const e of vb.EXT) s.preds['auto.extends:' + e] = s.sup.includes(e) ? 'true' : 'false';
   if (s.kind === 'method' && inDom(vb.RNT, s.nt))
@@ -2213,7 +2342,14 @@ export function applyVocab(s, vb) {
   if (s.kind === 'method' && inDom(vb.PNT, s.nt))
     for (const r of vb.PT || []) s.preds['auto.ptype:' + r] = (s.ptypes || []).includes(r) ? 'true' : 'false';
   if (s.kind === 'file') {
-    for (const i of vb.IMP) s.preds['auto.imp:' + i] = s.imports.includes(i) ? 'true' : 'false';
+    // §058: a data grammar (JSON/YAML/TOML/properties, `b.data` — no name+body scope at all) has no import
+    // construct to begin with, so scoring one against another grammar's import vocabulary is vacuously always
+    // `false` — noise, not a fact ("composer.json does not import PHPUnit\Framework\TestCase"). Same category
+    // boundary as `inGrammar` above (undecidable ⇒ absent, never `false`), keyed on `b.data` instead of a node
+    // type since an import TOKEN is an open-vocabulary value, not a grammar-owned surface to look up.
+    const gb = s.g && bindings[s.g];
+    if (!gb || !gb.data)
+      for (const i of vb.IMP) s.preds['auto.imp:' + i] = s.imports.includes(i) ? 'true' : 'false';
     if (vb.LEX) {
       const dom = vb.LEX[s.g || ''] || [];
       for (const pid of Object.keys(s.preds))
@@ -2277,6 +2413,15 @@ export function isDefiningFact(medoids, f) {
 // hasOwnProperty: model JSON counts are plain objects — a value literally named "constructor" must read 0, not Object.prototype.constructor
 export const kt = (c, K, x, n) =>
   (((Object.prototype.hasOwnProperty.call(c, x) ? c[x] : 0) || 0) + 0.5) / (n + K / 2);
+// the "ambient" acceptance test, shared: a candidate's OWN global rate (`k` of `n`) already clears the λ=8 display
+// bound (docs/mathematics.md, "naming an expected value") with no look at whatever specific relationship is under
+// test — the exact judgment call "this repo touches these with almost everything" needs, independent of which
+// pairing produced the candidate. `certifyObligationRules` (ticket 073, birth-obligation companions) and
+// `cochangeData` (ticket 074, co-change partners) both call this SAME function so the two callers can never drift
+// on what counts as background versus a genuine, specific pattern — no new constant, CFG.lambda is the one this
+// repo's other display-bound checks already use.
+const K2 = 2;
+export const clearsOwnRate = (k, n) => n > 0 && (k + 0.5) / (n + K2 / 2) >= 1 - 1 / CFG.lambda;
 
 // file-level lineage over `H.fps`: `H.lc`'s keys are rewritten FORWARD on a rename (history.mjs moves the row to the
 // new path and DELETES the old key), so a historical path is simply absent from it and cannot be looked up there.
@@ -2311,6 +2456,160 @@ const archCellSort = (a, b) =>
   b.bits - a.bits ||
   CELL_RANK[a.cell[0]] - CELL_RANK[b.cell[0]] ||
   (a.cell < b.cell ? -1 : a.cell > b.cell ? 1 : 0);
+
+// ===== BIRTH OBLIGATIONS (ticket 073) =====
+// What a NEW file under a (module, suffix) class has historically come with — "add tests/libtest/*.c" implying
+// "touch tests/libtest/Makefile.inc" — mined from `H.fps[*].added` (the birth signal history.mjs now carries
+// alongside `files`, never set for a rename's `R` status) using only path, extension and git status: no name list,
+// no ORM knowledge, no lexical match. The (module, suffix) key is the exact `refineModOf`/`sufOf` pair `cellsOf`
+// (just below, in `learn`'s change-archetype pass) derives per file for a commit footprint's `m:`/`k:` cells, and
+// certification below applies the SAME KT/BIC contrast + λ display bound + `CFG.minRaw` support floor that pass's
+// own cell certification uses (`archetypes` loop, `core.mjs`) — no new tunable constant anywhere in this table.
+//
+// One class record: `{ m, suf, n, co }` — `n` births of this class ever recorded, `co` a Map of every OTHER file
+// (never a file that is itself of the SAME class — "for each file O outside that class") to how many of those `n`
+// births also touched it.
+//
+// A commit's OWN base rate for `O` (`fileCommits`/`nonMegaCommits`) is recomputed HERE from the same `fps`/`live`
+// pair, current-path-keyed — never read off `H.fileCommits` (historical-path-keyed, §J2.4b), because a companion
+// renamed partway through history would otherwise undercount under its old name while `rec.co` (built through the
+// same `currentOf`) counts it under its new one; the two populations must agree on what a "file" is.
+function certifyObligationRules(rec, { fileCommits, nonMegaCommits, idxCost, live }) {
+  const rules = [],
+    ambient = [];
+  if (rec.n < CFG.minRaw) return { rules, ambient }; // gate 3: the support floor — measured, not assumed (§3 of the design doc: without it, a single spurious n=3 rule dominated a corpus repo's entire firing set)
+  const K = 2,
+    N = nonMegaCommits;
+  for (const [o, k] of rec.co) {
+    if (!live.has(o)) continue; // gate 4: liveness — a rule naming a file dead at HEAD does not speak (same disease class as wave-3 recommendation 5, and ticket 066's `how` liveness filter)
+    const gp = fileCommits.get(o) || 0;
+    const local = { present: k, absent: rec.n - k };
+    const glob = { present: gp, absent: Math.max(N - gp, 0) };
+    let data = 0;
+    for (const v of ['present', 'absent']) {
+      const nv = local[v];
+      if (nv) data += nv * Math.log2(kt(local, K, v, rec.n) / kt(glob, K, v, N));
+    }
+    const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(rec.n, 2)) - idxCost; // gate 1: the contrast — the same KT data term + BIC half-log model term changeArchetypes' own cell loop applies
+    const clearsDisplay = (k + 0.5) / (rec.n + K / 2) >= 1 - 1 / CFG.lambda; // gate 2: the display bound (docs/mathematics.md, "naming an expected value"), λ = 8
+    if (bits > 0 && clearsDisplay) {
+      rules.push({ file: o, k, n: rec.n, bits: +bits.toFixed(2), share: +(k / rec.n).toFixed(3) });
+    } else if (clearsOwnRate(gp, N)) {
+      // not a discovery about THIS class: O's OWN base rate over the whole history already clears the identical λ
+      // bound (§074 shares this exact test for co-change partners too), so it would read this high beside almost
+      // ANY class. Reported separately (never silently dropped) so a reader can see it is background, not signal.
+      ambient.push({ file: o, k: gp, n: N, share: +(gp / N).toFixed(3) });
+    }
+  }
+  rules.sort((a, b) => b.share - a.share || b.k - a.k || (a.file < b.file ? -1 : 1));
+  ambient.sort((a, b) => b.share - a.share || (a.file < b.file ? -1 : 1));
+  return { rules, ambient };
+}
+// the batch builder `learn` calls over the FULL retained `H.fps`, and `obligationEval` (§073's instrument) calls
+// incrementally over a chronological prefix — both funnel through `certifyObligationRules` above so the gates can
+// never drift between the shipped table and the harness that scores it.
+// one footprint's birth EVENTS: one per distinct (module, suffix) class its `added` files fall into (a commit
+// adding two files of the SAME class is one event, not two — "how many of the commits", commit-level counting).
+// Shared by the batch fold below and `obligationEval`'s incremental sweep so the two can never define an "event"
+// differently.
+function classEventsOf(fp, { currentOf, refinedM }) {
+  const out = [];
+  if (!fp.added || !fp.added.length) return out;
+  const seen = new Set();
+  for (const raw of fp.added) {
+    const cur = currentOf(raw);
+    const m = refinedM(cur),
+      suf = sufOf(cur) || '';
+    const key = m + S + suf; // `S` = the module's own cell-key separator (a control byte, never inside a path)
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ cur, m, suf, key });
+  }
+  return out;
+}
+// folds ONE footprint's contribution into a running `classes`/`fileCommits` accumulator — the batch builder below
+// calls this once per footprint over the WHOLE history; `obligationEval` calls it in a chronological sweep,
+// scoring each candidate against the accumulator's state BEFORE folding that candidate's own footprint in, so a
+// candidate's own commit is never part of the table that scores it (the same discipline `leakSubtractedH` names).
+function foldObligationFootprint(fp, { currentOf, refinedM, classes, fileCommits }) {
+  const curFiles = fp.files.map(currentOf);
+  for (const f of curFiles) fileCommits.set(f, (fileCommits.get(f) || 0) + 1);
+  for (const { cur, m, suf, key } of classEventsOf(fp, { currentOf, refinedM })) {
+    let rec = classes.get(key);
+    if (!rec) {
+      rec = { m, suf, n: 0, co: new Map() };
+      classes.set(key, rec);
+    }
+    rec.n++;
+    for (const f of curFiles) {
+      if (f === cur) continue;
+      if (refinedM(f) === m && sufOf(f) === suf) continue; // "outside that class": another file of the SAME (module, suffix) is not an obligation, it IS the class
+      rec.co.set(f, (rec.co.get(f) || 0) + 1);
+    }
+  }
+}
+export function buildObligationTable(fps, { refinedM, live }) {
+  const currentOf = currentPathOf(fps, live);
+  const classes = new Map(); // "modulesuffix" -> { m, suf, n, co: Map(file -> count) }
+  const fileCommits = new Map();
+  for (const fp of fps) foldObligationFootprint(fp, { currentOf, refinedM, classes, fileCommits });
+  const nonMegaCommits = fps.length; // the exact population `fileCommits` above was drawn from — self-consistent by construction, never H's own (possibly fpsCap-truncated) count
+  let universe = 0;
+  for (const rec of classes.values()) universe += rec.co.size; // the index cost counted ONCE over the real candidate population, the same shape changeArchetypes/bridgeBits count it
+  const idxCost = Math.ceil(Math.log2(Math.max(universe, 2)));
+  const obligations = [];
+  for (const rec of classes.values()) {
+    const { rules, ambient } = certifyObligationRules(rec, { fileCommits, nonMegaCommits, idxCost, live });
+    obligations.push({ module: rec.m, suffix: rec.suf, n: rec.n, rules, ambient });
+  }
+  obligations.sort(
+    (a, b) =>
+      b.n - a.n || (a.module < b.module ? -1 : a.module > b.module ? 1 : a.suffix < b.suffix ? -1 : 1)
+  );
+  return obligations;
+}
+// the render-time lookup `cmdObligation`/`check --as`/`map --json` all share: a path need not exist (the whole
+// point — asking BEFORE the file is written), so this derives only its (module, suffix) class and reads the
+// pre-certified table `learn` already built. Absent from the table entirely (n: 0) is a genuinely different case
+// from present-but-uncertified (n > 0, rules/ambient both empty below CFG.minRaw) — the renderer must tell them
+// apart rather than collapsing both to silence (§6: "never say (complete)", the coverage-note lesson).
+export function obligationFor(model, rel) {
+  const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
+  const suffix = sufOf(rel) || '';
+  const module = refined(rel);
+  const rec = (model.obligations || []).find(o => o.module === module && o.suffix === suffix);
+  return { module, suffix, n: rec ? rec.n : 0, rules: rec ? rec.rules : [], ambient: rec ? rec.ambient : [] };
+}
+// the standalone `grain obligation <path>` text renderer AND the single-line hook `check <file> --as <path>` uses
+// (`{ top: 1 }`, first rule only) — one function, one wording, never two copies drifting apart.
+// the ambient half of a "two labelled sets" answer — ticket 073's obligation table and ticket 074's completeness
+// partners both split a candidate list into a specific set and this one, and BOTH print it with this same
+// wording/shape so a reader never has to learn a second phrasing for the identical judgment call ("this repo
+// touches these with almost everything"). `a.k`/`a.n` are always the candidate's OWN global rate (never a
+// case-specific count) — that is what makes a candidate ambient in the first place.
+function ambientLines(ambient, top) {
+  if (!ambient.length) return [];
+  const out = ['ambient (this repo touches these with almost everything):'];
+  for (const a of ambient.slice(0, top)) out.push(`  ${a.file}  ${a.k} of ${a.n} commits`);
+  return out;
+}
+export function obligationLines(model, rel, { top = 5 } = {}) {
+  const { module, suffix, n, rules, ambient } = obligationFor(model, rel);
+  const kindWord = suffix ? `*.${suffix}` : '(no extension)';
+  const dirWord = module === '.' ? 'the repo root' : module + '/';
+  if (!n) return [`a new ${kindWord} under ${dirWord} has no recorded births in this repo's history — nothing to certify`];
+  const out = [];
+  if (rules.length) {
+    out.push(`a new ${kindWord} under ${dirWord} has come with:`);
+    for (const r of rules.slice(0, top)) out.push(`  ${r.file}  ${r.k} of ${r.n} such commits`);
+  } else {
+    out.push(
+      `a new ${kindWord} under ${dirWord} has been born ${n} time${n === 1 ? '' : 's'} — nothing certifies as a specific obligation`
+    );
+  }
+  out.push(...ambientLines(ambient, top));
+  return out;
+}
 
 // ===== CLUSTERING =====
 // The generic half of role induction (§J4.1): bucket identical feature bags, cap the sample, agglomerate by weighted
@@ -3031,7 +3330,7 @@ export const deviantLine = (f, max = 2) =>
         'practiced',
         `not to copy: ${f.deviants
           .slice(0, max)
-          .map(d => `${ptr(d.rel, d.line, d.endLine)} \`${d.name}\` (${deviationPhrase(f, d.obs)})`)
+          .map(d => `${ptr(d.rel, d.line, d.endLine)} ${scopeBacktick({ kind: f.kind, name: d.name })} (${deviationPhrase(f, d.obs)})`)
           .join(' · ')}${f.deviantsN > max ? ` · +${f.deviantsN - max} more` : ''}`
       )}`
     : null;
@@ -3291,6 +3590,23 @@ export const unitOf = kind =>
     finally: 'finally blocks',
     case: 'named callbacks',
   })[kind] || kind;
+// §061 — a catch/finally clause has no name field of its own in any shipped grammar (a catch/finally block is
+// anonymous by nature — it is not a named declaration); `extractScopes`' blockScope still gives it a `.name`
+// (borrowed from its enclosing method/type, "named after its owner") purely so it survives as its own mined
+// population instead of being swept up by the anonymous-scope filter (`all[i].name === '<anon>'`). That borrowed
+// string must never be SPOKEN as if it were the clause's own declared name — `catch \`findOwner\`` reads as
+// though a catch block were named `findOwner`, the exact fabrication instrument A caught on PetController.java.
+// Every render site that turns a scope into a "kind `name`" phrase for a human goes through one of these two
+// helpers instead of inlining `${s.kind} \`${s.name}\`` — so the honesty fix lives in one place.
+const ANON_SCOPE_KINDS = new Set(['catch', 'finally']);
+// for text that already says "Your ${kind} …" — genuine declarations keep exactly that shape (`method
+// \`findOwner\``); an anonymous clause reads "catch in `findOwner`", never "catch `findOwner`".
+export const scopeNamed = s => (ANON_SCOPE_KINDS.has(s.kind) ? `${s.kind} in` : s.kind) + ` \`${s.name}\``;
+// for text that names the scope with no leading kind word at all (a waiver's "`findOwner` (line 42) …") — a
+// genuine declaration stays bare (unchanged from before this fact existed); only an anonymous clause needs the
+// kind spelled out here, since without it the borrowed name alone would read as the ENCLOSING declaration itself.
+export const scopeBacktick = s =>
+  ANON_SCOPE_KINDS.has(s.kind) ? `${s.kind} in \`${s.name}\`` : `\`${s.name}\``;
 // a statement shape cut at a node boundary, never mid-token: `expression_statement(call_expression(member_expression,…))`
 export const shapeShort = (sh, max = 64) => {
   if (sh.length <= max) return sh;
@@ -4263,7 +4579,7 @@ export async function learn({
       const dc = new Map();
       for (const s2 of cs) for (const d of s2.decos) if (d !== own) dc.set(d, (dc.get(d) || 0) + 1);
       for (const [d, k] of [...dc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 2))
-        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${decoLabel(d)} (${k}/${n})`);
+        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${decoLabel(d, cs[0].g)} (${k}/${n})`);
       const cc = new Map();
       for (const s2 of cs) for (const c2 of s2.calls) cc.set(c2, (cc.get(c2) || 0) + 1);
       for (const [c2, k] of [...cc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3))
@@ -4851,6 +5167,13 @@ export async function learn({
         .sort((a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1))
         .slice(0, 5000)
     : []; // cap by descending support
+  // §074: the exact population `model.cochange`'s own `commitsA`/`commitsB` were drawn from (state.fileCommits,
+  // history.mjs) — carried onto the model so `cochangeData` can test a co-change partner's OWN global rate
+  // (commitsX / nonMegaCommits) against the same λ bound `certifyObligationRules`' ambient gate uses, without
+  // re-deriving it from `H.fps` (which `buildObligationTable` does for a DIFFERENT reason — current-path-keying —
+  // that does not apply here: cochange's commitsA/commitsB are already historical-path-keyed, so this must stay
+  // historical-path-keyed too, or the two counts would disagree about what a "file" is).
+  model.nonMegaCommits = H ? H.nonMegaCommits : 0;
   // scope-level co-change (§J5.7b): mirrors model.cochange above, but `a`/`b` are scope keys whose path half is a
   // HISTORICAL path (§J4.1) — remapped through currentPathOf ONCE here, at learn-time, because checkFile never
   // sees H (only the model, exactly like model.cochange/model.moves/model.msgAffinity).
@@ -5077,6 +5400,16 @@ export async function learn({
     archetypes.sort((a, b) => b.n - a.n || (a.label < b.label ? -1 : a.label > b.label ? 1 : 0));
     model.changeArchetypes = archetypes.map((a, i) => ({ id: 'ca' + (i + 1), ...a }));
   }
+  // birth obligations (ticket 073): see `buildObligationTable` (above `induceClusters`) for the full derivation —
+  // reuses the SAME `_archModOf`/liveness-set idioms `changeArchetypes` (just above) and `cochangeData`/`howCmd`
+  // (ticket 066) already use, so a re-learn never computes a second, differently-scoped notion of "live".
+  model.obligations =
+    H && H.fps && H.fps.length
+      ? buildObligationTable(H.fps, {
+          refinedM: model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [])),
+          live: new Set([...(model.pathsAll || []), ...(model.filesAll || [])]),
+        })
+      : [];
   // value concordance (§J3.1): where each value lives, and which values are siblings inside one container. The
   // df window is a POPULATION gate on the index (CFG.valueDfMin/valueDfMaxShare), never an acceptance test — a
   // value in one file alone has no concordance, and one in a fifth of the repository is furniture.
@@ -5505,6 +5838,15 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   // callers need this signal to tell "genuinely nothing here" apart from "the parser gave up on part of this file"
   const scopes = extractScopes(effRel, tr, b, p._g).filter(s => s.name !== '<anon>');
   const relFact = relFactsFor(effRel, src, tr, p._g);
+  // §042 — the instance counts behind each per-file lexical vote, for `lexTallyNote`. Taken here because `tr` is freed
+  // on the next line and the governed loop below runs after that. A second walk of one already-parsed file, on the
+  // check path only; extraction and mining call `lexicalPreds` without a tally and are byte-for-byte unaffected.
+  // `lexQ` (§077) is the raw per-instance quote-literal scan (`{q, body, line, endLine}`), filtered down to genuine,
+  // non-delimiter-forced violations by `quoteFlags` below — same out-parameter discipline as `lexT`, never spread
+  // into a scope's `preds`.
+  const lexT = Object.create(null);
+  const lexQ = [];
+  lexicalPreds(tr, b, lexT, lexQ);
   tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
   const placeHit = placementHit(model, effRel);
@@ -5577,6 +5919,12 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
           label,
           conforms: lead === f.exp,
           fact: f,
+          tally: lexTally(
+            f.pid,
+            f.exp,
+            lexT[f.pid],
+            f.pid === 'auto.lex:quote' ? quoteFlags(f.exp, lexQ) : []
+          ), // §042 — null unless the per-file vote hid departing instances; §077 — flags the genuine ones among them
           defining: isDefiningFact(medoids, f),
         });
       // the lead surface speaks for the cluster; a deviation on any sibling surface (same conform set) is still a deviation
@@ -5619,7 +5967,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
             obs: v,
             text: `[grain] ${voice(
               'decided',
-              `\`${s.name}\` (line ${s.line}) deliberately departs from ${verbalize(
+              `${scopeBacktick(s)} (line ${s.line}) deliberately departs from ${verbalize(
                 vf,
                 f.exemplars.map(e => e.name)
               )} — ${conformN}/${f.sraw} established do it the other way${wv.note ? ` — ${wv.note}` : ''}`,
@@ -5665,20 +6013,22 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
                     }`
                   : ''
               }\n` +
-                `  ${conformN}/${f.sraw} established ${unitOf(f.kind)} conform. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}${known ? '' : ' — a value this repo has not used before'}.${contrast}` +
+                `  ${conformN}/${f.sraw} established ${unitOf(f.kind)} conform. Your ${scopeNamed(s)} (line ${s.line}) ${deviationPhrase(vf, v)}${known ? '' : ' — a value this repo has not used before'}.${contrast}` +
                 (() => {
                   const here = scopes
                     .filter(s2 => s2 !== s && s2.kind === s.kind && s2.preds[sf.pid] === sf.exp)
                     .slice(0, 2);
                   if (here.length)
-                    return `\n  In this file, ${here.map(s2 => `\`${s2.name}\` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
+                    return `\n  In this file, ${here.map(s2 => scopeBacktick(s2) + ` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
                   const near = exs[0];
+                  // §061: an exemplar carries no `.kind` of its own (f.exemplars' shape), but every exemplar of
+                  // this fact IS of the fact's own kind by construction — same borrowed-name honesty as `here` above.
                   return near
-                    ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} \`${near.name}\`${skipLineNote(part, f, near)}.`
+                    ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} ${scopeBacktick({ kind: f.kind, name: near.name })}${skipLineNote(part, f, near)}.`
                     : '';
                 })() +
                 (exs.length
-                  ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} \`${e.name}\`${skipLineNote(part, f, e)}`).join(' · ')}`
+                  ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part, f, e)}`).join(' · ')}`
                   : '') +
                 // any note the fact carries, not only `held` — the cost of deviating is the one a reader most needs here,
                 // and it can be present on a fact whose `held.since` is not
@@ -5745,7 +6095,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         voice(
           'practiced',
           `${label} shape: ${unit} here all carry \`${sig}\`${worst.need > 1 ? ` (${worst.need}×)` : ''}\n` +
-            `  ${pf.n}/${pf.n} established ${unit} conform. Your ${s.kind} \`${s.name}\` (line ${s.line}) is missing \`${sig}\` — every one of the ${pf.n} certified members of this group carries it at least ${worst.need} time${worst.need > 1 ? 's' : ''}, yours has ${worst.got}.\n` +
+            `  ${pf.n}/${pf.n} established ${unit} conform. Your ${scopeNamed(s)} (line ${s.line}) is missing \`${sig}\` — every one of the ${pf.n} certified members of this group carries it at least ${worst.need} time${worst.need > 1 ? 's' : ''}, yours has ${worst.got}.\n` +
             `  (N of N by construction: the group's template is the anti-unification of all ${pf.n} members, so everything it carries is in every one of them — there is no partial counter behind this denominator.)`
         ),
     });
@@ -5783,8 +6133,8 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         const retiredName = (sf.pid.match(/^auto\.[a-z]+:(@?.+)$/) || [])[1];
         const head2 =
           sf.retires && promoted
-            ? `${verbalize({ pid: promoted.pid, exp: promoted.value, kind: st.kind, heritageKind: heritageKindOf(promoted.pid, model) }, [st.name])}, not \`${retiredName || sf.pid}\` — ${practicedBy(promoted)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) still carries \`${retiredName || sf.pid}\``
-            : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}`;
+            ? `${verbalize({ pid: promoted.pid, exp: promoted.value, kind: st.kind, heritageKind: heritageKindOf(promoted.pid, model) }, [st.name])}, not \`${retiredName || sf.pid}\` — ${practicedBy(promoted)}. Your ${scopeNamed(s)} (line ${s.line}) still carries \`${retiredName || sf.pid}\``
+            : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${scopeNamed(s)} (line ${s.line}) ${deviationPhrase(vf, v)}`;
         steerHits.push({
           scope: s.name,
           kind: s.kind,
@@ -5914,9 +6264,11 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
     b.members.push({ name: s.name, line: s.line, endLine: s.endLine || s.line });
   });
   for (const b of buckets.values()) {
+    // §061: `m.name` for a catch/finally member is its enclosing method/type's OWN name (blockScope's borrowed
+    // "named after its owner"), never the clause's own — go through scopeBacktick so it reads as a location.
     const shown = b.members
       .slice(0, 3)
-      .map(m => `\`${m.name}\` (line ${m.line})`)
+      .map(m => `${scopeBacktick({ kind: b.kind, name: m.name })} (line ${m.line})`)
       .join(', ');
     const who = b.members.length > 3 ? `${shown} and ${b.members.length - 3} more` : shown;
     // (§010-e) an exemplar to open, reusing the SAME resolver the "See:" line under a deviation already uses
@@ -5935,7 +6287,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       text:
         `[grain] ${who} ${b.members.length === 1 ? 'is' : 'are'} new to the index — ${b.detail}. Judged against the package baseline only.` +
         (anchor
-          ? `\n  See: ${ptr(anchor.ex.rel, anchor.ex.line, anchor.ex.endLine)} \`${anchor.ex.name}\``
+          ? `\n  See: ${ptr(anchor.ex.rel, anchor.ex.line, anchor.ex.endLine)} ${scopeBacktick({ kind: anchor.f.kind, name: anchor.ex.name })}`
           : ''),
     });
   }
@@ -6197,10 +6549,12 @@ export function groupDeviations(msgs, touched = null, fileKindTouched = null) {
   for (const g of groups.values()) {
     const t = g.hits.filter(h => h.touched),
       p = g.hits.filter(h => !h.touched);
+    // §061: `h.scope` is the enclosing method/type's OWN name for a catch/finally hit (blockScope's borrowed
+    // "named after its owner"), never the clause's own — prefixed "in " so it reads as a location, not a name.
     const who = hs =>
       hs
         .slice(0, 3)
-        .map(h => `\`${h.scope}\` (line ${h.line})`)
+        .map(h => `${ANON_SCOPE_KINDS.has(h.kind) ? 'in ' : ''}\`${h.scope}\` (line ${h.line})`)
         .join(', ') + (hs.length > 3 ? ` and ${hs.length - 3} more` : '');
     const head = g.text.split('\n');
     const first = head[0];
@@ -6531,15 +6885,16 @@ export function buildCards(model) {
         ))
           addTok(toks, t, TOKW.fact); // `cli command` reaches @click.command through cli.py
       const degenerate = carrierNames.size === 1 && keys.length > 1; // three fixtures all named `test` are not a pattern to copy (three commands in one cli.py are)
+      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — §048, decoLabel's sigil call
       const label =
         pre === 'deco'
-          ? decoLabel(name)
+          ? decoLabel(name, markerG)
           : pre === 'sup'
             ? `extends ${name}`
             : `returns ${name}`;
       const mpid =
         pre === 'deco'
-          ? 'auto.deco:' + decoLabel(name)
+          ? 'auto.deco:' + decoLabel(name, markerG)
           : pre === 'sup'
             ? 'auto.extends:' + name
             : 'auto.returns:' + name;
@@ -6835,6 +7190,12 @@ export function whereCmd({
     let s = 0;
     for (const [t, w] of idf) s += tw(c, t) * w;
     c.score = idfSum ? s / idfSum : 0;
+    // §070 — snapshot the score BEFORE the exact-name/dirName pins below can lift it off zero. This is the
+    // card's own bag-of-words overlap with the query and nothing else: a card can only clear zero here by
+    // sharing an actual query token with its content (doc comments, member names, values — whatever `c.toks`
+    // indexes), never by an identifier or directory NAME merely matching. Read-only bookkeeping: nothing past
+    // this line changes what `c.score` becomes or how `hits` gets filtered/sorted/sliced.
+    c.lex0 = c.score;
     c.exact = c.names ? [...qraw].some(t => c.names.has(t)) : false; // a query word that IS a function/class name in this file
     // a pinned identifier that IS most of the query wins outright (`where sendStatus`); one that covers a minority of the
     // query's words only adds to the lexical score — `where command handler for TodoList archive` must rank the command
@@ -6896,7 +7257,22 @@ export function whereCmd({
   }
   let noConfidentHit = false,
     suppressedScore = 0; // set when the top hit is demoted to "untrustworthy" below — distinct wording from a genuine zero-hit
-  if (hits.length && hits[0].score < 0.34)
+  // §070 (research/where-lever) — on the leak-free stratum, 36% of the files `where` should have named share zero
+  // content-lexical overlap with the query (`lex0` above). Most of those are NOT the `!hits.length` case below —
+  // something ELSE in the repo still scores — so the reader sees a normal-looking ranked list built entirely on an
+  // identifier or directory NAME pin, with zero corroborating content-word overlap anywhere in the top hits — the exact shortcut
+  // §2.1 of the research doc measured directly ("cards lifted off zero by the exact-name pin without any token
+  // match"). Checked before `weak match` below because a name pin can win outright (`score` reaches 1, well past
+  // 0.34), so the flat-score banner never catches it — the structural fact that NO shown card's content shares a
+  // query word is the one signal here, not a new cutoff (§018/§037's rule: an already-weak answer cannot be made
+  // overconfident by saying so, so this fires regardless of how high the pinned score climbed).
+  const noContentFoothold = hits.length > 0 && hits.every(h => h.lex0 === 0);
+  if (noContentFoothold) {
+    const sig = hits[0].exact ? 'an exact identifier/name match' : 'a directory-name match';
+    lines.push(
+      `no card matches these words — the ranking below is by ${sig}, not text overlap; verify before building on it.`
+    );
+  } else if (hits.length && hits[0].score < 0.34)
     lines.push(
       `weak match: the best hit covers ${Math.round(hits[0].score * 100)}% of the query's weight — a hint, not an answer. If the hits look unrelated to what you are writing, open the nearest sibling of the file you expect to edit instead.`
     );
@@ -7006,13 +7382,14 @@ export function whereCmd({
       const carried = (h.carried || [])
         .filter(([mk]) => !mk.startsWith('ret:') || !TRIVIAL.test(mk.slice(4)))
         .sort((a, b) => b[1] - a[1]);
+      const cardG = EXT2GRAMMAR[extname(h.label)]; // `h.label` is this card's own file rel path — §048
       if (carried.length)
         lines.push(
           `  carries: ${carried
             .slice(0, 5)
             .map(
               ([mk, n]) =>
-                `${mk.startsWith('deco:') ? decoLabel(mk.slice(5)) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
+                `${mk.startsWith('deco:') ? decoLabel(mk.slice(5), cardG) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
             )
             .join(' · ')}`
         );
@@ -7061,7 +7438,11 @@ export function whereCmd({
       const [rel2, kind, name] = k.split('#');
       const ln = scopeLine(P, k);
       const end = scopeLineEnd(P, k);
-      return `${ln ? ptr(rel2, ln, end) : rel2} \`${name}\` (${kind})`;
+      // §061: `name` for a catch/finally member is its enclosing method/type's OWN name — scopeBacktick already
+      // says so ("catch in `findOwner`"), so the trailing "(kind)" would just repeat it; kept only for a genuine
+      // declaration, exactly as before this fact existed.
+      const tag = ANON_SCOPE_KINDS.has(kind) ? scopeBacktick({ kind, name }) : `\`${name}\` (${kind})`;
+      return `${ln ? ptr(rel2, ln, end) : rel2} ${tag}`;
     };
     if (h.type === 'marker') {
       const ex = h.members.slice(0, 3).map(withLine);
@@ -7221,7 +7602,7 @@ export function whereCmd({
       .slice(0, 3);
     if (ex.length)
       lines.push(
-        `  pattern to copy: ${ex.map(([e, f]) => `${ptr(e.rel, e.line, e.endLine)} \`${e.name}\`${skipLineNote(part(model, h.part), f, e)}${e.why ? ` — ${e.why}` : ''}`).join(' · ')}`
+        `  pattern to copy: ${ex.map(([e, f]) => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part(model, h.part), f, e)}${e.why ? ` — ${e.why}` : ''}`).join(' · ')}`
       );
     else if (h.members) {
       const ms = h.members.slice(0, 3).map(withLine);
@@ -7367,7 +7748,7 @@ export function howCmd({
     if (!arr.includes(parts[2])) arr.push(parts[2]);
     topScopes.set(cur, arr);
   }
-  const places = [...counts.keys()]
+  let places = [...counts.keys()]
     .map(rel => ({
       rel,
       k: counts.get(rel),
@@ -7378,14 +7759,26 @@ export function howCmd({
       weight: +weights.get(rel).toFixed(3),
     }))
     .sort((a, b) => b.weight - a.weight || b.k - a.k || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+  // §066: a place dead at HEAD is dead code to an agent following this list — never somewhere to edit. Same
+  // liveness source `cochangeData` computes its own `live` set from (core.mjs ~9154, one house-wide answer to "is
+  // this path still here", never a second/third liveness check invented per renderer). §020 had this render
+  // `(deleted)` instead of dropping the entry; measured on a real corpus that still put 13 of 28 CleanArchitecture
+  // places on files that no longer exist — marking a dead file still hands it to the reader as a "place such a
+  // change touched". Omitting it is the other option the ticket's own acceptance text always allowed ("marks it OR
+  // omits it — decide which and document why"); dropping is strictly the more useful answer for an agent about to
+  // edit code, so `how` now omits rather than marks.
+  places = places.filter(p => p.exists);
+  // §066: the "1/N" long tail — a place touched by only 1 of K matched commits is one anecdote, not a place "such
+  // a change touched". Reuses `how-hook`'s own existing bar for exactly this (`places.filter(p => p.k >= 2)`,
+  // grain.mjs) rather than a new constant. Applied only when it leaves something: a single-match query (K=1) or a
+  // set of equally-thin matches has no k>=2 evidence to prefer over, and dropping to zero places would be a false
+  // "nothing to say" — the same refusal-to-invent-absence principle as `completenessDirectional` (§063).
+  const strongPlaces = places.filter(p => p.k >= 2);
+  if (strongPlaces.length) places = strongPlaces;
   // `sources: ['cochange']` is the ONLY correct configuration here and is not a limitation to relax later: `how`
   // names its files from the commit history and never parses one, so it can never supply the `newFileScopes` the
   // `'recipe'` source needs. Bolting `'recipe'` on would require adding a parse step first.
-  const missing = missingLines(
-    model,
-    places.filter(p => p.exists).map(p => p.rel),
-    { sources: ['cochange'] }
-  );
+  const missing = missingLines(model, places.map(p => p.rel), { sources: ['cochange'] });
   // the certified SHAPE this intent looks like, if any (§J4.1). Two independent readings of the same query: the
   // archetype's own message vocabulary, scored on the idf already computed above, and how much of its certified
   // module/suffix footprint the places `what` finds for this query cover (a `g:` role cell has no query-side
@@ -7440,11 +7833,17 @@ export function howCmd({
         date: new Date(m.fp.ts * 1000).toISOString().slice(0, 7),
       })
     );
-  lines.push('places such a change touched:');
-  for (const p of places)
-    lines.push(
-      `  ${p.rel} (${p.k}/${p.of}) — ${p.exists ? p.module : '(deleted)'}${p.scopes.length ? ` · scopes: ${p.scopes.join(', ')}` : ''}`
-    );
+  // §066: `places` is already filtered to files live at HEAD (above) — every remaining entry's `exists` is true,
+  // so there is no longer a `(deleted)` branch to render here. A places array can now legitimately be empty (every
+  // file the matched commits touched has since been deleted) — the header is only worth printing when there is at
+  // least one place to list under it.
+  if (places.length) {
+    lines.push('places such a change touched:');
+    for (const p of places)
+      lines.push(
+        `  ${p.rel} (${p.k}/${p.of}) — ${p.module}${p.scopes.length ? ` · scopes: ${p.scopes.join(', ')}` : ''}`
+      );
+  }
   lines.push(...missing);
   return {
     lines,
@@ -7538,11 +7937,13 @@ export function ungrammaredFiles(model) {
 function gatedValueEvidence(model, rawScopes, q) {
   if (!rawScopes) return null;
   const byKind = new Map(); // e.k -> Set of files carrying value q under that kind
+  const contsByKind = new Map(); // e.k -> Set of container ids (§056: e.c) carrying value q under that kind
   for (const s of rawScopes) {
     if (s.kind !== 'file') continue;
     for (const e of s.vals || []) {
       if (e.v !== q) continue;
       (byKind.get(e.k) || byKind.set(e.k, new Set()).get(e.k)).add(s.rel);
+      if (e.c != null) (contsByKind.get(e.k) || contsByKind.set(e.k, new Set()).get(e.k)).add(e.c);
     }
   }
   if (!byKind.size) return null;
@@ -7552,7 +7953,31 @@ function gatedValueEvidence(model, rawScopes, q) {
   const files = [...fileSet].sort(),
     df = files.length;
   const dfMax = Math.ceil(CFG.valueDfMaxShare * (model.files || df));
-  return { valueKind: k, files, df, tooRare: df < CFG.valueDfMin, tooCommon: df > dfMax };
+  // §056 — a data-grammar KEY gated out of `model.valueIndex` by the cross-file df floor still has a real
+  // STRUCTURAL neighbor set: the OTHER keys declared in the exact same container (e.g. a YAML `services:`
+  // mapping's other service ids) — a WITHIN-file/container fact that needs no cross-file repetition to be true,
+  // unlike `model.valueSiblings` (which additionally requires each member to have separately cleared the df
+  // floor — the wrong bar for "does this container have other named entries", which is why a same-file cluster
+  // of once-only keys never reaches it). Computed directly off `rawScopes` (never off `model.valueIndex`), so it
+  // is available exactly when the df-gate disclosure below fires, independent of any other key's own frequency.
+  // Kept to `key`-kind evidence only: a `str`/`enum` sibling set is the cross-file value-concordance question
+  // `model.valueSiblings` already answers correctly, and duplicating it here would just restate that fact under
+  // a looser (single-file) bar.
+  let siblings = null;
+  if (k === 'key') {
+    const conts = contsByKind.get(k);
+    const sibSet = new Set();
+    outer: for (const s of rawScopes) {
+      if (s.kind !== 'file') continue;
+      for (const e of s.vals || []) {
+        if (e.k !== 'key' || e.v === q || e.c == null || !conts.has(e.c)) continue;
+        sibSet.add(e.v);
+        if (sibSet.size >= 12) break outer;
+      }
+    }
+    if (sibSet.size) siblings = [...sibSet].sort();
+  }
+  return { valueKind: k, files, df, tooRare: df < CFG.valueDfMin, tooCommon: df > dfMax, siblings };
 }
 // case C (§032): the query is an external/vendor type — never declared in this repository, so (a)'s declaration
 // search has no card of its own to anchor on and, left alone, silently substitutes fuzzy name-token overlap over
@@ -7719,6 +8144,11 @@ export function whatCmd({
       const P = part(model, c.part);
       for (const k of c.members || []) {
         const [rel, kind, name] = k.split('#');
+        // §061: a catch/finally member's `name` is its enclosing method/type's OWN name (blockScope's borrowed
+        // "named after its owner", §extractScopes) — the same reason the file-card branch above already excludes
+        // them; a role/marker group mixes every non-file/module kind (§induceRoles), so this branch needs the
+        // identical guard or a query for the enclosing declaration surfaces its unrelated catch/finally twin too.
+        if (kind === 'catch' || kind === 'finally') continue;
         if (!nameHits(name)) continue;
         pushDef(rel, kind, name, scopeLine(P, k), scopeLineEnd(P, k));
       }
@@ -7787,24 +8217,23 @@ export function whatCmd({
     );
   }
 
-  // (d) siblings: the OTHER members of any container a matched value belongs to — members already matched by (b)
-  // themselves are not "other" news, so a container every one of whose survivors (b) already found contributes nothing
-  const matchedKeys = new Set(valueHits.map(h => h.key));
-  const siblings = [];
-  const seenCont = new Set();
-  for (const h of valueHits) {
-    const contEntry = Object.entries(model.valueSiblings || {}).find(([, sibs]) => sibs.includes(h.key));
-    if (!contEntry) continue;
-    const [c, sibs] = contEntry;
-    if (seenCont.has(c)) continue;
-    seenCont.add(c);
-    const others = sibs.filter(k2 => !matchedKeys.has(k2));
-    if (!others.length) continue;
-    const label = model.valueContainer?.[c];
-    siblings.push(
-      `${label ? label + ': ' : ''}${others.map(k2 => `\`${k2.slice(k2.indexOf(':') + 1)}\``).join(', ')}`
-    );
-  }
+  // (d) siblings — DELETED (§052). It printed the OTHER members of any container a matched value sits in, which
+  // by construction is exactly the set of values that did NOT match the query. Measured across 7 languages
+  // (.system/issues/052-what-siblings-noise/log.md): per-value precision 0.364 [0.29–0.44] over 165 blind hand
+  // verdicts, against a pre-registered 0.70 bar and a tie-break that counts every unsure value as a hit — so
+  // 0.364 is an upper bound. It fired on 218 of 420 of the repositories' own vocabulary queries and rendered a
+  // mean of 72.7 values per line, worst single line 759, all in the `practiced` (statistical-claim) voice. The
+  // gate does carry real signal (an arbitrary-container decoy baseline measured 0.127, z = 4.99), but this is a
+  // PUSH surface — volunteered inside the answer to a different question — and §044's ruling is that a push
+  // surface needs precision the reader does not have to audit. Restricting to NAMED containers was measured too
+  // and does not rescue it: still 27.5 values per line, and it zeroes 3 of the 7 languages outright.
+  //
+  // The evidence keeps its home, exactly as §044 kept `model.twins`: `model.valueSiblings`/`valueContainer`/
+  // `valueNorms` are untouched and `export` publishes them verbatim, and the PULL surface — `check`/`review`'s
+  // `kin:` line — still speaks about these containers. `kin:` is the right home: it fires only when the reader's
+  // own change touched that container, and it reads `model.valueNorms`, the KT/λ-certified co-travel test that
+  // this line never consulted. Across the corpus that certification accepts 3 of 2393 containers; `what` was
+  // rendering all 2393.
 
   // (e) commits: model.msgAffinity (built at index time from H.msgAff, §J2.4) works from the model alone — locating
   // it never needs H. The rendered count/date DOES need H.fps (§J2.1), so — exactly like `how` — that half is
@@ -7876,7 +8305,6 @@ export function whatCmd({
     );
   if (spread.length)
     lines.push(voice('practiced', `spread: ${spread.map(s => `${s.module} (${s.n})`).join(' · ')}`));
-  if (siblings.length) lines.push(voice('practiced', `siblings: ${siblings.join(' · ')}`));
   if (changes)
     lines.push(
       voice(
@@ -7970,13 +8398,19 @@ export function whatCmd({
     if (gv) {
       // the plain absence claim would be FALSE here — replaced, not appended
       const label = VALUE_KIND_LABEL[gv.valueKind] || gv.valueKind;
-      const text = gv.tooRare
-        ? `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} (${gv.files.slice(0, 3).join(', ')}) — below the ${CFG.valueDfMin}-file floor where concordance begins, so it is not indexed. Seen, not absent.`
-        : gv.tooCommon
-          ? `«${q}» was seen as a ${label} in ${gv.df} files — above the commonality ceiling (over ${Math.round(CFG.valueDfMaxShare * 100)}% of the repository), so it is treated as boilerplate rather than a distinguishing concordance. Seen, not absent.`
-          : `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} but was not retained in the value index. Seen, not absent.`;
+      // §056 — a same-container sibling list, when the gated evidence found one (see gatedValueEvidence's own
+      // note): appended, never in place of, the df-floor explanation itself.
+      const sibTxt = gv.siblings
+        ? ` Declared alongside: ${gv.siblings.slice(0, 8).map(s => `\`${s}\``).join(', ')}${gv.siblings.length > 8 ? ` (+${gv.siblings.length - 8} more)` : ''}.`
+        : '';
+      const text =
+        (gv.tooRare
+          ? `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} (${gv.files.slice(0, 3).join(', ')}) — below the ${CFG.valueDfMin}-file floor where concordance begins, so it is not indexed. Seen, not absent.`
+          : gv.tooCommon
+            ? `«${q}» was seen as a ${label} in ${gv.df} files — above the commonality ceiling (over ${Math.round(CFG.valueDfMaxShare * 100)}% of the repository), so it is treated as boilerplate rather than a distinguishing concordance. Seen, not absent.`
+            : `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} but was not retained in the value index. Seen, not absent.`) + sibTxt;
       lines.push(voice('map', text));
-      note = { kind: 'gated', value: q, valueKind: gv.valueKind, df: gv.df, files: gv.files };
+      note = { kind: 'gated', value: q, valueKind: gv.valueKind, df: gv.df, files: gv.files, siblings: gv.siblings || [] };
     } else if (ungrammaredHit) {
       // §057 — a certified-absence sibling stronger than `blindHit` below: the exact text was found, on a
       // bounded re-scan (grain.mjs's `findUngrammaredHit`), inside a tracked file whose extension has no
@@ -8028,7 +8462,6 @@ export function whatCmd({
     weakName,
     values: valueHits.map(h => ({ value: h.v, kind: h.k, places: h.places })),
     spread,
-    siblings,
     changes: changes || {},
     usedBy: usedBy || {},
     referenced,
@@ -8273,13 +8706,22 @@ export function leakSubtractedH(H, sha) {
 //     token with the query: the half no name matcher can win, reported BESIDE the pooled numbers, never instead
 //     of them. Together with the baseline arm that is two independent controls on the one confound this ground
 //     truth cannot remove — the query and the answer were written by the same person in the same sitting.
-// Returns { where, base, unnamed: { n, where, base }, n, silent }, each arm { hit3, mrr, place3, placeWidth }: `n`
-// is the candidate count, `silent` counts candidates where `where` ranked nothing at all (a genuine no-match or
-// the concentration safeguard suppressing an untrustworthy top hit — both still count as a 0, or the gate would
-// be gameable by staying quiet on everything hard). `place3` discounts a containment-only credit by 1/cardWidth
-// (§068) so a directory or group wide enough to cover most of the repository cannot pass as a precise hit;
-// `placeWidth` is the mean file-count of the cards actually credited, printed beside place3 so that artifact is
-// visible directly instead of requiring a researcher to dig it out by hand.
+//   · a third, additive stratum (§071) — every query above is built from `toks`, the commit message run through
+//     `tokenize`+`normTok`, which SPLITS camelCase/snake_case (`sendStatus` → `send`+`status`) — so none of them
+//     can ever contain a verbatim identifier, and `whereCmd`'s own exact-name pin (`qraw`/`c.exact`) can only ever
+//     fire off a query's own whole, unsplit word. That is an instrument boundary, not a fact about `where`: typed
+//     by a human, `where sendStatus` pins correctly. `symbol` re-runs the identical scoring over just the
+//     candidates whose raw message carried such a word (`fp.symToks`, history.mjs), on a query that keeps it
+//     whole ALONGSIDE the ordinary split form — never replacing `where`/`base`/`unnamed` above, which stay
+//     computed exactly as before.
+// Returns { where, base, unnamed: { n, where, base }, symbol: { n, where, base }, n, silent }, each arm
+// { hit3, mrr, place3, placeWidth }: `n` is the candidate count, `silent` counts candidates where `where` ranked
+// nothing at all (a genuine no-match or the concentration safeguard suppressing an untrustworthy top hit — both
+// still count as a 0, or the gate would be gameable by staying quiet on everything hard). `place3` discounts a
+// containment-only credit by 1/cardWidth (§068) so a directory or group wide enough to cover most of the
+// repository cannot pass as a precise hit; `placeWidth` is the mean file-count of the cards actually credited,
+// printed beside place3 so that artifact is visible directly instead of requiring a researcher to dig it out by
+// hand.
 export function whereEval({ model, H, last = 100 }) {
   const DEPTH = 10; // the ranked list is read this deep: `hit3`/`place3` are the product's OWN default `--top 3`; the rest of the depth is there so `mrr` can tell "just missed" from "nowhere at all"
   const fps = (H && H.fps) || [];
@@ -8324,7 +8766,7 @@ export function whereEval({ model, H, last = 100 }) {
         claimed.add(cur);
       }
     }
-    if (truth.length) eligible.push({ toks: fp.toks, truth });
+    if (truth.length) eligible.push({ toks: fp.toks, symToks: fp.symToks || [], truth });
   }
   const n = Math.max(0, Math.floor(last) || 0);
   const candidates = n > 0 ? eligible.slice(-n) : []; // the LAST n are the most recent — the conventions in force now
@@ -8359,10 +8801,12 @@ export function whereEval({ model, H, last = 100 }) {
     const d = dirOf(p);
     dirFileCount.set(d, (dirFileCount.get(d) || 0) + 1);
   }
-  const rows = [];
-  let silent = 0;
-  for (const C of candidates) {
-    const query = C.toks.join(' ');
+  // §071 — the per-candidate scoring math, unchanged in every particular from before this ticket, pulled out to
+  // a function so it can be reused verbatim for a SECOND query built off the same candidate (the symbol stratum
+  // below) without duplicating (and risking drift in) the arithmetic the pooled/unnamed strata are judged by.
+  // Called once per candidate exactly as the inline loop used to call it — same query, same truth, same DEPTH —
+  // so the pooled/named/unnamed numbers this returns are bit-for-bit what the old inline code produced.
+  const scoreQuery = (C, query) => {
     const qt = new Set(
       tokenize(query)
         .map(normTok)
@@ -8371,7 +8815,6 @@ export function whereEval({ model, H, last = 100 }) {
     const truth = new Set(C.truth),
       truthDirs = new Set(C.truth.map(dirOf));
     const { hits } = whereCmd({ model, query, top: DEPTH, mapRows: 0 }); // mapRows 0: the compact map is render-only and this reads ranks
-    if (!hits.length) silent++;
     let wHit = 0,
       wPlace = 0,
       wContainRank = 0,
@@ -8419,16 +8862,38 @@ export function whereEval({ model, H, last = 100 }) {
     });
     const bPlaceW = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? bContainWidth : 0;
     const bPlaceCredit = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? 1 / bContainWidth : 0;
+    return { qt, silent: !hits.length, wHit, wPlaceCredit, wPlaceW, bHit, bPlaceCredit, bPlaceW };
+  };
+  const rows = [];
+  let silent = 0;
+  for (const C of candidates) {
+    const query = C.toks.join(' ');
+    const r = scoreQuery(C, query);
+    if (r.silent) silent++;
     const nameToks = new Set(C.truth.flatMap(f => nameTokens(f).map(normTok)));
     rows.push({
-      named: [...qt].some(t => nameToks.has(t)),
-      wHit,
-      wPlaceCredit,
-      wPlaceW,
-      bHit,
-      bPlaceCredit,
-      bPlaceW,
+      named: [...r.qt].some(t => nameToks.has(t)),
+      wHit: r.wHit,
+      wPlaceCredit: r.wPlaceCredit,
+      wPlaceW: r.wPlaceW,
+      bHit: r.bHit,
+      bPlaceCredit: r.bPlaceCredit,
+      bPlaceW: r.bPlaceW,
     });
+  }
+  // §071 — the symbol stratum: purely additive, never read by (and never feeding back into) `rows` above, so it
+  // cannot move the pooled/named/unnamed numbers by so much as a rounding error. Limited to candidates whose OWN
+  // commit message actually contained a verbatim identifier-shaped word (`symToks`, history.mjs) — a candidate
+  // with none would score identically to its own `rows` entry, diluting the stratum with cases that test nothing
+  // new. The query fed to `whereCmd` is the existing split/stemmed form PLUS those verbatim words appended (never
+  // instead of it — option (a) from the ticket): `qraw`/`c.exact` (core.mjs's exact-name pin) can only ever fire
+  // off a query's own WHOLE, unsplit word, and `toks` alone can never contain one.
+  const symRows = [];
+  for (const C of candidates) {
+    if (!C.symToks.length) continue;
+    const query = [...C.toks, ...C.symToks].join(' ');
+    const r = scoreQuery(C, query);
+    symRows.push({ wHit: r.wHit, wPlaceCredit: r.wPlaceCredit, wPlaceW: r.wPlaceW, bHit: r.bHit, bPlaceCredit: r.bPlaceCredit, bPlaceW: r.bPlaceW });
   }
 
   const at = (rs, f, k) => (rs.length ? rs.filter(r => r[f] && r[f] <= k).length / rs.length : 0);
@@ -8460,8 +8925,114 @@ export function whereEval({ model, H, last = 100 }) {
       where: arm(unnamed, 'wHit', 'wPlaceCredit', 'wPlaceW'),
       base: arm(unnamed, 'bHit', 'bPlaceCredit', 'bPlaceW'),
     },
+    // §071 — candidates whose commit message carried at least one verbatim identifier-shaped word, scored on a
+    // query that keeps that word whole (alongside the ordinary split/stemmed tokens): the stratum `unnamed`
+    // structurally cannot cover, since a query built only from `toks` can never pin `whereCmd`'s exact-name match.
+    symbol: {
+      n: symRows.length,
+      where: arm(symRows, 'wHit', 'wPlaceCredit', 'wPlaceW'),
+      base: arm(symRows, 'bHit', 'bPlaceCredit', 'bPlaceW'),
+    },
     n: rows.length,
     silent,
+  };
+}
+
+// `selftest --obligation` (ticket 073's instrument) — the same automatically-derived, leave-one-out ground truth
+// `selftest --how`/`selftest --where` already run (a past commit IS a recorded answer; nobody labels anything),
+// asked of the birth-obligation table. Stricter than those two siblings' own leave-one-out, though: `howEval`/
+// `whereEval` drop only the ONE candidate commit and still let LATER commits inform the model that scores an
+// EARLIER candidate. Here the table scoring a candidate is built ONLY from strictly-older footprints, walked
+// forward chronologically and folded in one at a time via `foldObligationFootprint` (above) — the exact function
+// `buildObligationTable` itself calls, so the gates a shipped `grain obligation` answer clears can never drift
+// from the gates this harness measures. The candidate's own footprint is folded in only AFTER it is scored, so it
+// can never certify the very rule being used to predict it — the prospective analogue of `leakSubtractedH`'s
+// discipline (§069), guarded by its own test the same way ticket 069 guards `whereEval`.
+//
+// One EVENT is one (footprint, class) pair, not one commit — a commit adding files in two different classes is
+// two events, matching the unit `grain obligation <path>` itself answers for one path at a time.
+//
+// "hottest recent files" (the non-obvious stratum, and null (a)) is read off the SAME running `fileCommits`
+// accumulator the table itself uses for its base-rate contrast — the top 10 by cumulative touch count as of the
+// candidate's own position in history, never a repo-wide or all-time count a candidate could not yet have earned.
+export function obligationEval({ model, H, last = 100 }) {
+  const fps = (H && H.fps) || [];
+  const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
+  const refinedM = model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
+  const currentOf = currentPathOf(fps, live);
+
+  const allEvents = [];
+  for (let i = 0; i < fps.length; i++)
+    for (const ev of classEventsOf(fps[i], { currentOf, refinedM })) allEvents.push({ i, ...ev });
+  const n = Math.max(0, Math.floor(last) || 0);
+  const candidates = n > 0 ? allEvents.slice(-n) : []; // events are already chronological (fps is oldest-first, §J2.1) — the LAST n are the most recent
+  const byIndex = new Map();
+  for (const c of candidates) {
+    if (!byIndex.has(c.i)) byIndex.set(c.i, []);
+    byIndex.get(c.i).push(c);
+  }
+
+  // a small, deterministic LCG seeded per event — reproducible across runs (same H, same `last`) without needing
+  // a shared, stateful Math.random; this is instrument-internal (the null (b) baseline), never product code.
+  const seededPick = (arr, kCount, seed) => {
+    if (arr.length <= kCount) return arr.slice();
+    let s = (seed >>> 0) || 1;
+    const rnd = () => ((s = (Math.imul(s, 1103515245) + 12345) >>> 0) / 4294967296);
+    const pool = arr.slice();
+    const out = [];
+    for (let j = 0; j < kCount && pool.length; j++) out.push(pool.splice(Math.floor(rnd() * pool.length), 1)[0]);
+    return out;
+  };
+
+  const classes = new Map();
+  const fileCommits = new Map();
+  const rows = [];
+  for (let i = 0; i < fps.length; i++) {
+    const fp = fps[i];
+    const evs = byIndex.get(i);
+    if (evs && evs.length) {
+      let universe = 0;
+      for (const rec of classes.values()) universe += rec.co.size;
+      const idxCost = Math.ceil(Math.log2(Math.max(universe, 2)));
+      const nonMegaCommits = i; // exactly the number of footprints folded in so far — the population `fileCommits` below was drawn from
+      const truthAll = new Set(fp.files.map(currentOf));
+      const hotPool = [...fileCommits.entries()].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1));
+      for (const ev of evs) {
+        const truth = new Set(truthAll);
+        truth.delete(ev.cur);
+        const rec = classes.get(ev.key);
+        const rules = rec ? certifyObligationRules(rec, { fileCommits, nonMegaCommits, idxCost, live }).rules : [];
+        const fired = rules.length > 0;
+        const top1 = fired ? rules[0].file : null;
+        const top3 = rules.slice(0, 3).map(r => r.file);
+        const hit1 = fired && truth.has(top1);
+        const hit3n = top3.filter(f => truth.has(f)).length;
+        const prec3 = top3.length ? hit3n / top3.length : 0;
+        const hot10 = new Set(hotPool.filter(([f]) => f !== ev.cur).slice(0, 10).map(([f]) => f));
+        const nonObvious = fired && !hot10.has(top1);
+        const hot3 = hotPool.filter(([f]) => f !== ev.cur).slice(0, 3).map(([f]) => f);
+        const nullHotHit = hot3.some(f => truth.has(f));
+        const alive = [...fileCommits.keys()].filter(f => f !== ev.cur && live.has(f));
+        const nullRand = seededPick(alive, 3, i * 2654435761 + rows.length + 1);
+        const nullRandHit = nullRand.some(f => truth.has(f));
+        rows.push({ fired, hit1, prec3, nonObvious, nonObviousHit: nonObvious && hit1, nullHotHit, nullRandHit });
+      }
+    }
+    foldObligationFootprint(fp, { currentOf, refinedM, classes, fileCommits });
+  }
+
+  const share = (rs, pred) => (rs.length ? rs.filter(pred).length / rs.length : 0);
+  const fired = rows.filter(r => r.fired);
+  const nonObv = rows.filter(r => r.nonObvious);
+  return {
+    n: rows.length,
+    coverage: share(rows, r => r.fired),
+    precision1: share(fired, r => r.hit1),
+    precision3: fired.length ? fired.reduce((a, r) => a + r.prec3, 0) / fired.length : 0,
+    nonObviousN: nonObv.length,
+    nonObviousPrecision: share(nonObv, r => r.nonObviousHit),
+    nullHot: share(fired, r => r.nullHotHit),
+    nullRandom: share(fired, r => r.nullRandHit),
   };
 }
 
@@ -8506,6 +9077,60 @@ export function factTiers(p) {
 // own generated-document text (below) share one wording instead of two that could drift apart.
 export const DIRTY_TREE_NOTE =
   'the worktree has uncommitted changes — this answer is computed from the indexed commit, not the current files on disk';
+// §042: a lexical style surface is a per-FILE majority vote (lexicalPreds) — `auto.lex:quote` reads `double` while at
+// most 20% of the file's literals are single-quoted. So a conforming file can hold, or GAIN, many departing literals
+// without the value ever moving: measured, telescope.nvim's buffer_previewer.lua absorbs 50 new single-quoted literals
+// in silence and flips only at 51; express's test/acceptance/mvc.js absorbs 12 and flips at 15; the budget is 0.25 ×
+// the majority count, so it grows with file size (957 / 2050 / 1067 literals repo-wide on telescope.nvim / express /
+// flask). The vote is the right unit to MINE — a delimiter forced by the content (`'he said "hi"'`) is not a style
+// choice, and 11 of 11 minority literals in telescope.nvim are exactly that — but `check` must not call the file
+// conforming without saying what a file-granularity vote cannot see. Same register and same one-constant-two-renderers
+// discipline as TEMPLATE_DESCRIPTIVE_NOTE below.
+const LEX_UNIT = {
+  'auto.lex:quote': ['string literal', 'string literals'],
+  'auto.lex:semi': ['statement', 'statements'],
+  'auto.lex:decl': ['declaration', 'declarations'],
+  'auto.lex:indent': ['indented line', 'indented lines'],
+};
+// §077 (director-approved follow-up to §042, esc-1): of the minority-quote literals a per-file quote vote counts
+// as departing (lexTally's `off`, below), a delimiter forced by the literal's OWN body (`'he said "hi"'` in a
+// double-quote file — the other quote would need escaping) is not a style choice; §042 already measured this
+// holds for 11/11 telescope.nvim, 19/31 flask and 2/24 express minority literals. This is the one content test
+// that tells a genuine departure apart from a forced one — reused here rather than reimplemented, and gated on
+// nothing but `exp` already being a real majority (`checkFile` only ever calls this for a certified fact, so
+// there is no new tunable: the file-level convention's own acceptance decides whether this can ever run).
+export function quoteFlags(exp, literals) {
+  if (exp !== 'single' && exp !== 'double') return []; // no per-literal flag on an uncertified/`mixed` vote
+  const majority = exp === 'single' ? "'" : '"';
+  const minority = exp === 'single' ? '"' : "'";
+  return (literals || []).filter(l => l.q === minority && !l.body.includes(majority));
+}
+// null when there is nothing to disclose; otherwise the counts AND the sentence, from one computation, so the JSON
+// field and the printed clause can never disagree about the same file. `flags` (§077) is the subset of the hidden
+// instances that are genuine violations, not delimiter-forced (quoteFlags above) — always [] for the three
+// non-quote lexical surfaces, so their note is byte-for-byte unchanged from §042.
+export function lexTally(pid, exp, tally, flags = []) {
+  const unit = LEX_UNIT[pid];
+  if (!unit || !tally || tally[exp] === undefined) return null; // `mixed`/`other` name no instance: nothing to count
+  const total = Object.values(tally).reduce((a, c) => a + c, 0);
+  const conforming = tally[exp];
+  const off = total - conforming;
+  if (total <= 0 || off <= 0) return null; // every instance conforms: the file-level verdict is true per instance too
+  const flagged = flags.length;
+  const flagClause = flagged
+    ? `, ${flagged} flagged as a genuine violation${flagged > 1 ? 's' : ''} (not delimiter-forced): ${flags
+        .slice(0, 6)
+        .map(f => `line ${f.line}`)
+        .join(', ')}${flagged > 6 ? ` · +${flagged - 6} more` : ''}`
+    : ' and none of them is flagged';
+  return {
+    conforming,
+    total,
+    flagged,
+    flagLines: flags.map(f => f.line),
+    note: ` — scored per file, not per ${unit[0]}: ${off} of ${total} ${unit[1]} here depart from it${flagClause}`,
+  };
+}
 // §030: a `report`/`rules` TEMPLATE line (mineTemplates/profileOf — unclustered residue, never a role group) is a
 // render-only structural superposition: it has no cell in `part.facts`, so `check`/`review`/hooks cannot fail a
 // member for breaking its shape — not even the partial bridge J5.8 gives CLUSTERED role-group profiles
@@ -8920,22 +9545,33 @@ export function report(model, { top = 15, outcomes } = {}) {
 // line whose whole point is to be skimmed, and `report`'s detailed section already exists for exactly that
 // evidence. `decisions:` is a bare count/structure line (like a header or a stamp), never a claim, so it carries
 // no voice() marker at all.
+// the module→layer grouping `map`'s text `layers:` line renders (byLayer, below) — extracted so a second caller
+// (ticket 072: `report --json`'s `layers` field) computes the identical grouping instead of re-deriving its own,
+// the same "one function computes it" discipline as relCoverageData/relCoverageNote above (§G21). Returns the
+// FULL, untruncated module list per layer, ascending by layer number, modules sorted alphabetically within — the
+// same sort mapSections' own `mods.sort()` already used; mapSections' 4-per-layer "+K more" cap is a display
+// concern layered on top by its own caller, exactly like cmdMap's `changes` field already keeps the full
+// `model.changeArchetypes` list while its OWN text line caps to 4 (§066/051).
+export function moduleLayers(model) {
+  const mg = model.moduleGraph;
+  if (!mg || !mg.nodes.length) return [];
+  const byLayer = new Map();
+  for (const n of mg.nodes) {
+    if (n.layer === undefined) continue;
+    (byLayer.get(n.layer) || byLayer.set(n.layer, []).get(n.layer)).push(n.id);
+  }
+  return [...byLayer.keys()]
+    .sort((a, b) => a - b)
+    .map(l => ({ layer: l, modules: byLayer.get(l).sort() }));
+}
 export function mapSections(model) {
   const lines = [];
   const mg = model.moduleGraph;
   if (mg && mg.nodes.length) {
-    const byLayer = new Map();
-    for (const n of mg.nodes) {
-      if (n.layer === undefined) continue;
-      (byLayer.get(n.layer) || byLayer.set(n.layer, []).get(n.layer)).push(n.id);
-    }
     const label = id => (id === '.' ? '.' : id + '/');
-    const segs = [...byLayer.keys()]
-      .sort((a, b) => a - b)
-      .map(l => {
-        const mods = byLayer.get(l).sort();
-        return `layer ${l}${l === 0 ? ' (leaves)' : ''}: ${mods.slice(0, 4).map(label).join(', ')}${mods.length > 4 ? `, +${mods.length - 4} more` : ''}`;
-      });
+    const segs = moduleLayers(model).map(({ layer: l, modules: mods }) => {
+      return `layer ${l}${l === 0 ? ' (leaves)' : ''}: ${mods.slice(0, 4).map(label).join(', ')}${mods.length > 4 ? `, +${mods.length - 4} more` : ''}`;
+    });
     if (segs.length) lines.push(voice('map', `layers: ${segs.join(' · ')}`));
   }
   if (model.concepts && model.concepts.length)
@@ -9191,6 +9827,15 @@ export function completeness(model, changed) {
 // false "no file historically changes with these" — see .system/research/question-catalog.md §3.2). A multi-file
 // `changed` set (`review` over several touched files) keeps the stricter CFG.cochangeMinConf: more files already
 // means more corroborating evidence, so the sparse-history case for the looser floor doesn't apply.
+// §074: `ambient` on a hit below is structural, not a new tunable — a partner whose OWN global commit count
+// (`c.commitsA`/`c.commitsB`, whichever side IS the partner — never the display `commits`, which §063 already
+// picks as whichever direction's denominator cleared the confidence bar and so can legitimately be the CHANGED
+// file's own count instead) already clears the same λ bound `certifyObligationRules`' ambient gate uses, against
+// `model.nonMegaCommits` — the exact population those counts were drawn from (history.mjs). Measured in
+// `.system/research/obligations-design.md` §2: pooled over 20 repos, raw co-change recall@3 (0.285) loses to the
+// null "3 hottest recently-changed files" (0.336), and the entire deficit is the ambient half — on companions
+// outside the 10 hottest files co-change alone scores 0.198 against the null's 0.000. Never merge the two: an
+// ambient partner crowds out a specific one at the top of a ranked list an agent has room to read only 3-5 of.
 export function cochangeData(model, changed) {
   const hits = new Map();
   // §023: same liveness source and idiom as `cochangePartners`'s own `live` (core.mjs ~2552, added for §020) and
@@ -9198,6 +9843,7 @@ export function cochangeData(model, changed) {
   // a second/third liveness check invented per renderer.
   const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
   const minConf = changed.length === 1 ? 1 / 3 : CFG.cochangeMinConf;
+  const N = model.nonMegaCommits || 0;
   for (const c of model.cochange) {
     const confAB = c.sup / (c.commitsA || 1),
       confBA = c.sup / (c.commitsB || 1);
@@ -9206,13 +9852,25 @@ export function cochangeData(model, changed) {
     // the changed side's own count (§063: `test/res.attachment.js (8/10)`, not the hub's own `8/392`)
     const commits = confAB >= confBA ? c.commitsA || c.sup : c.commitsB || c.sup;
     for (const f of changed) {
-      if (c.a === f && !changed.includes(c.b)) hits.set(c.b, { file: c.b, sup: c.sup, commits, dead: !live.has(c.b) });
-      if (c.b === f && !changed.includes(c.a)) hits.set(c.a, { file: c.a, sup: c.sup, commits, dead: !live.has(c.a) });
+      if (c.a === f && !changed.includes(c.b)) {
+        const k = c.commitsB || 0; // the PARTNER's (c.b) own global count — independent of which direction won `commits` above
+        hits.set(c.b, clearsOwnRate(k, N)
+          ? { file: c.b, sup: c.sup, commits, dead: !live.has(c.b), ambient: true, k, n: N, share: +(k / N).toFixed(3) }
+          : { file: c.b, sup: c.sup, commits, dead: !live.has(c.b), ambient: false });
+      }
+      if (c.b === f && !changed.includes(c.a)) {
+        const k = c.commitsA || 0; // the PARTNER's (c.a) own global count
+        hits.set(c.a, clearsOwnRate(k, N)
+          ? { file: c.a, sup: c.sup, commits, dead: !live.has(c.a), ambient: true, k, n: N, share: +(k / N).toFixed(3) }
+          : { file: c.a, sup: c.sup, commits, dead: !live.has(c.a), ambient: false });
+      }
     }
   }
   // strongest partner first (confidence, then raw support), file only as the final tiebreak — under the looser
   // single-file floor there can be more than 5 candidates, and slice(0,5) below must keep the best ones, not
-  // whichever sort alphabetically first
+  // whichever sort alphabetically first. Ambient hits sort in the same pass (a caller that wants them separated,
+  // like `completenessDirectional`, filters by `.ambient` afterward) — this order is never itself rendered as one
+  // ranked list.
   return [...hits.values()].sort(
     (a, b) => b.sup / b.commits - a.sup / a.commits || b.sup - a.sup || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0)
   );
@@ -9250,24 +9908,30 @@ export function scopeCochangeLines(model, rel, partitionName) {
       )
     );
 }
-// stable contract: the standalone `completeness <file>` command prints this text verbatim on a hit — do not
-// change it (§023: except the new `(deleted)` marker on a dead partner, which the ticket's own acceptance
+// stable contract: the standalone `completeness <file>` command prints this text verbatim on a SPECIFIC hit — do
+// not change it (§023: except the new `(deleted)` marker on a dead partner, which the ticket's own acceptance
 // requires — the live-partner case below is byte-for-byte unchanged, so the frozen contract holds for every
 // fixture that predates it). The NO-hit case changed under §063: never certify `(complete)` — that phrase claims
 // an absence this model cannot actually see (44 of the 45 hottest files in the measured corpus got exactly that
-// false claim). Name the threshold that was actually applied instead.
+// false claim). Name the threshold that was actually applied instead. §074 adds a SEPARATE ambient section
+// (`ambientLines`, shared with `obligationLines`) — never merged into this list: `.system/research/
+// obligations-design.md` §2 measured raw co-change losing to the null "3 hottest recent files" pooled (0.285 vs
+// 0.336), entirely because the ambient half crowds out the non-obvious half worth reading (0.198 vs 0.000 there).
 export function completenessDirectional(model, changed) {
   // ranked by the max of the two directional confidences — see cochangeData's own §063 comment
   const hits = cochangeData(model, changed);
-  if (hits.length)
-    return [
-      `[grain] Edits like this historically also touch:`,
-      ...hits
-        .slice(0, 5)
-        .map(h => `  - ${h.file}${h.dead ? ' (deleted)' : ''} (co-changed in ${h.sup}/${h.commits} commits)`),
-    ];
+  const specific = hits.filter(h => !h.ambient);
+  const ambient = hits.filter(h => h.ambient);
   const minConf = changed.length === 1 ? 1 / 3 : CFG.cochangeMinConf;
-  return [`no partner above ${pct(minConf)}% co-change confidence`];
+  const out = specific.length
+    ? [
+        `[grain] Edits like this historically also touch:`,
+        ...specific
+          .slice(0, 5)
+          .map(h => `  - ${h.file}${h.dead ? ' (deleted)' : ''} (co-changed in ${h.sup}/${h.commits} commits)`),
+      ]
+    : [`no partner above ${pct(minConf)}% co-change confidence`];
+  return [...out, ...ambientLines(ambient, 5)];
 }
 // the recipe half of `missingLines`: a NEW file's own carried marker (decorator/supertype/return type) or group role
 // borrows exactly the "a new carrier/member comes with" mechanism `whereCmd` already reads off markerImplied/

@@ -6,9 +6,9 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/corpus-ladder",
-      "state": "running",
-      "note": "waiting on its Symfony full-history ladder run (the completed:false row we want)",
-      "updated": "2026-09-01 23:46"
+      "state": "dropped",
+      "note": "agent died waiting on its Symfony ladder monitor (pre-055 silent death); built on stale base 601aa23; work salvaged to scratchpad/salvage-F; redispatched as instr/F-2",
+      "updated": "2026-09-02 06:06"
     },
     {
       "id": 2,
@@ -71,9 +71,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/066",
-      "state": "queued",
+      "state": "merged",
       "note": "WAVE 3 #5 how liveness filter + map --json changes/concepts (folds 051)",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 03:47",
+      "sha": "d9e0eaf"
     },
     {
       "id": 8,
@@ -169,9 +170,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/050",
-      "state": "queued",
+      "state": "merged",
       "note": "Scala object_definition not type-like; derive + all-23-grammar test",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 04:07",
+      "sha": "1080ad7"
     },
     {
       "id": 17,
@@ -201,9 +203,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/061",
-      "state": "queued",
+      "state": "merged",
       "note": "catch/finally scope named by parent",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 03:23",
+      "sha": "230cf0a"
     },
     {
       "id": 20,
@@ -211,9 +214,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/042",
-      "state": "queued",
+      "state": "merged",
       "note": "style convention file-vs-literal granularity",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 03:35",
+      "sha": "4179121"
     },
     {
       "id": 21,
@@ -221,9 +225,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/052",
-      "state": "queued",
+      "state": "merged",
       "note": "what siblings precision, 044 method",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 03:39",
+      "sha": "941e721da7f73a8a7cab1b66231311078987eda1"
     },
     {
       "id": 22,
@@ -231,9 +236,10 @@
       "kind": "measure",
       "agent": "sonnet",
       "branch": "research/056",
-      "state": "queued",
+      "state": "merged",
       "note": "data-grammar keys as declarations? decide, document",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 03:43",
+      "sha": "7f72a9e"
     },
     {
       "id": 23,
@@ -241,9 +247,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/058",
-      "state": "queued",
+      "state": "merged",
       "note": "JSON scored against PHP-shaped cells; grammar-scoped populations",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 03:51",
+      "sha": "7a262c4"
     },
     {
       "id": 24,
@@ -251,9 +258,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/060",
-      "state": "queued",
+      "state": "merged",
       "note": "Scala braced-package/DI ctor error swallows nested object",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 03:55",
+      "sha": "c1808a5"
     },
     {
       "id": 25,
@@ -261,9 +269,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/048",
-      "state": "queued",
+      "state": "merged",
       "note": "low: @ sigil rendered for sigil-less languages",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 03:28",
+      "sha": "76cc470e78c0983814a9ca8a787842f3e9ccad9e"
     },
     {
       "id": 26,
@@ -271,9 +280,10 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/cross-check",
-      "state": "queued",
+      "state": "merged",
       "note": "all surface pairs text⇔json, report⇔rules, check⇔review, map⇔report",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 04:01",
+      "sha": "9485001"
     },
     {
       "id": 27,
@@ -303,9 +313,128 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/070",
-      "state": "queued",
+      "state": "merged",
       "note": "where discloses zero lexical foothold; fire-rate gated",
-      "updated": "2026-09-01 23:49"
+      "updated": "2026-09-02 03:31",
+      "sha": "194ce2e"
+    },
+    {
+      "id": 30,
+      "ticket": "071",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "fix/071",
+      "state": "merged",
+      "note": "selftest --where: identifier-preserving query mode or symbol stratum; existing strata numbers must not move",
+      "updated": "2026-09-02 05:08",
+      "sha": "d494386bb42bd2f5e857233b29395325f4917500"
+    },
+    {
+      "id": 31,
+      "ticket": "072",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/072",
+      "state": "merged",
+      "note": "report --json: add architecture/module data (additive); parity test",
+      "updated": "2026-09-02 05:12",
+      "sha": "c146442"
+    },
+    {
+      "id": 32,
+      "ticket": "073",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/073",
+      "state": "merged",
+      "note": "WAVE 4 #1 obligation <path>; spec in obligations-design.md §6; HIST_V+MODEL_V director's",
+      "updated": "2026-09-02 05:46",
+      "sha": "25971e4"
+    },
+    {
+      "id": 33,
+      "ticket": "074",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/074",
+      "state": "merged",
+      "note": "completeness: specific vs ambient split; share renderer with 073",
+      "updated": "2026-09-02 06:14",
+      "sha": "5bce5ef"
+    },
+    {
+      "id": 34,
+      "ticket": "075",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/075",
+      "state": "merged",
+      "note": "catch/finally clause walked twice (method AND class) inflates populations — lead's ticket; EXTR_V",
+      "updated": "2026-09-02 05:16",
+      "sha": "a7fd8e9"
+    },
+    {
+      "id": 35,
+      "ticket": "076",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/076",
+      "state": "merged",
+      "note": "type-like gaps in 5 grammars + Ruby singleton_method FP; 050 method; EXTR_V",
+      "updated": "2026-09-02 05:20",
+      "sha": "dee0d99"
+    },
+    {
+      "id": 36,
+      "ticket": "077",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/077",
+      "state": "merged",
+      "note": "042 follow-up, director-approved (esc-1): per-literal check flag on the quote convention, gated on delimiter-forced exemption",
+      "updated": "2026-09-02 05:42",
+      "sha": "73d78dcc4b2c7540f113c833cec3459af18a8453"
+    },
+    {
+      "id": 37,
+      "ticket": "078",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/obligation-coverage",
+      "state": "merged",
+      "note": "after 073 merges: test harness floor + key granularity; coverage toward 0.08 without precision loss",
+      "updated": "2026-09-02 06:17",
+      "sha": "0a67b89"
+    },
+    {
+      "id": 38,
+      "ticket": "instr/F-2 corpus-ladder",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "instr/corpus-ladder-2",
+      "state": "running",
+      "note": "port salvaged run-corpus.mjs + corpus.json onto main; run ladder; Symfony must complete or fail loudly (055)",
+      "updated": "2026-09-02 06:06"
+    },
+    {
+      "id": 39,
+      "ticket": "corpus-validation-run",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "instr/corpus-validation",
+      "state": "queued",
+      "note": "WAVE 3 (a): after instr/F-2 — run A/B/D/E instruments across corpus.json; validated-vs-parsed table into docs/validation.md; no engine change",
+      "updated": "2026-09-02 06:23"
+    },
+    {
+      "id": 40,
+      "ticket": "package-json-0.4.0",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/package-json",
+      "state": "queued",
+      "note": "WAVE 3 (b): package.json 0.2.0→0.4.0 via npm install (lockfile root), never sed; docs-audit stays green",
+      "updated": "2026-09-02 06:23"
     }
   ]
 }

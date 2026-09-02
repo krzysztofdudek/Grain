@@ -140,7 +140,9 @@ test('the text report prints both strata and carries the as-of stamp', () => {
   const lines = r.out.split('\n').filter(l => !l.startsWith('[grain]'));
   assert.match(lines[0], /^where: hit@3=\d\.\d\d MRR=\d\.\d\d place@3=\d\.\d\d cardW=\d+\.\d · path-match baseline: hit@3=\d\.\d\d MRR=\d\.\d\d place@3=\d\.\d\d cardW=\d+\.\d · n=\d+ · nothing-ranked=\d+$/);
   assert.match(lines[1], /^query does not name the file \(n=\d+\) — where: hit@3=/);
-  assert.match(lines[2], /^as of [0-9a-f]{7}/);
+  // §071 — additive symbol stratum, reported beside (never instead of) the two strata above
+  assert.match(lines[2], /^message names a symbol verbatim \(n=\d+\) — where: hit@3=/);
+  assert.match(lines[3], /^as of [0-9a-f]{7}/);
 });
 
 test('--last bounds the candidates evaluated, newest first', () => {

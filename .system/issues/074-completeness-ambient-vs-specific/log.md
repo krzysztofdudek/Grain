@@ -1,0 +1,4 @@
+
+## 2026-09-02 03:48 — Follow-up to 063 (max-directional confidence, which stands — ranking by lift was measured and rejected). Finding: over 20 repos the null 'touch the three files you always touch' beats raw co-change 15/20; co-change's entire value is the NON-OBVIOUS half (0.198 vs 0.000 for the null on that half). So completeness's list must be split: 'specific to this file' vs 'ambient — this repo touches these with almost everything', using the partner's own base rate (H.fileCommits / nonMegaCommits — the bridgeBits machinery exists at core.mjs bridgeBits, not yet applied to pairs). No new constant: ambient = partner whose base rate already clears the λ bound on its own. Same rendering as obligation's two sets (073) — share the renderer.
+
+## 2026-09-02 06:05 — completeness splits partners into specific/ambient sets, reusing ticket 073's clearsOwnRate/ambientLines machinery — no new constant; 2121 tests pass (2115 baseline + 6 new)

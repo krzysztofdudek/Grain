@@ -150,8 +150,12 @@ Fazy się nakładają (pipeline). Nic nie czeka na nic poza merge'em, który cze
 
 ### Zasady pracownika (w każdym briefie)
 
-- **PIERWSZA AKCJA: `git merge main`** i `git merge-base --is-ancestor main HEAD`. Izolacja worktree tworzy
-  gałąź z nieaktualnego refu. **Liczba suity niezgodna z briefem = zła baza, stop.**
+- **PIERWSZA AKCJA: `git merge main`** i `git merge-base --is-ancestor main HEAD`, a potem **`git status`
+  musi być czysty** — izolacja worktree tworzy gałąź z nieaktualnego refu i (fala 2, dwa razy) przepuściła
+  cudzy niezacommitowany diff do świeżego worktree; brudne drzewo po merge = stop i raport.
+  **Liczba suity niezgodna z briefem = zła baza, stop.**
+- **Raport końcowy zawiera `git log -1 --oneline`** wylądowanego commita — pracownicy zgłaszali „done" z pracą
+  wciąż niezacommitowaną; lead commituje cudzy diff tylko po `premerge` i z wpisem `tk log NNN "lead committed"`.
 - własny worktree, gałąź nazwana, commit tam; **nigdy** `git stash`/checkout innych gałęzi/push; **nigdy**
   przywracanie pliku z kopii całościowej (zniszczyło pracę dwóch agentów)
 - skrypty wdrożeniowe na **kotwicach treści**, nie numerach linii; odmawiają przy dryfie; idempotentne
