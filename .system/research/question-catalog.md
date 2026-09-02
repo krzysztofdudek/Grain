@@ -82,6 +82,7 @@ runs are reported separately in §2.2 because their scale distorts medians.
 | Q10 | build/test invocation — "how do I run the tests here" *(harness-confounded, see note)* | 10 | 76 | 4.5 | 38 |
 | Q1 | locate-symbol — "where is X declared" | 11 | 21 | 2 | 5 |
 | **Q15** | **schema/migration obligation** — "does changing this entity need a migration, and how is the test DB built?" *(new)* | **3** | **22** | **7** | 8 |
+> **Correction (2026-09-02, obligations-design.md §3):** Q15 IS derivable from git status alone as a birth obligation — 94.2%/81.1% precision, zero new constants; the "needs ORM config" reading was wrong.
 | Q6 | test-for-X — "where are the tests covering X" | 9 | 18 | 2 | 3 |
 | Q4 | convention — "how is Y done here; do all siblings have a validator?" | 4 | 11 | 2.5 | 5 |
 | Q3 | wiring companions — "what else must I touch: changelog, docs, type defs" | 7 | 10 | 1 | 2 |

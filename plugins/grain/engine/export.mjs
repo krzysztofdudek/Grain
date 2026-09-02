@@ -22,7 +22,7 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dirname, basename, extname } from 'node:path/posix';
-import { CFG, ENGINE_VERSION, EXTR_V } from './config.mjs';
+import { CFG, ENGINE_VERSION, EXTR_V, EXT2GRAMMAR } from './config.mjs';
 import {
   hydrateScope,
   addModuleScopes,
@@ -411,10 +411,11 @@ export function exportModel({
     for (const [mk, keys] of Object.entries(part.markers || {}).sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
       const pre = mk.slice(0, mk.indexOf(':')),
         name = mk.slice(mk.indexOf(':') + 1);
+      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — §048, decoLabel's sigil call
       P.markers.push({
         marker:
           pre === 'deco'
-            ? decoLabel(name)
+            ? decoLabel(name, markerG)
             : pre === 'sup'
               ? 'extends ' + name
               : 'returns ' + name,

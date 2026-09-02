@@ -1,6 +1,6 @@
 # 060 · Scala: a braced-package / DI-constructor parse error silently swallows a nested `object` and its methods
 
-**Status:** OPEN — found by instrument B (`selftest --extract`) on playframework, 2026-09-01; hand-verified by the instrument's author
+**Status:** FIXED — walk-logic gap, not grammar limit: ERROR node's own children now pushed onto walk; 145 declarations recovered across 58/97 error-bearing Play files, hasError/parse-degraded caveat unaffected
 **Severity:** medium — class B (silence), on a real, common Play shape
 
 ## Symptom

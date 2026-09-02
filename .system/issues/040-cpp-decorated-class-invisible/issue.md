@@ -1,6 +1,6 @@
 # 040 · C++: a class carrying an export/attribute macro is not extracted — leveldb's entire public API is invisible
 
-**Status:** OPEN — verified independently by the orchestrator
+**Status:** FIXED — landed in fix-040-043 (wave 1): declarator-named types under a bodyless macro specifier; .h parsed with both C and C++ via EXT_ALT (ties keep C); what Comparator/SkipList/WriteBatch name the real declarations; trailing-attribute-macro-with-body remains a recorded boundary
 **Found by:** round 3 field test, C++/google/leveldb, 2026-09-01
 **Severity:** HIGH — same class as 018: a confident, wrong answer about a file whose real content grain cannot see
 

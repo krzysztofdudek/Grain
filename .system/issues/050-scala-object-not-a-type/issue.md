@@ -1,6 +1,6 @@
 # 050 · A bodiless Scala `object` is classified as kind `method` — companion objects holding only vals are invisible as types
 
-**Status:** OPEN — root cause confirmed at source by the orchestrator
+**Status:** FIXED — TYPE_LIKE_RE widened to bare word object (gated by isScope), derived not per-language; 23-grammar regression test added; 5 more pre-existing gaps found and split into ticket 076
 **Found by:** round 4 field test, Scala/playframework, 2026-09-01
 **Severity:** medium
 

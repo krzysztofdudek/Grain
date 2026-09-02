@@ -21,13 +21,24 @@
 //       demonstrably do not on a per-file basis — verified directly on this repo's own `.grain/cache/model.json`
 //       before the fix: 76 certified `valueNorms`, only ~8 distinct `(ne,neff)` signatures, one repeated 19 times.
 //
-// NOTE on a real gap found while building these fixtures, left AS IS (out of this ticket's scope, reported to the
-// orchestrator): `CONTAINER_RE` (core.mjs, word-bounded on switch|object|dictionary|array|enum|case|match) does
-// not match YAML's `block_mapping`/`block_sequence` node types, nor TOML's `table`/`inline_table` — verified by
-// direct parse. A YAML mapping (e.g. a GitHub Actions workflow's `jobs:`) therefore never finds a `cont` at all,
-// so §(A)'s path-keying (gated on `cont` being truthy) never fires for YAML mappings or TOML tables — only JSON
-// objects/arrays and TOML arrays exercise it today. §(B)'s general fix is unaffected by this (it does not depend
-// on `cont`), which is why the YAML/TOML-independent enum fixture below is the proof that §(B) is general.
+// NOTE on a real gap found while building these fixtures, reported to the orchestrator and left AS IS at the
+// time (out of this ticket's own scope): `CONTAINER_RE` (core.mjs, word-bounded on switch|object|dictionary|
+// array|enum|case|match) does not match YAML's `block_mapping`/`block_sequence` node types, nor TOML's
+// `table`/`inline_table` — verified by direct parse. A YAML mapping (e.g. a GitHub Actions workflow's `jobs:`)
+// therefore never found a `cont` at all, so §(A)'s path-keying (gated on `cont` being truthy) never fired for
+// YAML mappings or TOML tables — only JSON objects/arrays and TOML arrays exercised it. §(B)'s general fix is
+// unaffected by this (it does not depend on `cont`), which is why the YAML/TOML-independent enum fixture below
+// is the proof that §(B) is general.
+//
+// §056 later closed the YAML-mapping half of this gap directly (`bindingFor`'s new `b.dataContainer`, data-
+// grammar-only, derived from node-types.json: a node type qualifies when its own declared children admit a
+// `b.keyField` type — JSON's `object` and YAML's `block_mapping`/`flow_mapping` both now find a `cont`; see
+// data-grammar-key-siblings.test.mjs). Left open on purpose: YAML's `block_sequence` (still unmatched — only
+// `flow_sequence` incidentally qualifies, via its own `flow_pair` child type) and TOML's `table`/`inline_table`
+// (whose `pair` carries no `key` FIELD at all, only a `bare_key`/`quoted_key`/`dotted_key` CHILD — a fieldless-
+// pair heuristic was tried and dropped: TOML's `table`/`inline_table` themselves also admit a bare/dotted/quoted
+// key as a DIRECT child for their own header, so the same heuristic that finds TOML's `pair` also misclassifies
+// `pair` itself as a container, stopping the ancestor walk one level too early).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';

@@ -235,6 +235,7 @@ async function walk(gitdir, range) {
         fix: FIX_RE.test(p[3] || ''),
         msg: (p[3] || '').slice(0, 120),
         files: [],
+        added: [],
       };
       commits.push(cur);
       continue;
@@ -250,6 +251,12 @@ async function walk(gitdir, range) {
       path = n;
     }
     if (HARD_EXCL.test(path)) continue; // only grain's own store is invisible — a path committed at the time was the repo's code at the time
+    // §073: the one status byte a birth-obligation rule needs — carried ALONGSIDE `files`, never replacing it, so
+    // every existing `fp.files` consumer (a plain path array) is untouched. Only `A` (a genuine add) is recorded:
+    // an `R`(ename)'s new path must never be mined as a birth (git's own `-M` above already folds a detected
+    // rename into one `R` line, never a separate `D`+`A` pair), and `M`/`D` carry no birth signal either way, so
+    // there is nothing else this rule needs remembered about them.
+    if (st === 'A') cur.added.push(path);
     if (!CODE_RE.test(path)) {
       cur.files.push(path);
       continue;
@@ -552,12 +559,30 @@ function replay(state, events, commits, cache) {
   // co-change (mega-commit cap excludes mass refactors and lockfile sweeps that would couple everything to everything)
   for (const c of commits) {
     const fs2 = [...new Set(c.files)].filter(f => !HARD_EXCL.test(f)).sort();
+    // §073: the birth signal, filtered/deduped/sorted the SAME way as `fs2` (and always a subset of it — `c.added`
+    // is built from the same per-path loop `c.files` is) so a footprint's `added` never names a file its own
+    // `files` does not also carry.
+    const added2 = [...new Set(c.added || [])].filter(f => !HARD_EXCL.test(f) && fs2.includes(f)).sort();
     // toks is computed unconditionally (an empty message yields []) so it stays in scope for the fps push below,
     // which is gated on fs2 alone, not on c.msg — a msg-less commit still gets a footprint, just with toks: []
     const toks = c.msg
       ? [...new Set(tokenize(c.msg).map(normTok))]
           .filter(t2 => t2.length >= 3 && !QSTOP.has(t2) && !DOC_STOP.has(t2))
           .slice(0, 12)
+      : [];
+    // §071 — `toks` above is exactly what `tokenize`+`normTok` were built to do: split `sendStatus` into `send`
+    // + `status` so lexical matching is case/word-shape-agnostic. That is also why NO query built from `toks`
+    // alone can ever contain the verbatim identifier `sendStatus` — `selftest --where`'s own harness therefore
+    // has a hard 0% ceiling on measuring `where`'s symbol-first pin (`whereCmd`'s `qraw`/`c.exact`, core.mjs
+    // ~6877), a real capability that already works when a human types `where sendStatus`. `symToks` is a SECOND,
+    // additive query-construction mode, computed straight off the raw message text before `tokenize` ever
+    // touches it: any whitespace-delimited word shaped like an identifier (an inner lower→upper boundary as in
+    // `sendStatus`, or an inner underscore as in `send_status`) is kept whole, case and all, alongside — never
+    // instead of — `toks`. Nothing here reads or writes `msgAff`/`msgTokCommits`/any other aggregate, so there is
+    // no new leak surface to subtract (§069's `leakSubtractedH` needs no change): this is per-commit data a
+    // consumer (`whereEval`) can fold into ITS OWN candidate's query, exactly the way `toks` already is.
+    const symToks = c.msg
+      ? [...new Set((c.msg.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter(w => w.length >= 4 && (/[a-z][A-Z]/.test(w) || /[A-Za-z0-9]_[A-Za-z0-9]/.test(w))))].slice(0, 12)
       : [];
     // commit-message affinity: every commit is a translation pair — natural language on one side, the touched files on
     // the other. This is the repo teaching its own vocabulary ("endpoint" ↔ the controller files); a single-file commit
@@ -588,7 +613,9 @@ function replay(state, events, commits, cache) {
         agent: c.agent,
         fix: c.fix,
         toks,
+        symToks,
         files: fs2,
+        added: added2,
         scopes: scopeKeys,
         renames: renamesBySha.get(c.sha) || [],
       });

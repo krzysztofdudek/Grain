@@ -1,6 +1,6 @@
 # 052 · `what`'s "siblings" section is noise — reported as random string-literal soup on every term tried
 
-**Status:** OPEN — needs a measured precision figure, in the style of §044
+**Status:** FIXED — siblings: push line deleted at precision 0.364 (165 verdicts/7 langs); kin: pull surface kept; no follow-ups (ruled)
 **Found by:** round 4 field test, Scala/playframework, 2026-09-01 ("pure noise on every one of the 5 terms tried")
 **Severity:** medium
 

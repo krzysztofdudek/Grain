@@ -15,8 +15,12 @@
 // certified members carry. The `n of N` in the message is `N of N` BY CONSTRUCTION — not a counted majority.
 //
 // FIXTURE NUMBERS (the gates this must clear, all measured on this tree, not assumed):
-//   · `groupPartitions`: `src/handlers` holds 133 scopes (>= 100) and is its own partition; `src/fillers` holds
-//     49 and survives as the single small package's own bucket (>= 30).
+//   · `groupPartitions`: `src/handlers` holds 103 scopes (>= 100) and is its own partition; `src/fillers` holds
+//     49 and survives as the single small package's own bucket (>= 30). The 12 `run`-method handler classes alone
+//     land at 85 scopes post-§075 (that fix deduped a catch/finally clause claimed by both its method AND that
+//     method's enclosing class down to one scope each, dropping this directory's count below the 100 floor) — 6
+//     `SupportNService` filler files, shaped like `src/fillers`' own and clustering into no role of their own, sit
+//     alongside them purely to keep `src/handlers` above the floor without touching the 12-member `run` group.
 //   · `profileOf`: the `run` group has n = 12 members (>= 4) and `shared` = 69 (>= 6).
 //   · Per the `induceRoles` gotcha behind `impl-J5-7`'s fixture: the clustering signal is the IDENTICAL, REPEATED
 //     method signature `async run(cmd: Command): Promise<void>` across all 12 — not a shared decorator plus a
@@ -59,13 +63,18 @@ let tmp, repo, model, profile;
 before(() => {
   ({ tmp, repo } = initRepo('grain-skeleton-diff-'));
   NAMES.forEach(n => wIn(repo, `src/handlers/${n.toLowerCase()}.handler.ts`, handler(`${n}Handler`, GROUP_BODY)));
+  // §075: the 12 `run`-method handlers alone land at 85 scopes now that a catch/finally clause is claimed by its
+  // NEAREST enclosing scope only (previously double-counted under both the method and its enclosing class) — 6
+  // filler files, shaped like `src/fillers`' own and clustering into no role of their own, keep this directory
+  // above `groupPartitions`' 100-scope floor without touching the 12-member `run` group's n/shared/req numbers.
+  for (let i = 1; i <= 6; i++) wIn(repo, `src/handlers/support${i}.ts`, `export class Support${i}Service {\n  loadRecord(id: number): Record {\n    return this.store.fetch(id);\n  }\n}\n`);
   for (let i = 1; i <= 16; i++) wIn(repo, `src/fillers/filler${i}.ts`, `export class Filler${i}Service {\n  loadRecord(id: number): Record {\n    return this.store.fetch(id);\n  }\n}\n`);
   const d1 = dateEnv('2026-01-10T12:00:00Z');
   gitIn(repo, d1, 'add', '-A'); gitIn(repo, d1, 'commit', '-qm', 'the shape-diff fixture');
   model = modelIn(repo);
   const part = model.partitions.find(p => p.name === 'src/handlers');
   assert.ok(part, `the handlers partition must exist: ${model.partitions.map(p => p.name).join(', ')}`);
-  assert.equal(part.scopes, 133, 'groupPartitions keeps src/handlers as its own partition on this scope count');
+  assert.equal(part.scopes, 103, 'groupPartitions keeps src/handlers as its own partition on this scope count');
   const entry = Object.entries(part.profiles || {}).find(([, pf]) => pf.n === 12);
   assert.ok(entry, `a 12-member role profile must exist: ${JSON.stringify(Object.entries(part.profiles || {}).map(([r, pf]) => [r, pf.n]))}`);
   profile = entry[1];

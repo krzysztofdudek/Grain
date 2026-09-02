@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (1772 tests under engine 0.3.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2115 tests under engine 0.4.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -209,3 +209,76 @@ curried implicit parameter list (`(implicit ec: ExecutionContext)`); a long tail
 ascriptions (12) and inline XML literals (2) accounts for most of the rest, and 14 files carry an error under none
 of the three. Both dominant idioms are ordinary Play/Guice convention, not exotic syntax — the corpus is not
 unusual, so the gap is the grammar's.
+
+That the grammar cannot parse the broken constructor does not mean it recovers nothing else nearby: §060 found
+that of those same 97 error-bearing files, tree-sitter's own error recovery had already parsed a fully clean,
+correctly-typed subtree — a nested `package … { }` holding a well-formed `object`, or a sibling `class`/`def` —
+sitting right beside the unparseable constructor inside the SAME error node, in 58 of the 97 (60%); the tutorial's
+own canonical example (`HelloController.scala`) nests a `package views { object html { … } }` right above the
+broken `class HelloController @Inject() (cc: …)(implicit …)`. Grain's walk was throwing that clean subtree away
+too, unconditionally, because it stopped descending the instant it hit the ERROR node wrapping the whole
+statement list rather than only the broken statement — a walk-logic gap, not a second grammar limitation. Fixed
+by pushing an ERROR node's own children onto the walk (engine/core.mjs, `extractScopes`) so the traversal keeps
+going exactly as it does past any other non-scope node; nothing is ever extracted from the ERROR node itself, only
+from descendants the grammar already typed with zero errors of their own, so this adds no fabrication risk (the
+same instinct as §018's macro-body reparse, applied at node granularity instead of re-parsing a text span — a
+whole-region reparse would refail on the still-broken constructor sharing the same span and recover nothing at
+all, measured directly against this exact file). Measured on the same clone/commit: 145 declarations recovered
+across those 58 files: 81 types, 58 methods, 6 `finally` micro-scopes. The genuinely unparseable
+part is unaffected and stays disclosed exactly as before — the file's own `hasError` never flips, so `check`'s
+"parse degraded" caveat and `review`'s aggregate (§053) still fire for every one of the 97 files.
+
+A style convention (`auto.lex:quote`, `:semi`, `:decl`, `:indent`) is
+scored per FILE, never per literal — `lexicalPreds` collapses a file's string literals into one categorical that
+reads `double` while at most 20% of them are single-quoted, so `check` can call a file conforming while literals
+inside it depart, and the silent budget is 0.25 × the majority count, growing with file size. Measured end to end:
+telescope.nvim's `lua/telescope/previewers/buffer_previewer.lua` absorbs 50 newly added single-quoted literals
+with zero flags and flips only at 51; express's smaller `test/acceptance/mvc.js` absorbs 12 and flips at 15;
+repo-wide the budget is 957 literals on telescope.nvim, 2 050 on express and 1 067 on flask. The vote is kept as
+the mining unit deliberately, because the minority is mostly not a style choice at all: of the literals departing
+their file's majority, 11 of 11 on telescope.nvim, 19 of 31 on flask and 2 of 24 on express contain the majority
+delimiter in their own body, so the other quote is forced by the content rather than chosen. What was wrong was
+what `check` SAID — a binary conforming verdict over instances it never named — so it now discloses the tally it
+scored (`governed[].withinFile` in `--json`, and a clause on the conformance line, printed even when diff scoping
+keeps a file-kind fact off it). Acceptance, `idxCost` and the candidate universe are untouched: the counts are an
+out-parameter of `lexicalPreds`, never a predicate. The residue this left stated rather than hidden — the 22
+literals on express and 12 on flask that depart their file's majority WITHOUT a forcing delimiter — is exactly
+what §077 (director-approved follow-up, esc-1) turned into a per-literal flag: `quoteFlags` (core.mjs) reuses this
+same delimiter-forced content test on the instances `lexicalPreds` already scans, and `withinFile` now also
+carries `flagged`/`flagLines` for the minority-quote literals that are genuine departures, rendered as part of the
+same tally clause (never a new line, never a new constant — the file-level convention's own certification is what
+turns the flag on). Measured on clean, unmodified checkouts of the fire-rate gate's own standard (§018/§037): of
+140 files across telescope.nvim/express/flask whose per-file vote already conforms, 3 (2.14%) now carry a flag —
+0/69 telescope.nvim, 0/18 express, 3/53 (5.66%) flask, all single-quoted literals nested inside an f-string
+(`'on'`/`'off'`, `'<string>'`, `'/'`) that contain no `"` of their own — comfortably inside the acceptable range.
+
+A data-grammar (JSON/YAML/TOML) mapping's own KEY — a service id in a
+Symfony-style `services.yml`, say — is findable by `what`, but only ever as a gated, honestly-disclosed value,
+never as a `defined:` declaration the way a `class`/`function` is (§056): a key declared once, in one file, can
+never clear the cross-file population floor (`CFG.valueDfMin`=2) that `model.valueIndex`'s value-concordance
+math is built around, so `what "foo.baz"` on such a file names the file it was seen in, why it is not indexed,
+and — since §056 — every other key sharing its own mapping (`Declared alongside: …`, read straight off the raw
+per-file scan, independent of any other key's own frequency), but it is never listed as a first-class `defined:`
+hit and carries no `used by:`/`tested by:`/`spread:` treatment. Promoting every data-grammar mapping key to a
+`defined:`-shaped declaration was considered and rejected: nothing in a JSON/YAML/TOML mapping's own shape
+distinguishes "this key names an entity referenced elsewhere" (a DI-container service id) from "this is a plain
+data field" (`name`/`version` in a package.json, a locale string's own key in a translations file) without either
+a hand-picked per-domain rule (explicitly out of scope — grain's own binding names no language, and this would
+have to name a convention) or an unbounded per-file scope count (a single translations.json can carry thousands
+of leaf keys, next to nothing like a source file's own natural size limit); the honest, gated-and-cross-
+referenced disclosure was shipped instead, general across all three data grammars, because it needed no such
+distinction. What §056 did fix, general and un-gated on any grammar name: `CONTAINER_RE`'s plain keyword list
+(`switch`/`object`/`dictionary`/`array`/`enum`/`case`/`match`, matched against a node's own TYPE NAME) already
+recognized JSON's mapping type (literally named `object`) but nothing in YAML's (`block_mapping`/`flow_mapping`)
+— so two keys in the very same YAML mapping never shared a container at all, each exactly as isolated,
+findability-wise, as an unrelated string anywhere else in the file; `bindingFor`'s new `b.dataContainer` (derived
+from node-types.json alone — a node type qualifies when its own declared children admit a `b.keyField` type, so
+JSON's `object` and YAML's `block_mapping`/`flow_mapping` are found the same way, no grammar named) closes that
+specific gap, verified directly (`tests/data-grammar-key-siblings.test.mjs`) on a 10-service YAML fixture shaped
+like round 4's own Symfony field report. Left open, on purpose, as a narrower, separately pre-existing gap first
+flagged by `tests/container-keypath.test.mjs`: YAML's `block_sequence` (unmatched — only `flow_sequence`
+incidentally qualifies) and TOML's `table`/`inline_table` (whose `pair` carries no `key` FIELD at all, only a
+`bare_key`/`quoted_key`/`dotted_key` CHILD) — a fieldless-pair heuristic was tried for TOML and dropped: TOML's
+`table`/`inline_table` themselves also admit a bare/dotted/quoted key as a DIRECT child, for their own header, so
+the same heuristic that finds TOML's `pair` also misclassifies `pair` itself as a container, stopping the
+ancestor walk at the pair instead of the table that actually holds it.
