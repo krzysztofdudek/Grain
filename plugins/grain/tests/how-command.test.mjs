@@ -178,7 +178,7 @@ test('(e) with no history available (--no-history) `how` says so plainly and exi
   assert.deepEqual(j.matches, []); assert.deepEqual(j.places, []);
 });
 
-test('(f) a place whose file has since moved is reported at its current path; one since deleted reads (deleted)', () => {
+test('(f) a place whose file has since moved is reported at its current path; one since deleted from HEAD is omitted entirely (§066)', () => {
   // lineage is NOT read off `H.lc`: that map rewrites its keys forward on a rename (the old path is deleted from
   // it), so an old path can never be looked up there. `fps[*].renames` records both sides of every code-file
   // rename, and that is what `how` chases forward.
@@ -196,11 +196,12 @@ test('(f) a place whose file has since moved is reported at its current path; on
   assert.equal(byRel['src/models/order.dto.ts'].exists, true);
   assert.ok(!byRel['src/dto/order.dto.ts'], 'the historical path must not also appear');
 
-  const gone = byRel['tests/fixtures/order.fixture.ts'];
-  assert.ok(gone, `a place with no successor is still reported, from its historical path: ${JSON.stringify(j.places)}`);
-  assert.equal(gone.exists, false);
-  const line = grain(['how', 'add status'], moved).out.split('\n').find(l => l.includes('tests/fixtures/order.fixture.ts'));
-  assert.match(line, /\(deleted\)/, `a file with no successor reads (deleted), got: ${line}`);
+  // §066: a place with no successor — dead at HEAD — is no longer reported at all (an agent following this list
+  // would edit dead code otherwise). Neither the JSON places array nor the text rendering may mention it.
+  assert.ok(!byRel['tests/fixtures/order.fixture.ts'], `a place with no successor must be omitted, not reported: ${JSON.stringify(j.places)}`);
+  const text = grain(['how', 'add status'], moved).out;
+  assert.ok(!text.includes('tests/fixtures/order.fixture.ts'), `the deleted file must not appear in the text rendering either, got:\n${text}`);
+  assert.ok(!text.includes('(deleted)'), `how no longer uses a (deleted) marker — dead places are omitted, not labeled, got:\n${text}`);
 });
 
 // a minimal MCP client over the real server subprocess — same technique as tests/mcp-server.test.mjs

@@ -295,6 +295,26 @@ export function bindingFor(gname) {
       b.qualName.add(n.type);
     }
   }
+  // §056 — a DATA-GRAMMAR mapping container, derived from node-types.json alone (never consulted for a code
+  // grammar — see the `b.data` guard at its one call site, core.mjs's value-scan walk): CONTAINER_RE below
+  // already recognizes JSON's own container node-type NAME ("object"), but YAML's `block_mapping`/`flow_mapping`
+  // are named nothing CONTAINER_RE's plain keyword list matches. A node type qualifies here when its OWN
+  // declared children admit a `b.keyField` type (above) — JSON's `object` (child `pair`), YAML's
+  // `block_mapping`/`flow_mapping` (child `block_mapping_pair`/`flow_pair`) — so every data-grammar mapping
+  // whose pairs carry a genuine `key` FIELD is grouped the same way, with no grammar named in the derivation
+  // itself. Left unfixed, a mapping's own top-level string/number/boolean children were never grouped as
+  // siblings of the container they actually share for YAML specifically, which is what made a service id
+  // declared once in one YAML mapping indistinguishable, container-wise, from an unrelated string anywhere else
+  // in the same file (§056's own field report). TOML's `pair` carries no `key` FIELD at all (only a
+  // `bare_key`/`quoted_key`/`dotted_key` CHILD) and stays exactly as gated before this change — a real,
+  // separately pre-existing gap (already measured and flagged as "reported to the orchestrator, out of scope"
+  // by container-keypath.test.mjs) that a fieldless-pair heuristic could chase, but only by risking the walk
+  // below stopping AT the pair itself instead of the table that actually holds it (TOML's own `table`/
+  // `inline_table` nodes structurally admit a bare/dotted/quoted key as a DIRECT child too, for their own
+  // header, not just through a nested `pair`) — left for its own dedicated, separately-measured fix instead.
+  b.dataContainer = new Set(
+    nt.filter(n => ((n.children && n.children.types) || []).some(t => b.keyField.has(t.type))).map(n => n.type)
+  );
   // a grammar that declares no name+body scope at all (JSON/YAML/TOML): its files carry no name+body units to
   // mine, only a file-level scope and the raw values it names (§J7.2) — derived, not a name list: 0 for the three
   // data grammars, >=1 for every one of the 19 shipped code grammars
@@ -810,7 +830,18 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   pushKids(tree.rootNode, treeStack);
   while (treeStack.length) {
     const ch = treeStack.pop();
-    if (ch.isError || ch.isMissing) continue; // a malformed node is skipped, never its ancestor (a class with one broken method keeps its other methods)
+    // §060 — the malformed node itself is never a declaration (its own boundary is garbage), but tree-sitter's
+    // error recovery routinely parses PART of what falls inside an ERROR node into fully clean, correctly-typed
+    // children — a nested `package … { }` holding a well-formed `object` sits right next to a Scala class whose
+    // `@Inject()`-annotated curried constructor the grammar can't parse (Play framework's braced-package idiom,
+    // the same root cause §053 measured). Skipping descent entirely dropped that object and every method inside
+    // it with no disclosure. Push the error node's own children so the walk keeps going, exactly as it does for
+    // any other non-scope node — a MISSING node has no children, so this is a no-op for it; a doubly-broken child
+    // is still an ERROR/MISSING node itself and is skipped on its own next pop. Nothing is ever extracted from
+    // the ERROR node itself, only from descendants the grammar already typed with zero errors of their own — no
+    // re-parse, no guess about what the broken span "should" mean, same zero-fabrication instinct as §018.
+    if (ch.isError) pushKids(ch, treeStack);
+    if (ch.isError || ch.isMissing) continue;
     if (b.imp.has(ch.type)) {
       // every string inside the import node (Go's grouped imports hold one per spec); else the first name-like child
       const strs = ch
@@ -1537,7 +1568,12 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         inImport = true;
         break;
       }
-      if (!cont && CONTAINER_RE.test(p.type)) cont = p;
+      // §056: `b.dataContainer` is consulted ONLY for a data grammar (b.data) — a code grammar's container
+      // detection is exactly CONTAINER_RE, byte-for-byte unchanged, even though b.dataContainer's own derivation
+      // above is structural enough to also match some code-grammar object/dict/map-literal container types
+      // (JS/Python's already covered by CONTAINER_RE's "object"/"dictionary" anyway; Go/Ruby's are not, and are
+      // deliberately left as they were — this ticket's own measurement covers data grammars only).
+      if (!cont && (CONTAINER_RE.test(p.type) || (b.data && b.dataContainer.has(p.type)))) cont = p;
       p = p.parent;
     }
     if (inImport) continue;
@@ -2002,7 +2038,13 @@ export function docTokens(text) {
 // whole gap between "the right file" and "the convention": 'use strict' 21/21, single quotes, var vs const, a UTF-8 BOM on
 // 70/108 C# files that no Read ever shows. Each is a categorical value per file; whether it is a CHOICE is decided per
 // grammar by the partition (lexDomain), never written down here.
-export function lexicalPreds(tree, b) {
+// `tally` (§042) is an optional OUT-parameter, written but never read here and never mixed into the returned preds:
+// per ratio-shaped surface, a map from the predicate's own VALUE to how many INSTANCES in this file carry it
+// (`{single: 3, double: 200}`). The returned categorical is a per-file majority vote, so it cannot say how many
+// literals actually conform; `check` needs that count to disclose what the vote hid. Keeping it out of `out` is
+// load-bearing: `out` is spread straight into a file scope's `preds` (extractScopes), so any extra key here would
+// become a mined predicate and widen the candidate universe.
+export function lexicalPreds(tree, b, tally = null) {
   const root = tree.rootNode;
   const text = root.text || '';
   const out = {};
@@ -2042,6 +2084,11 @@ export function lexicalPreds(tree, b) {
       out['auto.lex:indent'] = unit ? 'space' + unit : 'other';
     } else out['auto.lex:indent'] = 'mixed';
   } // the unit is the smallest width that recurs (most lines sit deeper than one level)
+  if (tally) {
+    const t = { tab: tabs };
+    for (const w of [2, 3, 4, 8]) t['space' + w] = widths[w] || 0;
+    tally['auto.lex:indent'] = t;
+  }
   // quote style of string literals (delimiter of each string node; prefixes like f"…" / r'…' skipped; backticks ignored)
   let sq = 0,
     dq = 0;
@@ -2052,6 +2099,7 @@ export function lexicalPreds(tree, b) {
   }
   if (sq + dq >= 2)
     out['auto.lex:quote'] = sq >= (sq + dq) * 0.8 ? 'single' : dq >= (sq + dq) * 0.8 ? 'double' : 'mixed';
+  if (tally) tally['auto.lex:quote'] = { single: sq, double: dq };
   // statement terminator: simple statements ending in `;` vs not (compound statements — blocks, declarations with bodies — skipped)
   let semi = 0,
     nosemi = 0;
@@ -2080,6 +2128,7 @@ export function lexicalPreds(tree, b) {
   if (semi + nosemi >= 5)
     out['auto.lex:semi'] =
       semi >= (semi + nosemi) * 0.8 ? 'semi' : nosemi >= (semi + nosemi) * 0.8 ? 'nosemi' : 'mixed';
+  if (tally) tally['auto.lex:semi'] = { semi, nosemi };
   // leading directive: a first statement that is a short string expression (`'use strict'`, `'use client'`)
   const first = root.namedChildren.find(c => c.type !== 'comment' && c.type !== 'hash_bang_line');
   if (
@@ -2098,6 +2147,7 @@ export function lexicalPreds(tree, b) {
     if (kw) decl[kw[1]] = (decl[kw[1]] || 0) + 1;
   }
   const tot = Object.values(decl).reduce((a, b) => a + b, 0);
+  if (tally) tally['auto.lex:decl'] = { ...decl };
   if (tot >= 2) {
     const [k, c] = Object.entries(decl).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
     out['auto.lex:decl'] = c >= tot * 0.8 ? k : 'mixed';
@@ -2210,8 +2260,19 @@ const inGrammar = (s, nt) => {
 // a deco string already carries its own wrapping sigil — `[Route]` (C#), `#[AsCommand]` (PHP) — versus a bare
 // name (`Test`) that still needs its `@` prefix reconstructed wherever a deco is turned into a pid or a display
 // label (§054b: `#[` joins `[` here as a self-delimiting sigil, the same way it joined `take()`'s sigil test above).
+// §048 — a bare-stored name is ambiguous by itself: it means "strip the `@` off Java/TS/…" for every sigiled
+// grammar, but for a grammar whose ENTIRE decoration vocabulary is sigil-less in the source (Solidity's
+// `modifier_invocation`, §043's `b.decoBare`) it means the opposite — there was never an `@` to strip, and
+// reconstructing one prints syntax the language does not have (`@onlyOwner`). Resolved with the caller's grammar,
+// derived from the SAME structural set §043 already built (never a language name): a grammar is sigil-less only
+// when every node type its `b.deco` derivation found is also in `b.decoBare` — today that is Solidity alone.
+const sigilLessGrammar = g => {
+  if (!g || !GRAMMARS.includes(g)) return false;
+  const b = bindingFor(g);
+  return b.deco.size > 0 && b.decoBare.size === b.deco.size;
+};
 export const decoSigiled = d => d[0] === '[' || d.startsWith('#[');
-export const decoLabel = d => (decoSigiled(d) ? d : '@' + d);
+export const decoLabel = (d, g) => (decoSigiled(d) || sigilLessGrammar(g) ? d : '@' + d);
 export function applyVocab(s, vb) {
   if (BODY_KINDS.has(s.kind) && !s.noBody) {
     for (const nt of vb.NT)
@@ -2225,7 +2286,7 @@ export function applyVocab(s, vb) {
   // must be counted over classes, not over classes+interfaces; a method extends nothing at all)
   const inDom = (list, nt) => !list || !nt || list.includes(nt);
   if (s.kind !== 'file' && inDom(vb.DNT, s.nt))
-    for (const d of vb.DECO) s.preds['auto.deco:' + decoLabel(d)] = s.decos.includes(d) ? 'true' : 'false';
+    for (const d of vb.DECO) s.preds['auto.deco:' + decoLabel(d, s.g)] = s.decos.includes(d) ? 'true' : 'false';
   if (s.kind === 'type' && inDom(vb.ENT, s.nt))
     for (const e of vb.EXT) s.preds['auto.extends:' + e] = s.sup.includes(e) ? 'true' : 'false';
   if (s.kind === 'method' && inDom(vb.RNT, s.nt))
@@ -2234,7 +2295,14 @@ export function applyVocab(s, vb) {
   if (s.kind === 'method' && inDom(vb.PNT, s.nt))
     for (const r of vb.PT || []) s.preds['auto.ptype:' + r] = (s.ptypes || []).includes(r) ? 'true' : 'false';
   if (s.kind === 'file') {
-    for (const i of vb.IMP) s.preds['auto.imp:' + i] = s.imports.includes(i) ? 'true' : 'false';
+    // §058: a data grammar (JSON/YAML/TOML/properties, `b.data` — no name+body scope at all) has no import
+    // construct to begin with, so scoring one against another grammar's import vocabulary is vacuously always
+    // `false` — noise, not a fact ("composer.json does not import PHPUnit\Framework\TestCase"). Same category
+    // boundary as `inGrammar` above (undecidable ⇒ absent, never `false`), keyed on `b.data` instead of a node
+    // type since an import TOKEN is an open-vocabulary value, not a grammar-owned surface to look up.
+    const gb = s.g && bindings[s.g];
+    if (!gb || !gb.data)
+      for (const i of vb.IMP) s.preds['auto.imp:' + i] = s.imports.includes(i) ? 'true' : 'false';
     if (vb.LEX) {
       const dom = vb.LEX[s.g || ''] || [];
       for (const pid of Object.keys(s.preds))
@@ -3052,7 +3120,7 @@ export const deviantLine = (f, max = 2) =>
         'practiced',
         `not to copy: ${f.deviants
           .slice(0, max)
-          .map(d => `${ptr(d.rel, d.line, d.endLine)} \`${d.name}\` (${deviationPhrase(f, d.obs)})`)
+          .map(d => `${ptr(d.rel, d.line, d.endLine)} ${scopeBacktick({ kind: f.kind, name: d.name })} (${deviationPhrase(f, d.obs)})`)
           .join(' · ')}${f.deviantsN > max ? ` · +${f.deviantsN - max} more` : ''}`
       )}`
     : null;
@@ -3312,6 +3380,23 @@ export const unitOf = kind =>
     finally: 'finally blocks',
     case: 'named callbacks',
   })[kind] || kind;
+// §061 — a catch/finally clause has no name field of its own in any shipped grammar (a catch/finally block is
+// anonymous by nature — it is not a named declaration); `extractScopes`' blockScope still gives it a `.name`
+// (borrowed from its enclosing method/type, "named after its owner") purely so it survives as its own mined
+// population instead of being swept up by the anonymous-scope filter (`all[i].name === '<anon>'`). That borrowed
+// string must never be SPOKEN as if it were the clause's own declared name — `catch \`findOwner\`` reads as
+// though a catch block were named `findOwner`, the exact fabrication instrument A caught on PetController.java.
+// Every render site that turns a scope into a "kind `name`" phrase for a human goes through one of these two
+// helpers instead of inlining `${s.kind} \`${s.name}\`` — so the honesty fix lives in one place.
+const ANON_SCOPE_KINDS = new Set(['catch', 'finally']);
+// for text that already says "Your ${kind} …" — genuine declarations keep exactly that shape (`method
+// \`findOwner\``); an anonymous clause reads "catch in `findOwner`", never "catch `findOwner`".
+export const scopeNamed = s => (ANON_SCOPE_KINDS.has(s.kind) ? `${s.kind} in` : s.kind) + ` \`${s.name}\``;
+// for text that names the scope with no leading kind word at all (a waiver's "`findOwner` (line 42) …") — a
+// genuine declaration stays bare (unchanged from before this fact existed); only an anonymous clause needs the
+// kind spelled out here, since without it the borrowed name alone would read as the ENCLOSING declaration itself.
+export const scopeBacktick = s =>
+  ANON_SCOPE_KINDS.has(s.kind) ? `${s.kind} in \`${s.name}\`` : `\`${s.name}\``;
 // a statement shape cut at a node boundary, never mid-token: `expression_statement(call_expression(member_expression,…))`
 export const shapeShort = (sh, max = 64) => {
   if (sh.length <= max) return sh;
@@ -4284,7 +4369,7 @@ export async function learn({
       const dc = new Map();
       for (const s2 of cs) for (const d of s2.decos) if (d !== own) dc.set(d, (dc.get(d) || 0) + 1);
       for (const [d, k] of [...dc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 2))
-        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${decoLabel(d)} (${k}/${n})`);
+        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${decoLabel(d, cs[0].g)} (${k}/${n})`);
       const cc = new Map();
       for (const s2 of cs) for (const c2 of s2.calls) cc.set(c2, (cc.get(c2) || 0) + 1);
       for (const [c2, k] of [...cc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3))
@@ -5526,6 +5611,11 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   // callers need this signal to tell "genuinely nothing here" apart from "the parser gave up on part of this file"
   const scopes = extractScopes(effRel, tr, b, p._g).filter(s => s.name !== '<anon>');
   const relFact = relFactsFor(effRel, src, tr, p._g);
+  // §042 — the instance counts behind each per-file lexical vote, for `lexTallyNote`. Taken here because `tr` is freed
+  // on the next line and the governed loop below runs after that. A second walk of one already-parsed file, on the
+  // check path only; extraction and mining call `lexicalPreds` without a tally and are byte-for-byte unaffected.
+  const lexT = Object.create(null);
+  lexicalPreds(tr, b, lexT);
   tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
   const placeHit = placementHit(model, effRel);
@@ -5598,6 +5688,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
           label,
           conforms: lead === f.exp,
           fact: f,
+          tally: lexTally(f.pid, f.exp, lexT[f.pid]), // §042 — null unless the per-file vote hid departing instances
           defining: isDefiningFact(medoids, f),
         });
       // the lead surface speaks for the cluster; a deviation on any sibling surface (same conform set) is still a deviation
@@ -5640,7 +5731,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
             obs: v,
             text: `[grain] ${voice(
               'decided',
-              `\`${s.name}\` (line ${s.line}) deliberately departs from ${verbalize(
+              `${scopeBacktick(s)} (line ${s.line}) deliberately departs from ${verbalize(
                 vf,
                 f.exemplars.map(e => e.name)
               )} — ${conformN}/${f.sraw} established do it the other way${wv.note ? ` — ${wv.note}` : ''}`,
@@ -5686,20 +5777,22 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
                     }`
                   : ''
               }\n` +
-                `  ${conformN}/${f.sraw} established ${unitOf(f.kind)} conform. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}${known ? '' : ' — a value this repo has not used before'}.${contrast}` +
+                `  ${conformN}/${f.sraw} established ${unitOf(f.kind)} conform. Your ${scopeNamed(s)} (line ${s.line}) ${deviationPhrase(vf, v)}${known ? '' : ' — a value this repo has not used before'}.${contrast}` +
                 (() => {
                   const here = scopes
                     .filter(s2 => s2 !== s && s2.kind === s.kind && s2.preds[sf.pid] === sf.exp)
                     .slice(0, 2);
                   if (here.length)
-                    return `\n  In this file, ${here.map(s2 => `\`${s2.name}\` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
+                    return `\n  In this file, ${here.map(s2 => scopeBacktick(s2) + ` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
                   const near = exs[0];
+                  // §061: an exemplar carries no `.kind` of its own (f.exemplars' shape), but every exemplar of
+                  // this fact IS of the fact's own kind by construction — same borrowed-name honesty as `here` above.
                   return near
-                    ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} \`${near.name}\`${skipLineNote(part, f, near)}.`
+                    ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} ${scopeBacktick({ kind: f.kind, name: near.name })}${skipLineNote(part, f, near)}.`
                     : '';
                 })() +
                 (exs.length
-                  ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} \`${e.name}\`${skipLineNote(part, f, e)}`).join(' · ')}`
+                  ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part, f, e)}`).join(' · ')}`
                   : '') +
                 // any note the fact carries, not only `held` — the cost of deviating is the one a reader most needs here,
                 // and it can be present on a fact whose `held.since` is not
@@ -5766,7 +5859,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         voice(
           'practiced',
           `${label} shape: ${unit} here all carry \`${sig}\`${worst.need > 1 ? ` (${worst.need}×)` : ''}\n` +
-            `  ${pf.n}/${pf.n} established ${unit} conform. Your ${s.kind} \`${s.name}\` (line ${s.line}) is missing \`${sig}\` — every one of the ${pf.n} certified members of this group carries it at least ${worst.need} time${worst.need > 1 ? 's' : ''}, yours has ${worst.got}.\n` +
+            `  ${pf.n}/${pf.n} established ${unit} conform. Your ${scopeNamed(s)} (line ${s.line}) is missing \`${sig}\` — every one of the ${pf.n} certified members of this group carries it at least ${worst.need} time${worst.need > 1 ? 's' : ''}, yours has ${worst.got}.\n` +
             `  (N of N by construction: the group's template is the anti-unification of all ${pf.n} members, so everything it carries is in every one of them — there is no partial counter behind this denominator.)`
         ),
     });
@@ -5804,8 +5897,8 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         const retiredName = (sf.pid.match(/^auto\.[a-z]+:(@?.+)$/) || [])[1];
         const head2 =
           sf.retires && promoted
-            ? `${verbalize({ pid: promoted.pid, exp: promoted.value, kind: st.kind, heritageKind: heritageKindOf(promoted.pid, model) }, [st.name])}, not \`${retiredName || sf.pid}\` — ${practicedBy(promoted)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) still carries \`${retiredName || sf.pid}\``
-            : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}`;
+            ? `${verbalize({ pid: promoted.pid, exp: promoted.value, kind: st.kind, heritageKind: heritageKindOf(promoted.pid, model) }, [st.name])}, not \`${retiredName || sf.pid}\` — ${practicedBy(promoted)}. Your ${scopeNamed(s)} (line ${s.line}) still carries \`${retiredName || sf.pid}\``
+            : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${scopeNamed(s)} (line ${s.line}) ${deviationPhrase(vf, v)}`;
         steerHits.push({
           scope: s.name,
           kind: s.kind,
@@ -5935,9 +6028,11 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
     b.members.push({ name: s.name, line: s.line, endLine: s.endLine || s.line });
   });
   for (const b of buckets.values()) {
+    // §061: `m.name` for a catch/finally member is its enclosing method/type's OWN name (blockScope's borrowed
+    // "named after its owner"), never the clause's own — go through scopeBacktick so it reads as a location.
     const shown = b.members
       .slice(0, 3)
-      .map(m => `\`${m.name}\` (line ${m.line})`)
+      .map(m => `${scopeBacktick({ kind: b.kind, name: m.name })} (line ${m.line})`)
       .join(', ');
     const who = b.members.length > 3 ? `${shown} and ${b.members.length - 3} more` : shown;
     // (§010-e) an exemplar to open, reusing the SAME resolver the "See:" line under a deviation already uses
@@ -5956,7 +6051,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       text:
         `[grain] ${who} ${b.members.length === 1 ? 'is' : 'are'} new to the index — ${b.detail}. Judged against the package baseline only.` +
         (anchor
-          ? `\n  See: ${ptr(anchor.ex.rel, anchor.ex.line, anchor.ex.endLine)} \`${anchor.ex.name}\``
+          ? `\n  See: ${ptr(anchor.ex.rel, anchor.ex.line, anchor.ex.endLine)} ${scopeBacktick({ kind: anchor.f.kind, name: anchor.ex.name })}`
           : ''),
     });
   }
@@ -6218,10 +6313,12 @@ export function groupDeviations(msgs, touched = null, fileKindTouched = null) {
   for (const g of groups.values()) {
     const t = g.hits.filter(h => h.touched),
       p = g.hits.filter(h => !h.touched);
+    // §061: `h.scope` is the enclosing method/type's OWN name for a catch/finally hit (blockScope's borrowed
+    // "named after its owner"), never the clause's own — prefixed "in " so it reads as a location, not a name.
     const who = hs =>
       hs
         .slice(0, 3)
-        .map(h => `\`${h.scope}\` (line ${h.line})`)
+        .map(h => `${ANON_SCOPE_KINDS.has(h.kind) ? 'in ' : ''}\`${h.scope}\` (line ${h.line})`)
         .join(', ') + (hs.length > 3 ? ` and ${hs.length - 3} more` : '');
     const head = g.text.split('\n');
     const first = head[0];
@@ -6541,15 +6638,16 @@ export function buildCards(model) {
         ))
           addTok(toks, t, TOKW.fact); // `cli command` reaches @click.command through cli.py
       const degenerate = carrierNames.size === 1 && keys.length > 1; // three fixtures all named `test` are not a pattern to copy (three commands in one cli.py are)
+      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — §048, decoLabel's sigil call
       const label =
         pre === 'deco'
-          ? decoLabel(name)
+          ? decoLabel(name, markerG)
           : pre === 'sup'
             ? `extends ${name}`
             : `returns ${name}`;
       const mpid =
         pre === 'deco'
-          ? 'auto.deco:' + decoLabel(name)
+          ? 'auto.deco:' + decoLabel(name, markerG)
           : pre === 'sup'
             ? 'auto.extends:' + name
             : 'auto.returns:' + name;
@@ -6815,6 +6913,12 @@ export function whereCmd({
     let s = 0;
     for (const [t, w] of idf) s += (c.toks.get(t) || 0) * w;
     c.score = idfSum ? s / idfSum : 0;
+    // §070 — snapshot the score BEFORE the exact-name/dirName pins below can lift it off zero. This is the
+    // card's own bag-of-words overlap with the query and nothing else: a card can only clear zero here by
+    // sharing an actual query token with its content (doc comments, member names, values — whatever `c.toks`
+    // indexes), never by an identifier or directory NAME merely matching. Read-only bookkeeping: nothing past
+    // this line changes what `c.score` becomes or how `hits` gets filtered/sorted/sliced.
+    c.lex0 = c.score;
     c.exact = c.names ? [...qraw].some(t => c.names.has(t)) : false; // a query word that IS a function/class name in this file
     // a pinned identifier that IS most of the query wins outright (`where sendStatus`); one that covers a minority of the
     // query's words only adds to the lexical score — `where command handler for TodoList archive` must rank the command
@@ -6872,7 +6976,22 @@ export function whereCmd({
   }
   let noConfidentHit = false,
     suppressedScore = 0; // set when the top hit is demoted to "untrustworthy" below — distinct wording from a genuine zero-hit
-  if (hits.length && hits[0].score < 0.34)
+  // §070 (research/where-lever) — on the leak-free stratum, 36% of the files `where` should have named share zero
+  // content-lexical overlap with the query (`lex0` above). Most of those are NOT the `!hits.length` case below —
+  // something ELSE in the repo still scores — so the reader sees a normal-looking ranked list built entirely on an
+  // identifier or directory NAME pin, with zero corroborating content-word overlap anywhere in the top hits — the exact shortcut
+  // §2.1 of the research doc measured directly ("cards lifted off zero by the exact-name pin without any token
+  // match"). Checked before `weak match` below because a name pin can win outright (`score` reaches 1, well past
+  // 0.34), so the flat-score banner never catches it — the structural fact that NO shown card's content shares a
+  // query word is the one signal here, not a new cutoff (§018/§037's rule: an already-weak answer cannot be made
+  // overconfident by saying so, so this fires regardless of how high the pinned score climbed).
+  const noContentFoothold = hits.length > 0 && hits.every(h => h.lex0 === 0);
+  if (noContentFoothold) {
+    const sig = hits[0].exact ? 'an exact identifier/name match' : 'a directory-name match';
+    lines.push(
+      `no card matches these words — the ranking below is by ${sig}, not text overlap; verify before building on it.`
+    );
+  } else if (hits.length && hits[0].score < 0.34)
     lines.push(
       `weak match: the best hit covers ${Math.round(hits[0].score * 100)}% of the query's weight — a hint, not an answer. If the hits look unrelated to what you are writing, open the nearest sibling of the file you expect to edit instead.`
     );
@@ -6982,13 +7101,14 @@ export function whereCmd({
       const carried = (h.carried || [])
         .filter(([mk]) => !mk.startsWith('ret:') || !TRIVIAL.test(mk.slice(4)))
         .sort((a, b) => b[1] - a[1]);
+      const cardG = EXT2GRAMMAR[extname(h.label)]; // `h.label` is this card's own file rel path — §048
       if (carried.length)
         lines.push(
           `  carries: ${carried
             .slice(0, 5)
             .map(
               ([mk, n]) =>
-                `${mk.startsWith('deco:') ? decoLabel(mk.slice(5)) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
+                `${mk.startsWith('deco:') ? decoLabel(mk.slice(5), cardG) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
             )
             .join(' · ')}`
         );
@@ -7037,7 +7157,11 @@ export function whereCmd({
       const [rel2, kind, name] = k.split('#');
       const ln = scopeLine(P, k);
       const end = scopeLineEnd(P, k);
-      return `${ln ? ptr(rel2, ln, end) : rel2} \`${name}\` (${kind})`;
+      // §061: `name` for a catch/finally member is its enclosing method/type's OWN name — scopeBacktick already
+      // says so ("catch in `findOwner`"), so the trailing "(kind)" would just repeat it; kept only for a genuine
+      // declaration, exactly as before this fact existed.
+      const tag = ANON_SCOPE_KINDS.has(kind) ? scopeBacktick({ kind, name }) : `\`${name}\` (${kind})`;
+      return `${ln ? ptr(rel2, ln, end) : rel2} ${tag}`;
     };
     if (h.type === 'marker') {
       const ex = h.members.slice(0, 3).map(withLine);
@@ -7197,7 +7321,7 @@ export function whereCmd({
       .slice(0, 3);
     if (ex.length)
       lines.push(
-        `  pattern to copy: ${ex.map(([e, f]) => `${ptr(e.rel, e.line, e.endLine)} \`${e.name}\`${skipLineNote(part(model, h.part), f, e)}${e.why ? ` — ${e.why}` : ''}`).join(' · ')}`
+        `  pattern to copy: ${ex.map(([e, f]) => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part(model, h.part), f, e)}${e.why ? ` — ${e.why}` : ''}`).join(' · ')}`
       );
     else if (h.members) {
       const ms = h.members.slice(0, 3).map(withLine);
@@ -7343,7 +7467,7 @@ export function howCmd({
     if (!arr.includes(parts[2])) arr.push(parts[2]);
     topScopes.set(cur, arr);
   }
-  const places = [...counts.keys()]
+  let places = [...counts.keys()]
     .map(rel => ({
       rel,
       k: counts.get(rel),
@@ -7354,14 +7478,26 @@ export function howCmd({
       weight: +weights.get(rel).toFixed(3),
     }))
     .sort((a, b) => b.weight - a.weight || b.k - a.k || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+  // §066: a place dead at HEAD is dead code to an agent following this list — never somewhere to edit. Same
+  // liveness source `cochangeData` computes its own `live` set from (core.mjs ~9154, one house-wide answer to "is
+  // this path still here", never a second/third liveness check invented per renderer). §020 had this render
+  // `(deleted)` instead of dropping the entry; measured on a real corpus that still put 13 of 28 CleanArchitecture
+  // places on files that no longer exist — marking a dead file still hands it to the reader as a "place such a
+  // change touched". Omitting it is the other option the ticket's own acceptance text always allowed ("marks it OR
+  // omits it — decide which and document why"); dropping is strictly the more useful answer for an agent about to
+  // edit code, so `how` now omits rather than marks.
+  places = places.filter(p => p.exists);
+  // §066: the "1/N" long tail — a place touched by only 1 of K matched commits is one anecdote, not a place "such
+  // a change touched". Reuses `how-hook`'s own existing bar for exactly this (`places.filter(p => p.k >= 2)`,
+  // grain.mjs) rather than a new constant. Applied only when it leaves something: a single-match query (K=1) or a
+  // set of equally-thin matches has no k>=2 evidence to prefer over, and dropping to zero places would be a false
+  // "nothing to say" — the same refusal-to-invent-absence principle as `completenessDirectional` (§063).
+  const strongPlaces = places.filter(p => p.k >= 2);
+  if (strongPlaces.length) places = strongPlaces;
   // `sources: ['cochange']` is the ONLY correct configuration here and is not a limitation to relax later: `how`
   // names its files from the commit history and never parses one, so it can never supply the `newFileScopes` the
   // `'recipe'` source needs. Bolting `'recipe'` on would require adding a parse step first.
-  const missing = missingLines(
-    model,
-    places.filter(p => p.exists).map(p => p.rel),
-    { sources: ['cochange'] }
-  );
+  const missing = missingLines(model, places.map(p => p.rel), { sources: ['cochange'] });
   // the certified SHAPE this intent looks like, if any (§J4.1). Two independent readings of the same query: the
   // archetype's own message vocabulary, scored on the idf already computed above, and how much of its certified
   // module/suffix footprint the places `what` finds for this query cover (a `g:` role cell has no query-side
@@ -7416,11 +7552,17 @@ export function howCmd({
         date: new Date(m.fp.ts * 1000).toISOString().slice(0, 7),
       })
     );
-  lines.push('places such a change touched:');
-  for (const p of places)
-    lines.push(
-      `  ${p.rel} (${p.k}/${p.of}) — ${p.exists ? p.module : '(deleted)'}${p.scopes.length ? ` · scopes: ${p.scopes.join(', ')}` : ''}`
-    );
+  // §066: `places` is already filtered to files live at HEAD (above) — every remaining entry's `exists` is true,
+  // so there is no longer a `(deleted)` branch to render here. A places array can now legitimately be empty (every
+  // file the matched commits touched has since been deleted) — the header is only worth printing when there is at
+  // least one place to list under it.
+  if (places.length) {
+    lines.push('places such a change touched:');
+    for (const p of places)
+      lines.push(
+        `  ${p.rel} (${p.k}/${p.of}) — ${p.module}${p.scopes.length ? ` · scopes: ${p.scopes.join(', ')}` : ''}`
+      );
+  }
   lines.push(...missing);
   return {
     lines,
@@ -7514,11 +7656,13 @@ export function ungrammaredFiles(model) {
 function gatedValueEvidence(model, rawScopes, q) {
   if (!rawScopes) return null;
   const byKind = new Map(); // e.k -> Set of files carrying value q under that kind
+  const contsByKind = new Map(); // e.k -> Set of container ids (§056: e.c) carrying value q under that kind
   for (const s of rawScopes) {
     if (s.kind !== 'file') continue;
     for (const e of s.vals || []) {
       if (e.v !== q) continue;
       (byKind.get(e.k) || byKind.set(e.k, new Set()).get(e.k)).add(s.rel);
+      if (e.c != null) (contsByKind.get(e.k) || contsByKind.set(e.k, new Set()).get(e.k)).add(e.c);
     }
   }
   if (!byKind.size) return null;
@@ -7528,7 +7672,31 @@ function gatedValueEvidence(model, rawScopes, q) {
   const files = [...fileSet].sort(),
     df = files.length;
   const dfMax = Math.ceil(CFG.valueDfMaxShare * (model.files || df));
-  return { valueKind: k, files, df, tooRare: df < CFG.valueDfMin, tooCommon: df > dfMax };
+  // §056 — a data-grammar KEY gated out of `model.valueIndex` by the cross-file df floor still has a real
+  // STRUCTURAL neighbor set: the OTHER keys declared in the exact same container (e.g. a YAML `services:`
+  // mapping's other service ids) — a WITHIN-file/container fact that needs no cross-file repetition to be true,
+  // unlike `model.valueSiblings` (which additionally requires each member to have separately cleared the df
+  // floor — the wrong bar for "does this container have other named entries", which is why a same-file cluster
+  // of once-only keys never reaches it). Computed directly off `rawScopes` (never off `model.valueIndex`), so it
+  // is available exactly when the df-gate disclosure below fires, independent of any other key's own frequency.
+  // Kept to `key`-kind evidence only: a `str`/`enum` sibling set is the cross-file value-concordance question
+  // `model.valueSiblings` already answers correctly, and duplicating it here would just restate that fact under
+  // a looser (single-file) bar.
+  let siblings = null;
+  if (k === 'key') {
+    const conts = contsByKind.get(k);
+    const sibSet = new Set();
+    outer: for (const s of rawScopes) {
+      if (s.kind !== 'file') continue;
+      for (const e of s.vals || []) {
+        if (e.k !== 'key' || e.v === q || e.c == null || !conts.has(e.c)) continue;
+        sibSet.add(e.v);
+        if (sibSet.size >= 12) break outer;
+      }
+    }
+    if (sibSet.size) siblings = [...sibSet].sort();
+  }
+  return { valueKind: k, files, df, tooRare: df < CFG.valueDfMin, tooCommon: df > dfMax, siblings };
 }
 // case C (§032): the query is an external/vendor type — never declared in this repository, so (a)'s declaration
 // search has no card of its own to anchor on and, left alone, silently substitutes fuzzy name-token overlap over
@@ -7695,6 +7863,11 @@ export function whatCmd({
       const P = part(model, c.part);
       for (const k of c.members || []) {
         const [rel, kind, name] = k.split('#');
+        // §061: a catch/finally member's `name` is its enclosing method/type's OWN name (blockScope's borrowed
+        // "named after its owner", §extractScopes) — the same reason the file-card branch above already excludes
+        // them; a role/marker group mixes every non-file/module kind (§induceRoles), so this branch needs the
+        // identical guard or a query for the enclosing declaration surfaces its unrelated catch/finally twin too.
+        if (kind === 'catch' || kind === 'finally') continue;
         if (!nameHits(name)) continue;
         pushDef(rel, kind, name, scopeLine(P, k), scopeLineEnd(P, k));
       }
@@ -7763,24 +7936,23 @@ export function whatCmd({
     );
   }
 
-  // (d) siblings: the OTHER members of any container a matched value belongs to — members already matched by (b)
-  // themselves are not "other" news, so a container every one of whose survivors (b) already found contributes nothing
-  const matchedKeys = new Set(valueHits.map(h => h.key));
-  const siblings = [];
-  const seenCont = new Set();
-  for (const h of valueHits) {
-    const contEntry = Object.entries(model.valueSiblings || {}).find(([, sibs]) => sibs.includes(h.key));
-    if (!contEntry) continue;
-    const [c, sibs] = contEntry;
-    if (seenCont.has(c)) continue;
-    seenCont.add(c);
-    const others = sibs.filter(k2 => !matchedKeys.has(k2));
-    if (!others.length) continue;
-    const label = model.valueContainer?.[c];
-    siblings.push(
-      `${label ? label + ': ' : ''}${others.map(k2 => `\`${k2.slice(k2.indexOf(':') + 1)}\``).join(', ')}`
-    );
-  }
+  // (d) siblings — DELETED (§052). It printed the OTHER members of any container a matched value sits in, which
+  // by construction is exactly the set of values that did NOT match the query. Measured across 7 languages
+  // (.system/issues/052-what-siblings-noise/log.md): per-value precision 0.364 [0.29–0.44] over 165 blind hand
+  // verdicts, against a pre-registered 0.70 bar and a tie-break that counts every unsure value as a hit — so
+  // 0.364 is an upper bound. It fired on 218 of 420 of the repositories' own vocabulary queries and rendered a
+  // mean of 72.7 values per line, worst single line 759, all in the `practiced` (statistical-claim) voice. The
+  // gate does carry real signal (an arbitrary-container decoy baseline measured 0.127, z = 4.99), but this is a
+  // PUSH surface — volunteered inside the answer to a different question — and §044's ruling is that a push
+  // surface needs precision the reader does not have to audit. Restricting to NAMED containers was measured too
+  // and does not rescue it: still 27.5 values per line, and it zeroes 3 of the 7 languages outright.
+  //
+  // The evidence keeps its home, exactly as §044 kept `model.twins`: `model.valueSiblings`/`valueContainer`/
+  // `valueNorms` are untouched and `export` publishes them verbatim, and the PULL surface — `check`/`review`'s
+  // `kin:` line — still speaks about these containers. `kin:` is the right home: it fires only when the reader's
+  // own change touched that container, and it reads `model.valueNorms`, the KT/λ-certified co-travel test that
+  // this line never consulted. Across the corpus that certification accepts 3 of 2393 containers; `what` was
+  // rendering all 2393.
 
   // (e) commits: model.msgAffinity (built at index time from H.msgAff, §J2.4) works from the model alone — locating
   // it never needs H. The rendered count/date DOES need H.fps (§J2.1), so — exactly like `how` — that half is
@@ -7852,7 +8024,6 @@ export function whatCmd({
     );
   if (spread.length)
     lines.push(voice('practiced', `spread: ${spread.map(s => `${s.module} (${s.n})`).join(' · ')}`));
-  if (siblings.length) lines.push(voice('practiced', `siblings: ${siblings.join(' · ')}`));
   if (changes)
     lines.push(
       voice(
@@ -7946,13 +8117,19 @@ export function whatCmd({
     if (gv) {
       // the plain absence claim would be FALSE here — replaced, not appended
       const label = VALUE_KIND_LABEL[gv.valueKind] || gv.valueKind;
-      const text = gv.tooRare
-        ? `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} (${gv.files.slice(0, 3).join(', ')}) — below the ${CFG.valueDfMin}-file floor where concordance begins, so it is not indexed. Seen, not absent.`
-        : gv.tooCommon
-          ? `«${q}» was seen as a ${label} in ${gv.df} files — above the commonality ceiling (over ${Math.round(CFG.valueDfMaxShare * 100)}% of the repository), so it is treated as boilerplate rather than a distinguishing concordance. Seen, not absent.`
-          : `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} but was not retained in the value index. Seen, not absent.`;
+      // §056 — a same-container sibling list, when the gated evidence found one (see gatedValueEvidence's own
+      // note): appended, never in place of, the df-floor explanation itself.
+      const sibTxt = gv.siblings
+        ? ` Declared alongside: ${gv.siblings.slice(0, 8).map(s => `\`${s}\``).join(', ')}${gv.siblings.length > 8 ? ` (+${gv.siblings.length - 8} more)` : ''}.`
+        : '';
+      const text =
+        (gv.tooRare
+          ? `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} (${gv.files.slice(0, 3).join(', ')}) — below the ${CFG.valueDfMin}-file floor where concordance begins, so it is not indexed. Seen, not absent.`
+          : gv.tooCommon
+            ? `«${q}» was seen as a ${label} in ${gv.df} files — above the commonality ceiling (over ${Math.round(CFG.valueDfMaxShare * 100)}% of the repository), so it is treated as boilerplate rather than a distinguishing concordance. Seen, not absent.`
+            : `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} but was not retained in the value index. Seen, not absent.`) + sibTxt;
       lines.push(voice('map', text));
-      note = { kind: 'gated', value: q, valueKind: gv.valueKind, df: gv.df, files: gv.files };
+      note = { kind: 'gated', value: q, valueKind: gv.valueKind, df: gv.df, files: gv.files, siblings: gv.siblings || [] };
     } else if (ungrammaredHit) {
       // §057 — a certified-absence sibling stronger than `blindHit` below: the exact text was found, on a
       // bounded re-scan (grain.mjs's `findUngrammaredHit`), inside a tracked file whose extension has no
@@ -8004,7 +8181,6 @@ export function whatCmd({
     weakName,
     values: valueHits.map(h => ({ value: h.v, kind: h.k, places: h.places })),
     spread,
-    siblings,
     changes: changes || {},
     usedBy: usedBy || {},
     referenced,
@@ -8482,6 +8658,36 @@ export function factTiers(p) {
 // own generated-document text (below) share one wording instead of two that could drift apart.
 export const DIRTY_TREE_NOTE =
   'the worktree has uncommitted changes — this answer is computed from the indexed commit, not the current files on disk';
+// §042: a lexical style surface is a per-FILE majority vote (lexicalPreds) — `auto.lex:quote` reads `double` while at
+// most 20% of the file's literals are single-quoted. So a conforming file can hold, or GAIN, many departing literals
+// without the value ever moving: measured, telescope.nvim's buffer_previewer.lua absorbs 50 new single-quoted literals
+// in silence and flips only at 51; express's test/acceptance/mvc.js absorbs 12 and flips at 15; the budget is 0.25 ×
+// the majority count, so it grows with file size (957 / 2050 / 1067 literals repo-wide on telescope.nvim / express /
+// flask). The vote is the right unit to MINE — a delimiter forced by the content (`'he said "hi"'`) is not a style
+// choice, and 11 of 11 minority literals in telescope.nvim are exactly that — but `check` must not call the file
+// conforming without saying what a file-granularity vote cannot see. Same register and same one-constant-two-renderers
+// discipline as TEMPLATE_DESCRIPTIVE_NOTE below.
+const LEX_UNIT = {
+  'auto.lex:quote': ['string literal', 'string literals'],
+  'auto.lex:semi': ['statement', 'statements'],
+  'auto.lex:decl': ['declaration', 'declarations'],
+  'auto.lex:indent': ['indented line', 'indented lines'],
+};
+// null when there is nothing to disclose; otherwise the counts AND the sentence, from one computation, so the JSON
+// field and the printed clause can never disagree about the same file.
+export function lexTally(pid, exp, tally) {
+  const unit = LEX_UNIT[pid];
+  if (!unit || !tally || tally[exp] === undefined) return null; // `mixed`/`other` name no instance: nothing to count
+  const total = Object.values(tally).reduce((a, c) => a + c, 0);
+  const conforming = tally[exp];
+  const off = total - conforming;
+  if (total <= 0 || off <= 0) return null; // every instance conforms: the file-level verdict is true per instance too
+  return {
+    conforming,
+    total,
+    note: ` — scored per file, not per ${unit[0]}: ${off} of ${total} ${unit[1]} here depart from it and none of them is flagged`,
+  };
+}
 // §030: a `report`/`rules` TEMPLATE line (mineTemplates/profileOf — unclustered residue, never a role group) is a
 // render-only structural superposition: it has no cell in `part.facts`, so `check`/`review`/hooks cannot fail a
 // member for breaking its shape — not even the partial bridge J5.8 gives CLUSTERED role-group profiles
