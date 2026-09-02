@@ -1,13 +1,13 @@
 {
-  "at": "2026-09-02T11:46:16.456Z",
+  "at": "2026-09-02T12:38:28.783Z",
   "by": "director",
-  "head": "main@80d5b5c",
-  "summary": "EXPERIMENT ENDED BY THE USER ('koniec tego eksperymentu z paleniem kasy') on 2026-09-02 after the second trial: 0 answer-changed diffs in 25 with-arm runs; on the measured (easy) tasks grep+cat+agent produced the same diff at the same cost. Director stopped every agent (grain-lead, grain-lead-2, 090 worker, 092 designer — the last two mid-work, nothing landed), cancelled the loop. main is green at the last merged state; 089 is landed-unmerged on worktree-agent-a8f05bc9e4069be48 (2 ahead, premerge never run). Nothing pushed.",
+  "head": "main@3bc8468",
+  "summary": "RELEASED PUBLICLY 2026-09-02 on the user's explicit order: main pushed (601aa23..3bc8468), tag v0.3.0, GitHub Release v0.3.0 with honest notes. The build is the former working 0.4.0 renamed 0.3.0 (user's choice among three options). docs/results.md carries the complete measured record incl. the 0-in-25 verdict; README links it from evidence, documentation and status. Machine paths scrubbed from tracked .system/ and the stress baseline JSON before publication. Suite 2181/2181. Development paused; nothing is authorised beyond this release.",
   "inFlight": [
     {
       "name": 55,
       "task": "",
-      "since": "2026-09-02T11:46:16.494Z",
+      "since": "2026-09-02T12:38:28.828Z",
       "reportsTo": "lead",
       "branch": "research/092"
     }
@@ -48,7 +48,7 @@
     "- 2026-09-02 merged: 089 80d5b5c"
   ],
   "nextActions": [
-    "If work resumes: (1) the open question is 092's — measure on HARD tasks where the without-arm demonstrably fails, per-run counterfactual first; (2) or the product-form question — hook-time guard instead of an oracle; (3) 089 premerge+merge; (4) g33 bump for 082-086; (5) prune 71 worktrees and superseded fix/083, fix/084. None of this is authorised — the user ended the experiment."
+    "Nothing scheduled. If asked to continue: (1) hard-task paired trial with per-run counterfactual (092), (2) write-time guard product form, (3) 091/090, (4) 089 landed-unmerged, (5) worktree prune. Push again only on explicit instruction."
   ],
   "notes": []
 }
