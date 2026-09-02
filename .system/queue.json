@@ -324,9 +324,9 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "fix/071",
-      "state": "queued",
+      "state": "running",
       "note": "selftest --where: identifier-preserving query mode or symbol stratum; existing strata numbers must not move",
-      "updated": "2026-09-02 03:25"
+      "updated": "2026-09-02 04:09"
     },
     {
       "id": 31,
@@ -334,9 +334,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/072",
-      "state": "queued",
+      "state": "running",
       "note": "report --json: add architecture/module data (additive); parity test",
-      "updated": "2026-09-02 03:36"
+      "updated": "2026-09-02 04:09"
     },
     {
       "id": 32,
@@ -344,9 +344,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/073",
-      "state": "queued",
+      "state": "running",
       "note": "WAVE 4 #1 obligation <path>; spec in obligations-design.md §6; HIST_V+MODEL_V director's",
-      "updated": "2026-09-02 03:48"
+      "updated": "2026-09-02 04:09"
     },
     {
       "id": 33,
@@ -364,19 +364,19 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/075",
-      "state": "queued",
-      "note": "medium: catch/finally clause double-counted once per enclosing method+class ancestor; extraction-level fix, EXTR_V candidate",
-      "updated": "2026-09-02 04:01"
+      "state": "running",
+      "note": "catch/finally clause walked twice (method AND class) inflates populations — lead's ticket; EXTR_V",
+      "updated": "2026-09-02 04:35"
     },
     {
       "id": 35,
-      "ticket": "075",
+      "ticket": "076",
       "kind": "fix",
       "agent": "sonnet",
-      "branch": "fix/075",
-      "state": "queued",
-      "note": "type-like gaps in 5 grammars + Ruby singleton_method false positive; 050 method; EXTR_V",
-      "updated": "2026-09-02 04:03"
+      "branch": "fix/076",
+      "state": "running",
+      "note": "type-like gaps in 5 grammars + Ruby singleton_method FP; 050 method; EXTR_V",
+      "updated": "2026-09-02 04:35"
     }
   ]
 }

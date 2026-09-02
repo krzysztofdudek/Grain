@@ -6,8 +6,10 @@
       "why": "042 measured: 22 literals (express) + 12 (flask) depart their file's per-file quote-convention majority WITHOUT a forcing delimiter (i.e. genuine style violations, not content-forced). A per-literal check-side flag gated on that derivable exemption (delimiter-forced literals excluded) scores 0 false positives on telescope.nvim. Not implemented — this is a check-side rule addition changing acceptance/flagging behavior, needs your ruling on whether to add it.",
       "by": "lead",
       "at": "2026-09-02T02:02:03.998Z",
-      "state": "open",
-      "ticket": "042"
+      "state": "ruled",
+      "ticket": "042",
+      "ruling": "042: APPROVED — implement the per-literal check-side flag. It is the per-literal APPLICATION of a convention already certified at file level, not a new acceptance gate; the exemption (delimiter-forced literals excluded) is structural/derivable, not tuned; measured 22 (express) + 12 (flask) genuine violations and 0 false positives on telescope.nvim. Conditions: (1) measure the fire rate on clean, conforming files across ≥3 repos and report it (037 standard); (2) no new constant — the file-level convention's own acceptance decides whether the flag can exist; (3) the flag renders under the existing convention line, not as a new fact class; (4) tests: the original 042 repro (7 single-quoted literals in a 100% double-quote file) flags; a delimiter-forced literal does not; a file with no certified quote convention flags nothing.",
+      "ruledAt": "2026-09-02T02:35:43.456Z"
     },
     {
       "id": "2",
@@ -15,8 +17,10 @@
       "why": "052 measured: what's siblings: line had precision 0.364 (vs 0.70 bar, 165 blind verdicts/7 languages) as an unbidden push surface (72.7 values/line avg); deleted from text and --json (0 churn to model/export/check's kin: pull surface). Two follow-ups NOT implemented, flagged for your ruling: (a) a model.valueNorms gate would let siblings re-fire selectively (3 of 2393 containers pass it) — a much higher-precision subset; (b) a rendered cap on value-line length (new tunable constant) was considered separately. Neither implemented without your ruling.",
       "by": "lead",
       "at": "2026-09-02T02:02:04.024Z",
-      "state": "open",
-      "ticket": "052"
+      "state": "ruled",
+      "ticket": "052",
+      "ruling": "052: deletion of the siblings: PUSH line stands (precision 0.364 vs 0.70 bar on 165 blind verdicts / 7 languages; 044 precedent — push surface at low precision goes, pull surface kin: stays). Follow-up (a) valueNorms gate: NOT now — 3 of 2393 containers (0.13%) is not a surface worth a code path; revisit only if the valueNorms population grows and precision on that subset is measured ≥0.70. Follow-up (b) rendered cap on value-line length: NO — a new tunable constant for a surface that no longer exists. JSON: if what --json documented 'siblings' in reference.md, keep the key as an empty array with a schemaNotes entry (additive-compatible); if it was undocumented, dropping it is fine. Merge as measured.",
+      "ruledAt": "2026-09-02T02:35:43.432Z"
     }
   ]
 }
