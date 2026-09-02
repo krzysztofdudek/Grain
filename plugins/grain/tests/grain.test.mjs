@@ -291,6 +291,30 @@ test('§067a: no advertised session-context command line opens with the runtime 
   assert.match(ctx, /grain is its own tool, invoked via node/);
 });
 
+// §081 — the advertisement roster is the reach budget, and this test is the gate on spending it.
+// Measured (research/command-reachability.md) over every agent transcript on disk — 36 runs, 63 agent-chosen CLI
+// calls: 61 went to a command named in the block below, 2 to a command named only in SKILL.md's frontmatter
+// description, and 0 to any of the 11 commands named in neither. An agent calls what this text names. So adding a
+// command here is not a wording change, it is a decision to spend one of three slots, and it must be deliberate:
+// this test fails on ANY change to the roster or its order, which is the point. Before adding one, the ticket's
+// standing rule is that the command must first certify an answer often enough to deserve the slot, measured by its
+// own `selftest` — `obligation` (coverage 0.096 corpus-wide; 0 of 86 birth events on this repo; 0 of 8 on the
+// 0.4.0 trial's real file creations) and `completeness` (answers for 6-17% of files) do not yet, which is why
+// neither is named here. Reach bought ahead of an answer is spent trust (question-catalog §4).
+test('§081: the SessionStart advertisement names exactly the roster it was measured with, in order', () => {
+  const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
+  // a command line is an indented line opening with the conceptual name; everything before the em-dash is the
+  // invocation, and `status | report` advertises two commands on one line
+  const advertised = ctx
+    .split('\n')
+    .filter(l => /^\s+grain\s/.test(l))
+    .flatMap(l => l.split('—')[0].split('|').map(seg => seg.trim().replace(/^grain\s+/, '').split(/\s+/)[0]));
+  assert.deepEqual(advertised, ['where', 'check', 'status', 'report'], `roster changed: ${ctx}`);
+  // the conditional lines may name more, but never a command absent from the dispatcher
+  const known = new Set(['where', 'how', 'what', 'map', 'obligation', 'check', 'review', 'spectrum', 'explain', 'status', 'report', 'rules', 'export', 'decide', 'seed', 'refresh', 'completeness', 'selftest']);
+  for (const c of advertised) assert.ok(known.has(c), `advertises a command the dispatcher does not have: ${c}`);
+});
+
 test('mutation harness: planted deviations are detected, conforming exemplars stay silent', () => {
   grain(['status']);
   const res = JSON.parse(grain(['mutate-test']).out.replace(/\nas of .*$/, ''));
