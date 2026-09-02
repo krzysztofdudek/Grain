@@ -241,9 +241,16 @@ delimiter in their own body, so the other quote is forced by the content rather 
 what `check` SAID — a binary conforming verdict over instances it never named — so it now discloses the tally it
 scored (`governed[].withinFile` in `--json`, and a clause on the conformance line, printed even when diff scoping
 keeps a file-kind fact off it). Acceptance, `idxCost` and the candidate universe are untouched: the counts are an
-out-parameter of `lexicalPreds`, never a predicate. The residue this leaves stated rather than hidden: the 22
-literals on express and 12 on flask that depart their file's majority WITHOUT a forcing delimiter are real
-departures no `check` run flags, only counts.
+out-parameter of `lexicalPreds`, never a predicate. The residue this left stated rather than hidden — the 22
+literals on express and 12 on flask that depart their file's majority WITHOUT a forcing delimiter — is exactly
+what §077 (director-approved follow-up, esc-1) turned into a per-literal flag: `quoteFlags` (core.mjs) reuses this
+same delimiter-forced content test on the instances `lexicalPreds` already scans, and `withinFile` now also
+carries `flagged`/`flagLines` for the minority-quote literals that are genuine departures, rendered as part of the
+same tally clause (never a new line, never a new constant — the file-level convention's own certification is what
+turns the flag on). Measured on clean, unmodified checkouts of the fire-rate gate's own standard (§018/§037): of
+140 files across telescope.nvim/express/flask whose per-file vote already conforms, 3 (2.14%) now carry a flag —
+0/69 telescope.nvim, 0/18 express, 3/53 (5.66%) flask, all single-quoted literals nested inside an f-string
+(`'on'`/`'off'`, `'<string>'`, `'/'`) that contain no `"` of their own — comfortably inside the acceptable range.
 
 A data-grammar (JSON/YAML/TOML) mapping's own KEY — a service id in a
 Symfony-style `services.yml`, say — is findable by `what`, but only ever as a gated, honestly-disclosed value,

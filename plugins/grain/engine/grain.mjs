@@ -871,9 +871,18 @@ function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp }) {
       conforming: e.ok,
       // §042 — present only for a per-file lexical vote that hid departing instances: `conforming`/`scopes` above
       // count SCOPES (a file is one), and for a style surface the file's verdict is a majority over its instances.
-      // Absent means nothing was hidden, never that the surface was not checked.
+      // Absent means nothing was hidden, never that the surface was not checked. `flagged`/`flagLines` (§077) are
+      // present only when the quote surface's hidden instances include genuine, non-delimiter-forced violations —
+      // the same per-literal flag the printed `conforms to:` line's clause now carries (lexTally's `note`).
       ...(e.g.tally
-        ? { withinFile: { conforming: e.g.tally.conforming, total: e.g.tally.total, surface: e.g.pid } }
+        ? {
+            withinFile: {
+              conforming: e.g.tally.conforming,
+              total: e.g.tally.total,
+              surface: e.g.pid,
+              ...(e.g.tally.flagged ? { flagged: e.g.tally.flagged, flagLines: e.g.tally.flagLines } : {}),
+            },
+          }
         : {}),
       defining: !!e.g.defining,
     })),
