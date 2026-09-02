@@ -262,3 +262,9 @@ Handled correctly: conflict in heritage-name extraction escalated, not hand-reso
 
 ## 2026-09-02 · esc-19 · ticket 084
 Handled correctly: same shape as 18; the 084 worker re-landed onto 082/083 (f231b26), merged clean. Ack. Three heritage fixes in one function landed in order without a hand-resolved line — that is the process paying for itself.
+
+## 2026-09-02 · esc-20 · ticket 085
+Ruled: ticket 089 — every --json surface carries the text's disclosures as a structured, additive disclosures:[{kind,text}] field, done generically in the JSON renderer; instrument C gains a disclosure-parity test over the register; instrument A consumes disclosures[] so a disclosed weak answer is not counted as fabrication. Priority HIGH: an agent reading JSON currently gets the confident answer stripped of the honesty the text has — the exact failure class this project treats as worst. 085 merges as is; 089 follows.
+
+## 2026-09-02 · lead-respawn-trigger · class D
+PROCES (2026-09-02 12:05): lead grain-lead stanął — 088 i 080 miały gotowe commity od 70+ min bez premerge, 087 wisiał z niezacommitowaną pracą, 089 nie zostało wysłane po trzech szturchnięciach, żaden proces graina nie liczył, zero commitów leada od 10:30. Przyczyna najpewniej: 'oczekiwanie w tle' na monitory pracowników, które nigdy nie odpaliły. REGUŁA: sygnałem żywotności leada nie jest wiadomość ani handoff, tylko (a) gałęzie z commitem ponad main przy stanie kolejki 'running' > 60 min bez merge, lub (b) brak commitów leada > 60 min przy niepustej kolejce → dyrektor odstawia leada (stand down) i respawnuje z lead-brief.md pod NOWĄ nazwą (grain-lead-N). Stan jest w plikach; respawn kosztuje jeden brief.

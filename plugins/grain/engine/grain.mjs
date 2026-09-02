@@ -2039,11 +2039,19 @@ export function sessionContext({ root, isGit, store, mode }) {
   // there is no installed `grain` shim on PATH; the package.json `bin` field only applies to an `npm install -g`
   // this plugin's distribution mechanism never performs) is still shown, once per command, but as the answer to
   // "how do I run this", not as the first word the agent reads.
+  //
+  // §088: `obligation`/`completeness` are folded into the `where`/`check` lines as trigger-moment asides, NOT
+  // given their own top-level bullets — ticket 081 measured this exact roster (61 of 63 agent calls went to a
+  // command named in the pre-em-dash "roster" segment of these lines) and separately measured that the reachable
+  // slot budget must stay short (question-catalog: agents read only the first few lines). Naming them at the SAME
+  // moment `where`/`check` already own — "before creating a file" for `obligation`, "before you consider the
+  // change done" for `completeness` — spends no new slot and adds no new line, so the concepts-and-changes-map.js
+  // <=9-line budget (§J4.3b) and the §081 roster test are both unaffected by construction, not by exemption.
   const bin = `node "${BIN}"`;
   const text = [
-    `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence — then open that exemplar. Run the grain command below from the repo root via Bash; every answer ends with \`as of <sha>\`. grain is its own tool, invoked via node — a denial of some unrelated command (pnpm, npm, a bare node script, …) earlier in this session says nothing about whether grain itself is blocked; it has not been tried yet.`,
-    `  grain where <intent words>   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms. Run: \`${bin} where <intent words>\`.`,
-    `  grain check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''} Run: \`${bin} check <file>\`.`,
+    `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence. Run the grain command below from the repo root via Bash; every answer ends with \`as of <sha>\`. grain is its own tool, invoked via node — a denial of some unrelated command (pnpm, npm, a bare node script, …) earlier in this session says nothing about whether grain itself is blocked; it has not been tried yet.`,
+    `  grain where <intent words>   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms. Run: \`${bin} where <intent words>\`. Same moment, what must come with it: \`grain obligation <path>\` (same invocation form).`,
+    `  grain check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''} Run: \`${bin} check <file>\`. Before you consider the change done: \`grain completeness <file>\` for co-changing files you may have missed.`,
     `  grain status | report        — size, freshness, top conventions. Run: \`${bin} status\` or \`${bin} report\`.`,
     `Index: ${state}.`,
     ...(model && model.moduleGraph && model.moduleGraph.edges.length
@@ -2355,6 +2363,33 @@ export async function main(argv) {
         const ph = placementHit(model2, rel);
         if (ph) recordPlacementPending(st2, ph, rel); // feedback loop: did a later write to this suffix/token land in `ph.dir`? resolved on a matching PostToolUse below
         speak = ph ? [ph.text] : [];
+        // §088: `obligation <path>` at the SAME pre-write moment placement already speaks at — but ONLY when the
+        // birth-obligation table actually CERTIFIES a specific companion for this path's (module, suffix) class
+        // (`rules.length`), never on ambient-only or "born N times, nothing certifies" (§073's own honest-silence
+        // case). Ticket 081 measured 0 of 8 real trial creation events certifying anything here — firing a hollow
+        // note on nearly every Write would be exactly the class-018 over-hedging this project avoids, so this
+        // must stay silent far more often than it speaks; `rules.length` alone (never `ambient.length` alone) is
+        // the gate, since ambient files are explicitly NOT an obligation (core.mjs, certifyObligationRules) and
+        // are common enough across classes that gating on them too would blow past a single-low-digits fire rate.
+        const obl = obligationFor(model2, rel);
+        if (obl.rules.length) {
+          const kindWord = obl.suffix ? `*.${obl.suffix}` : '(no extension)';
+          const dirWord = obl.module === '.' ? 'the repo root' : obl.module + '/';
+          const specific = obl.rules
+            .slice(0, 3)
+            .map(r => `${r.file} (${r.k} of ${r.n})`)
+            .join(' · ');
+          const amb = obl.ambient.length
+            ? ` · ambient (touched by almost everything regardless): ${obl.ambient
+                .slice(0, 3)
+                .map(a => `${a.file} (${a.k} of ${a.n})`)
+                .join(' · ')}`
+            : '';
+          speak = [
+            ...speak,
+            `[grain] ${voice('practiced', `obligation: a new ${kindWord} under ${dirWord} has come with: ${specific}${amb} — \`grain obligation ${rel}\` for the full table.`)}`,
+          ];
+        }
       } else {
         resolvePlacementPending(st2, f.root, rel); // silent — never adds to the hook's spoken output, only updates local state
         if (!EXT2GRAMMAR[extname(rel)] || !existsSync(join(f.root, rel))) return 0;
