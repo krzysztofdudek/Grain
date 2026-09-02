@@ -489,8 +489,8 @@
       "branch": "research/085",
       "state": "merged",
       "note": "measure whether where's confident-wrong-on-no-grammar-file rate (8-58% across 20/22 corpus repos) is fixable without a ranking redesign, or is a boundary to disclose like the 070 zero-foothold precedent",
-      "updated": "2026-09-02 10:29",
-      "sha": "ae1169c"
+      "updated": "2026-09-02 10:30",
+      "sha": "c439ae7"
     },
     {
       "id": 46,

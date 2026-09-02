@@ -1,5 +1,9 @@
 # Escalations
 
+## [20] claim · ticket 085 · open
+by: lead · at: 2026-09-02T08:30:59.079Z
+085 flagged: 'where --json' carries no disclosure text at all (same for already-shipped 057 and 070) -- instrument A will keep reporting the 8-58% confident-wrong rate even after 085's fix, since it only reads --json hits. Not changed by 085's worker per instructions (JSON shape change needs a ruling). Question for you: should where --json gain a disclosure/note field carrying the same text the disclosure-bearing text output already shows (banner/note/unknownIdent), or is this an acceptable known gap in the --json contract for now?
+
 ## [19] conflict · ticket 084 · ruled
 by: lead · at: 2026-09-02T08:11:29.323Z
 Merge conflict on fix/084 -> main, in plugins/grain/engine/core.mjs's heritage-name extraction (real code, not .system/ bookkeeping). Same root cause as 083's conflict: fix/084 (Rust 'static lifetime fix, ticket 084) added its lifetimeRe exclusion INSIDE the old inline per-clause walk loop, which ticket 082 has since refactored into a shared heritageNamesOf() helper. Aborted the merge rather than hand-resolve; dispatching a fresh worker to reapply 084's fix against the current helper, same pattern as 083's successful rebase (fix/083b, 2d1fc05).
