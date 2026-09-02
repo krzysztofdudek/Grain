@@ -821,6 +821,66 @@ const nameSuffix = name => {
   const t = tokenize(name);
   return t.length >= 2 ? t[t.length - 1] : 'none';
 };
+// §082: resolve a heritage-shaped clause node (`c2` below — an extends/implements/base clause, or Python's bare
+// `superclasses` argument_list) to its real base-name candidates, applying the §049 call-argument exclusion and
+// the §062 qualified/member-chain leaf resolution. Shared by the generic per-clause walk AND Python's dedicated
+// `superclasses` field, which used to bypass both fixes entirely: it read `sc.descendantsOfType('identifier')`
+// PLUS `sc.descendantsOfType('attribute')`, collecting every nesting level of a dotted base as its own candidate
+// (`class Foo(pkg.sub.Type)` recorded `pkg`, `pkg.sub`, AND `pkg.sub.Type`) instead of routing through the same
+// leaf-only resolution already correct for every other grammar's qualified heritage names since §062. Fixed by
+// deleting that duplicate, narrower walk and calling this shared one instead — no `lang === 'python'` check;
+// `sc` is simply passed in as another `c2`-shaped root, and `b.qualName` (already populated for Python's
+// `attribute` node type by §062's own structural derivation, verified in bindingFor) does the rest.
+function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
+  const out = [];
+  for (const id of c2.descendantsOfType(heritageIdTypes)) {
+    let anc = id.parent,
+      prevChild = id,
+      inArg = false,
+      inPrefix = false,
+      hKind = null;
+    while (anc && anc.id !== c2.id) {
+      if (b.genArgRe.test(anc.type) || b.argRe.test(anc.type)) {
+        inArg = true;
+        break;
+      }
+      if (b.qualName.has(anc.type)) {
+        let slot = prevChild;
+        while (slot.parent && slot.parent.id !== anc.id) slot = slot.parent;
+        for (const sib of anc.namedChildren)
+          if (
+            sib.id !== slot.id &&
+            sib.startIndex > slot.startIndex &&
+            (heritageIdTypeSet.has(sib.type) || b.qualName.has(sib.type))
+          ) {
+            inPrefix = true;
+            break;
+          }
+        if (inPrefix) break;
+      }
+      if (!hKind) {
+        if (b.implementsClauseRe.test(anc.type)) hKind = 'impl';
+        else if (b.extendsClauseRe.test(anc.type)) hKind = 'ext';
+      }
+      prevChild = anc;
+      anc = anc.parent;
+    }
+    if (!inArg && !inPrefix) {
+      if (!hKind)
+        hKind = b.implementsClauseRe.test(c2.type)
+          ? 'impl'
+          : b.extendsClauseRe.test(c2.type)
+            ? 'ext'
+            : null; // c2 itself IS the specific clause where there is no wrapper (PHP/Java/Groovy)
+      const nm =
+        id.type === 'qualified_name' || id.type === 'relative_name'
+          ? id.text.split('\\').pop()
+          : id.text; // PHP names its identifiers `name`/`qualified_name`; the FQCN's tail is the vocabulary an agent uses
+      out.push({ nm, hKind });
+    }
+  }
+  return out;
+}
 // `_depth` is the macro-body recursion level (§018 phase 2, in the else-branch below), never passed by a caller.
 export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   const scopes = [];
@@ -986,20 +1046,6 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
       // by anything more specific than that, so their names stay 'ext' below, unchanged from before this fact existed.
       const sup = [];
       const supKind = {};
-      const sc = ch.childForFieldName('superclasses');
-      if (sc)
-        for (const id of sc.descendantsOfType('identifier').concat(sc.descendantsOfType('attribute'))) {
-          sup.push(id.text);
-          supKind[id.text] = 'ext';
-        }
-      // which field holds each child, so a heritage-shaped clause can be told from a CONSTRUCTOR CALL by the name
-      // the grammar gives the slot: Python's base list is `class_definition.superclasses` (an argument_list that IS
-      // the parent specification), Java/Groovy's is `enum_constant.arguments` (a call, carrying no heritage at all)
-      const fieldOf = new Map();
-      for (let i = 0; i < ch.childCount; i++) {
-        const fn = ch.fieldNameForChild(i);
-        if (fn) fieldOf.set(ch.child(i).id, fn);
-      }
       // the leaf identifier-shaped node types a heritage clause is scanned for, MINUS any that this grammar's
       // OWN node-types.json shows to be a `b.qualName` WRAPPER rather than a leaf (§062): Java's
       // `scoped_type_identifier` (`com.google.inject.AbstractModule`) and, one grammar's coincidence with
@@ -1019,63 +1065,32 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         'relative_name',
       ].filter(t => !b.qualName.has(t));
       const heritageIdTypeSet = new Set(heritageIdTypes);
+      // §082: Python's dedicated `superclasses` field routed through `heritageNamesOf` too — the same §062
+      // leaf-only resolution every other grammar's qualified heritage name already gets — so a dotted base
+      // (`class Foo(pkg.sub.Type)`) records only the resolved leaf (`Type`), never `pkg` and `pkg.sub` as well.
+      const sc = ch.childForFieldName('superclasses');
+      if (sc)
+        for (const { nm } of heritageNamesOf(sc, b, heritageIdTypes, heritageIdTypeSet)) {
+          sup.push(nm);
+          supKind[nm] = 'ext';
+        }
+      // which field holds each child, so a heritage-shaped clause can be told from a CONSTRUCTOR CALL by the name
+      // the grammar gives the slot: Python's base list is `class_definition.superclasses` (an argument_list that IS
+      // the parent specification), Java/Groovy's is `enum_constant.arguments` (a call, carrying no heritage at all)
+      const fieldOf = new Map();
+      for (let i = 0; i < ch.childCount; i++) {
+        const fn = ch.fieldNameForChild(i);
+        if (fn) fieldOf.set(ch.child(i).id, fn);
+      }
       for (const c2 of ch.namedChildren)
         if (
           b.heritageRe.test(c2.type) &&
           !(bodyN && c2.id === bodyN.id) &&
           !b.argRe.test(fieldOf.get(c2.id) || '')
         )
-          for (const id of c2.descendantsOfType(heritageIdTypes)) {
-            let anc = id.parent,
-              prevChild = id,
-              inArg = false,
-              inPrefix = false,
-              hKind = null;
-            while (anc && anc.id !== c2.id) {
-              if (b.genArgRe.test(anc.type) || b.argRe.test(anc.type)) {
-                inArg = true;
-                break;
-              } // `AbstractValidator<TQuery>`: TQuery sits under a type_argument_list — a slot, not a base type. `AbstractController(cc)`: cc sits under an argument list — a call operand, not a base type
-              // §062: `id` sits inside a QUALIFIED-NAME node (`ns.Base`, `com.google.inject.AbstractModule`,
-              // …) — if another of that node's own children, positioned AFTER the one `id` descends through,
-              // is ALSO name-shaped (a leaf identifier or a further qualified-name node), then `id` is on the
-              // NAMESPACE side of the chain, never the actual type/member — only the LAST name-shaped child of
-              // a qualified name is ever a candidate supertype, regardless of which field either side sits in.
-              if (b.qualName.has(anc.type)) {
-                let slot = prevChild;
-                while (slot.parent && slot.parent.id !== anc.id) slot = slot.parent;
-                for (const sib of anc.namedChildren)
-                  if (
-                    sib.id !== slot.id &&
-                    sib.startIndex > slot.startIndex &&
-                    (heritageIdTypeSet.has(sib.type) || b.qualName.has(sib.type))
-                  ) {
-                    inPrefix = true;
-                    break;
-                  }
-                if (inPrefix) break;
-              }
-              if (!hKind) {
-                if (b.implementsClauseRe.test(anc.type)) hKind = 'impl';
-                else if (b.extendsClauseRe.test(anc.type)) hKind = 'ext';
-              }
-              prevChild = anc;
-              anc = anc.parent;
-            }
-            if (!inArg && !inPrefix) {
-              if (!hKind)
-                hKind = b.implementsClauseRe.test(c2.type)
-                  ? 'impl'
-                  : b.extendsClauseRe.test(c2.type)
-                    ? 'ext'
-                    : null; // c2 itself IS the specific clause where there is no wrapper (PHP/Java/Groovy)
-              const nm =
-                id.type === 'qualified_name' || id.type === 'relative_name'
-                  ? id.text.split('\\').pop()
-                  : id.text; // PHP names its identifiers `name`/`qualified_name`; the FQCN's tail is the vocabulary an agent uses
-              sup.push(nm);
-              if (hKind && !(nm in supKind)) supKind[nm] = hKind;
-            }
+          for (const { nm, hKind } of heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet)) {
+            sup.push(nm);
+            if (hKind && !(nm in supKind)) supKind[nm] = hKind;
           }
       // decoration attribution: the stack of decoration siblings directly above this scope (any height, comments allowed in
       // between) plus decorations inside the scope's own pre-body subtree (Java/C# modifiers, parameter annotations). Never a
