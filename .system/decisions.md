@@ -169,3 +169,9 @@ APPROVED (fix/where-named 94a8bc9, Opus design, .system/research/where-named-des
 
 ## 2026-09-02 · review-omits-new-scope-caveat-by-design · class D
 review NIE przenosi zastrzeżenia checkFile 'scopes new to the index' dla pliku bez innych znalezisk — i ma tak zostać. Próba naprawy na wzór 053 (instr/C) złamała dwa ustalone testy (review-command, missing-renderer), bo to zastrzeżenie odpala na praktycznie KAŻDYM nowym pliku niezależnie od jakości dopasowania — w agregacie review byłoby klasy 018 (mówi o wszystkim, więc o niczym). 053 dotyczyło rzadkiego sygnału hasError; ten jest powszechny. Asymetria celowa, udokumentowana w nagłówku cross-check-check-review-parity.test.mjs. Nie otwierać ponownie bez zmierzonego wskaźnika odpaleń na czystych nowych plikach.
+
+## 2026-09-02 · obligation-birth-rule-approved · ticket 073 · class G
+APPROVED as wave-4 #1 (ticket 073): grain obligation <path> — the birth obligation 'adding a file under (module, suffix) also touches O', mined from git status alone, gated by the engine's existing KT+BIC/λ/minRaw/liveness. 94.2% pooled / 81.1% repo-macro precision vs 0.143 null, zero new constants; acceptance against the macro figure. Corrects the G catalog: Q15 was NOT 'undeliverable without ORM config'. Two labelled sets (specific / ambient), never one ranking; honest negative names the class and its birth count. Needs HIST_V + MODEL_V (director applies at wave close).
+
+## 2026-09-02 · skipped-then-fixed-ground-truth-is-false · ticket 073 · class G
+LEKCJA (hipoteza dyrektora obalona pomiarem): 'zmiana X bez Y, po której następuje fix dotykający Y' NIE jest prawdą referencyjną dla zobowiązań. Na 36 771 kandydatach w 20 repozytoriach: wskaźnik follow-up 0,246 po pominięciu vs 0,452 po zgodności — odwrotnie, w 20/20 repo bez wyjątku. Instrument zbudowany na tym stałby na piasku. Działa projekt prospektywny held-out (obligations-design.md §4). Zapisane, żeby nikt nie wyprowadził tego drugi raz.
