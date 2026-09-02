@@ -35,7 +35,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -106,6 +106,10 @@ const JSON_COMMANDS = [
   ['status', ['status']],
   ['report', ['report']],
   ['selftest', ['selftest']],
+  // `review` had never joined this loop even though cmdReview's --json branch is exactly as old as check's own —
+  // an audit gap this file's own header calls out fixing (§051/instr-cross-check task), not a known bug: this is
+  // a NEW addition to coverage, not a red-before-fix case.
+  ['review', ['review']],
 ];
 for (const [name, args] of JSON_COMMANDS) {
   test(`generic: \`grain ${name}\` --json stdout is one parseable JSON document with no stray text, and exit codes match text [${name}]`, () => {
@@ -239,4 +243,79 @@ test('report: the partition header\'s convention count equals JSON\'s total (spo
   assert.equal(+m[1], j.partitions[0].total, `text header count ${m[1]} vs JSON total ${j.partitions[0].total}`);
   assert.ok(j.partitions[0].conventions.length <= 5, `--top 5 must actually slice the JSON list too: got ${j.partitions[0].conventions.length}`);
   assert.ok(+m[1] > j.partitions[0].conventions.length, `fixture sanity: header total (${m[1]}) must exceed the sliced --top 5 list (${j.partitions[0].conventions.length}) or this spot-check proves nothing`);
+});
+
+// ===== `review` — its own dedicated field check, the same gap this file's `check` test closed but for `review`'s
+// aggregate headline (review had never joined even the GENERIC loop above until this pass) =====
+test('review: the headline\'s file count and "across N file(s)" count equal JSON files.length and findings.length', () => {
+  const { out, code, err } = grainIn(repo, ['review']);
+  assert.equal(code, 0, `${out}\n${err}`);
+  const j = JSON.parse(grainIn(repo, ['review', '--json']).out);
+  const m = /^review (\d+) files? · \d+ finding\(s\) across (\d+) file\(s\)$/m.exec(out);
+  assert.ok(m, out);
+  assert.equal(+m[1], j.files.length, `text file count ${m[1]} vs JSON files.length ${j.files.length}`);
+  assert.equal(+m[2], j.findings.length, `text "across N file(s)" count ${m[2]} vs JSON findings.length ${j.findings.length}`);
+});
+
+// ===== `map` (§051 — text renders `concepts:`/`changes:`, --json used to omit both entirely) =====
+// A self-contained fixture (not the shared `repo` above, which has no repeated commit shapes to certify a change
+// archetype): reuses change-archetypes.test.mjs's own proven "8 handler-adds interleaved with 8 status-adds"
+// shape (guaranteed to certify exactly 2 archetypes — see that file's own bit-budget comment) plus one more
+// commit/file pair sharing a token between the commit message and a code identifier (concepts-and-changes-map.
+// test.mjs's own minimal J4.3b trigger), so ONE fixture produces non-empty `model.concepts` AND
+// `model.changeArchetypes` together — both text-rendered lines this ticket (§051) found missing from `--json`.
+test('map: `concepts:`/`changes:` text lines have a --json twin carrying the same data (§051 — json used to omit both)', () => {
+  const { tmp: tmp2, repo: repo2 } = initRepo('grain-xcheck-mapjson-');
+  try {
+    const HANDLERS = ['create', 'cancel', 'ship', 'refund', 'archive', 'restore', 'split', 'merge'];
+    const STATUSES = ['Pending', 'Approved', 'Rejected', 'Escrowed', 'Settled', 'Voided', 'Frozen', 'Lapsed'];
+    const writeHandler = n => {
+      wIn(repo2, `src/zqhandlers/${n}.handler.ts`, `export class Zq${cap(n)}Handler {\n  handle(input: string): string { return input + '${n}'; }\n  name(): string { return '${n}'; }\n}\n`);
+      wIn(repo2, `src/zqdto/${n}.dto.ts`, `export class Zq${cap(n)}Dto {\n  payload = '';\n  valid(): boolean { return this.payload.length > 0; }\n  render(): string { return this.payload; }\n}\n`);
+      wIn(repo2, `tests/zq${n}.test.ts`, `export function test${cap(n)}(): boolean { return true; }\nexport function bench${cap(n)}(): number { return 1; }\n`);
+    };
+    const writeStatuses = names => {
+      wIn(repo2, 'src/zqenums/order-status.enum.ts', `export class ZqOrderStatus {\n${names.map(x => `  static ${x}(): string { return '${x}'; }`).join('\n')}\n}\n`);
+      wIn(repo2, 'src/zqdto2/order.dto.ts', `export class ZqOrderDto {\n  id = '';\n  known(): boolean { return [${names.map(x => `'${x}'`).join(', ')}].includes(this.id); }\n}\n`);
+    };
+    let day2 = 0;
+    const T02 = Date.UTC(2026, 1, 1, 12, 0, 0);
+    const commit2 = msg => { day2 += 2; const iso = new Date(T02 + day2 * 86400000).toISOString();
+      gitIn(repo2, {}, 'add', '-A'); gitIn(repo2, dateEnv(iso), 'commit', '-qm', msg); };
+    wIn(repo2, 'package.json', JSON.stringify({ name: 'zq2', version: '1.0.0', private: true, type: 'module' }, null, 2) + '\n');
+    writeStatuses(['Draft']);
+    commit2('zq2 scaffold');
+    const grown = ['Draft'];
+    for (let i = 0; i < HANDLERS.length; i++) {
+      writeHandler(HANDLERS[i]); commit2(`add zqhandler ${HANDLERS[i]}`);
+      grown.push(STATUSES[i]); writeStatuses(grown); commit2(`add zqstatus ${STATUSES[i].toLowerCase()}`);
+    }
+    wIn(repo2, 'src/zqwidget/panel.widget.ts', 'export const renderZqwidgetPanel = () => 1;\n'); // concepts trigger: "zqwidget" shared between this commit message and a code identifier
+    commit2('add zqwidget panel summary');
+    assert.equal(grainIn(repo2, ['status']).code, 0);
+    const m = JSON.parse(readFileSync(join(repo2, '.grain', 'cache', 'model.json'), 'utf8'));
+    assert.ok(m.concepts && m.concepts.length, `fixture sanity: expected non-empty model.concepts: ${JSON.stringify(m.concepts)}`);
+    assert.ok(m.changeArchetypes && m.changeArchetypes.length, `fixture sanity: expected non-empty model.changeArchetypes: ${JSON.stringify(m.changeArchetypes)}`);
+
+    const t = grainIn(repo2, ['map']);
+    assert.equal(t.code, 0, `${t.out}\n${t.err}`);
+    const conceptsLine = t.out.split('\n').find(l => l.startsWith('map: concepts: '));
+    assert.ok(conceptsLine, `expected a concepts: line: ${t.out}`);
+    const changesLine = t.out.split('\n').find(l => l.startsWith('changes: '));
+    assert.ok(changesLine, `expected a changes: line: ${t.out}`);
+
+    const j = JSON.parse(grainIn(repo2, ['map', '--json']).out);
+    assert.deepEqual(j.concepts, m.concepts, `map --json's concepts must carry model.concepts verbatim: text said "${conceptsLine}", json.concepts=${JSON.stringify(j.concepts)}`);
+    assert.ok(Array.isArray(j.changes) && j.changes.length === m.changeArchetypes.length,
+      `map --json's changes must carry every model.changeArchetypes entry (text is capped to 4, json must not be): got ${j.changes.length}, model has ${m.changeArchetypes.length}: ${JSON.stringify(j.changes)}`);
+    for (const a of m.changeArchetypes)
+      assert.ok(changesLine.includes(`"${a.label}" — ${a.n} change`), `text changes: line missing archetype "${a.label}" (n=${a.n}): ${changesLine}`);
+    for (const a of m.changeArchetypes) {
+      const jc = j.changes.find(c => c.id === a.id);
+      assert.ok(jc, `json.changes missing archetype id ${a.id}: ${JSON.stringify(j.changes)}`);
+      assert.equal(jc.label, a.label); assert.equal(jc.n, a.n);
+    }
+  } finally {
+    rmSync(tmp2, { recursive: true, force: true });
+  }
 });
