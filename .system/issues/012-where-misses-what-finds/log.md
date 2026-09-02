@@ -422,3 +422,5 @@ So the honest position: the leak cannot be removed by any reproducible derivatio
 which is what the two strata plus the baseline arm do, and what 7b shows is sufficient to expose the defect rather
 than hide it. Had 7b come back the other way, the right report would have been "this cannot be automated"; it did
 not, and reporting it as one would have been the convenient conclusion, not the true one.
+
+## 2026-09-02 03:25 — Track-2 result: fix/where-named (94a8bc9) lifts the NAMED stratum +0.184 hit@3 with the leak-free guard also up; decision where-named-volume-normalisation. Symbol-first lever unmeasurable on the harness → ticket 071. Leak-free remains a coverage boundary (decision where-leak-free-is-a-coverage-boundary).

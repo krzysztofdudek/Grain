@@ -1981,7 +1981,13 @@ export function docTokens(text) {
 // whole gap between "the right file" and "the convention": 'use strict' 21/21, single quotes, var vs const, a UTF-8 BOM on
 // 70/108 C# files that no Read ever shows. Each is a categorical value per file; whether it is a CHOICE is decided per
 // grammar by the partition (lexDomain), never written down here.
-export function lexicalPreds(tree, b) {
+// `tally` (§042) is an optional OUT-parameter, written but never read here and never mixed into the returned preds:
+// per ratio-shaped surface, a map from the predicate's own VALUE to how many INSTANCES in this file carry it
+// (`{single: 3, double: 200}`). The returned categorical is a per-file majority vote, so it cannot say how many
+// literals actually conform; `check` needs that count to disclose what the vote hid. Keeping it out of `out` is
+// load-bearing: `out` is spread straight into a file scope's `preds` (extractScopes), so any extra key here would
+// become a mined predicate and widen the candidate universe.
+export function lexicalPreds(tree, b, tally = null) {
   const root = tree.rootNode;
   const text = root.text || '';
   const out = {};
@@ -2021,6 +2027,11 @@ export function lexicalPreds(tree, b) {
       out['auto.lex:indent'] = unit ? 'space' + unit : 'other';
     } else out['auto.lex:indent'] = 'mixed';
   } // the unit is the smallest width that recurs (most lines sit deeper than one level)
+  if (tally) {
+    const t = { tab: tabs };
+    for (const w of [2, 3, 4, 8]) t['space' + w] = widths[w] || 0;
+    tally['auto.lex:indent'] = t;
+  }
   // quote style of string literals (delimiter of each string node; prefixes like f"…" / r'…' skipped; backticks ignored)
   let sq = 0,
     dq = 0;
@@ -2031,6 +2042,7 @@ export function lexicalPreds(tree, b) {
   }
   if (sq + dq >= 2)
     out['auto.lex:quote'] = sq >= (sq + dq) * 0.8 ? 'single' : dq >= (sq + dq) * 0.8 ? 'double' : 'mixed';
+  if (tally) tally['auto.lex:quote'] = { single: sq, double: dq };
   // statement terminator: simple statements ending in `;` vs not (compound statements — blocks, declarations with bodies — skipped)
   let semi = 0,
     nosemi = 0;
@@ -2059,6 +2071,7 @@ export function lexicalPreds(tree, b) {
   if (semi + nosemi >= 5)
     out['auto.lex:semi'] =
       semi >= (semi + nosemi) * 0.8 ? 'semi' : nosemi >= (semi + nosemi) * 0.8 ? 'nosemi' : 'mixed';
+  if (tally) tally['auto.lex:semi'] = { semi, nosemi };
   // leading directive: a first statement that is a short string expression (`'use strict'`, `'use client'`)
   const first = root.namedChildren.find(c => c.type !== 'comment' && c.type !== 'hash_bang_line');
   if (
@@ -2077,6 +2090,7 @@ export function lexicalPreds(tree, b) {
     if (kw) decl[kw[1]] = (decl[kw[1]] || 0) + 1;
   }
   const tot = Object.values(decl).reduce((a, b) => a + b, 0);
+  if (tally) tally['auto.lex:decl'] = { ...decl };
   if (tot >= 2) {
     const [k, c] = Object.entries(decl).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
     out['auto.lex:decl'] = c >= tot * 0.8 ? k : 'mixed';
@@ -2189,8 +2203,19 @@ const inGrammar = (s, nt) => {
 // a deco string already carries its own wrapping sigil — `[Route]` (C#), `#[AsCommand]` (PHP) — versus a bare
 // name (`Test`) that still needs its `@` prefix reconstructed wherever a deco is turned into a pid or a display
 // label (§054b: `#[` joins `[` here as a self-delimiting sigil, the same way it joined `take()`'s sigil test above).
+// §048 — a bare-stored name is ambiguous by itself: it means "strip the `@` off Java/TS/…" for every sigiled
+// grammar, but for a grammar whose ENTIRE decoration vocabulary is sigil-less in the source (Solidity's
+// `modifier_invocation`, §043's `b.decoBare`) it means the opposite — there was never an `@` to strip, and
+// reconstructing one prints syntax the language does not have (`@onlyOwner`). Resolved with the caller's grammar,
+// derived from the SAME structural set §043 already built (never a language name): a grammar is sigil-less only
+// when every node type its `b.deco` derivation found is also in `b.decoBare` — today that is Solidity alone.
+const sigilLessGrammar = g => {
+  if (!g || !GRAMMARS.includes(g)) return false;
+  const b = bindingFor(g);
+  return b.deco.size > 0 && b.decoBare.size === b.deco.size;
+};
 export const decoSigiled = d => d[0] === '[' || d.startsWith('#[');
-export const decoLabel = d => (decoSigiled(d) ? d : '@' + d);
+export const decoLabel = (d, g) => (decoSigiled(d) || sigilLessGrammar(g) ? d : '@' + d);
 export function applyVocab(s, vb) {
   if (BODY_KINDS.has(s.kind) && !s.noBody) {
     for (const nt of vb.NT)
@@ -2204,7 +2229,7 @@ export function applyVocab(s, vb) {
   // must be counted over classes, not over classes+interfaces; a method extends nothing at all)
   const inDom = (list, nt) => !list || !nt || list.includes(nt);
   if (s.kind !== 'file' && inDom(vb.DNT, s.nt))
-    for (const d of vb.DECO) s.preds['auto.deco:' + decoLabel(d)] = s.decos.includes(d) ? 'true' : 'false';
+    for (const d of vb.DECO) s.preds['auto.deco:' + decoLabel(d, s.g)] = s.decos.includes(d) ? 'true' : 'false';
   if (s.kind === 'type' && inDom(vb.ENT, s.nt))
     for (const e of vb.EXT) s.preds['auto.extends:' + e] = s.sup.includes(e) ? 'true' : 'false';
   if (s.kind === 'method' && inDom(vb.RNT, s.nt))
@@ -3031,7 +3056,7 @@ export const deviantLine = (f, max = 2) =>
         'practiced',
         `not to copy: ${f.deviants
           .slice(0, max)
-          .map(d => `${ptr(d.rel, d.line, d.endLine)} \`${d.name}\` (${deviationPhrase(f, d.obs)})`)
+          .map(d => `${ptr(d.rel, d.line, d.endLine)} ${scopeBacktick({ kind: f.kind, name: d.name })} (${deviationPhrase(f, d.obs)})`)
           .join(' · ')}${f.deviantsN > max ? ` · +${f.deviantsN - max} more` : ''}`
       )}`
     : null;
@@ -3291,6 +3316,23 @@ export const unitOf = kind =>
     finally: 'finally blocks',
     case: 'named callbacks',
   })[kind] || kind;
+// §061 — a catch/finally clause has no name field of its own in any shipped grammar (a catch/finally block is
+// anonymous by nature — it is not a named declaration); `extractScopes`' blockScope still gives it a `.name`
+// (borrowed from its enclosing method/type, "named after its owner") purely so it survives as its own mined
+// population instead of being swept up by the anonymous-scope filter (`all[i].name === '<anon>'`). That borrowed
+// string must never be SPOKEN as if it were the clause's own declared name — `catch \`findOwner\`` reads as
+// though a catch block were named `findOwner`, the exact fabrication instrument A caught on PetController.java.
+// Every render site that turns a scope into a "kind `name`" phrase for a human goes through one of these two
+// helpers instead of inlining `${s.kind} \`${s.name}\`` — so the honesty fix lives in one place.
+const ANON_SCOPE_KINDS = new Set(['catch', 'finally']);
+// for text that already says "Your ${kind} …" — genuine declarations keep exactly that shape (`method
+// \`findOwner\``); an anonymous clause reads "catch in `findOwner`", never "catch `findOwner`".
+export const scopeNamed = s => (ANON_SCOPE_KINDS.has(s.kind) ? `${s.kind} in` : s.kind) + ` \`${s.name}\``;
+// for text that names the scope with no leading kind word at all (a waiver's "`findOwner` (line 42) …") — a
+// genuine declaration stays bare (unchanged from before this fact existed); only an anonymous clause needs the
+// kind spelled out here, since without it the borrowed name alone would read as the ENCLOSING declaration itself.
+export const scopeBacktick = s =>
+  ANON_SCOPE_KINDS.has(s.kind) ? `${s.kind} in \`${s.name}\`` : `\`${s.name}\``;
 // a statement shape cut at a node boundary, never mid-token: `expression_statement(call_expression(member_expression,…))`
 export const shapeShort = (sh, max = 64) => {
   if (sh.length <= max) return sh;
@@ -4263,7 +4305,7 @@ export async function learn({
       const dc = new Map();
       for (const s2 of cs) for (const d of s2.decos) if (d !== own) dc.set(d, (dc.get(d) || 0) + 1);
       for (const [d, k] of [...dc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 2))
-        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${decoLabel(d)} (${k}/${n})`);
+        if (k >= Math.ceil((n * 2) / 3)) obs.push(`also ${decoLabel(d, cs[0].g)} (${k}/${n})`);
       const cc = new Map();
       for (const s2 of cs) for (const c2 of s2.calls) cc.set(c2, (cc.get(c2) || 0) + 1);
       for (const [c2, k] of [...cc].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3))
@@ -5505,6 +5547,11 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   // callers need this signal to tell "genuinely nothing here" apart from "the parser gave up on part of this file"
   const scopes = extractScopes(effRel, tr, b, p._g).filter(s => s.name !== '<anon>');
   const relFact = relFactsFor(effRel, src, tr, p._g);
+  // §042 — the instance counts behind each per-file lexical vote, for `lexTallyNote`. Taken here because `tr` is freed
+  // on the next line and the governed loop below runs after that. A second walk of one already-parsed file, on the
+  // check path only; extraction and mining call `lexicalPreds` without a tally and are byte-for-byte unaffected.
+  const lexT = Object.create(null);
+  lexicalPreds(tr, b, lexT);
   tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
   const placeHit = placementHit(model, effRel);
@@ -5577,6 +5624,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
           label,
           conforms: lead === f.exp,
           fact: f,
+          tally: lexTally(f.pid, f.exp, lexT[f.pid]), // §042 — null unless the per-file vote hid departing instances
           defining: isDefiningFact(medoids, f),
         });
       // the lead surface speaks for the cluster; a deviation on any sibling surface (same conform set) is still a deviation
@@ -5619,7 +5667,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
             obs: v,
             text: `[grain] ${voice(
               'decided',
-              `\`${s.name}\` (line ${s.line}) deliberately departs from ${verbalize(
+              `${scopeBacktick(s)} (line ${s.line}) deliberately departs from ${verbalize(
                 vf,
                 f.exemplars.map(e => e.name)
               )} — ${conformN}/${f.sraw} established do it the other way${wv.note ? ` — ${wv.note}` : ''}`,
@@ -5665,20 +5713,22 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
                     }`
                   : ''
               }\n` +
-                `  ${conformN}/${f.sraw} established ${unitOf(f.kind)} conform. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}${known ? '' : ' — a value this repo has not used before'}.${contrast}` +
+                `  ${conformN}/${f.sraw} established ${unitOf(f.kind)} conform. Your ${scopeNamed(s)} (line ${s.line}) ${deviationPhrase(vf, v)}${known ? '' : ' — a value this repo has not used before'}.${contrast}` +
                 (() => {
                   const here = scopes
                     .filter(s2 => s2 !== s && s2.kind === s.kind && s2.preds[sf.pid] === sf.exp)
                     .slice(0, 2);
                   if (here.length)
-                    return `\n  In this file, ${here.map(s2 => `\`${s2.name}\` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
+                    return `\n  In this file, ${here.map(s2 => scopeBacktick(s2) + ` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
                   const near = exs[0];
+                  // §061: an exemplar carries no `.kind` of its own (f.exemplars' shape), but every exemplar of
+                  // this fact IS of the fact's own kind by construction — same borrowed-name honesty as `here` above.
                   return near
-                    ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} \`${near.name}\`${skipLineNote(part, f, near)}.`
+                    ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} ${scopeBacktick({ kind: f.kind, name: near.name })}${skipLineNote(part, f, near)}.`
                     : '';
                 })() +
                 (exs.length
-                  ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} \`${e.name}\`${skipLineNote(part, f, e)}`).join(' · ')}`
+                  ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part, f, e)}`).join(' · ')}`
                   : '') +
                 // any note the fact carries, not only `held` — the cost of deviating is the one a reader most needs here,
                 // and it can be present on a fact whose `held.since` is not
@@ -5745,7 +5795,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         voice(
           'practiced',
           `${label} shape: ${unit} here all carry \`${sig}\`${worst.need > 1 ? ` (${worst.need}×)` : ''}\n` +
-            `  ${pf.n}/${pf.n} established ${unit} conform. Your ${s.kind} \`${s.name}\` (line ${s.line}) is missing \`${sig}\` — every one of the ${pf.n} certified members of this group carries it at least ${worst.need} time${worst.need > 1 ? 's' : ''}, yours has ${worst.got}.\n` +
+            `  ${pf.n}/${pf.n} established ${unit} conform. Your ${scopeNamed(s)} (line ${s.line}) is missing \`${sig}\` — every one of the ${pf.n} certified members of this group carries it at least ${worst.need} time${worst.need > 1 ? 's' : ''}, yours has ${worst.got}.\n` +
             `  (N of N by construction: the group's template is the anti-unification of all ${pf.n} members, so everything it carries is in every one of them — there is no partial counter behind this denominator.)`
         ),
     });
@@ -5783,8 +5833,8 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         const retiredName = (sf.pid.match(/^auto\.[a-z]+:(@?.+)$/) || [])[1];
         const head2 =
           sf.retires && promoted
-            ? `${verbalize({ pid: promoted.pid, exp: promoted.value, kind: st.kind, heritageKind: heritageKindOf(promoted.pid, model) }, [st.name])}, not \`${retiredName || sf.pid}\` — ${practicedBy(promoted)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) still carries \`${retiredName || sf.pid}\``
-            : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}`;
+            ? `${verbalize({ pid: promoted.pid, exp: promoted.value, kind: st.kind, heritageKind: heritageKindOf(promoted.pid, model) }, [st.name])}, not \`${retiredName || sf.pid}\` — ${practicedBy(promoted)}. Your ${scopeNamed(s)} (line ${s.line}) still carries \`${retiredName || sf.pid}\``
+            : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${scopeNamed(s)} (line ${s.line}) ${deviationPhrase(vf, v)}`;
         steerHits.push({
           scope: s.name,
           kind: s.kind,
@@ -5914,9 +5964,11 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
     b.members.push({ name: s.name, line: s.line, endLine: s.endLine || s.line });
   });
   for (const b of buckets.values()) {
+    // §061: `m.name` for a catch/finally member is its enclosing method/type's OWN name (blockScope's borrowed
+    // "named after its owner"), never the clause's own — go through scopeBacktick so it reads as a location.
     const shown = b.members
       .slice(0, 3)
-      .map(m => `\`${m.name}\` (line ${m.line})`)
+      .map(m => `${scopeBacktick({ kind: b.kind, name: m.name })} (line ${m.line})`)
       .join(', ');
     const who = b.members.length > 3 ? `${shown} and ${b.members.length - 3} more` : shown;
     // (§010-e) an exemplar to open, reusing the SAME resolver the "See:" line under a deviation already uses
@@ -5935,7 +5987,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       text:
         `[grain] ${who} ${b.members.length === 1 ? 'is' : 'are'} new to the index — ${b.detail}. Judged against the package baseline only.` +
         (anchor
-          ? `\n  See: ${ptr(anchor.ex.rel, anchor.ex.line, anchor.ex.endLine)} \`${anchor.ex.name}\``
+          ? `\n  See: ${ptr(anchor.ex.rel, anchor.ex.line, anchor.ex.endLine)} ${scopeBacktick({ kind: anchor.f.kind, name: anchor.ex.name })}`
           : ''),
     });
   }
@@ -6197,10 +6249,12 @@ export function groupDeviations(msgs, touched = null, fileKindTouched = null) {
   for (const g of groups.values()) {
     const t = g.hits.filter(h => h.touched),
       p = g.hits.filter(h => !h.touched);
+    // §061: `h.scope` is the enclosing method/type's OWN name for a catch/finally hit (blockScope's borrowed
+    // "named after its owner"), never the clause's own — prefixed "in " so it reads as a location, not a name.
     const who = hs =>
       hs
         .slice(0, 3)
-        .map(h => `\`${h.scope}\` (line ${h.line})`)
+        .map(h => `${ANON_SCOPE_KINDS.has(h.kind) ? 'in ' : ''}\`${h.scope}\` (line ${h.line})`)
         .join(', ') + (hs.length > 3 ? ` and ${hs.length - 3} more` : '');
     const head = g.text.split('\n');
     const first = head[0];
@@ -6520,15 +6574,16 @@ export function buildCards(model) {
         ))
           addTok(toks, t, TOKW.fact); // `cli command` reaches @click.command through cli.py
       const degenerate = carrierNames.size === 1 && keys.length > 1; // three fixtures all named `test` are not a pattern to copy (three commands in one cli.py are)
+      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — §048, decoLabel's sigil call
       const label =
         pre === 'deco'
-          ? decoLabel(name)
+          ? decoLabel(name, markerG)
           : pre === 'sup'
             ? `extends ${name}`
             : `returns ${name}`;
       const mpid =
         pre === 'deco'
-          ? 'auto.deco:' + decoLabel(name)
+          ? 'auto.deco:' + decoLabel(name, markerG)
           : pre === 'sup'
             ? 'auto.extends:' + name
             : 'auto.returns:' + name;
@@ -6794,6 +6849,12 @@ export function whereCmd({
     let s = 0;
     for (const [t, w] of idf) s += (c.toks.get(t) || 0) * w;
     c.score = idfSum ? s / idfSum : 0;
+    // §070 — snapshot the score BEFORE the exact-name/dirName pins below can lift it off zero. This is the
+    // card's own bag-of-words overlap with the query and nothing else: a card can only clear zero here by
+    // sharing an actual query token with its content (doc comments, member names, values — whatever `c.toks`
+    // indexes), never by an identifier or directory NAME merely matching. Read-only bookkeeping: nothing past
+    // this line changes what `c.score` becomes or how `hits` gets filtered/sorted/sliced.
+    c.lex0 = c.score;
     c.exact = c.names ? [...qraw].some(t => c.names.has(t)) : false; // a query word that IS a function/class name in this file
     // a pinned identifier that IS most of the query wins outright (`where sendStatus`); one that covers a minority of the
     // query's words only adds to the lexical score — `where command handler for TodoList archive` must rank the command
@@ -6851,7 +6912,22 @@ export function whereCmd({
   }
   let noConfidentHit = false,
     suppressedScore = 0; // set when the top hit is demoted to "untrustworthy" below — distinct wording from a genuine zero-hit
-  if (hits.length && hits[0].score < 0.34)
+  // §070 (research/where-lever) — on the leak-free stratum, 36% of the files `where` should have named share zero
+  // content-lexical overlap with the query (`lex0` above). Most of those are NOT the `!hits.length` case below —
+  // something ELSE in the repo still scores — so the reader sees a normal-looking ranked list built entirely on an
+  // identifier or directory NAME pin, with zero corroborating content-word overlap anywhere in the top hits — the exact shortcut
+  // §2.1 of the research doc measured directly ("cards lifted off zero by the exact-name pin without any token
+  // match"). Checked before `weak match` below because a name pin can win outright (`score` reaches 1, well past
+  // 0.34), so the flat-score banner never catches it — the structural fact that NO shown card's content shares a
+  // query word is the one signal here, not a new cutoff (§018/§037's rule: an already-weak answer cannot be made
+  // overconfident by saying so, so this fires regardless of how high the pinned score climbed).
+  const noContentFoothold = hits.length > 0 && hits.every(h => h.lex0 === 0);
+  if (noContentFoothold) {
+    const sig = hits[0].exact ? 'an exact identifier/name match' : 'a directory-name match';
+    lines.push(
+      `no card matches these words — the ranking below is by ${sig}, not text overlap; verify before building on it.`
+    );
+  } else if (hits.length && hits[0].score < 0.34)
     lines.push(
       `weak match: the best hit covers ${Math.round(hits[0].score * 100)}% of the query's weight — a hint, not an answer. If the hits look unrelated to what you are writing, open the nearest sibling of the file you expect to edit instead.`
     );
@@ -6961,13 +7037,14 @@ export function whereCmd({
       const carried = (h.carried || [])
         .filter(([mk]) => !mk.startsWith('ret:') || !TRIVIAL.test(mk.slice(4)))
         .sort((a, b) => b[1] - a[1]);
+      const cardG = EXT2GRAMMAR[extname(h.label)]; // `h.label` is this card's own file rel path — §048
       if (carried.length)
         lines.push(
           `  carries: ${carried
             .slice(0, 5)
             .map(
               ([mk, n]) =>
-                `${mk.startsWith('deco:') ? decoLabel(mk.slice(5)) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
+                `${mk.startsWith('deco:') ? decoLabel(mk.slice(5), cardG) : mk.startsWith('sup:') ? 'extends ' + mk.slice(4) : 'returns ' + mk.slice(4)} ×${n}`
             )
             .join(' · ')}`
         );
@@ -7016,7 +7093,11 @@ export function whereCmd({
       const [rel2, kind, name] = k.split('#');
       const ln = scopeLine(P, k);
       const end = scopeLineEnd(P, k);
-      return `${ln ? ptr(rel2, ln, end) : rel2} \`${name}\` (${kind})`;
+      // §061: `name` for a catch/finally member is its enclosing method/type's OWN name — scopeBacktick already
+      // says so ("catch in `findOwner`"), so the trailing "(kind)" would just repeat it; kept only for a genuine
+      // declaration, exactly as before this fact existed.
+      const tag = ANON_SCOPE_KINDS.has(kind) ? scopeBacktick({ kind, name }) : `\`${name}\` (${kind})`;
+      return `${ln ? ptr(rel2, ln, end) : rel2} ${tag}`;
     };
     if (h.type === 'marker') {
       const ex = h.members.slice(0, 3).map(withLine);
@@ -7176,7 +7257,7 @@ export function whereCmd({
       .slice(0, 3);
     if (ex.length)
       lines.push(
-        `  pattern to copy: ${ex.map(([e, f]) => `${ptr(e.rel, e.line, e.endLine)} \`${e.name}\`${skipLineNote(part(model, h.part), f, e)}${e.why ? ` — ${e.why}` : ''}`).join(' · ')}`
+        `  pattern to copy: ${ex.map(([e, f]) => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part(model, h.part), f, e)}${e.why ? ` — ${e.why}` : ''}`).join(' · ')}`
       );
     else if (h.members) {
       const ms = h.members.slice(0, 3).map(withLine);
@@ -7674,6 +7755,11 @@ export function whatCmd({
       const P = part(model, c.part);
       for (const k of c.members || []) {
         const [rel, kind, name] = k.split('#');
+        // §061: a catch/finally member's `name` is its enclosing method/type's OWN name (blockScope's borrowed
+        // "named after its owner", §extractScopes) — the same reason the file-card branch above already excludes
+        // them; a role/marker group mixes every non-file/module kind (§induceRoles), so this branch needs the
+        // identical guard or a query for the enclosing declaration surfaces its unrelated catch/finally twin too.
+        if (kind === 'catch' || kind === 'finally') continue;
         if (!nameHits(name)) continue;
         pushDef(rel, kind, name, scopeLine(P, k), scopeLineEnd(P, k));
       }
@@ -8458,6 +8544,36 @@ export function factTiers(p) {
 // own generated-document text (below) share one wording instead of two that could drift apart.
 export const DIRTY_TREE_NOTE =
   'the worktree has uncommitted changes — this answer is computed from the indexed commit, not the current files on disk';
+// §042: a lexical style surface is a per-FILE majority vote (lexicalPreds) — `auto.lex:quote` reads `double` while at
+// most 20% of the file's literals are single-quoted. So a conforming file can hold, or GAIN, many departing literals
+// without the value ever moving: measured, telescope.nvim's buffer_previewer.lua absorbs 50 new single-quoted literals
+// in silence and flips only at 51; express's test/acceptance/mvc.js absorbs 12 and flips at 15; the budget is 0.25 ×
+// the majority count, so it grows with file size (957 / 2050 / 1067 literals repo-wide on telescope.nvim / express /
+// flask). The vote is the right unit to MINE — a delimiter forced by the content (`'he said "hi"'`) is not a style
+// choice, and 11 of 11 minority literals in telescope.nvim are exactly that — but `check` must not call the file
+// conforming without saying what a file-granularity vote cannot see. Same register and same one-constant-two-renderers
+// discipline as TEMPLATE_DESCRIPTIVE_NOTE below.
+const LEX_UNIT = {
+  'auto.lex:quote': ['string literal', 'string literals'],
+  'auto.lex:semi': ['statement', 'statements'],
+  'auto.lex:decl': ['declaration', 'declarations'],
+  'auto.lex:indent': ['indented line', 'indented lines'],
+};
+// null when there is nothing to disclose; otherwise the counts AND the sentence, from one computation, so the JSON
+// field and the printed clause can never disagree about the same file.
+export function lexTally(pid, exp, tally) {
+  const unit = LEX_UNIT[pid];
+  if (!unit || !tally || tally[exp] === undefined) return null; // `mixed`/`other` name no instance: nothing to count
+  const total = Object.values(tally).reduce((a, c) => a + c, 0);
+  const conforming = tally[exp];
+  const off = total - conforming;
+  if (total <= 0 || off <= 0) return null; // every instance conforms: the file-level verdict is true per instance too
+  return {
+    conforming,
+    total,
+    note: ` — scored per file, not per ${unit[0]}: ${off} of ${total} ${unit[1]} here depart from it and none of them is flagged`,
+  };
+}
 // §030: a `report`/`rules` TEMPLATE line (mineTemplates/profileOf — unclustered residue, never a role group) is a
 // render-only structural superposition: it has no cell in `part.facts`, so `check`/`review`/hooks cannot fail a
 // member for breaking its shape — not even the partial bridge J5.8 gives CLUSTERED role-group profiles
