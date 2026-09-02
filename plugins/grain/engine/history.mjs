@@ -235,6 +235,7 @@ async function walk(gitdir, range) {
         fix: FIX_RE.test(p[3] || ''),
         msg: (p[3] || '').slice(0, 120),
         files: [],
+        added: [],
       };
       commits.push(cur);
       continue;
@@ -250,6 +251,12 @@ async function walk(gitdir, range) {
       path = n;
     }
     if (HARD_EXCL.test(path)) continue; // only grain's own store is invisible — a path committed at the time was the repo's code at the time
+    // §073: the one status byte a birth-obligation rule needs — carried ALONGSIDE `files`, never replacing it, so
+    // every existing `fp.files` consumer (a plain path array) is untouched. Only `A` (a genuine add) is recorded:
+    // an `R`(ename)'s new path must never be mined as a birth (git's own `-M` above already folds a detected
+    // rename into one `R` line, never a separate `D`+`A` pair), and `M`/`D` carry no birth signal either way, so
+    // there is nothing else this rule needs remembered about them.
+    if (st === 'A') cur.added.push(path);
     if (!CODE_RE.test(path)) {
       cur.files.push(path);
       continue;
@@ -552,6 +559,10 @@ function replay(state, events, commits, cache) {
   // co-change (mega-commit cap excludes mass refactors and lockfile sweeps that would couple everything to everything)
   for (const c of commits) {
     const fs2 = [...new Set(c.files)].filter(f => !HARD_EXCL.test(f)).sort();
+    // §073: the birth signal, filtered/deduped/sorted the SAME way as `fs2` (and always a subset of it — `c.added`
+    // is built from the same per-path loop `c.files` is) so a footprint's `added` never names a file its own
+    // `files` does not also carry.
+    const added2 = [...new Set(c.added || [])].filter(f => !HARD_EXCL.test(f) && fs2.includes(f)).sort();
     // toks is computed unconditionally (an empty message yields []) so it stays in scope for the fps push below,
     // which is gated on fs2 alone, not on c.msg — a msg-less commit still gets a footprint, just with toks: []
     const toks = c.msg
@@ -589,6 +600,7 @@ function replay(state, events, commits, cache) {
         fix: c.fix,
         toks,
         files: fs2,
+        added: added2,
         scopes: scopeKeys,
         renames: renamesBySha.get(c.sha) || [],
       });
