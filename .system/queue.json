@@ -500,6 +500,46 @@
       "state": "queued",
       "note": "WAVE 3/4: profile learn() on symfony-full; incremental derivation or disclosed cap; judged by the ladder row",
       "updated": "2026-09-02 08:21"
+    },
+    {
+      "id": 47,
+      "ticket": "082",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/082",
+      "state": "queued",
+      "note": "HIGH: Python dotted heritage explosion, 3 bogus claims per clause; same family as 049/062",
+      "updated": "2026-09-02 08:21"
+    },
+    {
+      "id": 48,
+      "ticket": "083",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/083",
+      "state": "queued",
+      "note": "HIGH: Kotlin by-delegation delegate expression recorded as bogus supertype; same family as 049",
+      "updated": "2026-09-02 08:21"
+    },
+    {
+      "id": 49,
+      "ticket": "084",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/084",
+      "state": "queued",
+      "note": "HIGH: Rust 'static lifetime recorded as bogus trait/heritage claim; same family as 049",
+      "updated": "2026-09-02 08:21"
+    },
+    {
+      "id": 50,
+      "ticket": "086",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/086",
+      "state": "queued",
+      "note": "HIGH: secondary grammar in mixed-source-set repo gets zero edges, undisclosed; same family as 041/059",
+      "updated": "2026-09-02 08:21"
     }
   ]
 }
