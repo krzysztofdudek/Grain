@@ -62,11 +62,14 @@ public class PetController {
   const tree = p.parse(src);
   const scopes = extractScopes('PetController.java', tree, b, p._g);
   const byKindName = (kind, name) => scopes.find(s => s.kind === kind && s.name === name);
-  // the SAME physical catch_clause is walked once per enclosing body-bearing ancestor (class AND method both
-  // contain it), so it shows up borrowing BOTH names — a separate, pre-existing double-counting fact this ticket
-  // does not touch, but real, and worth the director's attention (flagged in the ticket log).
-  assert.ok(byKindName('catch', 'PetController'), 'the catch clause also borrows the enclosing TYPE\'s name');
-  assert.ok(byKindName('catch', 'findOwner'), 'the catch clause borrows the enclosing METHOD\'s name');
+  // §075 fixed the double-walk this comment used to document: the SAME physical catch_clause used to be walked
+  // once per enclosing body-bearing ancestor (class AND method both contain it) and showed up TWICE, borrowing
+  // BOTH names. It is now claimed by its NEAREST enclosing scope only (see tests/catch-double-walk-dedup.test.mjs
+  // for the dedicated red→green coverage of that fix) — here, the method, never the outer class.
+  assert.equal(scopes.filter(s => s.kind === 'catch').length, 1, 'one physical clause, one scope — not one per enclosing ancestor');
+  assert.equal(scopes.filter(s => s.kind === 'finally').length, 1, 'one physical clause, one scope — not one per enclosing ancestor');
+  assert.equal(byKindName('catch', 'PetController'), undefined, 'the enclosing TYPE is not the nearest enclosing scope, so it never claims the clause');
+  assert.ok(byKindName('catch', 'findOwner'), 'the catch clause borrows the enclosing METHOD\'s name (its nearest enclosing scope)');
   assert.ok(byKindName('finally', 'findOwner'), 'the finally clause borrows the enclosing METHOD\'s name too');
   // never its own: no shipped grammar's catch/finally node has a name field of its own (checked directly against
   // node-types.json for every grammar this repo ships — cpp/c_sharp/groovy/java/javascript/typescript/tsx/scala/
@@ -155,7 +158,9 @@ public class PetController {
   };
   const model = { pkgs: ['.'], partitions: [{ name: '_root', vocab, medoids: [], assignments: {}, facts: [factExport] }] };
   const r = await checkFile({ model, root: process.cwd(), rel: 'src/PetController.java', content: JAVA_SRC, exemplarOk: () => true });
-  assert.equal(r.msgs.length, 2, 'the deviation fires once per ancestor the clause is walked under (class + method)');
+  // §075: the source's ONE catch clause now produces exactly one scope (claimed by its nearest enclosing scope,
+  // the method) rather than one per enclosing ancestor, so the deviation fires once, not twice.
+  assert.equal(r.msgs.length, 1, 'the deviation fires once — one physical clause, one scope, one deviation');
   for (const m of r.msgs) {
     // the exact fabrication instrument A caught: "Your catch `findOwner` …" reads as though a catch BLOCK were
     // itself named `findOwner`. Must never appear, for either borrowed name.
