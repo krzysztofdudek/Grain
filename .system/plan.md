@@ -5053,3 +5053,4 @@ note: fala 1 zamknięta: 4 landings + instrumenty A/B/D + katalog G + badanie wh
 - 2026-09-02 merged: 076 dee0d99
 - 2026-09-02 merged: 077 73d78dcc4b2c7540f113c833cec3459af18a8453
 - 2026-09-02 merged: 073 25971e4
+- 2026-09-02 0.4.0 landed: 113ef97 (ENGINE 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24, validation.md re-anchored) + c847bb0 (three plugin manifests; a blind sed corruption of dependency versions caught and reverted). Suite 2115/2115.
