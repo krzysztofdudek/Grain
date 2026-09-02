@@ -857,6 +857,12 @@ function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp }) {
       share: e.g.fact.share,
       scopes: e.n,
       conforming: e.ok,
+      // §042 — present only for a per-file lexical vote that hid departing instances: `conforming`/`scopes` above
+      // count SCOPES (a file is one), and for a style surface the file's verdict is a majority over its instances.
+      // Absent means nothing was hidden, never that the surface was not checked.
+      ...(e.g.tally
+        ? { withinFile: { conforming: e.g.tally.conforming, total: e.g.tally.total, surface: e.g.pid } }
+        : {}),
       defining: !!e.g.defining,
     })),
     deviationsInChange: inChange.map(dev),
@@ -1109,6 +1115,9 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   // actually is — the group's own definition, enforceable on members and, by construction, on no one else.
   const defNote = e =>
     e.g.defining ? ` — defines this group; grain enforces it on members, not on a non-member` : '';
+  // §042: a style surface's verdict is a per-file majority, so "conforms" can be true while instances in this very
+  // file depart. Say so on the line that claims conformance, never only in --json.
+  const tallyNote = e => (e.g.tally ? e.g.tally.note : '');
   if (ok.length)
     lines.push(
       `conforms to: ${ok
@@ -1118,10 +1127,23 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
             `${e.g.label}: ${verbalize(
               e.g.fact,
               e.g.fact.exemplars.map(x => x.name)
-            )} (${pct(e.g.fact.share)}% of ${e.g.fact.sraw})${supNote(e)}${defNote(e)}`
+            )} (${pct(e.g.fact.share)}% of ${e.g.fact.sraw})${supNote(e)}${defNote(e)}${tallyNote(e)}`
         )
         .join(' · ')}${ok.length > 6 ? ` · +${ok.length - 6} more` : ''}`
     );
+  // §042 — the same disclosure, for a governed lexical fact that never reached the line above: `ok` requires
+  // `inChange > 0`, and a file-kind fact's pseudo-scope sits at line 1, so an edit deeper in the file scopes it out
+  // (G10's line-range mismatch, here on the conforming side) — exactly the reported case, where 7 added single-quoted
+  // literals produced no output at all. What the vote could not see must not depend on where in the file you typed.
+  const shownOk = new Set(ok.slice(0, 6));
+  for (const e of govFacts.values())
+    if (e.g.tally && !shownOk.has(e))
+      lines.push(
+        `  (${e.g.label}: ${verbalize(
+          e.g.fact,
+          e.g.fact.exemplars.map(x => x.name)
+        )}${e.g.tally.note})`
+      );
   const knownFiles = new Set(model.partitions.flatMap(p => p.files));
   const files = [rel];
   const newFileScopes = knownFiles.has(rel) ? {} : { [rel]: r.scopes };
