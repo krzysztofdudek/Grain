@@ -1,2 +1,4 @@
 
 ## 2026-09-01 23:45 — Confirmed on main by the auditor after rebase: PetController.java, catch block scope carries the enclosing method's name. A fabricated declaration name. Establish: which grammars' catch/finally nodes have no name field and how the walk falls back to the parent's.
+
+## 2026-09-02 03:14 — Fixed: catch/finally scopes rendered honestly ("catch in `X`", not "catch `X`") at every check/where/what/report render site (scopeNamed/scopeBacktick helpers); whatCmd's group/marker-card path also fixed (leaked the enclosing decl's twin). Extraction data (.name) left untouched by design — zero EXTR_V impact. Found but NOT fixed (flagged for a new ticket): the same catch/finally clause is walked once per enclosing ancestor with a body (class AND method both), so it is double-counted as two scope entries for one physical clause. 5 new tests (Java+Python extraction, checkFile, whatCmd), suite 2016/2016 green.
