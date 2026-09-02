@@ -212,9 +212,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/042",
-      "state": "running",
+      "state": "merged",
       "note": "style convention file-vs-literal granularity",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:35",
+      "sha": "4179121"
     },
     {
       "id": 21,
@@ -262,9 +263,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/048",
-      "state": "running",
+      "state": "merged",
       "note": "low: @ sigil rendered for sigil-less languages",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:28",
+      "sha": "76cc470e78c0983814a9ca8a787842f3e9ccad9e"
     },
     {
       "id": 26,
@@ -304,9 +306,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/070",
-      "state": "running",
+      "state": "merged",
       "note": "where discloses zero lexical foothold; fire-rate gated",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:31",
+      "sha": "194ce2e"
     },
     {
       "id": 30,
@@ -317,6 +320,16 @@
       "state": "queued",
       "note": "selftest --where: identifier-preserving query mode or symbol stratum; existing strata numbers must not move",
       "updated": "2026-09-02 03:25"
+    },
+    {
+      "id": 31,
+      "ticket": "072",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/072",
+      "state": "queued",
+      "note": "report --json: add architecture/module data (additive); parity test",
+      "updated": "2026-09-02 03:36"
     }
   ]
 }
