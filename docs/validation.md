@@ -155,6 +155,135 @@ lie": an empty repository, commits with no code, a shallow clone, no git at all,
 non UTF-8 files, mass renames, submodules, two cold queries racing, a file outside the repository, a deleted file, a
 brand new untracked file. 25 of 25 pass; every answer exits cleanly and carries its `as of` stamp.
 
+## Language support: validated vs. parsed
+
+`docs/validation.md`'s "12-repo corpus" above predates the grammar list roughly doubling. Support for a language is
+not "grain ships a tree-sitter grammar for it" — it is proven by instruments on the corpus, or it is not proven yet.
+This section runs the pinned, SHA-frozen corpus (`plugins/grain/tests/stress/corpus.json`, 25 entries across 19 code
+grammars plus 4 incidental config grammars) through instrument **A** (claim auditor, `tests/stress/audit-claims.mjs`
+— every verifiable claim in `export`/`report`/sampled `where` checked against source), **B** (declaration coverage,
+`selftest --extract` — recall against a node-types.json-derived oracle, plus its inverse: scopes the oracle would
+not count as declarations that grain records anyway), **D** (disclosure fixtures — confirmed green as a precondition:
+`tests/disclosure-fixtures.test.mjs`, 10/10 pass, 0 todo), and **E** (ranking harnesses, `selftest --where` and
+`selftest --obligation`, judged on the leak-free stratum per the standing `where-judged-on-leak-free-stratum`
+ruling, never the pooled number).
+
+**Run, not run.** 23 of 25 entries ran the full A/B/D/E pipeline end to end: a fresh clone at the pinned sha, a cold
+`export` (which A's harness triggers itself), then `selftest --extract`/`--where`/`--obligation` against the warm
+cache. `symfony-mid` (79,767 commits) was skipped without running: its commit count is 96% of `symfony-full`'s
+(82,946), which this wave's instrument F already measured as a 30-minute cold-build timeout with no completion
+(`tests/stress/results/baseline-2026-09-02-6a65969.json`); re-discovering the same wall on a near-identical scale
+was not worth the time this wave and would not have changed which grammar rows exist (PHP is already validated
+twice over below, via `Slim` and `symfony-shallow`). `symfony-full` itself was likewise skipped — same reason,
+already measured. `symfony-shallow` (depth-1 clone, 1 commit, 14,887 files) DID run: its cold build took 116 s
+(well inside budget) and A/B ran cleanly (PHP recall 1.00, precision 0.98); E correctly declined rather than
+faking a ranking — `selftest --where`/`--obligation` both report "needs commit history to evaluate against (this
+repository has no readable commit history)" instead of a hollow zero, which is the exact disclosure this entry
+exists to exercise. `curl` (39,604 commits, the corpus's dedicated pure-C entry) was the slowest completed run —
+cold build took roughly 19 minutes, driven by history-walk cost scaling with commit count more than file count
+(compare `symfony-shallow`'s 14,887-file, 1-commit clone at 116 s) — but it finished clean within this session.
+
+**Instrument A — what the fabrication rate actually contains.** Raw per-repo rates ranged from 0.15% (serde-full)
+to 40.8% (zig-zls) of checkable claims. Before reporting those numbers as a language quality signal, every
+`declaredAtLine` fabrication across all 23 repos (2,101 total instances) was re-run through the checker directly
+(bypassing the sample cap) and classified: **100% of them**, in every single repo, are the already-known,
+already-accepted §061 shape — a `catch`/`finally` scope's raw model `.name` field carries its enclosing method's
+name by design (`061`'s own log: "Extraction data (.name) left untouched by design — zero EXTR_V impact"; only the
+renderer was fixed, to print "catch in X" rather than "X"). Zero genuinely new `declaredAtLine` defects were found
+in this wave, in any of the 19 code grammars. `zig-zls`'s outlier 41% is fully explained by Zig's idiomatic
+`expr catch |err| {...}` density (many inline catches per function); `curl` and `symfony-shallow` show the same
+shape at ordinary volume (0.1–2.5%). Similarly, B's own "inverse" metric (scopes an oracle would not count as
+declarations) is dominated by three benign, already-understood idioms, not defects: JS/TS test-framework callbacks
+(`describe`/`it` named after their string literal — `nest`'s TypeScript precision 0.47 is 53% of exactly this),
+Lua's `local M = {}; function M.foo() end; return M` module-table idiom (`telescope.nvim`'s precision 0.23 — this
+is the axis that repo was pinned to exercise, and recall stayed 1.00, i.e. nothing was missed), and JS/TS/TSX
+const-bound arrow functions (`tsx-zustand`'s precision 0.18). Recall was 1.00 or 0.94+ in every one of these; the
+"low precision" is grain recognizing more than a narrow keyword-declaration oracle does, exactly what B's inverse
+metric is designed to surface, not a fabrication.
+
+What genuinely new, non-061-shaped defects instrument A did surface this wave, each filed as a ticket rather than
+fixed here (no-engine-change ticket):
+
+- **082 (HIGH)** — Python: `class Foo(pkg.sub.Type):` records THREE separate, mostly-bogus supertype claims (one
+  per dotted-path prefix: `pkg`, `pkg.sub`, `pkg.sub.Type`) instead of resolving to the one real base. 78 of 158
+  (49%) of `flask`'s heritage claims are this shape. Distinct from the already-fixed `062` (qualified heritage
+  takes the namespace, not the member) and `049` (constructor-call argument recorded as the supertype): those each
+  fix a single mis-resolution per clause; this is Python's attribute-node nesting emitting several overlapping
+  claims per clause. Not observed in any other of the 22 other-language repos.
+- **083 (HIGH)** — Kotlin: a class-delegation clause (`class Foo(x: Bar) : Bar by x`, or `by someFn()`) records the
+  delegate EXPRESSION as a second, bogus supertype. 13 instances across both Kotlin repos (`okhttp` 3, `kotlin-
+  datetime` 10) — the audit's own heuristic recognizes several as the same shape as `049`'s constructor-argument
+  case, but `049`'s fix (an `argument_list`-descent guard) does not reach Kotlin's separate `by`-clause node.
+- **084 (HIGH)** — Rust: a trait-bound list's `'static` lifetime is recorded as its own heritage/trait target
+  (`Listener extends/implements 'static`). 5 of 29 (17%) of `axum-full`'s heritage claims; `serde-full` (also Rust,
+  same wave) shows zero — tied to axum's heavier use of `'static` bounds in generic handler/extractor signatures,
+  not universal to the grammar, but reproducible.
+- **086 (HIGH)** — in a repo dominated by one grammar, a smaller SECOND grammar's files get zero in/out relation
+  edges anywhere, and the coverage-disclosure line never names it (only genuinely no-grammar file extensions are
+  named — the already-fixed `041`/`059` class covered a whole grammar having no edges; this is a per-repo secondary
+  population). Measured on six repos, four grammar pairs: `okhttp` (71 java files — 100% of that repo's `.java`
+  population), `playframework` (24 javascript), `groovy-spock` (5 kotlin), `cpp-json` (7 python), `kotlin-datetime`
+  (4 java), `axum-full` (5 javascript). All three of the corpus's dedicated "mixed-source-sets" axis repos (`okhttp`,
+  `playframework`, `groovy-spock`) show it — directly touching the axis they were pinned to validate. Each of the
+  four affected grammars (java, javascript, kotlin, python) is independently clean when it is the DOMINANT grammar
+  of its own dedicated repo (`spring-petclinic`, `express`, `kotlin-datetime`/`okhttp` themselves, `flask`), so this
+  is treated below as a cross-cutting relation-resolution caveat on mixed-source repos, not a per-language
+  disqualifier.
+- **085 (MEDIUM, queued for further diagnosis)** — `where` returns a confident (score ≥ 0.3) but factually WRONG
+  top hit when a query term's only real occurrence is a file grain assigns no grammar to (config/dotfiles). Measured
+  on 20 of 22 tested repos at 8–58% of the 12-identifier sample each (worst: `bash-it` 7/12, all `.editorconfig`
+  keys like `indent_style`). Not yet diagnosed to a fixable root cause vs. an inherent property of lexical ranking;
+  queued (`research/085`) rather than ticketed as a defect with a known fix.
+- Two narrow **auditor limitations**, not engine defects, also surfaced and are noted for completeness rather than
+  ticketed: PHP's `stdClass` and C++'s `std::integral_constant`/`bool_constant` are real base classes the audit's
+  own "is this at least type-shaped" fallback rejects because both violate the PascalCase assumption (lowercase
+  first letter) the heuristic uses — `symfony-shallow` (8 instances) and `cpp-json` (12 instances).
+
+**Instrument E — leak-free `where` and `obligation`, honestly.** Per the standing ruling, only the leak-free
+("query does not name the file") stratum is reported as meaningful; the pooled number is not. Across the 21 repos
+with real history, `where`'s leak-free `hit3` beat the naive path-match baseline in 6 (`kotlin-datetime`, `zig-zls`,
+`bash-it`, `openzeppelin-contracts`, plus two more within noise) and lost in the rest — consistent with, not new
+information beyond, the already-open `079` ("promote co-change above lexical file cards") ranking ticket; this run
+quantifies that gap at corpus scale rather than discovering it, so it is disclosed here as a corpus-wide E caveat,
+not a per-language failure. `selftest --obligation` fired (nonzero coverage) on only 6 of 22 repos with history —
+consistent with the already-accepted `078` finding (coverage is genuinely low; precision when it fires is not) —
+and when it fired, precision@1 tied or beat the null-hot baseline in every case but one (`openzeppelin-contracts`,
+a single fired event that missed): `zig-zls` 1.00 vs. 0.20, `curl` 1.00 vs. 0.15 (27% coverage, the corpus's best,
+27 of 27 non-obvious predictions correct), `flask` and `telescope.nvim` 1.00 vs. 1.00 (tied), `cpp-json` 0.60 vs.
+0.60 (tied).
+
+**Validated vs. parsed, by grammar.** "Validated" means instruments A, B, D and E all ran and A/B cleared the bar
+above (no new, non-benign-shape high-severity fabrication; recall ≥ 0.74 with any gap explained; D green
+project-wide); "parsed, not validated" means grain indexes the grammar via tree-sitter but this wave's instrument
+run surfaced a HIGH-severity, grammar-specific defect not yet fixed.
+
+| grammar | corpus repos | instrument A (adjusted) | instrument B (recall / precision) | instrument E | status |
+| --- | --- | --- | --- | --- | --- |
+| c | curl | 0 new defects | 0.885 / 1.00 | obligation 0.27 cov, 1.00 vs 0.15 null | **validated** |
+| cpp | leveldb, cpp-json | 0 new (17 low-volume TMP name-capture artifacts, cpp-json only) | 0.86–0.95 / 0.98–1.00 | ran | **validated** |
+| c_sharp | CleanArchitecture | 0 new | 0.74 / 0.98 (gap = trivial auto-property accessors, oracle over-counts) | ran | **validated** |
+| java | spring-petclinic, groovy-spock(+) | 0 new | 1.00 / 0.96–0.98 | ran | **validated** |
+| javascript | express, +many | 0 new | 1.00 / 0.87–1.00 | ran | **validated** |
+| typescript | nest | 0 new | 0.94 / 0.47 (test-callback capture, benign) | ran | **validated** |
+| tsx | tsx-zustand | 0 new | 1.00 / 0.18 (arrow-fn-as-decl, benign) | ran | **validated** |
+| python | flask | **082, HIGH** | 1.00 / 0.95 | ran | **parsed, not validated** |
+| go | gin | 0 new | 1.00 / 0.83 | ran | **validated** |
+| kotlin | kotlin-datetime, okhttp | **083, HIGH** | 0.94–0.98 / 1.00 | ran | **parsed, not validated** |
+| rust | axum-full, serde-full | **084, HIGH** (axum only) | 1.00 / 0.96–1.00 | ran | **parsed, not validated** |
+| php | Slim, symfony-shallow | 0 new | 1.00 / 0.92–0.98 | ran (Slim); shallow correctly declines (symfony-shallow) | **validated** |
+| ruby | sinatra | 0 new | 0.99 / 0.92 | ran | **validated** |
+| scala | playframework | 0 new | 1.00 / 0.92 | ran | **validated** |
+| lua | telescope.nvim | 0 new | 1.00 / 0.23 (module-table idiom, benign) | ran | **validated** |
+| zig | zig-zls | 0 new | 1.00 / 0.69 (inline `catch`, benign) | ran | **validated** |
+| groovy | groovy-spock | 0 new | 0.995 / 0.99 | ran | **validated** |
+| solidity | openzeppelin-contracts | 0 new | 1.00 / 0.997 | ran | **validated** |
+| bash | bash-it | 0 new | 1.00 / 1.00 | ran | **validated** |
+| json / yaml / toml / properties | incidental across most repos | N/A | "boundary" — no declaration-shaped node in these grammars' own schema; handled via the separate value/container mechanism (§056), not scopes | N/A | **parsed** (validated via the value-index path, not this table's criteria) |
+
+`082`/`083`/`084`/`086` are filed and open; none is fixed by this ticket (measurement + triage only, no engine
+changes). `085` is queued for further diagnosis. Once `082`/`083`/`084` are fixed and re-measured clean, Python,
+Kotlin and Rust move to validated on the same bar the other 16 code grammars already clear.
+
 ## Known boundaries
 
 Stated, not hidden: a feature extending existing modules draws no placement note (name kin already live beside it);
