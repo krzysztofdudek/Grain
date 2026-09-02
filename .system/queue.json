@@ -357,9 +357,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/074",
-      "state": "running",
+      "state": "merged",
       "note": "completeness: specific vs ambient split; share renderer with 073",
-      "updated": "2026-09-02 05:47"
+      "updated": "2026-09-02 06:14",
+      "sha": "5bce5ef"
     },
     {
       "id": 34,
@@ -400,9 +401,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/obligation-coverage",
-      "state": "running",
+      "state": "merged",
       "note": "after 073 merges: test harness floor + key granularity; coverage toward 0.08 without precision loss",
-      "updated": "2026-09-02 05:47"
+      "updated": "2026-09-02 06:17",
+      "sha": "0a67b89"
     },
     {
       "id": 38,
