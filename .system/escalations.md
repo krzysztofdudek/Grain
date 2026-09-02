@@ -1,0 +1,9 @@
+# Escalations
+
+## [2] constant · ticket 052 · open
+by: lead · at: 2026-09-02T02:02:04.024Z
+052 measured: what's siblings: line had precision 0.364 (vs 0.70 bar, 165 blind verdicts/7 languages) as an unbidden push surface (72.7 values/line avg); deleted from text and --json (0 churn to model/export/check's kin: pull surface). Two follow-ups NOT implemented, flagged for your ruling: (a) a model.valueNorms gate would let siblings re-fire selectively (3 of 2393 containers pass it) — a much higher-precision subset; (b) a rendered cap on value-line length (new tunable constant) was considered separately. Neither implemented without your ruling.
+
+## [1] constant · ticket 042 · open
+by: lead · at: 2026-09-02T02:02:03.998Z
+042 measured: 22 literals (express) + 12 (flask) depart their file's per-file quote-convention majority WITHOUT a forcing delimiter (i.e. genuine style violations, not content-forced). A per-literal check-side flag gated on that derivable exemption (delimiter-forced literals excluded) scores 0 false positives on telescope.nvim. Not implemented — this is a check-side rule addition changing acceptance/flagging behavior, needs your ruling on whether to add it.

@@ -5042,3 +5042,6 @@ note: fala 1 zamknięta: 4 landings + instrumenty A/B/D + katalog G + badanie wh
 - 2026-09-02 merged: 052 941e721da7f73a8a7cab1b66231311078987eda1
 - 2026-09-02 merged: 056 7f72a9e
 - 2026-09-02 merged: 066 d9e0eaf
+- 2026-09-02 merged: 058 7a262c4
+- 2026-09-02 merged: 060 c1808a5
+- 2026-09-02 merged: instr/C cross-check 9485001
