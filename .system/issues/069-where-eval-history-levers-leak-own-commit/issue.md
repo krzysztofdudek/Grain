@@ -1,6 +1,6 @@
 # 069 · selftest --where: any history-reading lever measured without subtracting the candidate's own commit is inflated up to 2×
 
-**Status:** OPEN
+**Status:** APPROVED — rescoped: harness rule + comment + guard test, no shipped bug (see log)
 **Found by:** research/where-lever, 2026-09-01
 **Severity:** high
 **Class:** E
