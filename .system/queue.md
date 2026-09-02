@@ -64,7 +64,7 @@ _none_
 | 40 | package-json-0.4.0 | fix | sonnet | fix/package-json | 9d15850 | WAVE 3 (b): package.json 0.2.0→0.4.0 via npm install (lockfile root), never sed; docs-audit stays green | 2026-09-02 06:42 |
 | 41 | where-named | fix | opus | fix/where-named | 6f50d9f | director-approved ranking change: volume-channel normalisation in whereCmd, named hit@3 +0.184, leak-free guard also up, one constant deleted | 2026-09-02 06:29 |
 | 43 | 081 | measure | opus | research/reachability | c371383 | WAVE 4 #2 command reachability instrument; gates new commands | 2026-09-02 07:32 |
-| 45 | 085 | measure | opus | research/085 | ae1169c | measure whether where's confident-wrong-on-no-grammar-file rate (8-58% across 20/22 corpus repos) is fixable without a ranking redesign, or is a boundary to disclose like the 070 zero-foothold precedent | 2026-09-02 10:29 |
+| 45 | 085 | measure | opus | research/085 | c439ae7 | measure whether where's confident-wrong-on-no-grammar-file rate (8-58% across 20/22 corpus repos) is fixable without a ranking redesign, or is a boundary to disclose like the 070 zero-foothold precedent | 2026-09-02 10:30 |
 | 47 | 082 | fix | sonnet | fix/082 | 9c498b3 | HIGH: Python dotted heritage explosion, 3 bogus claims per clause; same family as 049/062 | 2026-09-02 09:56 |
 | 48 | 083 | fix | sonnet | fix/083 | 2d1fc05 | HIGH: Kotlin by-delegation delegate expression recorded as bogus supertype; same family as 049 | 2026-09-02 10:09 |
 | 49 | 084 | fix | sonnet | fix/084 | f231b26 | HIGH: Rust 'static lifetime recorded as bogus trait/heritage claim; same family as 049 | 2026-09-02 10:20 |

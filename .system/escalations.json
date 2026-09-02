@@ -204,6 +204,15 @@
       "ticket": "084",
       "ruling": "Handled correctly: same shape as 18; the 084 worker re-landed onto 082/083 (f231b26), merged clean. Ack. Three heritage fixes in one function landed in order without a hand-resolved line — that is the process paying for itself.",
       "ruledAt": "2026-09-02T08:29:57.654Z"
+    },
+    {
+      "id": "20",
+      "kind": "claim",
+      "why": "085 flagged: 'where --json' carries no disclosure text at all (same for already-shipped 057 and 070) -- instrument A will keep reporting the 8-58% confident-wrong rate even after 085's fix, since it only reads --json hits. Not changed by 085's worker per instructions (JSON shape change needs a ruling). Question for you: should where --json gain a disclosure/note field carrying the same text the disclosure-bearing text output already shows (banner/note/unknownIdent), or is this an acceptable known gap in the --json contract for now?",
+      "by": "lead",
+      "at": "2026-09-02T08:30:59.079Z",
+      "state": "open",
+      "ticket": "085"
     }
   ]
 }
