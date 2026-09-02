@@ -7322,7 +7322,7 @@ export function howCmd({
     if (!arr.includes(parts[2])) arr.push(parts[2]);
     topScopes.set(cur, arr);
   }
-  const places = [...counts.keys()]
+  let places = [...counts.keys()]
     .map(rel => ({
       rel,
       k: counts.get(rel),
@@ -7333,14 +7333,26 @@ export function howCmd({
       weight: +weights.get(rel).toFixed(3),
     }))
     .sort((a, b) => b.weight - a.weight || b.k - a.k || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
+  // §066: a place dead at HEAD is dead code to an agent following this list — never somewhere to edit. Same
+  // liveness source `cochangeData` computes its own `live` set from (core.mjs ~9154, one house-wide answer to "is
+  // this path still here", never a second/third liveness check invented per renderer). §020 had this render
+  // `(deleted)` instead of dropping the entry; measured on a real corpus that still put 13 of 28 CleanArchitecture
+  // places on files that no longer exist — marking a dead file still hands it to the reader as a "place such a
+  // change touched". Omitting it is the other option the ticket's own acceptance text always allowed ("marks it OR
+  // omits it — decide which and document why"); dropping is strictly the more useful answer for an agent about to
+  // edit code, so `how` now omits rather than marks.
+  places = places.filter(p => p.exists);
+  // §066: the "1/N" long tail — a place touched by only 1 of K matched commits is one anecdote, not a place "such
+  // a change touched". Reuses `how-hook`'s own existing bar for exactly this (`places.filter(p => p.k >= 2)`,
+  // grain.mjs) rather than a new constant. Applied only when it leaves something: a single-match query (K=1) or a
+  // set of equally-thin matches has no k>=2 evidence to prefer over, and dropping to zero places would be a false
+  // "nothing to say" — the same refusal-to-invent-absence principle as `completenessDirectional` (§063).
+  const strongPlaces = places.filter(p => p.k >= 2);
+  if (strongPlaces.length) places = strongPlaces;
   // `sources: ['cochange']` is the ONLY correct configuration here and is not a limitation to relax later: `how`
   // names its files from the commit history and never parses one, so it can never supply the `newFileScopes` the
   // `'recipe'` source needs. Bolting `'recipe'` on would require adding a parse step first.
-  const missing = missingLines(
-    model,
-    places.filter(p => p.exists).map(p => p.rel),
-    { sources: ['cochange'] }
-  );
+  const missing = missingLines(model, places.map(p => p.rel), { sources: ['cochange'] });
   // the certified SHAPE this intent looks like, if any (§J4.1). Two independent readings of the same query: the
   // archetype's own message vocabulary, scored on the idf already computed above, and how much of its certified
   // module/suffix footprint the places `what` finds for this query cover (a `g:` role cell has no query-side
@@ -7395,11 +7407,17 @@ export function howCmd({
         date: new Date(m.fp.ts * 1000).toISOString().slice(0, 7),
       })
     );
-  lines.push('places such a change touched:');
-  for (const p of places)
-    lines.push(
-      `  ${p.rel} (${p.k}/${p.of}) — ${p.exists ? p.module : '(deleted)'}${p.scopes.length ? ` · scopes: ${p.scopes.join(', ')}` : ''}`
-    );
+  // §066: `places` is already filtered to files live at HEAD (above) — every remaining entry's `exists` is true,
+  // so there is no longer a `(deleted)` branch to render here. A places array can now legitimately be empty (every
+  // file the matched commits touched has since been deleted) — the header is only worth printing when there is at
+  // least one place to list under it.
+  if (places.length) {
+    lines.push('places such a change touched:');
+    for (const p of places)
+      lines.push(
+        `  ${p.rel} (${p.k}/${p.of}) — ${p.module}${p.scopes.length ? ` · scopes: ${p.scopes.join(', ')}` : ''}`
+      );
+  }
   lines.push(...missing);
   return {
     lines,
