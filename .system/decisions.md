@@ -283,3 +283,6 @@ PROCES (dyrektor, po pytaniu użytkownika 'dlaczego nie poszliśmy dalej'): w 25
 
 ## 2026-09-02 · esc-21
 Acknowledged — record-only housekeeping, no ruling changed. 045/073 fixed status stands.
+
+## 2026-09-02 · release-0-3-0-public-portfolio · class D
+USER RULING (2026-09-02): 'Wydaj po prostu to co jest i napisz szczere wyniki testów i podłącz do readme. 0.3.0 jako wersja która będzie released na github pushnięta. Niech sobie wisi publicznie jako element portfolio.' Asked which state; user chose: CURRENT main renamed 0.4.0 → 0.3.0 (engine, three manifests, package.json via npm version, README status, validation.md count 2184), tag v0.3.0 on HEAD, push authorised for THIS release. docs/results.md written (English, negatives first, the 0-in-25 verdict) and linked from README's evidence, documentation and status. Before push: machine paths scrubbed from tracked .system logs/plan and the stress baseline JSON (<scratch>/<repo> placeholders; targeted perl, JSON re-validated) — a privacy exception to 'state through tools only'. Internal research docs keep the working number 0.4.0; results.md says so.

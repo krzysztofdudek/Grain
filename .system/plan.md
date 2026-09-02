@@ -4932,8 +4932,8 @@ uzasadnieniu w planie; w górę (Sonnet→Opus) zawsze wolno.
 ### K3 · Szablon briefu dla wykonawcy (kopiuj, wypełnij, nic nie usuwaj)
 
 ```
-Repo: /Users/me/repos/github.com/krzysztofdudek/Grain. Implementing ticket **<ID>** from
-/Users/me/repos/github.com/krzysztofdudek/Grain/.temp/docs/plan.md — read the ticket's full text first (section
+Repo: <repo>. Implementing ticket **<ID>** from
+<repo>/.temp/docs/plan.md — read the ticket's full text first (section
 "#### <ID> · …") for context; this brief is the authoritative spec: follow it exactly, do not redesign.
 
 CONTEXT (verified by the orchestrator against the current code, not from memory):
