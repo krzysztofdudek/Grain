@@ -124,6 +124,50 @@
       "at": "2026-09-02T05:32:35.550Z",
       "state": "open",
       "ticket": "081"
+    },
+    {
+      "id": "13",
+      "kind": "conflict",
+      "why": "Merge conflict on instr/corpus-validation -> main, in .system/queue.json and queue.md (structured JSON, not prose). My own concurrent queue.mjs commands and the worker's own single new queue entry (ticket 085) diverged. I did NOT hand-edit the conflicting JSON: I took main's version wholesale (git checkout --ours) for both files, discarding the worker branch's copy of queue.json/queue.md entirely, then recreated the one semantic change (queue.mjs add 085, same kind/agent/branch/note the worker used) through the tool on top of main's canonical state. All other files (docs/validation.md, 5 new ticket dirs) merged clean with no conflict. Verified: suite 2129/2129 green after. Flagging per the corrected process (conflicts always escalate) even though nothing was hand-edited as data -- only a resolution STRATEGY choice (discard-and-recreate-via-tool vs a 3-way JSON merge) was made without waiting for a ruling first.",
+      "by": "lead",
+      "at": "2026-09-02T06:20:47.587Z",
+      "state": "open"
+    },
+    {
+      "id": "14",
+      "kind": "high",
+      "why": "082 (HIGH, class A): Python dotted heritage class Foo(pkg.sub.Type) emits 3 separate bogus supertype claims (one per nesting depth: pkg, pkg.sub, pkg.sub.Type) instead of resolving to the single real base Type. Flask measured at 49.4% heritage-claim fabrication, all this shape. Distinct from already-fixed 049/062 (single mis-resolution per clause) -- this is multiple overlapping claims per clause from Python's nested attribute node. Dispatching a fix now, same family as 049/062.",
+      "by": "lead",
+      "at": "2026-09-02T06:21:31.091Z",
+      "state": "open",
+      "ticket": "082"
+    },
+    {
+      "id": "15",
+      "kind": "high",
+      "why": "083 (HIGH, class A): Kotlin's 'by <expr>' class-delegation clause records the delegate expression (a constructor param or function call, never a type) as a second bogus supertype claim. 13 instances across 2 independent Kotlin repos (okhttp, kotlin-datetime), 0 in the other 21 corpus repos. Same failure class as already-fixed 049 (constructor-arg-as-supertype) but a different clause shape (explicit_delegation, not argument_list) that 049's fix didn't reach. Dispatching a fix now.",
+      "by": "lead",
+      "at": "2026-09-02T06:21:31.121Z",
+      "state": "open",
+      "ticket": "083"
+    },
+    {
+      "id": "16",
+      "kind": "high",
+      "why": "084 (HIGH, class A): Rust's 'static lifetime bound in a trait-bound list gets recorded as its own bogus heritage/trait claim (5/29 = 17% of axum-full's heritage claims). 'static is a lifetime annotation, never a trait. Same family as macro-token-as-name/argument_list-in-heritage (049) -- a heritage-vocabulary node matching something in the clause that isn't the real target. Dispatching a fix now.",
+      "by": "lead",
+      "at": "2026-09-02T06:21:31.152Z",
+      "state": "open",
+      "ticket": "084"
+    },
+    {
+      "id": "17",
+      "kind": "high",
+      "why": "086 (HIGH, class A): in a mixed-source-set repo, a repo's SECONDARY (non-dominant) grammar's files get zero relation edges and the coverage-disclosure note never names it -- distinct from already-fixed 041/059 (a whole grammar with zero edges repo-wide). Hits all 3 of the corpus's dedicated mixed-source-sets axis repos (okhttp, playframework, groovy-spock) plus 3 more, undermining that axis's own validation purpose. Dispatching a fix now, same family as 041/059's disclosure floor.",
+      "by": "lead",
+      "at": "2026-09-02T06:21:31.181Z",
+      "state": "open",
+      "ticket": "086"
     }
   ]
 }

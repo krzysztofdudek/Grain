@@ -1,5 +1,25 @@
 # Escalations
 
+## [17] high · ticket 086 · open
+by: lead · at: 2026-09-02T06:21:31.181Z
+086 (HIGH, class A): in a mixed-source-set repo, a repo's SECONDARY (non-dominant) grammar's files get zero relation edges and the coverage-disclosure note never names it -- distinct from already-fixed 041/059 (a whole grammar with zero edges repo-wide). Hits all 3 of the corpus's dedicated mixed-source-sets axis repos (okhttp, playframework, groovy-spock) plus 3 more, undermining that axis's own validation purpose. Dispatching a fix now, same family as 041/059's disclosure floor.
+
+## [16] high · ticket 084 · open
+by: lead · at: 2026-09-02T06:21:31.152Z
+084 (HIGH, class A): Rust's 'static lifetime bound in a trait-bound list gets recorded as its own bogus heritage/trait claim (5/29 = 17% of axum-full's heritage claims). 'static is a lifetime annotation, never a trait. Same family as macro-token-as-name/argument_list-in-heritage (049) -- a heritage-vocabulary node matching something in the clause that isn't the real target. Dispatching a fix now.
+
+## [15] high · ticket 083 · open
+by: lead · at: 2026-09-02T06:21:31.121Z
+083 (HIGH, class A): Kotlin's 'by <expr>' class-delegation clause records the delegate expression (a constructor param or function call, never a type) as a second bogus supertype claim. 13 instances across 2 independent Kotlin repos (okhttp, kotlin-datetime), 0 in the other 21 corpus repos. Same failure class as already-fixed 049 (constructor-arg-as-supertype) but a different clause shape (explicit_delegation, not argument_list) that 049's fix didn't reach. Dispatching a fix now.
+
+## [14] high · ticket 082 · open
+by: lead · at: 2026-09-02T06:21:31.091Z
+082 (HIGH, class A): Python dotted heritage class Foo(pkg.sub.Type) emits 3 separate bogus supertype claims (one per nesting depth: pkg, pkg.sub, pkg.sub.Type) instead of resolving to the single real base Type. Flask measured at 49.4% heritage-claim fabrication, all this shape. Distinct from already-fixed 049/062 (single mis-resolution per clause) -- this is multiple overlapping claims per clause from Python's nested attribute node. Dispatching a fix now, same family as 049/062.
+
+## [13] conflict · open
+by: lead · at: 2026-09-02T06:20:47.587Z
+Merge conflict on instr/corpus-validation -> main, in .system/queue.json and queue.md (structured JSON, not prose). My own concurrent queue.mjs commands and the worker's own single new queue entry (ticket 085) diverged. I did NOT hand-edit the conflicting JSON: I took main's version wholesale (git checkout --ours) for both files, discarding the worker branch's copy of queue.json/queue.md entirely, then recreated the one semantic change (queue.mjs add 085, same kind/agent/branch/note the worker used) through the tool on top of main's canonical state. All other files (docs/validation.md, 5 new ticket dirs) merged clean with no conflict. Verified: suite 2129/2129 green after. Flagging per the corrected process (conflicts always escalate) even though nothing was hand-edited as data -- only a resolution STRATEGY choice (discard-and-recreate-via-tool vs a 3-way JSON merge) was made without waiting for a ruling first.
+
 ## [12] other · ticket 081 · open
 by: lead · at: 2026-09-02T05:32:35.550Z
 081 measured: 63 of 63 grain CLI calls across 36 agent runs went to a command named in sessionContext's advertisement text (61) or SKILL frontmatter (2); 0 of 63 to any of the 12 commands named in neither, including obligation. But obligation's PreToolUse hook already exists and fired at all 8 file creations in the 0.4.0 trial data -- it just certified nothing 8/8 (matches selftest --obligation's own coverage 0.096 on that repo). Recommendation: gate a 17th command on whether it certifies often enough to deserve an advertised slot, measured by its own selftest, not on advertisement alone -- obligation and completeness both fail that bar today. Also found: the trial harness only reads SessionStart hook records, missing 25 real placement-hook push notes recorded in .grain/cache/*.json; one flagged case (replay-4104e8c4) shows grain was correct and overridden, not silent, which the trial counted as 'unchanged'. Full doc: .system/research/command-reachability.md. Not implementing anything beyond a roster-order regression test; recommendation is for wave planning, not a code change.
