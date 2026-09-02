@@ -39,6 +39,7 @@ import {
   parseJsonc,
   relSupported,
   relPathOnly,
+  parsePsr4,
 } from './relations.mjs';
 
 const S = '\u0001'; // cell-key separator (was a literal SOH byte in the prototype)
@@ -235,6 +236,63 @@ export function bindingFor(gname) {
         b.deco.add(c.type);
         b.decoBare.add(c.type);
       }
+    }
+  }
+  // §062 — QUALIFIED/MEMBER-NAME node types: `ns.Base` (JS/TS member_expression), a Java/Groovy FQN
+  // (scoped_identifier/scoped_type_identifier), C#'s qualified_name, Kotlin's user_type/qualified_identifier,
+  // Scala's stable_type_identifier, Ruby's scope_resolution, … Reading a compound name's identifiers naively
+  // (every identifier-shaped DESCENDANT of a heritage clause) records the NAMESPACE half too — `extends
+  // ethers.AbstractSigner` recorded `ethers`, never `AbstractSigner` (§049 fixed the analogous constructor-
+  // argument shape; this is the member-access shape). A node type qualifies, without ever naming a language,
+  // when its own field shape is a genuine two-part chain: exactly two "relevant" fields (its REQUIRED fields,
+  // plus any OPTIONAL field that can itself carry a name-shaped value — Ruby's optional `scope`, absent on a
+  // bare top-level `::Foo`), at least one of them PURELY name-shaped once its declared types are expanded
+  // through the grammar's own supertype unions (member_expression's `property`, scoped_identifier's `name`,
+  // qualified_name's `name`), and EVERY relevant field able to at least sometimes hold a name-shaped value (so
+  // a declaration's unrelated `name` + `body` pair — body never holds a name — never qualifies). A fieldless
+  // grammar (Java's scoped_type_identifier, Kotlin's user_type/qualified_identifier, Scala's
+  // stable_type_identifier: node-types.json gives these no field names, only a shared repeatable CHILDREN
+  // list) qualifies the same way through that list instead: more than one child allowed, and at least one of
+  // the allowed child types is itself name-shaped. Measured to add no other grammar's declaration/expression
+  // node types (a control-flow or binary-expression node's operands are typed too broadly — numbers, calls,
+  // whole statements — to ever be "purely name-shaped").
+  const qnMemo = new Map();
+  const qnExpand = (t, seen) => {
+    if (qnMemo.has(t)) return qnMemo.get(t);
+    if (seen.has(t)) return new Set();
+    seen.add(t);
+    const out = new Set([t]);
+    const entry = byType.get(t);
+    if (entry && entry.subtypes) for (const s of entry.subtypes) for (const x of qnExpand(s.type, seen)) out.add(x);
+    qnMemo.set(t, out);
+    return out;
+  };
+  const qnExpandFields = types => {
+    const out = new Set();
+    for (const t of types) for (const x of qnExpand(t, new Set())) out.add(x);
+    return out;
+  };
+  const qnAllNamey = set => {
+    for (const t of set) if (!QUAL_NAME_LEAF_RE.test(t)) return false;
+    return true;
+  };
+  const qnAnyNamey = set => {
+    for (const t of set) if (QUAL_NAME_LEAF_RE.test(t)) return true;
+    return false;
+  };
+  b.qualName = new Set();
+  for (const n of nt) {
+    const nf = n.fields || {};
+    const fnames = Object.keys(nf);
+    if (fnames.length) {
+      const expOf = fn => qnExpandFields((nf[fn].types || []).map(t => t.type));
+      const relevant = fnames.filter(fn => nf[fn].required !== false || qnAnyNamey(expOf(fn)));
+      if (relevant.length === 2) {
+        const expanded = relevant.map(expOf);
+        if (expanded.some(qnAllNamey) && expanded.every(qnAnyNamey)) b.qualName.add(n.type);
+      }
+    } else if (n.children && n.children.multiple && (n.children.types || []).some(t => QUAL_NAME_LEAF_RE.test(t.type))) {
+      b.qualName.add(n.type);
     }
   }
   // a grammar that declares no name+body scope at all (JSON/YAML/TOML): its files carry no name+body units to
@@ -449,6 +507,11 @@ const FUNC_LIKE_RE = wordBounded([
 // technique as the two above; neither is ever matched against a language's own identifiers.
 const DECO_NAME_RE = wordBounded(['identifier', 'name']);
 const DECO_ARG_RE = wordBounded(['call', 'argument', 'arguments', 'invocation']);
+// §bindingFor's `b.qualName` (§062): a "qualified/member name" node type's own leaf constituents — every
+// concrete node type this touches, whether a plain identifier or another qualified-name node one level in,
+// happens to end in one of these three words across every shipped grammar. Same word-bounded node-TYPE-NAME
+// technique as the two above.
+const QUAL_NAME_LEAF_RE = wordBounded(['identifier', 'name', 'constant']);
 // §bindingFor's `b.retField`: a callable's declared-result field is whichever of its OWN fields admits a child
 // node whose type NAMES "type" as a whole word segment (`type`, `_simple_type`, `type_annotation`, `bottom_type`,
 // `type_identifier`, …) — matches Go's `result` (declares `_simple_type`), every `return_type` field, Java/Groovy/
@@ -854,35 +917,69 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         const fn = ch.fieldNameForChild(i);
         if (fn) fieldOf.set(ch.child(i).id, fn);
       }
+      // the leaf identifier-shaped node types a heritage clause is scanned for, MINUS any that this grammar's
+      // OWN node-types.json shows to be a `b.qualName` WRAPPER rather than a leaf (§062): Java's
+      // `scoped_type_identifier` (`com.google.inject.AbstractModule`) and, one grammar's coincidence with
+      // another, C#'s OWN unrelated `qualified_name` (`Ns.Base` — kept in this list unfiltered for PHP, whose
+      // *different* node type of the same name is not a `b.qualName` wrapper and gets its own dedicated
+      // backslash-split handling below). Matching a wrapper type directly would capture its own full dotted
+      // text wholesale — the same bug this fixes one level down. Its actual leaf (`type_identifier`/
+      // `generic_name`/…) is still found, and resolved to just the tail, via the ordinary leaf types below.
+      const heritageIdTypes = [
+        'identifier',
+        'type_identifier',
+        'property_identifier',
+        'private_property_identifier',
+        'constant',
+        'name',
+        'qualified_name',
+        'relative_name',
+      ].filter(t => !b.qualName.has(t));
+      const heritageIdTypeSet = new Set(heritageIdTypes);
       for (const c2 of ch.namedChildren)
         if (
           b.heritageRe.test(c2.type) &&
           !(bodyN && c2.id === bodyN.id) &&
           !b.argRe.test(fieldOf.get(c2.id) || '')
         )
-          for (const id of c2.descendantsOfType([
-            'identifier',
-            'type_identifier',
-            'scoped_type_identifier',
-            'name',
-            'qualified_name',
-            'relative_name',
-          ])) {
+          for (const id of c2.descendantsOfType(heritageIdTypes)) {
             let anc = id.parent,
+              prevChild = id,
               inArg = false,
+              inPrefix = false,
               hKind = null;
             while (anc && anc.id !== c2.id) {
               if (b.genArgRe.test(anc.type) || b.argRe.test(anc.type)) {
                 inArg = true;
                 break;
               } // `AbstractValidator<TQuery>`: TQuery sits under a type_argument_list — a slot, not a base type. `AbstractController(cc)`: cc sits under an argument list — a call operand, not a base type
+              // §062: `id` sits inside a QUALIFIED-NAME node (`ns.Base`, `com.google.inject.AbstractModule`,
+              // …) — if another of that node's own children, positioned AFTER the one `id` descends through,
+              // is ALSO name-shaped (a leaf identifier or a further qualified-name node), then `id` is on the
+              // NAMESPACE side of the chain, never the actual type/member — only the LAST name-shaped child of
+              // a qualified name is ever a candidate supertype, regardless of which field either side sits in.
+              if (b.qualName.has(anc.type)) {
+                let slot = prevChild;
+                while (slot.parent && slot.parent.id !== anc.id) slot = slot.parent;
+                for (const sib of anc.namedChildren)
+                  if (
+                    sib.id !== slot.id &&
+                    sib.startIndex > slot.startIndex &&
+                    (heritageIdTypeSet.has(sib.type) || b.qualName.has(sib.type))
+                  ) {
+                    inPrefix = true;
+                    break;
+                  }
+                if (inPrefix) break;
+              }
               if (!hKind) {
                 if (b.implementsClauseRe.test(anc.type)) hKind = 'impl';
                 else if (b.extendsClauseRe.test(anc.type)) hKind = 'ext';
               }
+              prevChild = anc;
               anc = anc.parent;
             }
-            if (!inArg) {
+            if (!inArg && !inPrefix) {
               if (!hKind)
                 hKind = b.implementsClauseRe.test(c2.type)
                   ? 'impl'
@@ -4491,7 +4588,51 @@ export async function learn({
     } catch {
       /* aliases are an extra channel, never a reason to fail the pass */
     }
-    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, tsAliases });
+    // issue 059: PHP monorepos (Symfony's src/Symfony/Component/Xxx/, one composer.json per component) declare
+    // PSR-4 autoload PER COMPONENT — there is no single repo-root composer.json a `use` into a sibling component
+    // could walk up to. Read every composer.json in the tree ONCE here (same allPaths/EXCL scan as tsconfig above)
+    // and merge every prefix's base dirs into one repo-wide map; `phpAutoloadResolverFor` (relations.mjs) then
+    // resolves a cross-component `use` against that union when the per-file (nearest-ancestor composer.json)
+    // resolution above already came up empty.
+    const phpAutoload = [];
+    try {
+      const merged = new Map();
+      const addComposer = composerRel => {
+        let text;
+        try {
+          text = readFileSync(join(root, composerRel), 'utf8');
+        } catch {
+          return;
+        }
+        const dir = dirname(composerRel);
+        for (const [prefix, dirs] of parsePsr4(text, dir === '.' ? '' : dir)) {
+          const arr = merged.get(prefix) || (merged.set(prefix, []).get(prefix));
+          for (const d of dirs) if (!arr.includes(d)) arr.push(d);
+        }
+      };
+      if (tree && tree.allPaths) {
+        for (const rel2 of tree.allPaths)
+          if (basename(rel2) === 'composer.json' && !HARD_EXCL.test(rel2)) addComposer(rel2);
+      } else
+        (function fc(d) {
+          let es;
+          try {
+            es = readdirSync(d, { withFileTypes: true });
+          } catch {
+            return;
+          }
+          for (const e of es) {
+            const full = join(d, e.name);
+            if (EXCL.test(toPosix(relative(root, full)) + '/')) continue;
+            if (e.isDirectory()) fc(full);
+            else if (e.name === 'composer.json') addComposer(toPosix(relative(root, full)));
+          }
+        })(root);
+      for (const [prefix, dirs] of merged) phpAutoload.push({ prefix, dirs });
+    } catch {
+      /* an extra channel, never a reason to fail the pass */
+    }
+    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, tsAliases, phpAutoload });
     model.edges = edges.slice(0, 30000);
     model.edgesTruncated = Math.max(0, edges.length - 30000);
     model.moduleGraph = moduleGraph(edges, files, pkgs);
@@ -4499,6 +4640,7 @@ export async function learn({
     model.relDecls = compactDecls(files, relFacts);
     model.workspaces = workspaces;
     model.tsAliases = tsAliases;
+    model.phpAutoload = phpAutoload;
     model.csGlobal = tableFrom(files, relFacts).csGlobal;
     model.filesAll = files;
     // every tracked path, not only the code-parseable ones: placement advice and companion-file facts are pure
@@ -5937,6 +6079,7 @@ function computeArchHits({ model, root, effRel, relFact }) {
         workspaces: model.workspaces || [],
         pkgs: model.pkgs || [],
         tsAliases: model.tsAliases || [],
+        phpAutoload: model.phpAutoload || [],
         csGlobal: model.csGlobal || { usings: [], aliases: [] },
       });
       const mg = model.moduleGraph;
@@ -7874,6 +8017,68 @@ export function howEval({ model, H, root, last = 100 }) {
   };
 }
 
+// §069 (research/where-lever, `.system/research/where-ranking-design.md` §4.4) — leak subtraction for ANY
+// history-reading lever a future `where` ranker might add. `howEval` just above protects itself cheaply: it
+// drops the candidate commit from `fps` before handing history to `howCmd`, because `howCmd` matches directly
+// against `H.fps` and nothing else. A future `where`-side lever (commit-message affinity, co-change propagation,
+// a birth-place prior — the three measured on that research branch) needs the same protection, but over more of
+// `H`: those three read `H.msgAff` / `H.msgTokCommits` / `H.fileCommits` / `H.nonMegaCommits` / `H.lc`'s birth
+// records directly, not just `fps`. Left alone, such a lever sees the very commit that CREATED the candidate —
+// that commit's message and file list ARE the ground truth `whereEval` is scoring against, so the lever
+// "predicts" the answer from the question. Measured: a message-affinity lever scored `hit@3` 0.500 on
+// openzeppelin with its own commit left in, 0.000 once subtracted — up to 2× inflation.
+// Every field this function touches is a plain additive counter (one commit's contribution is exactly −1
+// wherever it added +1), so subtracting one commit's contribution is exact, not an approximation — this is NOT
+// true of `model.cochange` / `model.msgAffinity` (or `H.cochange` / `H.scopeCochange`, their un-pruned-by-model
+// but still support/confidence-FILTERED cousins on `H` itself): those are gated by a support/confidence floor or
+// an MDL cut applied before the aggregate is ever exposed, so subtracting one commit's contribution cannot
+// restore a pair the floor already dropped, and reading them here would silently stay leaky. This function
+// therefore strips `cochange`/`scopeCochange` from the returned object entirely — a lever that needs co-change
+// must rebuild it from the (now leak-subtracted) `fps`, the same way `H.pairSup` was rebuilt into `H.cochange`
+// in the first place, and a read of `.cochange` on the result throws instead of quietly returning leaky data.
+// `whereEval` has no such lever wired in today (`whereCmd`'s score is purely lexical/structural — nothing here
+// changes that), so this is currently unused by any product code path; it exists so the next lever cannot ship
+// without the one property that makes this harness trustworthy for judging it.
+export function leakSubtractedH(H, sha) {
+  if (!H) return H;
+  const self = (H.fps || []).find(fp => fp.sha === sha);
+  const fps = (H.fps || []).filter(fp => fp.sha !== sha);
+  if (!self) return { ...H, fps, cochange: undefined, scopeCochange: undefined };
+
+  const msgAff = {};
+  for (const [t, byFile] of Object.entries(H.msgAff || {})) msgAff[t] = { ...byFile };
+  const msgTokCommits = { ...(H.msgTokCommits || {}) };
+  const fileCommits = { ...(H.fileCommits || {}) };
+  const dec = (obj, k) => {
+    if (obj[k] == null) return;
+    obj[k] -= 1;
+    if (obj[k] <= 0) delete obj[k];
+  };
+  for (const t of self.toks) {
+    if (msgAff[t]) {
+      for (const f of self.files) dec(msgAff[t], f);
+      if (!Object.keys(msgAff[t]).length) delete msgAff[t];
+    }
+    dec(msgTokCommits, t);
+  }
+  for (const f of self.files) dec(fileCommits, f);
+  const nonMegaCommits = Math.max(0, (H.nonMegaCommits || 0) - 1);
+
+  // birth records: `H.lc` (per-scope lifecycle) carries no sha (§13.3's lineage remap discards it), so a scope
+  // born by THIS commit is identified the same way `whereEval`'s own truth derivation identifies it — the file
+  // half of its key is one of `self.files` and its birth timestamp equals `self.ts`. Demoted to `newFile: false`
+  // rather than deleted: every other lifecycle fact on the entry (mods/churn/author) still describes something
+  // real, only "this commit is what created it" must go dark for evaluating this one candidate.
+  let lc = H.lc;
+  if (H.lc) {
+    lc = new Map(H.lc);
+    for (const [k, L] of lc)
+      if (L.newFile && L.first === self.ts && self.files.includes(k.split('#')[0])) lc.set(k, { ...L, newFile: false });
+  }
+
+  return { ...H, fps, msgAff, msgTokCommits, fileCommits, nonMegaCommits, lc, cochange: undefined, scopeCochange: undefined };
+}
+
 // `selftest --where` (§J2.3's sibling gate) — the same automatically-derived ground truth `selftest --how` runs
 // on (real commits), asked the other question. `how` grades a prediction of which files an intent TOUCHES;
 // `where` answers "where do such things live, what is expected there, which exemplar to copy", and a commit that
@@ -7906,10 +8111,13 @@ export function howEval({ model, H, root, last = 100 }) {
 //     token with the query: the half no name matcher can win, reported BESIDE the pooled numbers, never instead
 //     of them. Together with the baseline arm that is two independent controls on the one confound this ground
 //     truth cannot remove — the query and the answer were written by the same person in the same sitting.
-// Returns { where, base, unnamed: { n, where, base }, n, silent }, each arm { hit3, mrr, place3 }: `n` is the
-// candidate count, `silent` counts candidates where `where` ranked nothing at all (a genuine no-match or the
-// concentration safeguard suppressing an untrustworthy top hit — both still count as a 0, or the gate would be
-// gameable by staying quiet on everything hard).
+// Returns { where, base, unnamed: { n, where, base }, n, silent }, each arm { hit3, mrr, place3, placeWidth }: `n`
+// is the candidate count, `silent` counts candidates where `where` ranked nothing at all (a genuine no-match or
+// the concentration safeguard suppressing an untrustworthy top hit — both still count as a 0, or the gate would
+// be gameable by staying quiet on everything hard). `place3` discounts a containment-only credit by 1/cardWidth
+// (§068) so a directory or group wide enough to cover most of the repository cannot pass as a precise hit;
+// `placeWidth` is the mean file-count of the cards actually credited, printed beside place3 so that artifact is
+// visible directly instead of requiring a researcher to dig it out by hand.
 export function whereEval({ model, H, last = 100 }) {
   const DEPTH = 10; // the ranked list is read this deep: `hit3`/`place3` are the product's OWN default `--top 3`; the rest of the depth is there so `mrr` can tell "just missed" from "nowhere at all"
   const fps = (H && H.fps) || [];
@@ -7969,6 +8177,26 @@ export function whereEval({ model, H, last = 100 }) {
     return v;
   };
   const dirOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '.');
+  // §068 — `place` was gameable by card width: a directory or group card wide enough to cover most of the
+  // repository contains the truth file almost by construction, so crediting it the same 1 a precise hit earns
+  // measures the harness's own leniency, not the ranker (found live: a candidate "card" was 64% of its repo).
+  // `cardWidth` is the number of DISTINCT files the credited card actually spans — a directory's own `files`
+  // list, or the distinct file paths behind a group/marker's member scopes — with no reference to total repo
+  // size and no tunable cutoff: a card of its own single file (== a `hit`) is width 1 and keeps full credit: the
+  // discount is purely the card's own composition, structurally derived, never a hardcoded number.
+  const cardWidth = h => {
+    if (h.type === 'directory') return (h.files && h.files.length) || 1;
+    const files = new Set((h.members || []).map(k => String(k).split('#')[0]));
+    return files.size || 1;
+  };
+  // the naive baseline's own notion of a "card" is a ranked file's immediate directory — precomputed once since
+  // it depends only on `filesAll`, not on any one candidate — so the same 1/width discount can be applied to
+  // BOTH arms and the two place@3 numbers stay comparable rather than one being graded on a coarser curve
+  const dirFileCount = new Map();
+  for (const p of filesAll) {
+    const d = dirOf(p);
+    dirFileCount.set(d, (dirFileCount.get(d) || 0) + 1);
+  }
   const rows = [];
   let silent = 0;
   for (const C of candidates) {
@@ -7983,17 +8211,28 @@ export function whereEval({ model, H, last = 100 }) {
     const { hits } = whereCmd({ model, query, top: DEPTH, mapRows: 0 }); // mapRows 0: the compact map is render-only and this reads ranks
     if (!hits.length) silent++;
     let wHit = 0,
-      wPlace = 0;
+      wPlace = 0,
+      wContainRank = 0,
+      wContainWidth = 0;
     hits.forEach((h, i) => {
       const hit = h.type === 'file' && truth.has(h.label);
-      const place =
-        hit ||
-        (h.type === 'directory'
+      const contain =
+        h.type === 'directory'
           ? C.truth.some(t => t.startsWith(h.label))
-          : (h.members || []).some(k => truth.has(String(k).split('#')[0])));
+          : (h.members || []).some(k => truth.has(String(k).split('#')[0]));
       if (hit && !wHit) wHit = i + 1;
-      if (place && !wPlace) wPlace = i + 1;
+      if ((hit || contain) && !wPlace) wPlace = i + 1;
+      if (contain && !hit && !wContainRank) {
+        wContainRank = i + 1;
+        wContainWidth = cardWidth(h);
+      }
     });
+    // an actual hit inside top@3 is never discounted — the file that NAMES the answer is exactly what "place"
+    // was always meant to reward at full value; only a place earned purely by CONTAINMENT (no card named the
+    // file, one merely happened to be wide enough to include it) is worth 1/cardWidth, and only when no real
+    // hit also landed inside the same top-3 window
+    const wPlaceW = wHit && wHit <= 3 ? 1 : wContainRank && wContainRank <= 3 ? wContainWidth : 0;
+    const wPlaceCredit = wHit && wHit <= 3 ? 1 : wContainRank && wContainRank <= 3 ? 1 / wContainWidth : 0;
     const ranked = [];
     for (const p of filesAll) {
       const pt = tokensOfPath(p);
@@ -8005,26 +8244,59 @@ export function whereEval({ model, H, last = 100 }) {
     // specific of two equal matches), then lexical — no relevance model of any kind, that is the arm being beaten
     ranked.sort((a, b) => b[1] - a[1] || a[0].length - b[0].length || (a[0] < b[0] ? -1 : 1));
     let bHit = 0,
-      bPlace = 0;
+      bContainRank = 0,
+      bContainWidth = 0;
     ranked.slice(0, DEPTH).forEach(([p], i) => {
-      if (truth.has(p) && !bHit) bHit = i + 1;
-      if (truthDirs.has(dirOf(p)) && !bPlace) bPlace = i + 1;
+      const hit = truth.has(p);
+      const contain = truthDirs.has(dirOf(p));
+      if (hit && !bHit) bHit = i + 1;
+      if (contain && !hit && !bContainRank) {
+        bContainRank = i + 1;
+        bContainWidth = dirFileCount.get(dirOf(p)) || 1;
+      }
     });
+    const bPlaceW = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? bContainWidth : 0;
+    const bPlaceCredit = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? 1 / bContainWidth : 0;
     const nameToks = new Set(C.truth.flatMap(f => nameTokens(f).map(normTok)));
-    rows.push({ named: [...qt].some(t => nameToks.has(t)), wHit, wPlace, bHit, bPlace });
+    rows.push({
+      named: [...qt].some(t => nameToks.has(t)),
+      wHit,
+      wPlaceCredit,
+      wPlaceW,
+      bHit,
+      bPlaceCredit,
+      bPlaceW,
+    });
   }
 
   const at = (rs, f, k) => (rs.length ? rs.filter(r => r[f] && r[f] <= k).length / rs.length : 0);
   const mrr = (rs, f) => (rs.length ? rs.reduce((a, r) => a + (r[f] ? 1 / r[f] : 0), 0) / rs.length : 0);
-  const arm = (rs, h, p) => ({ hit3: at(rs, h, 3), mrr: mrr(rs, h), place3: at(rs, p, 3) });
+  // place@3 is now the MEAN of each row's (already rank- and width-resolved) credit rather than a share of
+  // nonzero ranks — a strict generalization: every row that used to contribute 1 (a real hit within top@3)
+  // still contributes exactly 1, so place3 can still never fall below hit3, it can only stop being inflated by
+  // wide, uninformative cards
+  const place3 = (rs, credit) => (rs.length ? rs.reduce((a, r) => a + r[credit], 0) / rs.length : 0);
+  // the credited card's own width, reported beside place@3 so a future researcher sees a gameable-by-width
+  // artifact (a card covering most of the repo) directly in the harness output instead of rediscovering it by
+  // hand — averaged over the rows that actually earned place credit; 0 when none did
+  const placeWidth = (rs, credit, width) => {
+    const credited = rs.filter(r => r[credit] > 0);
+    return credited.length ? credited.reduce((a, r) => a + r[width], 0) / credited.length : 0;
+  };
+  const arm = (rs, h, credit, width) => ({
+    hit3: at(rs, h, 3),
+    mrr: mrr(rs, h),
+    place3: place3(rs, credit),
+    placeWidth: placeWidth(rs, credit, width),
+  });
   const unnamed = rows.filter(r => !r.named);
   return {
-    where: arm(rows, 'wHit', 'wPlace'),
-    base: arm(rows, 'bHit', 'bPlace'),
+    where: arm(rows, 'wHit', 'wPlaceCredit', 'wPlaceW'),
+    base: arm(rows, 'bHit', 'bPlaceCredit', 'bPlaceW'),
     unnamed: {
       n: unnamed.length,
-      where: arm(unnamed, 'wHit', 'wPlace'),
-      base: arm(unnamed, 'bHit', 'bPlace'),
+      where: arm(unnamed, 'wHit', 'wPlaceCredit', 'wPlaceW'),
+      base: arm(unnamed, 'bHit', 'bPlaceCredit', 'bPlaceW'),
     },
     n: rows.length,
     silent,
@@ -8093,11 +8365,23 @@ export const TEMPLATE_DESCRIPTIVE_NOTE =
 // The {n, grammars} shape is exported (not just the prose below) so export.mjs (§027) can carry the identical
 // fact `report`/`status` print — one function computes it, so the two surfaces can never drift apart the way
 // rules/report once did (§007).
+// issue 059: PHP is NOT `relPathOnly` — its extractor resolves call/type-ref/instanceof references through
+// the symbol table like any full-featured language, not a literal-path grep — so `relSupported && !relPathOnly`
+// alone reads it as genuinely covered. But EVERY one of those resolutions still bottoms out in a PSR-4 lookup
+// (`resolvePhpFqn`, php-resolve.mjs): with no psr-4 autoload map anywhere in the tree (no composer.json, or one
+// with no `autoload`/`autoload-dev` psr-4 section) that lookup can never succeed for ANY `use`, and grain's own
+// merged map (`model.phpAutoload`, relations.mjs `phpAutoloadResolverFor`) stays empty — the same "near-total
+// real-world resolution failure reading as covered" 041 caught for path-only extractors, just keyed on repo
+// CONTENT (a PSR-4 map to consult) instead of extractor STRUCTURE. A PHP repo that pins its architecture down
+// to composer.json (Symfony, Slim, virtually every modern framework) is unaffected — flagged only when that
+// signal is entirely absent, the one case a real edge could never have existed.
 export function relCoverageData(model) {
   const uncovered = new Map(); // grammar name -> file count
+  const phpNoAutoload = !(model.phpAutoload && model.phpAutoload.length);
   for (const f of model.filesAll || []) {
     const g = EXT2GRAMMAR[extname(f)];
-    if (g && (!relSupported(g) || relPathOnly(g))) uncovered.set(g, (uncovered.get(g) || 0) + 1);
+    if (g && (!relSupported(g) || relPathOnly(g) || (g === 'php' && phpNoAutoload)))
+      uncovered.set(g, (uncovered.get(g) || 0) + 1);
   }
   const n = [...uncovered.values()].reduce((a, b) => a + b, 0);
   return { n, grammars: [...uncovered.keys()].sort() };
