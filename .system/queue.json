@@ -412,10 +412,10 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/corpus-ladder-2",
-      "state": "running",
+      "state": "merged",
       "note": "CORRECTION: my earlier 'merged' mark was wrong — the branch tip (6a65969) is only the drop-and-redispatch marker commit, coincidentally already an ancestor of main; the actual worker is still running run-corpus.mjs --ladder --only symfony-full (pid confirmed live, 30-min timeout, started 06:25) with zero commits yet. Reverted to running, reports to lead per team-lead's correction.",
-      "updated": "2026-09-02 06:31",
-      "sha": "6a65969"
+      "updated": "2026-09-02 07:24",
+      "sha": "2a13242"
     },
     {
       "id": 39,
@@ -423,9 +423,9 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/corpus-validation",
-      "state": "queued",
+      "state": "running",
       "note": "WAVE 3 (a): after instr/F-2 — run A/B/D/E instruments across corpus.json; validated-vs-parsed table into docs/validation.md; no engine change",
-      "updated": "2026-09-02 06:23"
+      "updated": "2026-09-02 07:33"
     },
     {
       "id": 40,
@@ -455,9 +455,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "fix/079",
-      "state": "queued",
-      "note": "WAVE 4 #1 where: co-change above lexical cards; judged on selftest --where + trial harness",
-      "updated": "2026-09-02 06:46"
+      "state": "dropped",
+      "note": "measured and rejected: co-change lead-line only ever names the repo hub (lib/response.js x25/32 fires on express), the same null obligations-design.md sec2 already found losing to raw co-change; selftest --where strata bit-for-bit unchanged since nothing shipped. Full write-up: .system/research/where-cochange-promotion.md",
+      "updated": "2026-09-02 07:28",
+      "sha": "6160bc5"
     },
     {
       "id": 43,
@@ -465,9 +466,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/reachability",
-      "state": "queued",
+      "state": "merged",
       "note": "WAVE 4 #2 command reachability instrument; gates new commands",
-      "updated": "2026-09-02 06:46"
+      "updated": "2026-09-02 07:32",
+      "sha": "c371383"
     },
     {
       "id": 44,
