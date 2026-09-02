@@ -507,9 +507,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/082",
-      "state": "running",
+      "state": "merged",
       "note": "HIGH: Python dotted heritage explosion, 3 bogus claims per clause; same family as 049/062",
-      "updated": "2026-09-02 08:22"
+      "updated": "2026-09-02 09:56",
+      "sha": "9c498b3"
     },
     {
       "id": 48,

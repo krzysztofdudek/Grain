@@ -253,3 +253,6 @@ HIGH acknowledged, proceed. 082/083/084 are the 049/062 heritage family — same
 
 ## 2026-09-02 · esc-17 · ticket 086
 HIGH acknowledged, proceed. 086 is the 041 family: the coverage note must NAME the secondary grammar whose files yield zero edges (not silently count it as covered), and the resolver gap itself is a separate question — floor is the truthful note (D fixture case), the resolver fix only if the grammar has a working resolver elsewhere. Disclosure fixtures (instrument D) must gain a mixed-source-set case so this cannot regress.
+
+## 2026-09-02 · recovery-point-is-queue-plus-plan-not-lead-handoff · class D
+Punkt odzysku toru 1 = .system/queue.json (stany, sha, agentId) + .system/plan.md (wave merged/audit) + tickety (status w linii 3) — wszystkie pisane narzędziami przy każdej operacji leada. handoff.json leada jest uzupełnieniem (intencja), nie warunkiem odzysku; dyrektor przestaje o niego przypominać (pięć przypomnień w jednej sesji to zły stosunek kosztu do zysku). Respawn leada z lead-brief.md czyta kolejkę i dziennik; to wystarcza.
