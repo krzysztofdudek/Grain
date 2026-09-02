@@ -2082,7 +2082,12 @@ export function docTokens(text) {
 // literals actually conform; `check` needs that count to disclose what the vote hid. Keeping it out of `out` is
 // load-bearing: `out` is spread straight into a file scope's `preds` (extractScopes), so any extra key here would
 // become a mined predicate and widen the candidate universe.
-export function lexicalPreds(tree, b, tally = null) {
+// §077 (director-approved follow-up to §042): `literals`, when supplied, is a second optional out-parameter —
+// one entry per scanned quote-style string node (`{q, body, line, endLine}`), raw and unfiltered. Like `tally`,
+// it is never mixed into `out`/spread into a scope's `preds`: it exists only so `checkFile` can compute, AFTER
+// the per-file vote, which minority-quote literals are genuine departures versus delimiter-forced (`quoteFlags`
+// below) — the exact content test §042 already measured, now reused rather than reimplemented.
+export function lexicalPreds(tree, b, tally = null, literals = null) {
   const root = tree.rootNode;
   const text = root.text || '';
   const out = {};
@@ -2132,8 +2137,12 @@ export function lexicalPreds(tree, b, tally = null) {
     dq = 0;
   for (const n of root.descendantsOfType(STR_TYPES).slice(0, 2000)) {
     const t = n.text.replace(/^[A-Za-z@$]+/, '');
-    if (t[0] === "'") sq++;
-    else if (t[0] === '"') dq++;
+    const q = t[0];
+    if (q === "'") sq++;
+    else if (q === '"') dq++;
+    else continue;
+    if (literals)
+      literals.push({ q, body: t.slice(1, -1), line: n.startPosition.row + 1, endLine: n.endPosition.row + 1 });
   }
   if (sq + dq >= 2)
     out['auto.lex:quote'] = sq >= (sq + dq) * 0.8 ? 'single' : dq >= (sq + dq) * 0.8 ? 'double' : 'mixed';
@@ -5652,8 +5661,12 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   // §042 — the instance counts behind each per-file lexical vote, for `lexTallyNote`. Taken here because `tr` is freed
   // on the next line and the governed loop below runs after that. A second walk of one already-parsed file, on the
   // check path only; extraction and mining call `lexicalPreds` without a tally and are byte-for-byte unaffected.
+  // `lexQ` (§077) is the raw per-instance quote-literal scan (`{q, body, line, endLine}`), filtered down to genuine,
+  // non-delimiter-forced violations by `quoteFlags` below — same out-parameter discipline as `lexT`, never spread
+  // into a scope's `preds`.
   const lexT = Object.create(null);
-  lexicalPreds(tr, b, lexT);
+  const lexQ = [];
+  lexicalPreds(tr, b, lexT, lexQ);
   tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
   const placeHit = placementHit(model, effRel);
@@ -5726,7 +5739,12 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
           label,
           conforms: lead === f.exp,
           fact: f,
-          tally: lexTally(f.pid, f.exp, lexT[f.pid]), // §042 — null unless the per-file vote hid departing instances
+          tally: lexTally(
+            f.pid,
+            f.exp,
+            lexT[f.pid],
+            f.pid === 'auto.lex:quote' ? quoteFlags(f.exp, lexQ) : []
+          ), // §042 — null unless the per-file vote hid departing instances; §077 — flags the genuine ones among them
           defining: isDefiningFact(medoids, f),
         });
       // the lead surface speaks for the cluster; a deviation on any sibling surface (same conform set) is still a deviation
@@ -8751,19 +8769,43 @@ const LEX_UNIT = {
   'auto.lex:decl': ['declaration', 'declarations'],
   'auto.lex:indent': ['indented line', 'indented lines'],
 };
+// §077 (director-approved follow-up to §042, esc-1): of the minority-quote literals a per-file quote vote counts
+// as departing (lexTally's `off`, below), a delimiter forced by the literal's OWN body (`'he said "hi"'` in a
+// double-quote file — the other quote would need escaping) is not a style choice; §042 already measured this
+// holds for 11/11 telescope.nvim, 19/31 flask and 2/24 express minority literals. This is the one content test
+// that tells a genuine departure apart from a forced one — reused here rather than reimplemented, and gated on
+// nothing but `exp` already being a real majority (`checkFile` only ever calls this for a certified fact, so
+// there is no new tunable: the file-level convention's own acceptance decides whether this can ever run).
+export function quoteFlags(exp, literals) {
+  if (exp !== 'single' && exp !== 'double') return []; // no per-literal flag on an uncertified/`mixed` vote
+  const majority = exp === 'single' ? "'" : '"';
+  const minority = exp === 'single' ? '"' : "'";
+  return (literals || []).filter(l => l.q === minority && !l.body.includes(majority));
+}
 // null when there is nothing to disclose; otherwise the counts AND the sentence, from one computation, so the JSON
-// field and the printed clause can never disagree about the same file.
-export function lexTally(pid, exp, tally) {
+// field and the printed clause can never disagree about the same file. `flags` (§077) is the subset of the hidden
+// instances that are genuine violations, not delimiter-forced (quoteFlags above) — always [] for the three
+// non-quote lexical surfaces, so their note is byte-for-byte unchanged from §042.
+export function lexTally(pid, exp, tally, flags = []) {
   const unit = LEX_UNIT[pid];
   if (!unit || !tally || tally[exp] === undefined) return null; // `mixed`/`other` name no instance: nothing to count
   const total = Object.values(tally).reduce((a, c) => a + c, 0);
   const conforming = tally[exp];
   const off = total - conforming;
   if (total <= 0 || off <= 0) return null; // every instance conforms: the file-level verdict is true per instance too
+  const flagged = flags.length;
+  const flagClause = flagged
+    ? `, ${flagged} flagged as a genuine violation${flagged > 1 ? 's' : ''} (not delimiter-forced): ${flags
+        .slice(0, 6)
+        .map(f => `line ${f.line}`)
+        .join(', ')}${flagged > 6 ? ` · +${flagged - 6} more` : ''}`
+    : ' and none of them is flagged';
   return {
     conforming,
     total,
-    note: ` — scored per file, not per ${unit[0]}: ${off} of ${total} ${unit[1]} here depart from it and none of them is flagged`,
+    flagged,
+    flagLines: flags.map(f => f.line),
+    note: ` — scored per file, not per ${unit[0]}: ${off} of ${total} ${unit[1]} here depart from it${flagClause}`,
   };
 }
 // §030: a `report`/`rules` TEMPLATE line (mineTemplates/profileOf — unclustered residue, never a role group) is a
