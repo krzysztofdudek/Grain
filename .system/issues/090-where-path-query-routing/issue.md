@@ -1,6 +1,6 @@
 # 090 · where <path> is not parsed as a path — tokenize destroys path structure before the ranker sees it
 
-**Status:** OPEN
+**Status:** QUEUED
 **Found by:** 080 investigation, 2026-09-02
 **Severity:** medium
 **Class:** G
