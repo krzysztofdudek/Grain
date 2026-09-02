@@ -22,6 +22,14 @@ projektową (strojone progi produkowały zapisane wypadki, które po zwinięciu 
 wróciły) — nie mandatem. Zmierzony zysk użyteczności może ją przeważyć. Wolimy wyprowadzone od strojonych;
 granicę raportujemy uczciwie jako pełnoprawny wynik.
 
+**Reguła zdolności (decyzja `measure-on-tasks-agents-fail-counterfactual-first`, po 25 przebiegach z 0 zmienionych
+diffów):** żadna nowa zdolność bez (1) zadań, na których agent **bez** graina udokumentowanie zawodzi (twarde,
+~99-krokowe przebiegi, nie łatwe replaye), i (2) tabeli kontrfaktycznej per przebieg — *w którym wywołaniu agent
+poszedł źle i jakie jedno zdanie w tym momencie by go zawróciło* — z dowolnego źródła, nie tylko graina. Dopiero z
+tej listy wynika, co grain ma umieć powiedzieć. Naprawianie mechanizmu wskazanego przez próbę bez tego rozbioru
+to dryf. Gdy taka próba jest w toku, tor 1 pracuje w trybie minimalnym (tylko HIGH); pusta lista kontrfaktyczna
+obala hipotezę „wyrocznia" i dyrektor idzie do użytkownika z inną formą produktu (strażnik działający w hooku).
+
 Ograniczenia użytkownika: klasa kosztowa agentów (Fable = tylko opinie); push — nigdy bez instrukcji.
 
 ---
