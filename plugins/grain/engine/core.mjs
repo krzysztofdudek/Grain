@@ -295,6 +295,32 @@ export function bindingFor(gname) {
       b.qualName.add(n.type);
     }
   }
+  // §083 — a TYPE-vs-EXPRESSION duality clause: a node type declaring no FIELDS of its own (node-types.json's
+  // `fields` empty) whose only two possible unnamed children are exactly the two categories `type` and
+  // `primary_expression` — Kotlin's own vocabulary for "a type reference" and "any expression". This is
+  // Kotlin's `by`-delegation clause, `explicit_delegation` (`class Foo : Bar by expr`): `Bar` fills the TYPE
+  // slot — real heritage — `expr` fills the DELEGATE slot, an arbitrary expression (a bare identifier, a
+  // function call, …) that is never a supertype, whatever shape it takes. Checked against all 23 shipped
+  // node-types.json: this exact two-element combination occurs nowhere else — not even elsewhere in Kotlin's
+  // own grammar, where every other fields-less node pairing `type` with something else pairs it with a
+  // DIFFERENT second category (`value_arguments`, `type_modifiers`, `identifier`, `variance_modifier`, …), so
+  // this never over-matches a call (`Bar(x)`, already handled by `argRe` above) or a plain `: Bar`. No
+  // language or literal node-type name is tested anywhere below — only this structural fingerprint. Every
+  // grammar without this shape (all but Kotlin) simply gets an empty set — always defined, never fires.
+  b.delegateClauseType = new Set(
+    nt
+      .filter(n => !(n.fields && Object.keys(n.fields).length))
+      .filter(n => {
+        const kids = new Set(((n.children && n.children.types) || []).map(t => t.type));
+        return kids.size === 2 && kids.has('type') && kids.has('primary_expression');
+      })
+      .map(n => n.type)
+  );
+  // the TYPE side's own closure, through the grammar's supertype chain (`type` -> user_type/function_type/…),
+  // read with the same `qnExpand` this file already uses to expand a qualified-name field's declared types —
+  // whichever of a delegate clause's two children resolves into THIS set is the real heritage half; the other
+  // is the delegate expression, excluded below regardless of its own shape (identifier, call, lambda, …).
+  b.typeSuperSet = qnExpand('type', new Set());
   // §056 — a DATA-GRAMMAR mapping container, derived from node-types.json alone (never consulted for a code
   // grammar — see the `b.data` guard at its one call site, core.mjs's value-scan walk): CONTAINER_RE below
   // already recognizes JSON's own container node-type NAME ("object"), but YAML's `block_mapping`/`flow_mapping`
@@ -838,10 +864,20 @@ function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
       prevChild = id,
       inArg = false,
       inPrefix = false,
+      inDelegate = false,
       hKind = null;
     while (anc && anc.id !== c2.id) {
       if (b.genArgRe.test(anc.type) || b.argRe.test(anc.type)) {
         inArg = true;
+        break;
+      } // `AbstractValidator<TQuery>`: TQuery sits under a type_argument_list — a slot, not a base type. `AbstractController(cc)`: cc sits under an argument list — a call operand, not a base type
+      // §083: `anc` is a TYPE-vs-EXPRESSION duality clause (Kotlin's `explicit_delegation` — `Bar by
+      // expr`) and `prevChild` is whichever of its two children `id` descends through. Only the child
+      // that resolves into the TYPE side's own supertype closure (`b.typeSuperSet`) is real heritage;
+      // the delegate expression — a bare identifier, a function call, anything — is excluded here,
+      // however it is shaped, without assuming a field name or a fixed grammar position.
+      if (b.delegateClauseType.has(anc.type) && !b.typeSuperSet.has(prevChild.type)) {
+        inDelegate = true;
         break;
       }
       if (b.qualName.has(anc.type)) {
@@ -865,7 +901,7 @@ function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
       prevChild = anc;
       anc = anc.parent;
     }
-    if (!inArg && !inPrefix) {
+    if (!inArg && !inPrefix && !inDelegate) {
       if (!hKind)
         hKind = b.implementsClauseRe.test(c2.type)
           ? 'impl'
