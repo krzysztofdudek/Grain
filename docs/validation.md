@@ -208,4 +208,33 @@ primary constructor (`class X @Inject() (deps) extends Y`), and 45 (46%, overlap
 curried implicit parameter list (`(implicit ec: ExecutionContext)`); a long tail of infix/function-type
 ascriptions (12) and inline XML literals (2) accounts for most of the rest, and 14 files carry an error under none
 of the three. Both dominant idioms are ordinary Play/Guice convention, not exotic syntax — the corpus is not
-unusual, so the gap is the grammar's.
+unusual, so the gap is the grammar's; and a data-grammar (JSON/YAML/TOML) mapping's own KEY — a service id in a
+Symfony-style `services.yml`, say — is findable by `what`, but only ever as a gated, honestly-disclosed value,
+never as a `defined:` declaration the way a `class`/`function` is (§056): a key declared once, in one file, can
+never clear the cross-file population floor (`CFG.valueDfMin`=2) that `model.valueIndex`'s value-concordance
+math is built around, so `what "foo.baz"` on such a file names the file it was seen in, why it is not indexed,
+and — since §056 — every other key sharing its own mapping (`Declared alongside: …`, read straight off the raw
+per-file scan, independent of any other key's own frequency), but it is never listed as a first-class `defined:`
+hit and carries no `used by:`/`tested by:`/`spread:` treatment. Promoting every data-grammar mapping key to a
+`defined:`-shaped declaration was considered and rejected: nothing in a JSON/YAML/TOML mapping's own shape
+distinguishes "this key names an entity referenced elsewhere" (a DI-container service id) from "this is a plain
+data field" (`name`/`version` in a package.json, a locale string's own key in a translations file) without either
+a hand-picked per-domain rule (explicitly out of scope — grain's own binding names no language, and this would
+have to name a convention) or an unbounded per-file scope count (a single translations.json can carry thousands
+of leaf keys, next to nothing like a source file's own natural size limit); the honest, gated-and-cross-
+referenced disclosure was shipped instead, general across all three data grammars, because it needed no such
+distinction. What §056 did fix, general and un-gated on any grammar name: `CONTAINER_RE`'s plain keyword list
+(`switch`/`object`/`dictionary`/`array`/`enum`/`case`/`match`, matched against a node's own TYPE NAME) already
+recognized JSON's mapping type (literally named `object`) but nothing in YAML's (`block_mapping`/`flow_mapping`)
+— so two keys in the very same YAML mapping never shared a container at all, each exactly as isolated,
+findability-wise, as an unrelated string anywhere else in the file; `bindingFor`'s new `b.dataContainer` (derived
+from node-types.json alone — a node type qualifies when its own declared children admit a `b.keyField` type, so
+JSON's `object` and YAML's `block_mapping`/`flow_mapping` are found the same way, no grammar named) closes that
+specific gap, verified directly (`tests/data-grammar-key-siblings.test.mjs`) on a 10-service YAML fixture shaped
+like round 4's own Symfony field report. Left open, on purpose, as a narrower, separately pre-existing gap first
+flagged by `tests/container-keypath.test.mjs`: YAML's `block_sequence` (unmatched — only `flow_sequence`
+incidentally qualifies) and TOML's `table`/`inline_table` (whose `pair` carries no `key` FIELD at all, only a
+`bare_key`/`quoted_key`/`dotted_key` CHILD) — a fieldless-pair heuristic was tried for TOML and dropped: TOML's
+`table`/`inline_table` themselves also admit a bare/dotted/quoted key as a DIRECT child, for their own header, so
+the same heuristic that finds TOML's `pair` also misclassifies `pair` itself as a container, stopping the
+ancestor walk at the pair instead of the table that actually holds it.

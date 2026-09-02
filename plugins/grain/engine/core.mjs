@@ -295,6 +295,26 @@ export function bindingFor(gname) {
       b.qualName.add(n.type);
     }
   }
+  // §056 — a DATA-GRAMMAR mapping container, derived from node-types.json alone (never consulted for a code
+  // grammar — see the `b.data` guard at its one call site, core.mjs's value-scan walk): CONTAINER_RE below
+  // already recognizes JSON's own container node-type NAME ("object"), but YAML's `block_mapping`/`flow_mapping`
+  // are named nothing CONTAINER_RE's plain keyword list matches. A node type qualifies here when its OWN
+  // declared children admit a `b.keyField` type (above) — JSON's `object` (child `pair`), YAML's
+  // `block_mapping`/`flow_mapping` (child `block_mapping_pair`/`flow_pair`) — so every data-grammar mapping
+  // whose pairs carry a genuine `key` FIELD is grouped the same way, with no grammar named in the derivation
+  // itself. Left unfixed, a mapping's own top-level string/number/boolean children were never grouped as
+  // siblings of the container they actually share for YAML specifically, which is what made a service id
+  // declared once in one YAML mapping indistinguishable, container-wise, from an unrelated string anywhere else
+  // in the same file (§056's own field report). TOML's `pair` carries no `key` FIELD at all (only a
+  // `bare_key`/`quoted_key`/`dotted_key` CHILD) and stays exactly as gated before this change — a real,
+  // separately pre-existing gap (already measured and flagged as "reported to the orchestrator, out of scope"
+  // by container-keypath.test.mjs) that a fieldless-pair heuristic could chase, but only by risking the walk
+  // below stopping AT the pair itself instead of the table that actually holds it (TOML's own `table`/
+  // `inline_table` nodes structurally admit a bare/dotted/quoted key as a DIRECT child too, for their own
+  // header, not just through a nested `pair`) — left for its own dedicated, separately-measured fix instead.
+  b.dataContainer = new Set(
+    nt.filter(n => ((n.children && n.children.types) || []).some(t => b.keyField.has(t.type))).map(n => n.type)
+  );
   // a grammar that declares no name+body scope at all (JSON/YAML/TOML): its files carry no name+body units to
   // mine, only a file-level scope and the raw values it names (§J7.2) — derived, not a name list: 0 for the three
   // data grammars, >=1 for every one of the 19 shipped code grammars
@@ -1516,7 +1536,12 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         inImport = true;
         break;
       }
-      if (!cont && CONTAINER_RE.test(p.type)) cont = p;
+      // §056: `b.dataContainer` is consulted ONLY for a data grammar (b.data) — a code grammar's container
+      // detection is exactly CONTAINER_RE, byte-for-byte unchanged, even though b.dataContainer's own derivation
+      // above is structural enough to also match some code-grammar object/dict/map-literal container types
+      // (JS/Python's already covered by CONTAINER_RE's "object"/"dictionary" anyway; Go/Ruby's are not, and are
+      // deliberately left as they were — this ticket's own measurement covers data grammars only).
+      if (!cont && (CONTAINER_RE.test(p.type) || (b.data && b.dataContainer.has(p.type)))) cont = p;
       p = p.parent;
     }
     if (inImport) continue;
@@ -7493,11 +7518,13 @@ export function ungrammaredFiles(model) {
 function gatedValueEvidence(model, rawScopes, q) {
   if (!rawScopes) return null;
   const byKind = new Map(); // e.k -> Set of files carrying value q under that kind
+  const contsByKind = new Map(); // e.k -> Set of container ids (§056: e.c) carrying value q under that kind
   for (const s of rawScopes) {
     if (s.kind !== 'file') continue;
     for (const e of s.vals || []) {
       if (e.v !== q) continue;
       (byKind.get(e.k) || byKind.set(e.k, new Set()).get(e.k)).add(s.rel);
+      if (e.c != null) (contsByKind.get(e.k) || contsByKind.set(e.k, new Set()).get(e.k)).add(e.c);
     }
   }
   if (!byKind.size) return null;
@@ -7507,7 +7534,31 @@ function gatedValueEvidence(model, rawScopes, q) {
   const files = [...fileSet].sort(),
     df = files.length;
   const dfMax = Math.ceil(CFG.valueDfMaxShare * (model.files || df));
-  return { valueKind: k, files, df, tooRare: df < CFG.valueDfMin, tooCommon: df > dfMax };
+  // §056 — a data-grammar KEY gated out of `model.valueIndex` by the cross-file df floor still has a real
+  // STRUCTURAL neighbor set: the OTHER keys declared in the exact same container (e.g. a YAML `services:`
+  // mapping's other service ids) — a WITHIN-file/container fact that needs no cross-file repetition to be true,
+  // unlike `model.valueSiblings` (which additionally requires each member to have separately cleared the df
+  // floor — the wrong bar for "does this container have other named entries", which is why a same-file cluster
+  // of once-only keys never reaches it). Computed directly off `rawScopes` (never off `model.valueIndex`), so it
+  // is available exactly when the df-gate disclosure below fires, independent of any other key's own frequency.
+  // Kept to `key`-kind evidence only: a `str`/`enum` sibling set is the cross-file value-concordance question
+  // `model.valueSiblings` already answers correctly, and duplicating it here would just restate that fact under
+  // a looser (single-file) bar.
+  let siblings = null;
+  if (k === 'key') {
+    const conts = contsByKind.get(k);
+    const sibSet = new Set();
+    outer: for (const s of rawScopes) {
+      if (s.kind !== 'file') continue;
+      for (const e of s.vals || []) {
+        if (e.k !== 'key' || e.v === q || e.c == null || !conts.has(e.c)) continue;
+        sibSet.add(e.v);
+        if (sibSet.size >= 12) break outer;
+      }
+    }
+    if (sibSet.size) siblings = [...sibSet].sort();
+  }
+  return { valueKind: k, files, df, tooRare: df < CFG.valueDfMin, tooCommon: df > dfMax, siblings };
 }
 // case C (§032): the query is an external/vendor type — never declared in this repository, so (a)'s declaration
 // search has no card of its own to anchor on and, left alone, silently substitutes fuzzy name-token overlap over
@@ -7925,13 +7976,19 @@ export function whatCmd({
     if (gv) {
       // the plain absence claim would be FALSE here — replaced, not appended
       const label = VALUE_KIND_LABEL[gv.valueKind] || gv.valueKind;
-      const text = gv.tooRare
-        ? `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} (${gv.files.slice(0, 3).join(', ')}) — below the ${CFG.valueDfMin}-file floor where concordance begins, so it is not indexed. Seen, not absent.`
-        : gv.tooCommon
-          ? `«${q}» was seen as a ${label} in ${gv.df} files — above the commonality ceiling (over ${Math.round(CFG.valueDfMaxShare * 100)}% of the repository), so it is treated as boilerplate rather than a distinguishing concordance. Seen, not absent.`
-          : `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} but was not retained in the value index. Seen, not absent.`;
+      // §056 — a same-container sibling list, when the gated evidence found one (see gatedValueEvidence's own
+      // note): appended, never in place of, the df-floor explanation itself.
+      const sibTxt = gv.siblings
+        ? ` Declared alongside: ${gv.siblings.slice(0, 8).map(s => `\`${s}\``).join(', ')}${gv.siblings.length > 8 ? ` (+${gv.siblings.length - 8} more)` : ''}.`
+        : '';
+      const text =
+        (gv.tooRare
+          ? `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} (${gv.files.slice(0, 3).join(', ')}) — below the ${CFG.valueDfMin}-file floor where concordance begins, so it is not indexed. Seen, not absent.`
+          : gv.tooCommon
+            ? `«${q}» was seen as a ${label} in ${gv.df} files — above the commonality ceiling (over ${Math.round(CFG.valueDfMaxShare * 100)}% of the repository), so it is treated as boilerplate rather than a distinguishing concordance. Seen, not absent.`
+            : `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} but was not retained in the value index. Seen, not absent.`) + sibTxt;
       lines.push(voice('map', text));
-      note = { kind: 'gated', value: q, valueKind: gv.valueKind, df: gv.df, files: gv.files };
+      note = { kind: 'gated', value: q, valueKind: gv.valueKind, df: gv.df, files: gv.files, siblings: gv.siblings || [] };
     } else if (ungrammaredHit) {
       // §057 — a certified-absence sibling stronger than `blindHit` below: the exact text was found, on a
       // bounded re-scan (grain.mjs's `findUngrammaredHit`), inside a tracked file whose extension has no
