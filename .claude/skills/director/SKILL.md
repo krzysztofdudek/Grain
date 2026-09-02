@@ -56,10 +56,14 @@ polarna: *grain odpowiada na więcej pytań niż miesiąc temu i lepiej niż gre
 **Nigdy nie robisz**: scalania, uruchamiania suit, zakładania ticketów z macierzy, potwierdzeń, rozdawania
 kolejki — chyba że lead nie istnieje (wtedy jesteś tymczasowym hubem i używasz `premerge.mjs`).
 
-**Lead nazywa się `grain-lead`** i jest spawnowany raz na sesję z `reference/lead-brief.md` (Agent tool,
-Sonnet, bez izolacji worktree — scala do main). Po boocie: jeśli kolejka ma pozycje `running`, a
-`SendMessage(to='grain-lead')` nie dociera, **respawnij go z tym briefem** — stan jest w plikach, lead nic
-nie trzyma w głowie. Twoja sesja może się nazywać inaczej niż zakładają briefy; dlatego kanałem pewnym są
+**Lead nazywa się `grain-lead-N`** (N rośnie przy każdym respawnie; aktualne N jest w `handoff.json`) i jest
+spawnowany z `reference/lead-brief.md` (Agent tool, Sonnet, bez izolacji worktree — scala do main).
+**Sygnałem żywotności leada nie jest wiadomość ani handoff, tylko pliki i gałęzie** (decyzja
+`lead-respawn-trigger`): gałąź pracownika z commitem ponad main przy stanie kolejki `running` przez >60 min
+bez merge, albo brak commitów leada >60 min przy niepustej kolejce → lead stanął. Wtedy: `SendMessage`
+„stand down" do starego, `queue set` na prawdę z gałęzi, `handoff write`, respawn pod N+1. Stan jest w
+plikach; respawn kosztuje jeden brief. Nie przypominaj leadowi o handoffie — punkt odzysku to `queue.json`
++ `plan.md` + tickety. Twoja sesja może się nazywać inaczej niż zakładają briefy; dlatego kanałem pewnym są
 pliki (`escalations.json`, `handoff.json`), nie wiadomości.
 
 ## Lista eskalacji — do ciebie, zawsze (lead nie decyduje; zgłasza `escalate add`)

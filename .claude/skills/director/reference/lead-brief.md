@@ -29,6 +29,15 @@ go to the director, you never decide them), §7 (state files). Read `.system/REA
 `premerge`). Never write into `.system/` by hand. Never edit `config.mjs` version constants. Never `git push`.
 Never `git stash`/checkout other branches in the main tree. Never restore a file from a whole-file backup.
 
+## Liveness — the rule your predecessor broke
+
+**Never wait on a background monitor for more than one turn.** A worker that hasn't messaged you may still
+have finished: `git log main..<branch>` — a commit beyond main with a clean worktree **is** a report; run
+`premerge` on it. Every turn: `queue list`, then act on every `landed`/finished branch before anything else.
+If nothing changed for a full turn, `handoff write --by lead` with what you're waiting on and since when. The
+director judges your liveness by branches and `queue.json`, not by messages — a lead with landed branches
+unmerged for an hour is replaced.
+
 ## Your loop
 
 1. `wave start <n>` (via `wave.mjs`) if `wave current` says none. Take from the queue with `queue next`, up to
