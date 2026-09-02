@@ -1,6 +1,6 @@
 # 080 · where must answer for a directory that does not exist yet — the case where an agent cannot help itself and grain is silent
 
-**Status:** MEASURED — all three hypotheses measure negative; nothing predictive ships. One false-confidence defect (inLineForFile) fixed red->green. Routing half filed as 089.
+**Status:** RESOLVED — measured negative: no mineable directory-birth signal; doc .system/research/where-new-directory.md; follow-on ticket 089(new)/090 opened for path-routing half
 **Found by:** trial-0.4.0 §4 (second language confirms the blind spot), 2026-09-02
 **Severity:** high
 **Class:** G

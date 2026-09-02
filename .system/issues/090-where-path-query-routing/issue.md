@@ -1,4 +1,4 @@
-# 089 · where <path> is not parsed as a path — tokenize destroys path structure before the ranker sees it
+# 090 · where <path> is not parsed as a path — tokenize destroys path structure before the ranker sees it
 
 **Status:** OPEN
 **Found by:** 080 investigation, 2026-09-02
