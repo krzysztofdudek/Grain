@@ -3031,7 +3031,7 @@ export const deviantLine = (f, max = 2) =>
         'practiced',
         `not to copy: ${f.deviants
           .slice(0, max)
-          .map(d => `${ptr(d.rel, d.line, d.endLine)} \`${d.name}\` (${deviationPhrase(f, d.obs)})`)
+          .map(d => `${ptr(d.rel, d.line, d.endLine)} ${scopeBacktick({ kind: f.kind, name: d.name })} (${deviationPhrase(f, d.obs)})`)
           .join(' · ')}${f.deviantsN > max ? ` · +${f.deviantsN - max} more` : ''}`
       )}`
     : null;
@@ -3291,6 +3291,23 @@ export const unitOf = kind =>
     finally: 'finally blocks',
     case: 'named callbacks',
   })[kind] || kind;
+// §061 — a catch/finally clause has no name field of its own in any shipped grammar (a catch/finally block is
+// anonymous by nature — it is not a named declaration); `extractScopes`' blockScope still gives it a `.name`
+// (borrowed from its enclosing method/type, "named after its owner") purely so it survives as its own mined
+// population instead of being swept up by the anonymous-scope filter (`all[i].name === '<anon>'`). That borrowed
+// string must never be SPOKEN as if it were the clause's own declared name — `catch \`findOwner\`` reads as
+// though a catch block were named `findOwner`, the exact fabrication instrument A caught on PetController.java.
+// Every render site that turns a scope into a "kind `name`" phrase for a human goes through one of these two
+// helpers instead of inlining `${s.kind} \`${s.name}\`` — so the honesty fix lives in one place.
+const ANON_SCOPE_KINDS = new Set(['catch', 'finally']);
+// for text that already says "Your ${kind} …" — genuine declarations keep exactly that shape (`method
+// \`findOwner\``); an anonymous clause reads "catch in `findOwner`", never "catch `findOwner`".
+export const scopeNamed = s => (ANON_SCOPE_KINDS.has(s.kind) ? `${s.kind} in` : s.kind) + ` \`${s.name}\``;
+// for text that names the scope with no leading kind word at all (a waiver's "`findOwner` (line 42) …") — a
+// genuine declaration stays bare (unchanged from before this fact existed); only an anonymous clause needs the
+// kind spelled out here, since without it the borrowed name alone would read as the ENCLOSING declaration itself.
+export const scopeBacktick = s =>
+  ANON_SCOPE_KINDS.has(s.kind) ? `${s.kind} in \`${s.name}\`` : `\`${s.name}\``;
 // a statement shape cut at a node boundary, never mid-token: `expression_statement(call_expression(member_expression,…))`
 export const shapeShort = (sh, max = 64) => {
   if (sh.length <= max) return sh;
@@ -5619,7 +5636,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
             obs: v,
             text: `[grain] ${voice(
               'decided',
-              `\`${s.name}\` (line ${s.line}) deliberately departs from ${verbalize(
+              `${scopeBacktick(s)} (line ${s.line}) deliberately departs from ${verbalize(
                 vf,
                 f.exemplars.map(e => e.name)
               )} — ${conformN}/${f.sraw} established do it the other way${wv.note ? ` — ${wv.note}` : ''}`,
@@ -5665,20 +5682,22 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
                     }`
                   : ''
               }\n` +
-                `  ${conformN}/${f.sraw} established ${unitOf(f.kind)} conform. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}${known ? '' : ' — a value this repo has not used before'}.${contrast}` +
+                `  ${conformN}/${f.sraw} established ${unitOf(f.kind)} conform. Your ${scopeNamed(s)} (line ${s.line}) ${deviationPhrase(vf, v)}${known ? '' : ' — a value this repo has not used before'}.${contrast}` +
                 (() => {
                   const here = scopes
                     .filter(s2 => s2 !== s && s2.kind === s.kind && s2.preds[sf.pid] === sf.exp)
                     .slice(0, 2);
                   if (here.length)
-                    return `\n  In this file, ${here.map(s2 => `\`${s2.name}\` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
+                    return `\n  In this file, ${here.map(s2 => scopeBacktick(s2) + ` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
                   const near = exs[0];
+                  // §061: an exemplar carries no `.kind` of its own (f.exemplars' shape), but every exemplar of
+                  // this fact IS of the fact's own kind by construction — same borrowed-name honesty as `here` above.
                   return near
-                    ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} \`${near.name}\`${skipLineNote(part, f, near)}.`
+                    ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} ${scopeBacktick({ kind: f.kind, name: near.name })}${skipLineNote(part, f, near)}.`
                     : '';
                 })() +
                 (exs.length
-                  ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} \`${e.name}\`${skipLineNote(part, f, e)}`).join(' · ')}`
+                  ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part, f, e)}`).join(' · ')}`
                   : '') +
                 // any note the fact carries, not only `held` — the cost of deviating is the one a reader most needs here,
                 // and it can be present on a fact whose `held.since` is not
@@ -5745,7 +5764,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         voice(
           'practiced',
           `${label} shape: ${unit} here all carry \`${sig}\`${worst.need > 1 ? ` (${worst.need}×)` : ''}\n` +
-            `  ${pf.n}/${pf.n} established ${unit} conform. Your ${s.kind} \`${s.name}\` (line ${s.line}) is missing \`${sig}\` — every one of the ${pf.n} certified members of this group carries it at least ${worst.need} time${worst.need > 1 ? 's' : ''}, yours has ${worst.got}.\n` +
+            `  ${pf.n}/${pf.n} established ${unit} conform. Your ${scopeNamed(s)} (line ${s.line}) is missing \`${sig}\` — every one of the ${pf.n} certified members of this group carries it at least ${worst.need} time${worst.need > 1 ? 's' : ''}, yours has ${worst.got}.\n` +
             `  (N of N by construction: the group's template is the anti-unification of all ${pf.n} members, so everything it carries is in every one of them — there is no partial counter behind this denominator.)`
         ),
     });
@@ -5783,8 +5802,8 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         const retiredName = (sf.pid.match(/^auto\.[a-z]+:(@?.+)$/) || [])[1];
         const head2 =
           sf.retires && promoted
-            ? `${verbalize({ pid: promoted.pid, exp: promoted.value, kind: st.kind, heritageKind: heritageKindOf(promoted.pid, model) }, [st.name])}, not \`${retiredName || sf.pid}\` — ${practicedBy(promoted)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) still carries \`${retiredName || sf.pid}\``
-            : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${s.kind} \`${s.name}\` (line ${s.line}) ${deviationPhrase(vf, v)}`;
+            ? `${verbalize({ pid: promoted.pid, exp: promoted.value, kind: st.kind, heritageKind: heritageKindOf(promoted.pid, model) }, [st.name])}, not \`${retiredName || sf.pid}\` — ${practicedBy(promoted)}. Your ${scopeNamed(s)} (line ${s.line}) still carries \`${retiredName || sf.pid}\``
+            : `${verbalize(vf, [st.name])} — ${practicedBy(sf)}. Your ${scopeNamed(s)} (line ${s.line}) ${deviationPhrase(vf, v)}`;
         steerHits.push({
           scope: s.name,
           kind: s.kind,
@@ -5914,9 +5933,11 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
     b.members.push({ name: s.name, line: s.line, endLine: s.endLine || s.line });
   });
   for (const b of buckets.values()) {
+    // §061: `m.name` for a catch/finally member is its enclosing method/type's OWN name (blockScope's borrowed
+    // "named after its owner"), never the clause's own — go through scopeBacktick so it reads as a location.
     const shown = b.members
       .slice(0, 3)
-      .map(m => `\`${m.name}\` (line ${m.line})`)
+      .map(m => `${scopeBacktick({ kind: b.kind, name: m.name })} (line ${m.line})`)
       .join(', ');
     const who = b.members.length > 3 ? `${shown} and ${b.members.length - 3} more` : shown;
     // (§010-e) an exemplar to open, reusing the SAME resolver the "See:" line under a deviation already uses
@@ -5935,7 +5956,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       text:
         `[grain] ${who} ${b.members.length === 1 ? 'is' : 'are'} new to the index — ${b.detail}. Judged against the package baseline only.` +
         (anchor
-          ? `\n  See: ${ptr(anchor.ex.rel, anchor.ex.line, anchor.ex.endLine)} \`${anchor.ex.name}\``
+          ? `\n  See: ${ptr(anchor.ex.rel, anchor.ex.line, anchor.ex.endLine)} ${scopeBacktick({ kind: anchor.f.kind, name: anchor.ex.name })}`
           : ''),
     });
   }
@@ -6197,10 +6218,12 @@ export function groupDeviations(msgs, touched = null, fileKindTouched = null) {
   for (const g of groups.values()) {
     const t = g.hits.filter(h => h.touched),
       p = g.hits.filter(h => !h.touched);
+    // §061: `h.scope` is the enclosing method/type's OWN name for a catch/finally hit (blockScope's borrowed
+    // "named after its owner"), never the clause's own — prefixed "in " so it reads as a location, not a name.
     const who = hs =>
       hs
         .slice(0, 3)
-        .map(h => `\`${h.scope}\` (line ${h.line})`)
+        .map(h => `${ANON_SCOPE_KINDS.has(h.kind) ? 'in ' : ''}\`${h.scope}\` (line ${h.line})`)
         .join(', ') + (hs.length > 3 ? ` and ${hs.length - 3} more` : '');
     const head = g.text.split('\n');
     const first = head[0];
@@ -7016,7 +7039,11 @@ export function whereCmd({
       const [rel2, kind, name] = k.split('#');
       const ln = scopeLine(P, k);
       const end = scopeLineEnd(P, k);
-      return `${ln ? ptr(rel2, ln, end) : rel2} \`${name}\` (${kind})`;
+      // §061: `name` for a catch/finally member is its enclosing method/type's OWN name — scopeBacktick already
+      // says so ("catch in `findOwner`"), so the trailing "(kind)" would just repeat it; kept only for a genuine
+      // declaration, exactly as before this fact existed.
+      const tag = ANON_SCOPE_KINDS.has(kind) ? scopeBacktick({ kind, name }) : `\`${name}\` (${kind})`;
+      return `${ln ? ptr(rel2, ln, end) : rel2} ${tag}`;
     };
     if (h.type === 'marker') {
       const ex = h.members.slice(0, 3).map(withLine);
@@ -7176,7 +7203,7 @@ export function whereCmd({
       .slice(0, 3);
     if (ex.length)
       lines.push(
-        `  pattern to copy: ${ex.map(([e, f]) => `${ptr(e.rel, e.line, e.endLine)} \`${e.name}\`${skipLineNote(part(model, h.part), f, e)}${e.why ? ` — ${e.why}` : ''}`).join(' · ')}`
+        `  pattern to copy: ${ex.map(([e, f]) => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part(model, h.part), f, e)}${e.why ? ` — ${e.why}` : ''}`).join(' · ')}`
       );
     else if (h.members) {
       const ms = h.members.slice(0, 3).map(withLine);
@@ -7674,6 +7701,11 @@ export function whatCmd({
       const P = part(model, c.part);
       for (const k of c.members || []) {
         const [rel, kind, name] = k.split('#');
+        // §061: a catch/finally member's `name` is its enclosing method/type's OWN name (blockScope's borrowed
+        // "named after its owner", §extractScopes) — the same reason the file-card branch above already excludes
+        // them; a role/marker group mixes every non-file/module kind (§induceRoles), so this branch needs the
+        // identical guard or a query for the enclosing declaration surfaces its unrelated catch/finally twin too.
+        if (kind === 'catch' || kind === 'finally') continue;
         if (!nameHits(name)) continue;
         pushDef(rel, kind, name, scopeLine(P, k), scopeLineEnd(P, k));
       }
