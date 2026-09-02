@@ -1,11 +1,13 @@
 // Tests for the claim auditor (loop v2, instrument A): tests/stress/audit-claims.mjs.
 //
 // Two kinds of coverage:
-//   1. End-to-end, against real `grain` output over a tiny planted-fabrication git repo (a `extends ns.Member`
-//      member-expression heritage bug — the same class as the now-fixed §049 constructor-arg bug, still open for
-//      a namespace-qualified base — the catch/finally scope-naming quirk, and an undisclosed no-grammar extension) and, separately,
-//      against the SAME clean fixture the rest of the suite uses (tests/fixtures/build-fixture.mjs) — real,
-//      in-repo heritage (extends BaseService/BaseDto, implements CanActivate) must NOT be flagged.
+//   1. End-to-end, against real `grain` output over a tiny planted-fabrication git repo (the catch/finally
+//      scope-naming quirk and an undisclosed no-grammar extension, plus a THIRD site — `extends ns.Member`,
+//      a member-expression heritage shape, the same class as §049's constructor-arg bug — that is now a
+//      NO-FALSE-POSITIVE case: it found §062 (the qualified-heritage bug this instrument itself flagged) and
+//      is kept here, inverted, as its regression guard) and, separately, against the SAME clean fixture the
+//      rest of the suite uses (tests/fixtures/build-fixture.mjs) — real, in-repo heritage (extends
+//      BaseService/BaseDto, implements CanActivate) must NOT be flagged.
 //   2. Direct unit tests of the exported check functions for the three claim types real-engine reproduction can't
 //      make deterministic on demand (a genuine macro-token-as-name mis-extraction, an over-claimed carrier count,
 //      a `where` answer that silently stands in for a no-grammar file) — each with a matching clean/no-false-
@@ -41,16 +43,21 @@ before(() => {
   const w = (rel, content) => { const p = join(planted, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
 
   // `extends ns.Member` (a namespace-qualified base, e.g. `extends ethers.AbstractSigner` in openzeppelin-contracts'
-  // test/helpers/signers.js) records the NAMESPACE (`lib`), not the member (`Base1`), as the supertype — the
-  // heritage-identifier scan (core.mjs extractScopes) matches node types identifier/type_identifier/… but never
-  // property_identifier, so a member_expression's object is picked up and its property never is. Same failure
-  // class as §049 (wrong identifier out of a compound heritage clause), fixed there for a constructor-call
-  // argument but NOT for this shape. Needs an actual `import` (not a same-file local binding) to reproduce — a
-  // locally-declared object was observed not to trigger it. grain only records a marker once >=3 scopes carry it
-  // (core.mjs `learn`), so three planted classes reproduces it rather than approximating it.
-  // the import target's file basename must NOT equal the namespace identifier, or this harness's own
-  // import-target allowance (a bare name matching an imported module's basename is treated as external/legitimate)
-  // would coincidentally clear `lib` for the wrong reason.
+  // test/helpers/signers.js) USED TO record the NAMESPACE (`lib`), not the member (`Base1`), as the supertype —
+  // the heritage-identifier scan (core.mjs extractScopes) matched node types identifier/type_identifier/… but
+  // never property_identifier, so a member_expression's object was picked up and its property never was. Same
+  // failure class as §049 (wrong identifier out of a compound heritage clause); §062 fixed this shape too (a
+  // qualified/member heritage node now resolves to its LAST name-shaped child, structurally, for every grammar
+  // that has the shape). This fixture is kept as §062's own regression guard: it must go on producing NO
+  // `heritageTargetReal` fabrication for these three classes, now that `Base1` — not `lib` — is what grain
+  // actually records. Needs an actual `import` (not a same-file local binding) to reproduce the ORIGINAL bug —
+  // a locally-declared object was observed not to trigger it — so the fixture keeps that shape even though it
+  // is no longer load-bearing for this test's assertion. grain only records a marker once >=3 scopes carry it
+  // (core.mjs `learn`), so three planted classes exercises it rather than approximating it. The import target's
+  // file basename must NOT equal the namespace identifier, or this harness's own import-target allowance (a
+  // bare name matching an imported module's basename is treated as external/legitimate) would coincidentally
+  // clear `lib` for the wrong reason — moot post-fix, but left intact so the fixture still reproduces the
+  // pre-062 failure verbatim if ever needed for comparison.
   w('src/nsmod.js', 'export const lib = { Base1: class {} };\n');
   w('src/heritage.js', [
     "import { lib } from './nsmod.js';",
@@ -102,13 +109,17 @@ before(() => {
 });
 after(() => { rmSync(tmp1, { recursive: true, force: true }); });
 
-test('end-to-end: the extends-namespace-member heritage fabrication is caught', () => {
+test('end-to-end (§062 regression guard): `extends lib.Base1` is checked and produces NO fabrication naming `lib`', () => {
+  // Pre-§062, grain recorded the NAMESPACE (`lib`) as Foo1/Foo2/Foo3's supertype, and this instrument correctly
+  // flagged `lib` as fabricated (undeclared, not import-shaped, not type-shaped). §062 fixed the extraction to
+  // record the actual member (`Base1`) instead — so the claim this instrument now checks is `extends Base1`,
+  // never `lib`, and `Base1` (PascalCase-shaped, unproven but plausibly external) does not fabricate either.
   const out = runAudit(planted);
-  assert.ok(out.byType.heritageTargetReal.fabricated >= 1, JSON.stringify(out.byType.heritageTargetReal));
-  const sample = out.samples.find(s => s.type === 'heritageTargetReal' && s.claim.includes('`lib`'));
-  assert.ok(sample, `expected a heritageTargetReal sample naming \`lib\`: ${JSON.stringify(out.samples)}`);
-  assert.equal(sample.file, 'src/heritage.js');
-  assert.match(sample.detail, /not declared as a type anywhere/);
+  const heritageJs = out.samples.filter(s => s.type === 'heritageTargetReal' && s.file === 'src/heritage.js');
+  assert.deepEqual(heritageJs, [], `expected no heritageTargetReal fabrication for src/heritage.js post-§062: ${JSON.stringify(heritageJs)}`);
+  assert.ok(!out.samples.some(s => s.type === 'heritageTargetReal' && s.claim.includes('`lib`')),
+    'the namespace `lib` must never be the recorded heritage target again — that was exactly the §062 bug');
+  assert.ok(out.byType.heritageTargetReal.checked >= 3, 'expected the three lib.Base1 claims to actually be exercised');
 });
 
 test('end-to-end: a catch/finally scope claiming the enclosing method\'s name at its own line is caught', () => {

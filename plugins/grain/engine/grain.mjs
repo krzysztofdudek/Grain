@@ -2746,7 +2746,10 @@ export async function main(argv) {
         if (opts.json) lines = [JSON.stringify({ ...res, asOf: stamp().replace(/^as of /, '') }, null, 1)];
         else {
           const f = x => x.toFixed(2);
-          const armLine = a => `hit@3=${f(a.hit3)} MRR=${f(a.mrr)} place@3=${f(a.place3)}`;
+          // cardW: the mean file-count of the cards that actually earned place@3 credit (§068) — surfaced right
+          // next to the score so a wide, low-precision card inflating place@3 is visible here, not something a
+          // researcher has to rediscover by hand
+          const armLine = a => `hit@3=${f(a.hit3)} MRR=${f(a.mrr)} place@3=${f(a.place3)} cardW=${a.placeWidth.toFixed(1)}`;
           lines = [
             `where: ${armLine(res.where)} · path-match baseline: ${armLine(res.base)} · n=${res.n} · nothing-ranked=${res.silent}`,
             `query does not name the file (n=${res.unnamed.n}) — where: ${armLine(res.unnamed.where)} · baseline: ${armLine(res.unnamed.base)}`,
