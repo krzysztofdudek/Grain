@@ -1,6 +1,6 @@
 # 042 · A style convention is scored per FILE, not per literal — 7 violations in a 100%-conforming file flag nothing
 
-**Status:** APPROVED — per-literal flag under the file-level convention; delimiter-forced exemption; 0 FP on telescope; fire-rate gate (see escalation ruling)
+**Status:** FIXED — honest-disclosure fix (governed[].withinFile + conformance-line clause) shipped on research/042 (merged); per-literal check flag follow-up shipped separately as ticket 077 (merged), per esc-1 ruling. Bookkeeping-only.
 **Found by:** round 3 field test, Lua/telescope.nvim, 2026-09-01
 **Severity:** medium — `check` silently passes the exact edit it exists to catch
 

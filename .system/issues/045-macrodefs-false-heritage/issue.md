@@ -1,6 +1,6 @@
 # 045 · `macroDefs` injects macro tokens as file supertypes — `what assert_eq` claims "implements/extends it in 230 files"
 
-**Status:** APPROVED, QUEUED — measured; change agreed but sequenced behind the in-flight C++/Solidity extraction fix (same function)
+**Status:** FIXED — macroDefs sup:[] deleted, macroDoc kept, shipped on fix/045 (merged, 1831/1831 green); decision macrodefs-sup-deleted-doc-kept ratifies. Bookkeeping-only: branch merged, status line never advanced.
 **Found by:** orchestrator review of §018 phase 2, then measured by that ticket's agent on 5 repos, 2026-09-01
 **Severity:** HIGH — a confident false claim, the exact failure class §018 exists to eliminate
 
