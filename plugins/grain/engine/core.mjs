@@ -9102,22 +9102,33 @@ export function report(model, { top = 15, outcomes } = {}) {
 // line whose whole point is to be skimmed, and `report`'s detailed section already exists for exactly that
 // evidence. `decisions:` is a bare count/structure line (like a header or a stamp), never a claim, so it carries
 // no voice() marker at all.
+// the module→layer grouping `map`'s text `layers:` line renders (byLayer, below) — extracted so a second caller
+// (ticket 072: `report --json`'s `layers` field) computes the identical grouping instead of re-deriving its own,
+// the same "one function computes it" discipline as relCoverageData/relCoverageNote above (§G21). Returns the
+// FULL, untruncated module list per layer, ascending by layer number, modules sorted alphabetically within — the
+// same sort mapSections' own `mods.sort()` already used; mapSections' 4-per-layer "+K more" cap is a display
+// concern layered on top by its own caller, exactly like cmdMap's `changes` field already keeps the full
+// `model.changeArchetypes` list while its OWN text line caps to 4 (§066/051).
+export function moduleLayers(model) {
+  const mg = model.moduleGraph;
+  if (!mg || !mg.nodes.length) return [];
+  const byLayer = new Map();
+  for (const n of mg.nodes) {
+    if (n.layer === undefined) continue;
+    (byLayer.get(n.layer) || byLayer.set(n.layer, []).get(n.layer)).push(n.id);
+  }
+  return [...byLayer.keys()]
+    .sort((a, b) => a - b)
+    .map(l => ({ layer: l, modules: byLayer.get(l).sort() }));
+}
 export function mapSections(model) {
   const lines = [];
   const mg = model.moduleGraph;
   if (mg && mg.nodes.length) {
-    const byLayer = new Map();
-    for (const n of mg.nodes) {
-      if (n.layer === undefined) continue;
-      (byLayer.get(n.layer) || byLayer.set(n.layer, []).get(n.layer)).push(n.id);
-    }
     const label = id => (id === '.' ? '.' : id + '/');
-    const segs = [...byLayer.keys()]
-      .sort((a, b) => a - b)
-      .map(l => {
-        const mods = byLayer.get(l).sort();
-        return `layer ${l}${l === 0 ? ' (leaves)' : ''}: ${mods.slice(0, 4).map(label).join(', ')}${mods.length > 4 ? `, +${mods.length - 4} more` : ''}`;
-      });
+    const segs = moduleLayers(model).map(({ layer: l, modules: mods }) => {
+      return `layer ${l}${l === 0 ? ' (leaves)' : ''}: ${mods.slice(0, 4).map(label).join(', ')}${mods.length > 4 ? `, +${mods.length - 4} more` : ''}`;
+    });
     if (segs.length) lines.push(voice('map', `layers: ${segs.join(' · ')}`));
   }
   if (model.concepts && model.concepts.length)
