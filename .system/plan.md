@@ -5081,3 +5081,4 @@ note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 disco
 - 2026-09-02 merged: 088 1f2efa9
 - 2026-09-02 merged: 080 aa45602
 - 2026-09-02 merged: 087 84f0188
+- 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).
