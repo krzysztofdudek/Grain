@@ -45,7 +45,11 @@ Never `git stash`/checkout other branches in the main tree. Never restore a file
 3. When a worker reports: `premerge.mjs <branch>` — every ✓ or escalate. Then `git merge --no-edit <branch>`
    on main; `cd plugins/grain && npm test`; `queue set <ticket> merged --sha <sha>`; `wave merged <ticket>
    <sha>`; `tk status NNN fixed "<one line>"`. A merge conflict → `escalate add … --kind conflict`, never
-   resolve by hand. Commit `.system/` after each merge, message ending
+   resolve by hand — **with one standing exception**: a conflict confined to `.system/queue.*`,
+   `handoff.*`, `escalations.*` or `plan.md` (the lead's files, which a worker must never commit) is resolved
+   by `git checkout --ours -- <those paths>` then `git add`, and anything the worker's copy carried is re-added
+   via the tools on main. Tell workers in every brief: under `.system/` commit only your ticket's
+   `issue.md`/`log.md`. Commit `.system/` after each merge, message ending
    `Co-Authored-By: Claude Fable 5.1 <noreply@anthropic.com>`.
 4. Anything on the §6 list → `escalate add "<why>" --kind <k> --ticket NNN --by lead`, mark the queue item
    `escalated`, move on. Do not wait for the director; keep the rest of the queue moving.
