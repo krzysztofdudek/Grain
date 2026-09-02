@@ -487,9 +487,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/085",
-      "state": "queued",
+      "state": "running",
       "note": "measure whether where's confident-wrong-on-no-grammar-file rate (8-58% across 20/22 corpus repos) is fixable without a ranking redesign, or is a boundary to disclose like the 070 zero-foothold precedent",
-      "updated": "2026-09-02 08:18"
+      "updated": "2026-09-02 08:22"
     },
     {
       "id": 46,
@@ -507,9 +507,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/082",
-      "state": "queued",
+      "state": "merged",
       "note": "HIGH: Python dotted heritage explosion, 3 bogus claims per clause; same family as 049/062",
-      "updated": "2026-09-02 08:21"
+      "updated": "2026-09-02 09:56",
+      "sha": "9c498b3"
     },
     {
       "id": 48,
@@ -517,9 +518,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/083",
-      "state": "queued",
+      "state": "running",
       "note": "HIGH: Kotlin by-delegation delegate expression recorded as bogus supertype; same family as 049",
-      "updated": "2026-09-02 08:21"
+      "updated": "2026-09-02 08:22"
     },
     {
       "id": 49,
@@ -527,9 +528,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/084",
-      "state": "queued",
+      "state": "running",
       "note": "HIGH: Rust 'static lifetime recorded as bogus trait/heritage claim; same family as 049",
-      "updated": "2026-09-02 08:21"
+      "updated": "2026-09-02 08:22"
     },
     {
       "id": 50,
@@ -537,9 +538,19 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/086",
-      "state": "queued",
+      "state": "running",
       "note": "HIGH: secondary grammar in mixed-source-set repo gets zero edges, undisclosed; same family as 041/059",
-      "updated": "2026-09-02 08:21"
+      "updated": "2026-09-02 08:22"
+    },
+    {
+      "id": 51,
+      "ticket": "088",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/088",
+      "state": "queued",
+      "note": "WAVE 4 #2a: advertisement + pre-write hook volunteers obligation; judged on the trial harness",
+      "updated": "2026-09-02 08:54"
     }
   ]
 }

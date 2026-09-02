@@ -154,6 +154,10 @@ Fazy się nakładają (pipeline). Nic nie czeka na nic poza merge'em, który cze
   musi być czysty** — izolacja worktree tworzy gałąź z nieaktualnego refu i (fala 2, dwa razy) przepuściła
   cudzy niezacommitowany diff do świeżego worktree; brudne drzewo po merge = stop i raport.
   **Liczba suity niezgodna z briefem = zła baza, stop.**
+- **Pod `.system/` pracownik commituje WYŁĄCZNIE `issues/NNN-slug/{issue.md,log.md}` swojego ticketu** —
+  nigdy `queue.*`, `handoff.*`, `escalations.*`, `plan.md` (to pliki leada; gałąź pracownika niosąca
+  `queue.json` dała konflikt strukturalnego JSON-a — rozwiązanie: `git checkout --ours` dla tych ścieżek,
+  potem `queue add` na main, jeśli czegoś brakuje).
 - **Raport końcowy zawiera `git log -1 --oneline`** wylądowanego commita — pracownicy zgłaszali „done" z pracą
   wciąż niezacommitowaną; lead commituje cudzy diff tylko po `premerge` i z wpisem `tk log NNN "lead committed"`.
 - własny worktree, gałąź nazwana, commit tam; **nigdy** `git stash`/checkout innych gałęzi/push; **nigdy**
