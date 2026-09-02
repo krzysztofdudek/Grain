@@ -6,9 +6,9 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/corpus-ladder",
-      "state": "running",
-      "note": "waiting on its Symfony full-history ladder run (the completed:false row we want)",
-      "updated": "2026-09-01 23:46"
+      "state": "dropped",
+      "note": "agent died waiting on its Symfony ladder monitor (pre-055 silent death); built on stale base 601aa23; work salvaged to scratchpad/salvage-F; redispatched as instr/F-2",
+      "updated": "2026-09-02 06:06"
     },
     {
       "id": 2,
@@ -357,9 +357,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/074",
-      "state": "queued",
+      "state": "running",
       "note": "completeness: specific vs ambient split; share renderer with 073",
-      "updated": "2026-09-02 03:48"
+      "updated": "2026-09-02 05:47"
     },
     {
       "id": 34,
@@ -400,9 +400,19 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/obligation-coverage",
-      "state": "queued",
+      "state": "running",
       "note": "after 073 merges: test harness floor + key granularity; coverage toward 0.08 without precision loss",
-      "updated": "2026-09-02 05:31"
+      "updated": "2026-09-02 05:47"
+    },
+    {
+      "id": 38,
+      "ticket": "instr/F-2 corpus-ladder",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "instr/corpus-ladder-2",
+      "state": "running",
+      "note": "port salvaged run-corpus.mjs + corpus.json onto main; run ladder; Symfony must complete or fail loudly (055)",
+      "updated": "2026-09-02 06:06"
     }
   ]
 }
