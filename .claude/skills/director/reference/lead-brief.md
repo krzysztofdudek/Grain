@@ -36,9 +36,12 @@ Never `git stash`/checkout other branches in the main tree. Never restore a file
 2. For each item: spawn a worker via the Agent tool — **Sonnet** for `fix`/`instr`, **Opus** for `measure`/
    `research` — with `isolation: "worktree"`, and a brief that includes, verbatim: the ticket's spec
    (`tk show NNN`), **"FIRST ACTION: `git merge main`; if `cd plugins/grain && npm test` is below the count in
-   `.system/cache/last-suite.json` you are on a stale base — stop and merge"**, the worker rules from
-   system.md §5, the branch name from the queue, and **"report to `grain-lead` via SendMessage, under 200
-   words, numbers not prose"**. Mark it `queue set <ticket> running`.
+   `.system/cache/last-suite.json` you are on a stale base — stop and merge; then `git status` must be
+   CLEAN or stop and report"**, the worker rules from system.md §5, the branch name from the queue, and
+   **"report to `grain-lead` via SendMessage, under 200 words, numbers not prose, ending with
+   `git log -1 --oneline` of your landed commit"**. Mark it `queue set <ticket> running`.
+   If a worker reports done but its branch has no new commit: `premerge` the branch as it stands, and if
+   green commit the diff yourself **with** `tk log NNN "lead committed the worker's uncommitted diff"`.
 3. When a worker reports: `premerge.mjs <branch>` — every ✓ or escalate. Then `git merge --no-edit <branch>`
    on main; `cd plugins/grain && npm test`; `queue set <ticket> merged --sha <sha>`; `wave merged <ticket>
    <sha>`; `tk status NNN fixed "<one line>"`. A merge conflict → `escalate add … --kind conflict`, never

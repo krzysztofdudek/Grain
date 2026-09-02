@@ -82,10 +82,18 @@ test('a pinned-identifier exact hit is unaffected: still 100%, no caveat, no sup
 });
 
 test('a genuinely well-matched multi-signal query (full word coverage, agreeing runner-ups) is unaffected', () => {
-  // "handler create dispute" (3 words) lands on the real dispute handler file at 100%, covering all three words, with
+  // "handler create dispute" (3 words) lands on the real dispute handler file, covering all three words, with
   // the runner-up groups agreeing on the same directory (src/handlers/) — the shape check (2) must NOT flag.
+  //
+  // §012/G2: this hit used to print `match 100%`. It no longer does, and should not: `handler` and `dispute` are
+  // the file's own name (full weight, unchanged), but `create` names only 2 of its 4 scopes, and a scope-name
+  // token is now worth the share of the file it names rather than a flat 1. The file still LEADS, ahead of both
+  // agreeing groups — which is what this test is about — it simply no longer claims a perfect match to a word
+  // that describes half of it. Asserting the leading position rather than a literal percentage keeps the test
+  // pinned to the property it exists for.
   const out = grain(['where', 'handler', 'create', 'dispute']);
-  assert.match(out, /«handler create dispute» → file src\/handlers\/dispute\.handler\.ts .*match 100%/);
+  const firstHit = out.split('\n').find(l => l.startsWith('map: '));
+  assert.match(firstHit, /«handler create dispute» → file src\/handlers\/dispute\.handler\.ts .*match 8\d%/);
   assert.doesNotMatch(out, /weak match:|note: the top hit|no confident match|no lexical match/);
   assert.match(out, /→ group .* — \d+ members \(package src\/handlers, match \d+%\)/, 'runner-up groups agree on src/handlers/');
 });
