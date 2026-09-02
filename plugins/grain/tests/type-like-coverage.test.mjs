@@ -23,13 +23,14 @@
 //            control-flow node that happens to be body-shaped, a DSL-style call, a construct neither regex
 //            names and whose real kind comes only from `extractScopes`'s per-instance `hasChildScope` fallback).
 //            Each QUIRK entry pins the CURRENT TYPE_LIKE_RE/FUNC_LIKE_RE verdict as a known, deliberate
-//            characterization — some are harmless (an enum constant reads as "type", which is defensible), one
-//            is a genuine pre-existing false positive (Ruby's `singleton_method`, a plain instance method,
-//            matches the word `singleton`), and several are the SAME bug class as §050 in a different grammar
-//            (a childless Java/Groovy `module_declaration`, TS `internal_module`/`module`, Ruby `module`, or a
-//            Solidity `library_declaration` holding only constants would default to kind `method` via the
-//            hasChildScope fallback, exactly like the pre-fix Scala `object_definition`) — flagged individually
-//            below and left for their own ticket rather than folded into this one.
+//            characterization — some are harmless (an enum constant reads as "type", which is defensible).
+//            §050 originally surfaced two more bug classes here and deliberately left them unfixed for their own
+//            ticket: a genuine false positive (Ruby's `singleton_method`, a plain instance method, matched the
+//            word `singleton`) and the SAME childless-companion bug §050 fixed for Scala's `object`, recurring in
+//            five more node types (Java/Groovy `module_declaration`, Ruby `module`, TS `internal_module`/
+//            `module`, Solidity `library_declaration`). §076 fixed both: `singleton_method` is now TYPE_LIKE_RE
+//            false-positive-free (reclassified below as a plain METHOD row) and the five childless companions are
+//            reclassified as TYPE rows (TYPE_LIKE_RE gained the words `module`/`library` — see core.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { bindingFor, TYPE_LIKE_RE, FUNC_LIKE_RE, isLocationNode } from '../engine/core.mjs';
@@ -85,7 +86,7 @@ const TABLE = [
   ['groovy', 'interface_declaration', T],
   ['groovy', 'method_declaration', M],
   ['groovy', 'method_invocation', Q, 'a builder-style call with a trailing closure (`task { ... }`) — matches FUNC_LIKE_RE via `method`; pre-existing, harmless (a DSL call classified as kind "method" is reasonable)'],
-  ['groovy', 'module_declaration', Q, 'RELATED GAP, out of scope for §050: a Java/Groovy module-info declaration matches neither regex, so a module with no nested class/method defaults to kind "method" via hasChildScope — the same bug class as the Scala object bug, flagged for its own ticket'],
+  ['groovy', 'module_declaration', T, '§076 — THE FIX: a Java/Groovy module-info declaration was invisible as a type before this ticket (matched neither regex), same bug class as §050\'s Scala object'],
   ['groovy', 'record_declaration', T],
   // ---- java ----
   ['java', 'annotation_type_declaration', T],
@@ -97,7 +98,7 @@ const TABLE = [
   ['java', 'enum_declaration', T],
   ['java', 'interface_declaration', T],
   ['java', 'method_declaration', M],
-  ['java', 'module_declaration', Q, 'RELATED GAP, out of scope for §050 — see groovy/module_declaration above, same construct'],
+  ['java', 'module_declaration', T, '§076 — THE FIX, same construct as groovy/module_declaration above'],
   ['java', 'record_declaration', T],
   // ---- javascript ----
   ['javascript', 'class', T],
@@ -128,8 +129,8 @@ const TABLE = [
   // ---- ruby ----
   ['ruby', 'class', T],
   ['ruby', 'method', M],
-  ['ruby', 'module', Q, 'RELATED GAP, out of scope for §050: Ruby\'s `module` (§G15b: deliberately NOT caught by MOD_LOCATION_RE, since "mod" != "module" word-bounded) matches neither regex, so a vals-only module defaults to kind "method" via hasChildScope — same bug class, flagged for its own ticket'],
-  ['ruby', 'singleton_method', Q, 'KNOWN PRE-EXISTING FALSE POSITIVE, out of scope for §050: a class method (`def self.foo; end`) matches BOTH regexes — FUNC_LIKE_RE correctly via "method", but TYPE_LIKE_RE also wrongly via "singleton" (a word meant for Kotlin/Scala/C++ singleton-shaped TYPES, colliding here with Ruby\'s unrelated "singleton method" terminology) — and typeLike wins ties in extractScopes, so this classifies as kind "type". Flagged for its own ticket, not fixed here.'],
+  ['ruby', 'module', T, '§076 — THE FIX: Ruby\'s `module` (§G15b: deliberately NOT caught by MOD_LOCATION_RE, since "mod" != "module" word-bounded) was invisible as a type before this ticket, same bug class as §050\'s Scala object'],
+  ['ruby', 'singleton_method', M, '§076 — THE FIX: a class method (`def self.foo; end`) previously ALSO matched TYPE_LIKE_RE via the word "singleton" (removed by §076 — a census of every grammar\'s b.scope set found it matched only this one node type, nowhere legitimate) — typeLike won ties in extractScopes, so this used to misclassify as kind "type" despite FUNC_LIKE_RE correctly matching "method" too'],
   // ---- rust ----
   ['rust', 'enum_item', T],
   ['rust', 'enum_variant', Q, 'a single enum variant — matches TYPE_LIKE_RE via its `enum_`-adjacent word; pre-existing, defensible'],
@@ -154,7 +155,7 @@ const TABLE = [
   ['solidity', 'enum_declaration', T],
   ['solidity', 'function_definition', M],
   ['solidity', 'interface_declaration', T],
-  ['solidity', 'library_declaration', Q, 'RELATED GAP, out of scope for §050: a Solidity `library` matches neither regex, so a library holding only constants defaults to kind "method" via hasChildScope — same bug class, flagged for its own ticket'],
+  ['solidity', 'library_declaration', T, '§076 — THE FIX: a Solidity `library` was invisible as a type before this ticket, same bug class as §050\'s Scala object'],
   ['solidity', 'modifier_definition', Q, 'a function modifier (`modifier onlyOwner() { ... }`) matches neither regex; real kind is instance-dependent (hasChildScope), typically resolving to "method" in practice since a modifier is callable-shaped — not part of §050'],
   ['solidity', 'struct_declaration', T],
   // ---- tsx / typescript (identical scope sets) ----
@@ -168,9 +169,9 @@ const TABLE = [
     [g, 'generator_function', M],
     [g, 'generator_function_declaration', M],
     [g, 'interface_declaration', T],
-    [g, 'internal_module', Q, 'RELATED GAP, out of scope for §050: a TS namespace-style `module Foo { ... }` matches neither regex, so a vals-only one defaults to kind "method" via hasChildScope — same bug class, flagged for its own ticket'],
+    [g, 'internal_module', T, '§076 — THE FIX: a TS `namespace Foo { ... }` was invisible as a type before this ticket, same bug class as §050\'s Scala object'],
     [g, 'method_definition', M],
-    [g, 'module', Q, 'RELATED GAP, out of scope for §050: an ambient `declare module "foo" { ... }` — same reasoning as internal_module above'],
+    [g, 'module', T, '§076 — THE FIX: a TS `module Foo { ... }` / ambient `declare module "foo" { ... }` — same reasoning as internal_module above'],
   ]),
   // ---- zig ----
   ['zig', 'function_declaration', M],
@@ -205,22 +206,13 @@ const QUIRK_EXPECT = {
   'groovy/enhanced_for_statement': { type: false, func: false },
   'groovy/enum_constant': { type: true, func: false },
   'groovy/method_invocation': { type: false, func: true },
-  'groovy/module_declaration': { type: false, func: false },
   'java/enhanced_for_statement': { type: false, func: false },
   'java/enum_constant': { type: true, func: false },
-  'java/module_declaration': { type: false, func: false },
   'php/catch_clause': { type: false, func: false },
-  'ruby/module': { type: false, func: false },
-  'ruby/singleton_method': { type: true, func: true }, // the known false positive — TYPE_LIKE_RE wrongly ALSO matches (func:true is correct on its own; typeLike wins ties in extractScopes)
   'rust/enum_variant': { type: true, func: false },
   'rust/struct_expression': { type: true, func: false }, // matches at the regex level; excluded downstream by the `!expression` guard (see rust-struct-expression-mod-not-type.test.mjs)
   'scala/given_definition': { type: false, func: false },
-  'solidity/library_declaration': { type: false, func: false },
   'solidity/modifier_definition': { type: false, func: false },
-  'tsx/internal_module': { type: false, func: false },
-  'tsx/module': { type: false, func: false },
-  'typescript/internal_module': { type: false, func: false },
-  'typescript/module': { type: false, func: false },
 };
 test('every QUIRK-bucket entry matches its pinned, documented characterization exactly', () => {
   for (const [g, t, bucket] of TABLE) if (bucket === Q) {
