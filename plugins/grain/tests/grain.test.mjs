@@ -300,7 +300,11 @@ test('§067a: no advertised session-context command line opens with the runtime 
 // standing rule is that the command must first certify an answer often enough to deserve the slot, measured by its
 // own `selftest` — `obligation` (coverage 0.096 corpus-wide; 0 of 86 birth events on this repo; 0 of 8 on the
 // 0.4.0 trial's real file creations) and `completeness` (answers for 6-17% of files) do not yet, which is why
-// neither is named here. Reach bought ahead of an answer is spent trust (question-catalog §4).
+// neither takes one of the four PRE-em-dash roster slots this test checks. Reach bought ahead of an answer is
+// spent trust (question-catalog §4). §088 acts on the same measurement from the other side: since the law is
+// "named in the SessionStart text" (not "occupies a roster slot"), it folds `obligation`/`completeness` in as
+// trigger-moment asides AFTER the em-dash on the `where`/`check` lines — reachable per the same law, at zero
+// new lines and zero roster slots spent, so this test's roster assertion is untouched by that change.
 test('§081: the SessionStart advertisement names exactly the roster it was measured with, in order', () => {
   const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
   // a command line is an indented line opening with the conceptual name; everything before the em-dash is the
@@ -313,6 +317,22 @@ test('§081: the SessionStart advertisement names exactly the roster it was meas
   // the conditional lines may name more, but never a command absent from the dispatcher
   const known = new Set(['where', 'how', 'what', 'map', 'obligation', 'check', 'review', 'spectrum', 'explain', 'status', 'report', 'rules', 'export', 'decide', 'seed', 'refresh', 'completeness', 'selftest']);
   for (const c of advertised) assert.ok(known.has(c), `advertises a command the dispatcher does not have: ${c}`);
+});
+
+// §088 — the concrete follow-up: `obligation`/`completeness` are named at their own trigger moment in the
+// SessionStart text itself (the surface ticket 081 measured 61 of 63 real calls went to), not merely in a
+// surface an agent rarely reads. Folded as asides on the `where`/`check` lines rather than new bullets, so the
+// §081 roster test above and the <=9-line budget (concepts-and-changes-map.test.mjs) are both unaffected.
+test('§088: obligation and completeness are named in the SessionStart text at their own trigger moment', () => {
+  const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
+  const whereLine = ctx.split('\n').find(l => l.includes('grain where <intent words>'));
+  assert.ok(whereLine, `expected a where line: ${ctx}`);
+  assert.match(whereLine, /before creating a source file/, `where's own trigger-moment phrasing must still be present: ${whereLine}`);
+  assert.match(whereLine, /`grain obligation <path>`/, `obligation must be named on where's own trigger-moment line: ${whereLine}`);
+  const checkLine = ctx.split('\n').find(l => l.includes('grain check <file>'));
+  assert.ok(checkLine, `expected a check line: ${ctx}`);
+  assert.match(checkLine, /before you consider the change done/i, `completeness needs its own trigger-moment phrasing: ${checkLine}`);
+  assert.match(checkLine, /`grain completeness <file>`/, `completeness must be named on that trigger-moment line: ${checkLine}`);
 });
 
 test('mutation harness: planted deviations are detected, conforming exemplars stay silent', () => {
