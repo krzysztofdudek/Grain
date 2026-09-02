@@ -1,0 +1,596 @@
+{
+ "date": "2026-09-02",
+ "engineSha": "6a65969",
+ "engineVersion": "grain 0.3.0 · extractor g31 · grammars bash, c, c_sharp, cpp, go, groovy, java, javascript, json, kotlin, lua, php, properties, python, ruby, rust, scala, solidity, toml, tsx, typescript, yaml, zig",
+ "timeoutMs": 1800000,
+ "corpusPath": "plugins/grain/tests/stress/corpus.json",
+ "repos": [
+  {
+   "id": "leveldb",
+   "lang": "cpp",
+   "axes": [
+    "types-in-headers",
+    "cpp-header-ext-routing-risk"
+   ],
+   "bucket": "1k",
+   "sizePinned": {
+    "commits": 447,
+    "files": 154
+   },
+   "shaPinned": "7ee830d02b623e8ffe0b95d59a74db1e58da04c5",
+   "shaActual": "7ee830d02b623e8ffe0b95d59a74db1e58da04c5",
+   "shaMismatch": false,
+   "steps": [
+    {
+     "label": "report",
+     "ms": 121,
+     "rssMb": 62,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "map",
+     "ms": 119,
+     "rssMb": 62,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "where",
+     "ms": 132,
+     "rssMb": 69,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "what",
+     "ms": 297,
+     "rssMb": 154,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "how",
+     "ms": 359,
+     "rssMb": 102,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "check",
+     "ms": 177,
+     "rssMb": 83,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "explain",
+     "ms": 801,
+     "rssMb": 284,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --how",
+     "ms": 521,
+     "rssMb": 133,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --where",
+     "ms": 424,
+     "rssMb": 127,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --extract",
+     "ms": 873,
+     "rssMb": 159,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "obligation",
+     "ms": 121,
+     "rssMb": 62,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    }
+   ],
+   "coldBuild": {
+    "ms": 13165,
+    "rssMb": 716,
+    "code": 0,
+    "signal": null,
+    "completed": true,
+    "reason": null,
+    "errTail": "[grain] walking full history\n[grain]   blobs 400/1689\n[grain]   blobs 800/1689\n[grain]   blobs 1200/1689\n[grain]   blobs 1600/1689\n[grain]   blobs 1689/1689\n[grain] [history] 387 commits, 1689 blobs (19 cached, 1670 parsed), 11.3s\n[grain] indexing /private/tmp/claude-501/-Users-me-repos-github-com-krzysztofdudek-Grain/c143e2fb-fb0d-4914-9d6c-1869f930a863/scratchpad/leveldb-test/leveldb (full history)\n[grain] extracted 134 files (HEAD tree): 0 from cache, 134 parsed\n[grain] indexed in 13.1s: 9 conventions, 2068 scopes, learn 1641ms"
+   }
+  },
+  {
+   "id": "kotlin-datetime",
+   "lang": "kotlin",
+   "axes": [
+    "heritage-constructor-args"
+   ],
+   "bucket": "1k",
+   "sizePinned": {
+    "commits": 395,
+    "files": 909
+   },
+   "shaPinned": "e8019ead59ba44bb300c12108185f0f69a6ebd2c",
+   "shaActual": "e8019ead59ba44bb300c12108185f0f69a6ebd2c",
+   "shaMismatch": false,
+   "steps": [
+    {
+     "label": "report",
+     "ms": 139,
+     "rssMb": 68,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "map",
+     "ms": 137,
+     "rssMb": 68,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "where",
+     "ms": 163,
+     "rssMb": 85,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "what",
+     "ms": 392,
+     "rssMb": 215,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "how",
+     "ms": 450,
+     "rssMb": 137,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "check",
+     "ms": 194,
+     "rssMb": 93,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "explain",
+     "ms": 975,
+     "rssMb": 287,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --how",
+     "ms": 1737,
+     "rssMb": 373,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --where",
+     "ms": 1395,
+     "rssMb": 306,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --extract",
+     "ms": 1235,
+     "rssMb": 171,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "obligation",
+     "ms": 129,
+     "rssMb": 68,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    }
+   ],
+   "coldBuild": {
+    "ms": 10843,
+    "rssMb": 1235,
+    "code": 0,
+    "signal": null,
+    "completed": true,
+    "reason": null,
+    "errTail": "[grain]   blobs 800/2195\n[grain]   blobs 1200/2195\n[grain]   blobs 1600/2195\n[grain]   blobs 2000/2195\n[grain]   blobs 2195/2195\n[grain] [history] 395 commits, 2195 blobs (82 cached, 2113 parsed), 8.1s\n[grain] indexing /private/tmp/claude-501/-Users-me-repos-github-com-krzysztofdudek-Grain/c143e2fb-fb0d-4914-9d6c-1869f930a863/scratchpad/newclones/kotlin-datetime (full history)\n[grain]   parsed 200/251\n[grain] extracted 251 files (HEAD tree): 0 from cache, 251 parsed\n[grain] indexed in 10.7s: 29 conventions, 3133 scopes, learn 2420ms"
+   }
+  },
+  {
+   "id": "CleanArchitecture",
+   "lang": "c_sharp",
+   "axes": [
+    "attributes"
+   ],
+   "bucket": "1k",
+   "sizePinned": {
+    "commits": 939,
+    "files": 258
+   },
+   "shaPinned": "6bc6f89403c75a9bd2da407f1f2e13f14a973874",
+   "shaActual": "6bc6f89403c75a9bd2da407f1f2e13f14a973874",
+   "shaMismatch": false,
+   "steps": [
+    {
+     "label": "report",
+     "ms": 126,
+     "rssMb": 63,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "map",
+     "ms": 122,
+     "rssMb": 62,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "where",
+     "ms": 134,
+     "rssMb": 69,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "what",
+     "ms": 301,
+     "rssMb": 119,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "how",
+     "ms": 369,
+     "rssMb": 109,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "check",
+     "ms": 169,
+     "rssMb": 71,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "explain",
+     "ms": 243,
+     "rssMb": 116,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --how",
+     "ms": 722,
+     "rssMb": 191,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --where",
+     "ms": 483,
+     "rssMb": 138,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --extract",
+     "ms": 1188,
+     "rssMb": 222,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "obligation",
+     "ms": 146,
+     "rssMb": 63,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    }
+   ],
+   "coldBuild": {
+    "ms": 5334,
+    "rssMb": 549,
+    "code": 0,
+    "signal": null,
+    "completed": true,
+    "reason": null,
+    "errTail": "[grain]   blobs 400/2179\n[grain]   blobs 800/2179\n[grain]   blobs 1200/2179\n[grain]   blobs 1600/2179\n[grain]   blobs 2000/2179\n[grain]   blobs 2179/2179\n[grain] [history] 846 commits, 2179 blobs (610 cached, 1569 parsed), 3.9s\n[grain] indexing /private/tmp/claude-501/-Users-me-repos-github-com-krzysztofdudek-Grain/c143e2fb-fb0d-4914-9d6c-1869f930a863/scratchpad/wcorpus/CleanArchitecture (full history)\n[grain] extracted 187 files (HEAD tree): 0 from cache, 187 parsed\n[grain] indexed in 5.2s: 17 conventions, 707 scopes, learn 1189ms"
+   }
+  },
+  {
+   "id": "symfony-shallow",
+   "lang": "php",
+   "axes": [
+    "monorepo",
+    "attributes",
+    "config-volume",
+    "shallow-clone-boundary"
+   ],
+   "bucket": "boundary",
+   "sizePinned": {
+    "commits": 1,
+    "files": 14887
+   },
+   "shaPinned": "5e9597f80aa6570bfea5fb3852362d8b41b48240",
+   "shaActual": "5e9597f80aa6570bfea5fb3852362d8b41b48240",
+   "shaMismatch": false,
+   "steps": [
+    {
+     "label": "report",
+     "ms": 413,
+     "rssMb": 310,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "map",
+     "ms": 394,
+     "rssMb": 306,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "where",
+     "ms": 1420,
+     "rssMb": 527,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "what",
+     "ms": 2382,
+     "rssMb": 1984,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "how",
+     "ms": 460,
+     "rssMb": 306,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "check",
+     "ms": 459,
+     "rssMb": 359,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "explain",
+     "ms": 1336,
+     "rssMb": 1903,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --how",
+     "ms": 472,
+     "rssMb": 306,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --where",
+     "ms": 472,
+     "rssMb": 306,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "selftest --extract",
+     "ms": 60635,
+     "rssMb": 727,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    },
+    {
+     "label": "obligation",
+     "ms": 893,
+     "rssMb": 340,
+     "code": 0,
+     "signal": null,
+     "completed": true,
+     "reason": null
+    }
+   ],
+   "coldBuild": {
+    "ms": 116530,
+    "rssMb": 4730,
+    "code": 0,
+    "signal": null,
+    "completed": true,
+    "reason": null,
+    "errTail": "[grain]   parsed 11200/12476\n[grain]   parsed 11400/12476\n[grain]   parsed 11600/12476\n[grain]   parsed 11800/12476\n[grain]   parsed 12000/12476\n[grain]   parsed 12200/12476\n[grain]   parsed 12400/12476\n[grain] extracted 12476 files (HEAD tree): 0 from cache, 12476 parsed\n[grain] [learn] twin profile cap 200: dropped 672 thinnest profile(s)\n[grain] indexed in 116.2s: 0 conventions, 86785 scopes, learn 112972ms"
+   }
+  },
+  {
+   "id": "symfony-full",
+   "lang": "php",
+   "axes": [
+    "monorepo",
+    "attributes",
+    "config-volume"
+   ],
+   "bucket": "100k",
+   "sizePinned": {
+    "commits": 82946,
+    "files": 14887
+   },
+   "shaPinned": "5e9597f80aa6570bfea5fb3852362d8b41b48240",
+   "shaActual": "5e9597f80aa6570bfea5fb3852362d8b41b48240",
+   "shaMismatch": false,
+   "steps": [
+    {
+     "label": "report",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "map",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "where",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "what",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "how",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "check",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "explain",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "selftest --how",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "selftest --where",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "selftest --extract",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    },
+    {
+     "label": "obligation",
+     "skipped": true,
+     "reason": "cold build did not complete"
+    }
+   ],
+   "coldBuild": {
+    "ms": 1800024,
+    "rssMb": null,
+    "code": null,
+    "signal": "SIGTERM",
+    "completed": false,
+    "reason": "timeout",
+    "errTail": "[grain]   blobs 208000/211065\n[grain]   blobs 208400/211065\n[grain]   blobs 208800/211065\n[grain]   blobs 209200/211065\n[grain]   blobs 209600/211065\n[grain]   blobs 210000/211065\n[grain]   blobs 210400/211065\n[grain]   blobs 210800/211065\n[grain]   blobs 211065/211065\n[grain] [history] fps cap 20000: dropped 21895 oldest footprint(s)"
+   }
+  }
+ ]
+}
