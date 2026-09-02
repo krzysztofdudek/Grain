@@ -1,0 +1,2 @@
+
+## 2026-09-02 01:52 — Fixed: core.mjs merges every composer.json's PSR-4 map repo-wide (model.phpAutoload); relations.mjs phpAutoloadResolverFor resolves cross-component use via that union when nearest-ancestor resolution fails. Symfony-shaped fixture: 0->1 edge. relCoverageData now also flags php when no psr-4 data exists anywhere (041 didn't catch php: not relPathOnly). 2 new e2e fixtures + 2 disclosure tests. Commit 98638e6 on fix/059.

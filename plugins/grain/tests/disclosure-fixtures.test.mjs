@@ -114,8 +114,10 @@ const cases = [
   // ---- §053: `check` carries the parse-degraded caveat; `review` (check aggregated over many files) drops it ----
   {
     name: '053: review must carry the parse-degraded caveat that check already carries for the same file',
-    todo: true, // today: check prints the caveat; review's fileFindings() (grain.mjs) never reads r.hasError at
-                // all, so an aggregated "review" of the identical file says nothing about the degraded parse
+    // fixed: cmdReview (grain.mjs) now tracks degradedRels off r.hasError — a degraded-but-otherwise-clean file
+    // is no longer dropped by the "no finding at all" skip, and its caveat is rendered per file (capped at 5, past
+    // which review prints one summary line instead of repeating the sentence under every file).
+    todo: false,
     buildRepo(tmp) {
       const repo = join(tmp, 'r'); initRepo(repo);
       padFiller(repo, 'src');
@@ -135,9 +137,8 @@ const cases = [
   // call/nameshape — see mutate() in core.mjs) ----
   {
     name: '046: mutate-test must say WHY it planted nothing instead of an unexplained 0/0/0/0',
-    todo: true, // today: an empty `cands` list (core.mjs mutateTest — only auto.deco/extends/imp/call/nameshape
-                // facts are candidates) silently yields {detected:0,missed:0,silentOK:0,falseFire:0,unsupported:0,
-                // cases:[]} even though `status` reports real, certified conventions in the same model
+    todo: false, // fixed: mutateTest (core.mjs) now counts a certified fact of a non-plantable pid kind into
+                 // `unsupported` instead of dropping it before the candidate loop even runs (§046)
     buildRepo(tmp) {
       const repo = join(tmp, 'r'); initRepo(repo);
       // varied name shapes (camel/Pascal/snake/SCREAMING/single-letter) so no one naming shape dominates enough
