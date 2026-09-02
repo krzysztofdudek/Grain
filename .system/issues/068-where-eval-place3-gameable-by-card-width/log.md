@@ -1,2 +1,6 @@
 
 ## 2026-09-01 23:49 — Lever A showed +0.273 place@3 that was entirely an artifact: the credited card was lua/telescope/, 64% of that repository. Fix the instrument: weight place@3 credit by 1/cardWidth (or require the card to be below a measured median width) and report credited-card width alongside. This is an instrument defect: it makes the harness bless wide cards.
+
+## 2026-09-02 01:37 — The research/where-lever worktree's uncommitted core.mjs diff already contains the card-width instrumentation (unnamed.placeWidthMed, ~4 lines) with the measured motivation: lever A bought place@3 +0.273 by crediting lua/telescope/ (55 of telescope's 86 files) on 17 of its 22 credits. Take it from there rather than rebuild; the worktree is .claude/worktrees/agent-adb7b404bf5e5f876.
+
+## 2026-09-02 01:50 — Fixed: place@3 containment credit now discounted by 1/cardWidth (distinct files the credited card spans), applied to both where and baseline arms; a real hit stays full credit so place3>=hit3 holds. Reports placeWidth (mean credited-card width) alongside place@3 in JSON/text output. 3 new unit tests (hand-built model, no git): 20-file card->1/20, 2-file card->1/2, 1-file card(hit)->1. Full suite green (1983 tests, 1981 pass, 2 pre-existing todo unrelated to this fix). Commit 37d3072 on fix/068.
