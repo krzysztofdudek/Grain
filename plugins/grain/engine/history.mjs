@@ -570,6 +570,20 @@ function replay(state, events, commits, cache) {
           .filter(t2 => t2.length >= 3 && !QSTOP.has(t2) && !DOC_STOP.has(t2))
           .slice(0, 12)
       : [];
+    // §071 — `toks` above is exactly what `tokenize`+`normTok` were built to do: split `sendStatus` into `send`
+    // + `status` so lexical matching is case/word-shape-agnostic. That is also why NO query built from `toks`
+    // alone can ever contain the verbatim identifier `sendStatus` — `selftest --where`'s own harness therefore
+    // has a hard 0% ceiling on measuring `where`'s symbol-first pin (`whereCmd`'s `qraw`/`c.exact`, core.mjs
+    // ~6877), a real capability that already works when a human types `where sendStatus`. `symToks` is a SECOND,
+    // additive query-construction mode, computed straight off the raw message text before `tokenize` ever
+    // touches it: any whitespace-delimited word shaped like an identifier (an inner lower→upper boundary as in
+    // `sendStatus`, or an inner underscore as in `send_status`) is kept whole, case and all, alongside — never
+    // instead of — `toks`. Nothing here reads or writes `msgAff`/`msgTokCommits`/any other aggregate, so there is
+    // no new leak surface to subtract (§069's `leakSubtractedH` needs no change): this is per-commit data a
+    // consumer (`whereEval`) can fold into ITS OWN candidate's query, exactly the way `toks` already is.
+    const symToks = c.msg
+      ? [...new Set((c.msg.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter(w => w.length >= 4 && (/[a-z][A-Z]/.test(w) || /[A-Za-z0-9]_[A-Za-z0-9]/.test(w))))].slice(0, 12)
+      : [];
     // commit-message affinity: every commit is a translation pair — natural language on one side, the touched files on
     // the other. This is the repo teaching its own vocabulary ("endpoint" ↔ the controller files); a single-file commit
     // is the SHARPEST pair there is, so the gate is only the bulk cap, not the co-change pair minimum
@@ -599,6 +613,7 @@ function replay(state, events, commits, cache) {
         agent: c.agent,
         fix: c.fix,
         toks,
+        symToks,
         files: fs2,
         added: added2,
         scopes: scopeKeys,

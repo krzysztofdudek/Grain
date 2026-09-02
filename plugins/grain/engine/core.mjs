@@ -518,6 +518,26 @@ const wordBounded = words => new RegExp('(?:^|_)(?:' + words.join('|') + ')(?:_|
 // C/C++/Rust/TS/Solidity — the bulk of TYPE_LIKE_RE's existing entries — and gains only the two Scala node types
 // already covered here; "declares no `parameters` field" wrongly promotes Java/Groovy's `record_declaration`,
 // which legitimately carries one for its primary constructor.
+// §076 — the SAME childless-companion gap §050 fixed for Scala's `object`, now for five more node types that
+// §050's own type-like-coverage.test.mjs surfaced: a bodiless/vals-only Java or Groovy `module_declaration`, Ruby
+// `module`, TS `internal_module`/`module` (`namespace Foo {}`/`module Foo {}`), and Solidity `library_declaration`
+// all fell through to kind `method` for want of a nested child scope, exactly like the pre-fix Scala `object`.
+// Fixed the same way: add the bare words `module` and `library` to this list. Verified against all 23 shipped
+// node-types.json (tests/type-like-coverage.test.mjs) by the same method as §050 — since TYPE_LIKE_RE only ever
+// runs on a node already gated through `isScope` (b.scope), the census that matters is over EACH GRAMMAR'S OWN
+// `b.scope` set, not the grammar's raw node-types.json: `module` occurs in exactly seven b.scope node types
+// across all 23 grammars — groovy/java `module_declaration`, ruby `module`, tsx/typescript `internal_module` and
+// `module` — every one of them genuinely type-like, and no others (C#'s own `module` token and Python's root
+// `module` node, and Java/Groovy's unrelated `module_directive`/`module_body`/`requires_module_directive`/etc.,
+// are none of them b.scope members, so they never reach this regex at all). `library` occurs in exactly one
+// b.scope node type anywhere — Solidity's `library_declaration` — so it carries no collision risk by construction.
+// Also removed the pre-existing `singleton` entry: a census of all 23 grammars' b.scope sets found it matches
+// exactly ONE node type anywhere — Ruby's `singleton_method` (a `def self.foo` class method) — which is a
+// METHOD, not a type, and was a straight false positive (typeLike wins ties in extractScopes below, so this
+// singleton_method was misclassified as kind `type` despite FUNC_LIKE_RE also correctly matching it via
+// `method`). Ruby's own `singleton_class` (`class << self`) and Scala's `singleton_type` are NOT b.scope members
+// (no name+body of their own) and were never reachable through this entry either, so `singleton` had zero
+// legitimate match in the entire corpus — removing it fixes the false positive with no loss of coverage anywhere.
 export const TYPE_LIKE_RE = wordBounded([
   'class',
   'struct',
@@ -530,7 +550,8 @@ export const TYPE_LIKE_RE = wordBounded([
   'impl_item',
   'type_declaration',
   'companion',
-  'singleton',
+  'module',
+  'library',
   'union',
   'contract',
 ]);
@@ -805,6 +826,16 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   const scopes = [];
   const imports = [];
   const isScope = n => b.scope.has(n.type);
+  // §075 — a catch/finally clause's collection below searches bodyN's WHOLE subtree (descendantsOfType does not
+  // stop at a nested scope's own boundary), so the SAME physical clause is found once when its enclosing METHOD
+  // is walked and again when that method's enclosing CLASS is walked (and again for every further ancestor up
+  // the chain) — one clause in the source, one scope entry per body-bearing ancestor above it. The walk visits an
+  // ancestor strictly before any of its descendants (a scope's own catch/finally loop runs before its children
+  // are pushed onto `treeStack`), so the NEAREST enclosing scope always claims a given clause LAST. Keying each
+  // claim by the clause's own node id and letting a later claim overwrite an earlier one — instead of pushing a
+  // second `scopes` entry — leaves exactly one entry per physical clause, claimed by its nearest enclosing scope,
+  // regardless of nesting depth or grammar (no per-language special case: purely a fact about tree structure).
+  const catchOwnerIdx = new Map();
   // iterative pre-order, left-to-right traversal (no call-stack frame per AST level — a recursive `walk` overflowed
   // the stack on a deeply left-nested `binary_expression`, one JS frame per operator): children are pushed in
   // REVERSE order so the first child pops first, preserving the exact visitation order `scopes` array order,
@@ -1313,7 +1344,14 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
           'defer_statement',
         ])) {
           const bkind = /finally|ensure/.test(blk.type) ? 'finally' : 'catch';
-          scopes.push(blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope));
+          const blkScope = blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope);
+          // §075 dedup (see the comment on `catchOwnerIdx` above): a later claim on the same physical clause
+          // replaces the earlier one in place, rather than adding a second `scopes` entry beside it.
+          if (catchOwnerIdx.has(blk.id)) scopes[catchOwnerIdx.get(blk.id)] = blkScope;
+          else {
+            catchOwnerIdx.set(blk.id, scopes.length);
+            scopes.push(blkScope);
+          }
         }
       pushKids(bodyN || ch, treeStack);
     } else {
@@ -2044,7 +2082,12 @@ export function docTokens(text) {
 // literals actually conform; `check` needs that count to disclose what the vote hid. Keeping it out of `out` is
 // load-bearing: `out` is spread straight into a file scope's `preds` (extractScopes), so any extra key here would
 // become a mined predicate and widen the candidate universe.
-export function lexicalPreds(tree, b, tally = null) {
+// §077 (director-approved follow-up to §042): `literals`, when supplied, is a second optional out-parameter —
+// one entry per scanned quote-style string node (`{q, body, line, endLine}`), raw and unfiltered. Like `tally`,
+// it is never mixed into `out`/spread into a scope's `preds`: it exists only so `checkFile` can compute, AFTER
+// the per-file vote, which minority-quote literals are genuine departures versus delimiter-forced (`quoteFlags`
+// below) — the exact content test §042 already measured, now reused rather than reimplemented.
+export function lexicalPreds(tree, b, tally = null, literals = null) {
   const root = tree.rootNode;
   const text = root.text || '';
   const out = {};
@@ -2094,8 +2137,12 @@ export function lexicalPreds(tree, b, tally = null) {
     dq = 0;
   for (const n of root.descendantsOfType(STR_TYPES).slice(0, 2000)) {
     const t = n.text.replace(/^[A-Za-z@$]+/, '');
-    if (t[0] === "'") sq++;
-    else if (t[0] === '"') dq++;
+    const q = t[0];
+    if (q === "'") sq++;
+    else if (q === '"') dq++;
+    else continue;
+    if (literals)
+      literals.push({ q, body: t.slice(1, -1), line: n.startPosition.row + 1, endLine: n.endPosition.row + 1 });
   }
   if (sq + dq >= 2)
     out['auto.lex:quote'] = sq >= (sq + dq) * 0.8 ? 'single' : dq >= (sq + dq) * 0.8 ? 'double' : 'mixed';
@@ -5770,8 +5817,12 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   // §042 — the instance counts behind each per-file lexical vote, for `lexTallyNote`. Taken here because `tr` is freed
   // on the next line and the governed loop below runs after that. A second walk of one already-parsed file, on the
   // check path only; extraction and mining call `lexicalPreds` without a tally and are byte-for-byte unaffected.
+  // `lexQ` (§077) is the raw per-instance quote-literal scan (`{q, body, line, endLine}`), filtered down to genuine,
+  // non-delimiter-forced violations by `quoteFlags` below — same out-parameter discipline as `lexT`, never spread
+  // into a scope's `preds`.
   const lexT = Object.create(null);
-  lexicalPreds(tr, b, lexT);
+  const lexQ = [];
+  lexicalPreds(tr, b, lexT, lexQ);
   tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
   const placeHit = placementHit(model, effRel);
@@ -5844,7 +5895,12 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
           label,
           conforms: lead === f.exp,
           fact: f,
-          tally: lexTally(f.pid, f.exp, lexT[f.pid]), // §042 — null unless the per-file vote hid departing instances
+          tally: lexTally(
+            f.pid,
+            f.exp,
+            lexT[f.pid],
+            f.pid === 'auto.lex:quote' ? quoteFlags(f.exp, lexQ) : []
+          ), // §042 — null unless the per-file vote hid departing instances; §077 — flags the genuine ones among them
           defining: isDefiningFact(medoids, f),
         });
       // the lead surface speaks for the cluster; a deviation on any sibling surface (same conform set) is still a deviation
@@ -8581,13 +8637,22 @@ export function leakSubtractedH(H, sha) {
 //     token with the query: the half no name matcher can win, reported BESIDE the pooled numbers, never instead
 //     of them. Together with the baseline arm that is two independent controls on the one confound this ground
 //     truth cannot remove — the query and the answer were written by the same person in the same sitting.
-// Returns { where, base, unnamed: { n, where, base }, n, silent }, each arm { hit3, mrr, place3, placeWidth }: `n`
-// is the candidate count, `silent` counts candidates where `where` ranked nothing at all (a genuine no-match or
-// the concentration safeguard suppressing an untrustworthy top hit — both still count as a 0, or the gate would
-// be gameable by staying quiet on everything hard). `place3` discounts a containment-only credit by 1/cardWidth
-// (§068) so a directory or group wide enough to cover most of the repository cannot pass as a precise hit;
-// `placeWidth` is the mean file-count of the cards actually credited, printed beside place3 so that artifact is
-// visible directly instead of requiring a researcher to dig it out by hand.
+//   · a third, additive stratum (§071) — every query above is built from `toks`, the commit message run through
+//     `tokenize`+`normTok`, which SPLITS camelCase/snake_case (`sendStatus` → `send`+`status`) — so none of them
+//     can ever contain a verbatim identifier, and `whereCmd`'s own exact-name pin (`qraw`/`c.exact`) can only ever
+//     fire off a query's own whole, unsplit word. That is an instrument boundary, not a fact about `where`: typed
+//     by a human, `where sendStatus` pins correctly. `symbol` re-runs the identical scoring over just the
+//     candidates whose raw message carried such a word (`fp.symToks`, history.mjs), on a query that keeps it
+//     whole ALONGSIDE the ordinary split form — never replacing `where`/`base`/`unnamed` above, which stay
+//     computed exactly as before.
+// Returns { where, base, unnamed: { n, where, base }, symbol: { n, where, base }, n, silent }, each arm
+// { hit3, mrr, place3, placeWidth }: `n` is the candidate count, `silent` counts candidates where `where` ranked
+// nothing at all (a genuine no-match or the concentration safeguard suppressing an untrustworthy top hit — both
+// still count as a 0, or the gate would be gameable by staying quiet on everything hard). `place3` discounts a
+// containment-only credit by 1/cardWidth (§068) so a directory or group wide enough to cover most of the
+// repository cannot pass as a precise hit; `placeWidth` is the mean file-count of the cards actually credited,
+// printed beside place3 so that artifact is visible directly instead of requiring a researcher to dig it out by
+// hand.
 export function whereEval({ model, H, last = 100 }) {
   const DEPTH = 10; // the ranked list is read this deep: `hit3`/`place3` are the product's OWN default `--top 3`; the rest of the depth is there so `mrr` can tell "just missed" from "nowhere at all"
   const fps = (H && H.fps) || [];
@@ -8632,7 +8697,7 @@ export function whereEval({ model, H, last = 100 }) {
         claimed.add(cur);
       }
     }
-    if (truth.length) eligible.push({ toks: fp.toks, truth });
+    if (truth.length) eligible.push({ toks: fp.toks, symToks: fp.symToks || [], truth });
   }
   const n = Math.max(0, Math.floor(last) || 0);
   const candidates = n > 0 ? eligible.slice(-n) : []; // the LAST n are the most recent — the conventions in force now
@@ -8667,10 +8732,12 @@ export function whereEval({ model, H, last = 100 }) {
     const d = dirOf(p);
     dirFileCount.set(d, (dirFileCount.get(d) || 0) + 1);
   }
-  const rows = [];
-  let silent = 0;
-  for (const C of candidates) {
-    const query = C.toks.join(' ');
+  // §071 — the per-candidate scoring math, unchanged in every particular from before this ticket, pulled out to
+  // a function so it can be reused verbatim for a SECOND query built off the same candidate (the symbol stratum
+  // below) without duplicating (and risking drift in) the arithmetic the pooled/unnamed strata are judged by.
+  // Called once per candidate exactly as the inline loop used to call it — same query, same truth, same DEPTH —
+  // so the pooled/named/unnamed numbers this returns are bit-for-bit what the old inline code produced.
+  const scoreQuery = (C, query) => {
     const qt = new Set(
       tokenize(query)
         .map(normTok)
@@ -8679,7 +8746,6 @@ export function whereEval({ model, H, last = 100 }) {
     const truth = new Set(C.truth),
       truthDirs = new Set(C.truth.map(dirOf));
     const { hits } = whereCmd({ model, query, top: DEPTH, mapRows: 0 }); // mapRows 0: the compact map is render-only and this reads ranks
-    if (!hits.length) silent++;
     let wHit = 0,
       wPlace = 0,
       wContainRank = 0,
@@ -8727,16 +8793,38 @@ export function whereEval({ model, H, last = 100 }) {
     });
     const bPlaceW = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? bContainWidth : 0;
     const bPlaceCredit = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? 1 / bContainWidth : 0;
+    return { qt, silent: !hits.length, wHit, wPlaceCredit, wPlaceW, bHit, bPlaceCredit, bPlaceW };
+  };
+  const rows = [];
+  let silent = 0;
+  for (const C of candidates) {
+    const query = C.toks.join(' ');
+    const r = scoreQuery(C, query);
+    if (r.silent) silent++;
     const nameToks = new Set(C.truth.flatMap(f => nameTokens(f).map(normTok)));
     rows.push({
-      named: [...qt].some(t => nameToks.has(t)),
-      wHit,
-      wPlaceCredit,
-      wPlaceW,
-      bHit,
-      bPlaceCredit,
-      bPlaceW,
+      named: [...r.qt].some(t => nameToks.has(t)),
+      wHit: r.wHit,
+      wPlaceCredit: r.wPlaceCredit,
+      wPlaceW: r.wPlaceW,
+      bHit: r.bHit,
+      bPlaceCredit: r.bPlaceCredit,
+      bPlaceW: r.bPlaceW,
     });
+  }
+  // §071 — the symbol stratum: purely additive, never read by (and never feeding back into) `rows` above, so it
+  // cannot move the pooled/named/unnamed numbers by so much as a rounding error. Limited to candidates whose OWN
+  // commit message actually contained a verbatim identifier-shaped word (`symToks`, history.mjs) — a candidate
+  // with none would score identically to its own `rows` entry, diluting the stratum with cases that test nothing
+  // new. The query fed to `whereCmd` is the existing split/stemmed form PLUS those verbatim words appended (never
+  // instead of it — option (a) from the ticket): `qraw`/`c.exact` (core.mjs's exact-name pin) can only ever fire
+  // off a query's own WHOLE, unsplit word, and `toks` alone can never contain one.
+  const symRows = [];
+  for (const C of candidates) {
+    if (!C.symToks.length) continue;
+    const query = [...C.toks, ...C.symToks].join(' ');
+    const r = scoreQuery(C, query);
+    symRows.push({ wHit: r.wHit, wPlaceCredit: r.wPlaceCredit, wPlaceW: r.wPlaceW, bHit: r.bHit, bPlaceCredit: r.bPlaceCredit, bPlaceW: r.bPlaceW });
   }
 
   const at = (rs, f, k) => (rs.length ? rs.filter(r => r[f] && r[f] <= k).length / rs.length : 0);
@@ -8767,6 +8855,14 @@ export function whereEval({ model, H, last = 100 }) {
       n: unnamed.length,
       where: arm(unnamed, 'wHit', 'wPlaceCredit', 'wPlaceW'),
       base: arm(unnamed, 'bHit', 'bPlaceCredit', 'bPlaceW'),
+    },
+    // §071 — candidates whose commit message carried at least one verbatim identifier-shaped word, scored on a
+    // query that keeps that word whole (alongside the ordinary split/stemmed tokens): the stratum `unnamed`
+    // structurally cannot cover, since a query built only from `toks` can never pin `whereCmd`'s exact-name match.
+    symbol: {
+      n: symRows.length,
+      where: arm(symRows, 'wHit', 'wPlaceCredit', 'wPlaceW'),
+      base: arm(symRows, 'bHit', 'bPlaceCredit', 'bPlaceW'),
     },
     n: rows.length,
     silent,
@@ -8927,19 +9023,43 @@ const LEX_UNIT = {
   'auto.lex:decl': ['declaration', 'declarations'],
   'auto.lex:indent': ['indented line', 'indented lines'],
 };
+// §077 (director-approved follow-up to §042, esc-1): of the minority-quote literals a per-file quote vote counts
+// as departing (lexTally's `off`, below), a delimiter forced by the literal's OWN body (`'he said "hi"'` in a
+// double-quote file — the other quote would need escaping) is not a style choice; §042 already measured this
+// holds for 11/11 telescope.nvim, 19/31 flask and 2/24 express minority literals. This is the one content test
+// that tells a genuine departure apart from a forced one — reused here rather than reimplemented, and gated on
+// nothing but `exp` already being a real majority (`checkFile` only ever calls this for a certified fact, so
+// there is no new tunable: the file-level convention's own acceptance decides whether this can ever run).
+export function quoteFlags(exp, literals) {
+  if (exp !== 'single' && exp !== 'double') return []; // no per-literal flag on an uncertified/`mixed` vote
+  const majority = exp === 'single' ? "'" : '"';
+  const minority = exp === 'single' ? '"' : "'";
+  return (literals || []).filter(l => l.q === minority && !l.body.includes(majority));
+}
 // null when there is nothing to disclose; otherwise the counts AND the sentence, from one computation, so the JSON
-// field and the printed clause can never disagree about the same file.
-export function lexTally(pid, exp, tally) {
+// field and the printed clause can never disagree about the same file. `flags` (§077) is the subset of the hidden
+// instances that are genuine violations, not delimiter-forced (quoteFlags above) — always [] for the three
+// non-quote lexical surfaces, so their note is byte-for-byte unchanged from §042.
+export function lexTally(pid, exp, tally, flags = []) {
   const unit = LEX_UNIT[pid];
   if (!unit || !tally || tally[exp] === undefined) return null; // `mixed`/`other` name no instance: nothing to count
   const total = Object.values(tally).reduce((a, c) => a + c, 0);
   const conforming = tally[exp];
   const off = total - conforming;
   if (total <= 0 || off <= 0) return null; // every instance conforms: the file-level verdict is true per instance too
+  const flagged = flags.length;
+  const flagClause = flagged
+    ? `, ${flagged} flagged as a genuine violation${flagged > 1 ? 's' : ''} (not delimiter-forced): ${flags
+        .slice(0, 6)
+        .map(f => `line ${f.line}`)
+        .join(', ')}${flagged > 6 ? ` · +${flagged - 6} more` : ''}`
+    : ' and none of them is flagged';
   return {
     conforming,
     total,
-    note: ` — scored per file, not per ${unit[0]}: ${off} of ${total} ${unit[1]} here depart from it and none of them is flagged`,
+    flagged,
+    flagLines: flags.map(f => f.line),
+    note: ` — scored per file, not per ${unit[0]}: ${off} of ${total} ${unit[1]} here depart from it${flagClause}`,
   };
 }
 // §030: a `report`/`rules` TEMPLATE line (mineTemplates/profileOf — unclustered residue, never a role group) is a
@@ -9356,22 +9476,33 @@ export function report(model, { top = 15, outcomes } = {}) {
 // line whose whole point is to be skimmed, and `report`'s detailed section already exists for exactly that
 // evidence. `decisions:` is a bare count/structure line (like a header or a stamp), never a claim, so it carries
 // no voice() marker at all.
+// the module→layer grouping `map`'s text `layers:` line renders (byLayer, below) — extracted so a second caller
+// (ticket 072: `report --json`'s `layers` field) computes the identical grouping instead of re-deriving its own,
+// the same "one function computes it" discipline as relCoverageData/relCoverageNote above (§G21). Returns the
+// FULL, untruncated module list per layer, ascending by layer number, modules sorted alphabetically within — the
+// same sort mapSections' own `mods.sort()` already used; mapSections' 4-per-layer "+K more" cap is a display
+// concern layered on top by its own caller, exactly like cmdMap's `changes` field already keeps the full
+// `model.changeArchetypes` list while its OWN text line caps to 4 (§066/051).
+export function moduleLayers(model) {
+  const mg = model.moduleGraph;
+  if (!mg || !mg.nodes.length) return [];
+  const byLayer = new Map();
+  for (const n of mg.nodes) {
+    if (n.layer === undefined) continue;
+    (byLayer.get(n.layer) || byLayer.set(n.layer, []).get(n.layer)).push(n.id);
+  }
+  return [...byLayer.keys()]
+    .sort((a, b) => a - b)
+    .map(l => ({ layer: l, modules: byLayer.get(l).sort() }));
+}
 export function mapSections(model) {
   const lines = [];
   const mg = model.moduleGraph;
   if (mg && mg.nodes.length) {
-    const byLayer = new Map();
-    for (const n of mg.nodes) {
-      if (n.layer === undefined) continue;
-      (byLayer.get(n.layer) || byLayer.set(n.layer, []).get(n.layer)).push(n.id);
-    }
     const label = id => (id === '.' ? '.' : id + '/');
-    const segs = [...byLayer.keys()]
-      .sort((a, b) => a - b)
-      .map(l => {
-        const mods = byLayer.get(l).sort();
-        return `layer ${l}${l === 0 ? ' (leaves)' : ''}: ${mods.slice(0, 4).map(label).join(', ')}${mods.length > 4 ? `, +${mods.length - 4} more` : ''}`;
-      });
+    const segs = moduleLayers(model).map(({ layer: l, modules: mods }) => {
+      return `layer ${l}${l === 0 ? ' (leaves)' : ''}: ${mods.slice(0, 4).map(label).join(', ')}${mods.length > 4 ? `, +${mods.length - 4} more` : ''}`;
+    });
     if (segs.length) lines.push(voice('map', `layers: ${segs.join(' · ')}`));
   }
   if (model.concepts && model.concepts.length)
