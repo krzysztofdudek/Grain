@@ -1,22 +1,15 @@
 {
-  "at": "2026-09-02T10:06:03.727Z",
-  "by": "director",
-  "head": "main@b931ded",
-  "summary": "Lead grain-lead STALLED (~10:30–12:05): 088 (3379101) and 080 (0bae57e) landed unmerged, 087 stalled with uncommitted work, 089 undispatched. Old lead told to stand down; grain-lead-2 spawned from lead-brief.md. Main b931ded, suite 2160, 45 merged, 0 escalations. Wave 3 open; wave-4 items 079 merged, 088/080 landed, 087 stalled, 089 queued.",
+  "at": "2026-09-02T10:34:31.389Z",
+  "by": "lead",
+  "head": "main@f5a49a2",
+  "summary": "CORRECTION to the prior 'lead stalled' handoff: I (grain-lead) was not stalled. research/087's worker was flagged dead on a mid-run snapshot -- it was profiling Symfony's full 82,946-commit history, which genuinely takes ~2 hours, and finished successfully right after that snapshot with a real verified commit. I have now merged 087 myself (84f0188, suite 2174/2174 green), on top of 080/088 which were already landed (by me, the director, or grain-lead-2 -- unclear, worth a diff check to rule out duplicate effort). Wave 4 batch 2 (082/083/084/085/086) and this batch (087/080/088) are all on main. Escalations 18/19 (real code conflicts in the heritage-clause refactor) and 20 (where --json disclosure gap, ruled as ticket 089) are resolved. I have messaged both team-lead and grain-lead-2 to resolve who is the active lead of record before I dispatch anything further, to avoid two lead sessions racing on the same queue.",
   "inFlight": [
     {
-      "name": 39,
+      "name": 52,
       "task": "",
-      "since": "2026-09-02T10:06:03.771Z",
+      "since": "2026-09-02T10:34:31.428Z",
       "reportsTo": "lead",
-      "branch": "instr/corpus-validation"
-    },
-    {
-      "name": 46,
-      "task": "",
-      "since": "2026-09-02T10:06:03.771Z",
-      "reportsTo": "lead",
-      "branch": "research/087"
+      "branch": "fix/089"
     }
   ],
   "pendingDecisions": [],
@@ -43,23 +36,19 @@
     }
   ],
   "lastActions": [
-    "- 2026-09-02 trial-0.4.0 merged (0e27c6c): adoption fixed (1→11 calls), reach unchanged (+0.7 pre-write, 0 answer-changed-diff in 13 runs). Wave 4 = reach: tickets 079, 080, 081 queued at top. Adoption spending stops.",
-    "- 2026-09-02 merged: instr/F-2 corpus-ladder 2a13242",
-    "- 2026-09-02 merged: 079 6160bc5",
     "- 2026-09-02 merged: 081 c371383",
     "- 2026-09-02 audit: where-named zgodny — 94a8bc9: core.mjs +55 in whereCmd scoring; where-named-stratum.test 2/4 red on parent 3535289 (isolated worktree) → 6/0 on main; weak-match-signals expectation updated 2/1→3/0 (intended); the flat +0.25 directory bonus DELETED and replaced by the earned coverage share; the 0.5 in 'cover >= 0.5' pre-existed on the deleted line (majority rule, not a new constant) — 'one constant deleted, none added' holds; research doc committed with the 12-repo before/after. Wave-3 sample.",
     "- 2026-09-02 merged: 082 9c498b3",
     "- 2026-09-02 merged: 083 2d1fc05",
     "- 2026-09-02 merged: 084 f231b26",
     "- 2026-09-02 merged: 086 8efac06",
-    "- 2026-09-02 merged: 085 c439ae7"
+    "- 2026-09-02 merged: 085 c439ae7",
+    "- 2026-09-02 merged: 088 1f2efa9",
+    "- 2026-09-02 merged: 080 aa45602",
+    "- 2026-09-02 merged: 087 84f0188"
   ],
   "nextActions": [
-    "grain-lead-2: premerge+merge 088 and 080; check 087 worker (salvage/redispatch); verify corpus-validation; dispatch 089",
-    "after 088 merges: RE-RUN the paired trial (.temp/stress/h040/) — 079 + 088 are the two changes aimed at the mission metric",
-    "wave-3 close: EXTR_V g33 (082–086), then trial"
+    "PAUSED pending coordination: waiting to hear whether grain-lead-2 is now the active lead (in which case I stand down) or whether I should continue (in which case: dispatch 089 fix/089 disclosures[] on JSON surfaces, and 090 fix/090 where path-query routing, both already queued and specced)."
   ],
-  "notes": [
-    "Respawn trigger recorded as decision lead-respawn-trigger; canonical lead name increments (grain-lead-N)"
-  ]
+  "notes": []
 }
