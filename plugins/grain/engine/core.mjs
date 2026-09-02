@@ -9162,13 +9162,39 @@ export const TEMPLATE_DESCRIPTIVE_NOTE =
 // CONTENT (a PSR-4 map to consult) instead of extractor STRUCTURE. A PHP repo that pins its architecture down
 // to composer.json (Symfony, Slim, virtually every modern framework) is unaffected — flagged only when that
 // signal is entirely absent, the one case a real edge could never have existed.
+// issue 086: 041/059 both catch a WHOLE grammar with no real edges anywhere. This is the narrower shape: a
+// repo dominated by one grammar (okhttp: Kotlin+Java, playframework: Java+Scala+asset-pipeline JS, groovy-spock:
+// Java+Groovy+Kotlin) where a SMALL secondary grammar's own files carry literally zero in/out edges even though
+// that grammar is fully `relSupported` and not `relPathOnly` elsewhere in a single-grammar repo (a standalone
+// Java or Kotlin fixture with the identical import shape resolves fine — verified live). Root cause traced to
+// the vendored SymbolTable partitioning declarations by LANGUAGE on purpose (crosslang-symbol-table-partition
+// test) so a same-named Java/Kotlin/Groovy/Scala type never collides across languages — but that also means a
+// secondary population whose real-world references mostly cross INTO the dominant grammar (the common shape once
+// one language is being migrated to another) can never resolve there; teaching every extractor pair to cross a
+// language boundary safely is genuinely new work, out of scope here. The FLOOR instead: any grammar meeting the
+// same small-population floor `CFG.minEff` already uses repo-wide for "too little evidence to claim anything"
+// (§9.4's absence-boundary idiom), with a real file population here but not one edge touching any of its files,
+// joins the same disclosed-uncovered set 041's relPathOnly and 059's phpNoAutoload already populate — a purely
+// OUTCOME-keyed check (never a hardcoded grammar-pair name) that generalizes to any future grammar combination.
 export function relCoverageData(model) {
   const uncovered = new Map(); // grammar name -> file count
   const phpNoAutoload = !(model.phpAutoload && model.phpAutoload.length);
+  const filesByGrammar = new Map(); // grammar -> its own file list, reused below for the issue-086 zero-edge check
   for (const f of model.filesAll || []) {
     const g = EXT2GRAMMAR[extname(f)];
-    if (g && (!relSupported(g) || relPathOnly(g) || (g === 'php' && phpNoAutoload)))
+    if (!g) continue;
+    (filesByGrammar.get(g) || filesByGrammar.set(g, []).get(g)).push(f);
+    if (!relSupported(g) || relPathOnly(g) || (g === 'php' && phpNoAutoload))
       uncovered.set(g, (uncovered.get(g) || 0) + 1);
+  }
+  const edgedFiles = new Set();
+  for (const e of model.edges || []) {
+    edgedFiles.add(e.from);
+    edgedFiles.add(e.to);
+  }
+  for (const [g, list] of filesByGrammar) {
+    if (uncovered.has(g) || list.length < CFG.minEff) continue;
+    if (!list.some(f => edgedFiles.has(f))) uncovered.set(g, list.length);
   }
   const n = [...uncovered.values()].reduce((a, b) => a + b, 0);
   return { n, grammars: [...uncovered.keys()].sort() };
