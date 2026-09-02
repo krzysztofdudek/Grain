@@ -141,3 +141,53 @@ test('selftest --obligation reports every share within [0,1], and coverage is ge
   const r2 = grain(['selftest', '--obligation', '--last', '2', '--json'], dir);
   assert.equal(JSON.parse(r2.out).n, 2);
 });
+
+// ===== ticket 078 (a): the harness's support floor is EXACTLY the engine's, not one birth stricter =====
+// The leak guard above pins the SILENT side of this boundary (4 prior births < CFG.minRaw ⇒ nothing may fire).
+// This pins the SPEAKING side, which is the half ticket 078 had to measure: the hypothesis under test was that
+// `obligationEval`'s per-event, strictly-prior protocol accidentally demands SIX prior births where the engine's
+// own gate is `CFG.minRaw = 5`, and so under-reports real coverage. It does not — the two agree exactly, and this
+// test is what keeps them agreeing.
+//
+// Fixture: noise.txt and reg.txt are both born in the scaffold (so neither is itself a later birth event), 10
+// noise-only commits give the base-rate contrast room, then 8 births of class `d/*.x`, each also touching
+// reg.txt. Events = 1 (scaffold) + 8 (the d/*.x births) = 9. Birth j sees j−1 strictly prior same-class births,
+// so with the floor at CFG.minRaw = 5 exactly births 6, 7 and 8 may fire — three of them. A harness one birth
+// STRICTER than the engine fires only on 7 and 8 (2); one birth LOOSER fires on 5..8 (4). Both drifts fail here.
+test('selftest --obligation fires at exactly CFG.minRaw strictly-prior births — the same floor the engine applies', () => {
+  const dir = join(tmp, 'floor-boundary');
+  initRepo(dir);
+  w(dir, 'noise.txt', 'v0\n');
+  w(dir, 'reg.txt', 'v0\n');
+  commitAt(dir, 'scaffold', 0);
+  for (let i = 1; i <= 10; i++) {
+    w(dir, 'noise.txt', `v${i}\n`);
+    commitAt(dir, `noise ${i}`, i * 2);
+  }
+  for (let i = 1; i <= 8; i++) {
+    w(dir, `d/new${i}.x`, `payload ${i}\n`);
+    w(dir, 'reg.txt', `v${i}\n`);
+    commitAt(dir, `add d/new${i}.x`, 30 + i * 2);
+  }
+
+  const r = grain(['selftest', '--obligation', '--json'], dir);
+  assert.equal(r.code, 0, `exit 0 expected — stderr:\n${r.err}\nstdout:\n${r.out}`);
+  const j = JSON.parse(r.out);
+  assert.equal(j.n, 9, `fixture sanity — 1 scaffold birth + 8 d/*.x births expected as events, got: ${JSON.stringify(j)}`);
+  assert.equal(
+    Math.round(j.coverage * j.n),
+    3,
+    `the 6th birth of a class is the FIRST that may fire (5 strictly-prior births = CFG.minRaw), so births 6, 7 and 8 fire and no others — a harness one birth stricter than the engine would give 2, one birth looser would give 4; got coverage=${j.coverage} over n=${j.n}: ${JSON.stringify(j)}`
+  );
+  assert.equal(j.precision1, 1, `reg.txt is touched by every birth in this fixture, so every fired answer is correct — got: ${JSON.stringify(j)}`);
+
+  // and the engine itself, asked directly, speaks at the same support — one floor, not two
+  const eng = grain(['obligation', 'd/anything.x', '--json'], dir);
+  assert.equal(eng.code, 0, eng.err);
+  const ej = JSON.parse(eng.out);
+  assert.equal(ej.births, 8, `fixture sanity — the full table sees all 8 births, got: ${JSON.stringify(ej)}`);
+  assert.ok(
+    ej.rules.some(x => x.file === 'reg.txt'),
+    `the shipped table certifies reg.txt for this class — if it did not, the harness comparison above would be measuring nothing: ${JSON.stringify(ej)}`
+  );
+});
