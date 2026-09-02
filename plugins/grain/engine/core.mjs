@@ -7337,6 +7337,13 @@ export function whereCmd({
     .sort((a, b) => b.score - a.score || rank(b) - rank(a) || b.n - a.n || (a.label < b.label ? -1 : 1))
     .slice(0, top);
   const lines = [];
+  // §089 — the disclosure register: every hedge/caveat line pushed below that qualifies an otherwise-confident
+  // answer is ALSO recorded here as { kind, text }, at the exact site that builds the text — never recomputed
+  // from the rendered string later. `text` is the verbatim line as it appears in `lines` (or would, before any
+  // stamp/dirty-tree suffix), so a JSON consumer and a text reader are told the identical thing. `kind` reuses
+  // whatever internal name already distinguishes the case (matching whatCmd's own `note.kind` vocabulary where
+  // the same concept applies — `ungrammared` is shared with whatCmd on purpose).
+  const disclosures = [];
   // a steer renders wherever its topic meets the query or its exemplar lives in the card: decided, beside what is practiced
   const steers = (model.steers || []).filter(st => st.found);
   const steerLine = st =>
@@ -7380,14 +7387,14 @@ export function whereCmd({
   const noContentFoothold = hits.length > 0 && hits.every(h => h.lex0 === 0);
   if (noContentFoothold) {
     const sig = hits[0].exact ? 'an exact identifier/name match' : 'a directory-name match';
-    lines.push(
-      `no card matches these words — the ranking below is by ${sig}, not text overlap; verify before building on it.`
-    );
-  } else if (hits.length && hits[0].score < 0.34)
-    lines.push(
-      `weak match: the best hit covers ${Math.round(hits[0].score * 100)}% of the query's weight — a hint, not an answer. If the hits look unrelated to what you are writing, open the nearest sibling of the file you expect to edit instead.`
-    );
-  else if (hits.length && qt.size >= 3 && !hits[0].exact) {
+    const text = `no card matches these words — the ranking below is by ${sig}, not text overlap; verify before building on it.`;
+    lines.push(text);
+    disclosures.push({ kind: 'no-content-foothold', text });
+  } else if (hits.length && hits[0].score < 0.34) {
+    const text = `weak match: the best hit covers ${Math.round(hits[0].score * 100)}% of the query's weight — a hint, not an answer. If the hits look unrelated to what you are writing, open the nearest sibling of the file you expect to edit instead.`;
+    lines.push(text);
+    disclosures.push({ kind: 'weak-answer', text });
+  } else if (hits.length && qt.size >= 3 && !hits[0].exact) {
     const contributing = [...idf.keys()].filter(t => tw(hits[0], t) > 0); // the SAME per-word weight the score was built from, so "which words carried this hit" can never disagree with the score itself
     // mass concentration: "exactly one contributing word" (ratio 1) generalized to how much of the top hit's matched
     // weight sits in its single heaviest word — a hit carried almost entirely by one term is just as coincidental as a
@@ -7416,10 +7423,11 @@ export function whereCmd({
         hits = [];
         noConfidentHit = true;
       } // no corroboration anywhere in the top few — don't rank it, map the repo instead
-      else
-        lines.push(
-          `note: the top hit matches only «${contributing.join('», «')}» of your ${qt.size} words — verify before building on it.`
-        );
+      else {
+        const text = `note: the top hit matches only «${contributing.join('», «')}» of your ${qt.size} words — verify before building on it.`;
+        lines.push(text);
+        disclosures.push({ kind: 'partial-word-coverage', text });
+      }
     }
   }
   // §085 — the THIRD path into §057's honest negative, and the only one neither §057 nor §070 could reach.
@@ -7439,9 +7447,9 @@ export function whereCmd({
   // been discarding. Running last means a suppressed answer stays suppressed and falls through to §057's own
   // message below, which names this same file anyway; only an answer that SURVIVES the ladder is disclosed here.
   if (ungrammaredHit && hits.length) {
-    lines.push(
-      `"${q}" is not a name grain parsed anywhere — the ranking below matches its separate words, not the whole. That exact text appears in ${ungrammaredHit.file}, and grain has no grammar for "${ungrammaredHit.ext}" (never reads that format at all, so this file was never parsed). The answer may be there, unreadable to grain: verify before building on it.`
-    );
+    const text = `"${q}" is not a name grain parsed anywhere — the ranking below matches its separate words, not the whole. That exact text appears in ${ungrammaredHit.file}, and grain has no grammar for "${ungrammaredHit.ext}" (never reads that format at all, so this file was never parsed). The answer may be there, unreadable to grain: verify before building on it.`;
+    lines.push(text);
+    disclosures.push({ kind: 'ungrammared', text });
   }
   if (!hits.length) {
     // §057 — a zero-hit answer here reads as "this concept isn't in the repository", which is only true of the
@@ -7449,13 +7457,16 @@ export function whereCmd({
     // bounded substring scan over `ungrammaredFiles`, never a repo-wide grep) says the query's exact text lives,
     // verbatim, in a tracked file whose extension has no grammar at all: a stronger, deterministic sibling of the
     // parsed-but-empty case below, so it takes priority over both other messages when present.
-    lines.push(
-      ungrammaredHit
-        ? `no lexical match for "${q}" in parsed code — but that exact text appears in ${ungrammaredHit.file}, and grain has no grammar for "${ungrammaredHit.ext}" (never reads that format at all, so this file was never parsed). This may be a real hit grain cannot see. Compact map of the source groups, markers and directories follows regardless.`
-        : noConfidentHit
-          ? `no confident match for "${q}" — the best lexical hit scored ${Math.round(suppressedScore * 100)}% but its words are covered by unrelated, disagreeing parts of the repo, so it is not trustworthy. Compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`
-          : `no lexical match for "${q}" — compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`
-    );
+    const zeroHitText = ungrammaredHit
+      ? `no lexical match for "${q}" in parsed code — but that exact text appears in ${ungrammaredHit.file}, and grain has no grammar for "${ungrammaredHit.ext}" (never reads that format at all, so this file was never parsed). This may be a real hit grain cannot see. Compact map of the source groups, markers and directories follows regardless.`
+      : noConfidentHit
+        ? `no confident match for "${q}" — the best lexical hit scored ${Math.round(suppressedScore * 100)}% but its words are covered by unrelated, disagreeing parts of the repo, so it is not trustworthy. Compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`
+        : `no lexical match for "${q}" — compact map of the source groups, markers and directories follows. Pick the closest entry yourself and open its files; do not re-ask with synonyms.`;
+    lines.push(zeroHitText);
+    // a genuine "nothing found" (neither branch below) is the honest answer itself, not a caveat qualifying a
+    // confident one — same precedent as whatCmd's `note.kind === 'absent'`, which is likewise never disclosed
+    if (ungrammaredHit) disclosures.push({ kind: 'ungrammared', text: zeroHitText });
+    else if (noConfidentHit) disclosures.push({ kind: 'honest-negative', text: zeroHitText });
     lines.push(...bridgeLines(model, qt, df));
     const sorted = cards
       .filter(c => c.type !== 'file')
@@ -7468,7 +7479,7 @@ export function whereCmd({
       lines.push(
         '  (the model holds no groups or directory norms — no strong conventions were found in this repository)'
       );
-    return { lines, hits: [], cards };
+    return { lines, hits: [], cards, disclosures };
   }
   const bridged = bridgeLines(model, qt, df); // query words the code never says, translated by the commit history
   // the "comes with" recipe's file-shape clause: an accepted auto.filebirth verdict for the SAME population
@@ -7767,7 +7778,7 @@ export function whereCmd({
   //   · no card's own `names` declares it (`anyExact`). A name the repo really has (`sendStatus`) is something
   //     grain is not blind to, so there is nothing to disclose and no file is opened.
   const oneWord = !/\s/.test(q.trim());
-  return { lines, hits, cards, unknownIdent: oneWord && qraw.size > 0 && !anyExact };
+  return { lines, hits, cards, unknownIdent: oneWord && qraw.size > 0 && !anyExact, disclosures };
 }
 
 // `how <intent>` — change by example (§J2.2). `where` answers "what governs the place this belongs in"; `how`
@@ -8499,6 +8510,11 @@ export function whatCmd({
     );
   }
   let note = null;
+  // §089 — the disclosure register, same convention as whereCmd's own: every hedge below is ALSO recorded here as
+  // { kind, text }, `text` the verbatim rendered line, `kind` reusing `note`'s own existing kind vocabulary.
+  // Deliberately separate from `note` itself (never adds a field to it) — `note`'s shape must not change, only
+  // grow a sibling.
+  const disclosures = [];
   // §037 — until now every honest-negative disclosure fired ONLY on an empty answer, and the field showed that is
   // the wrong half of the problem. An empty result already reads as "grain found nothing"; a page of unrelated
   // token-overlap hits reads as "grain found your thing", which is exactly when a caveat is most needed and was
@@ -8527,13 +8543,13 @@ export function whatCmd({
     qt.size >= 2;
   if (weakName && blindHit) {
     // supplied by cmdWhat's bounded, word-boundary, peer-anomalous re-scan — never a repo-wide grep
-    lines.push(
-      voice(
-        'map',
-        `nothing above IS «${q}» — those hits only share words with it. The exact name does appear in ${blindHit}, a file that parsed with zero extracted scopes while files of its own kind parse normally here. Grain cannot see inside it, so a real declaration of «${q}» may be missing from this answer.`
-      )
+    const text = voice(
+      'map',
+      `nothing above IS «${q}» — those hits only share words with it. The exact name does appear in ${blindHit}, a file that parsed with zero extracted scopes while files of its own kind parse normally here. Grain cannot see inside it, so a real declaration of «${q}» may be missing from this answer.`
     );
+    lines.push(text);
     note = { kind: 'blind-weak', value: q, file: blindHit };
+    disclosures.push({ kind: 'blind-weak', text });
   }
   if (!defined.length && !valueHits.length && !referenced) {
     // no INDEXED presence — but "indexed" and "exists" are not the same claim (§011/§018/§014): a gated
@@ -8555,30 +8571,32 @@ export function whatCmd({
           : gv.tooCommon
             ? `«${q}» was seen as a ${label} in ${gv.df} files — above the commonality ceiling (over ${Math.round(CFG.valueDfMaxShare * 100)}% of the repository), so it is treated as boilerplate rather than a distinguishing concordance. Seen, not absent.`
             : `«${q}» was seen as a ${label} in ${gv.df} file${gv.df > 1 ? 's' : ''} but was not retained in the value index. Seen, not absent.`) + sibTxt;
-      lines.push(voice('map', text));
+      const voiced = voice('map', text);
+      lines.push(voiced);
       note = { kind: 'gated', value: q, valueKind: gv.valueKind, df: gv.df, files: gv.files, siblings: gv.siblings || [] };
+      disclosures.push({ kind: 'gated', text: voiced });
     } else if (ungrammaredHit) {
       // §057 — a certified-absence sibling stronger than `blindHit` below: the exact text was found, on a
       // bounded re-scan (grain.mjs's `findUngrammaredHit`), inside a tracked file whose extension has no
       // grammar at all (`ungrammaredFiles`). Unlike `blindHit`'s "parsed to zero scopes" (a heuristic that needs
       // peer-anomaly framing to mean anything), "grain has no grammar for this format" is unconditionally true —
       // the plain absence claim below would be actively false here, not merely incomplete, so it is replaced.
-      lines.push(
-        voice(
-          'map',
-          `«${q}» has no declarations or values anywhere grain can parse — but that exact text appears in ${ungrammaredHit.file}: grain has no grammar for "${ungrammaredHit.ext}" and never reads that format at all. This may be a real declaration grain simply never looked at.`
-        )
+      const text = voice(
+        'map',
+        `«${q}» has no declarations or values anywhere grain can parse — but that exact text appears in ${ungrammaredHit.file}: grain has no grammar for "${ungrammaredHit.ext}" and never reads that format at all. This may be a real declaration grain simply never looked at.`
       );
+      lines.push(text);
       note = { kind: 'ungrammared', value: q, file: ungrammaredHit.file, ext: ungrammaredHit.ext };
+      disclosures.push({ kind: 'ungrammared', text });
     } else if (blindHit) {
       // the exact text was found, on a bounded re-scan, inside a file that parsed to zero real scopes
-      lines.push(
-        voice(
-          'map',
-          `«${q}» is not indexed as a declaration or value — but that exact text appears in ${blindHit}, a file that parsed with zero extracted scopes. Grain cannot see inside it, so this may be a real declaration it missed.`
-        )
+      const text = voice(
+        'map',
+        `«${q}» is not indexed as a declaration or value — but that exact text appears in ${blindHit}, a file that parsed with zero extracted scopes. Grain cannot see inside it, so this may be a real declaration it missed.`
       );
+      lines.push(text);
       note = { kind: 'blind', value: q, file: blindHit };
+      disclosures.push({ kind: 'blind', text });
     } else {
       lines.push(voice('map', `«${q}» has no declarations or values anywhere in this repository's code`));
       note = { kind: 'absent' };
@@ -8613,6 +8631,7 @@ export function whatCmd({
     referenced,
     testedBy: testedBy || null,
     note,
+    disclosures,
   };
 }
 

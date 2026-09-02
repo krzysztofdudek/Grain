@@ -283,7 +283,14 @@ export function checkNoDeclarationsAnywhere(model, root, corpus, opts, whereJson
     const hits = j.hits || [];
     const pointsAtTruth = hits.some(h => (h.members || []).some(m => m.rel === rel) || (h.directories || []).some(d => rel.startsWith(d.dir + '/')));
     const confidentHit = hits.some(h => h.score >= 0.3);
-    if (confidentHit && !pointsAtTruth) { res.fabricated++; res.samples.push({ type: 'noDeclarationsAnywhere', file: rel, line: null, claim: `where ${id} → ${hits[0].type} \`${hits[0].label}\` (score ${hits[0].score})`, detail: `\`${id}\` actually only occurs in ${rel}, a file with no grammar at all; grain's top hit does not mention it` }); }
+    // §089 — every candidate this check samples appears ONLY in a no-grammar file (`candidates`, above); that is
+    // exactly the shape whereCmd's own `ungrammared` disclosure (core.mjs) exists to name — `where`'s text answer
+    // has said so since §057/§085, and --json now carries the identical { kind: 'ungrammared', text } entry (§089's
+    // own fix). A confident-looking top hit that ALSO ships this disclosure is not silent fabrication — grain told
+    // the reader, in the same response, that the real text lives in a file it cannot read. Only an UNDISCLOSED
+    // confident-wrong hit still counts: `disclosed` never suppresses `claims`/`checked`, only `fabricated`.
+    const disclosed = (j.disclosures || []).some(d => d.kind === 'ungrammared');
+    if (confidentHit && !pointsAtTruth && !disclosed) { res.fabricated++; res.samples.push({ type: 'noDeclarationsAnywhere', file: rel, line: null, claim: `where ${id} → ${hits[0].type} \`${hits[0].label}\` (score ${hits[0].score})`, detail: `\`${id}\` actually only occurs in ${rel}, a file with no grammar at all; grain's top hit does not mention it` }); }
   }
   return res;
 }
