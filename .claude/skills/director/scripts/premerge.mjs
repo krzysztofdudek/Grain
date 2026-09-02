@@ -59,8 +59,10 @@ function runCapture(cmd, args, opts) {
 }
 
 export function parseNodeTestSummary(output) {
+  // Node <= 22 defaults to the TAP reporter when stdout is not a TTY ("# tests N");
+  // Node >= 23 defaults to spec ("ℹ tests N"). Accept both — CI runs node 22 and 24.
   const extract = (name) => {
-    const re = new RegExp(`^ℹ ${name} (\\d+)`, 'gm');
+    const re = new RegExp(`^(?:ℹ|#) ${name} (\\d+)`, 'gm');
     const matches = [...output.matchAll(re)];
     return matches.length ? parseInt(matches[matches.length - 1][1], 10) : null;
   };
