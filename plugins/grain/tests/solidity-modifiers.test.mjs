@@ -185,10 +185,32 @@ after(() => rmSync(tmp, { recursive: true, force: true }));
 test('043: the modifier certifies as a convention of its own', () => {
   const model = JSON.parse(readFileSync(join(repo, '.grain', 'cache', 'model.json'), 'utf8'));
   const facts = model.partitions.flatMap(p => p.facts);
-  const f = facts.find(x => x.pid === 'auto.deco:@onlyGuard' && x.exp === 'true');
-  assert.ok(f, `no accepted @onlyGuard convention: ${JSON.stringify(facts.map(x => x.pid))}`);
+  // §048: Solidity has no `@` sigil at all, so the pid and every rendering of it stay bare — `onlyGuard`, not `@onlyGuard`.
+  const f = facts.find(x => x.pid === 'auto.deco:onlyGuard' && x.exp === 'true');
+  assert.ok(f, `no accepted onlyGuard convention: ${JSON.stringify(facts.map(x => x.pid))}`);
   assert.equal(f.share, 1);
   assert.ok(f.sraw >= 5, `population too small to be a convention: ${f.sraw}`);
+});
+
+// ---- §048: no other surface reconstructs an `@` this language never had ----
+// `what` was checked too (the ticket names it alongside check/rules) but never renders a decoration label at all
+// — its answer shape is defined/values/spread/siblings/changes/usedBy/testedBy/referenced, none of them a
+// convention sentence — so it has no surface for this bug either way; verified by probing it directly with the
+// pre-fix `decoLabel` still reinstated, which left `what onlyGuard`'s output unchanged. `where`'s marker card
+// (buildCards' `label`/`mpid`, §048) is the one other real surface, so it is exercised here instead.
+test("048: `where onlyGuard` names the marker bare, never as a fabricated `@onlyGuard`", () => {
+  const r = spawnSync('node', [BIN, 'where', 'onlyGuard'], { cwd: repo, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /marker onlyGuard — \d+ carriers/, r.stdout);
+  assert.match(r.stdout, /methods here are annotated with `onlyGuard`/, r.stdout);
+  assert.doesNotMatch(r.stdout, /@onlyGuard/, r.stdout);
+});
+
+test('048: `grain rules` documents the modifier bare, never as a fabricated `@onlyGuard`', () => {
+  const r = spawnSync('node', [BIN, 'rules', '--top', '40'], { cwd: repo, encoding: 'utf8' });
+  assert.equal(r.status, 0, r.stderr);
+  assert.match(r.stdout, /methods here are annotated with `onlyGuard`/, r.stdout);
+  assert.doesNotMatch(r.stdout, /@onlyGuard/, r.stdout);
 });
 
 test('043: a peer that omits the modifier is flagged by check, and by review', () => {
@@ -206,8 +228,10 @@ test('043: a peer that omits the modifier is flagged by check, and by review', (
   const chk = spawnSync('node', [BIN, 'check', 'contracts/vault/AlphaVault.sol'], { cwd: repo, encoding: 'utf8' });
   assert.equal(chk.status, 0, chk.stderr);
   assert.match(chk.stdout, /1 known deviation\(s\) in your change/, chk.stdout);
-  assert.match(chk.stdout, /methods here are annotated with `@onlyGuard`/, chk.stdout);
-  assert.match(chk.stdout, /`setAlphaTargetEmergency`[^\n]*is not annotated with `@onlyGuard`/, chk.stdout);
+  // §048: no `@` — Solidity modifiers are written bare in real source (`function f() onlyGuard { ... }`)
+  assert.match(chk.stdout, /methods here are annotated with `onlyGuard`/, chk.stdout);
+  assert.doesNotMatch(chk.stdout, /@onlyGuard/, chk.stdout);
+  assert.match(chk.stdout, /`setAlphaTargetEmergency`[^\n]*is not annotated with `onlyGuard`/, chk.stdout);
 
   const rev = spawnSync('node', [BIN, 'review'], { cwd: repo, encoding: 'utf8' });
   assert.equal(rev.status, 0, rev.stderr);

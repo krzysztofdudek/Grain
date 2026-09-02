@@ -5035,3 +5035,10 @@ note: fala 1 zamknięta: 4 landings + instrumenty A/B/D + katalog G + badanie wh
 - 2026-09-02 merged: 064 b1394f8
 - 2026-09-02 merged: 065 574bafa
 - 2026-09-02 audit: 062 zgodny — qualified-heritage.test 0/11 red on parent b478847 (isolated worktree) → 11/11 green on main; audit-claims.test 12/1 → 13/0; predicate derived from node-types.json field shape (two-part chain, one purely name-shaped field; fieldless grammars via children list) — 0 language names in added code, 7 only in the explanatory comment; ticket status+log set. Second sample of wave 2 (16 merges) — lead's batch quality holds.
+- 2026-09-02 merged: 061 230cf0a
+- 2026-09-02 merged: 048 76cc470e78c0983814a9ca8a787842f3e9ccad9e
+- 2026-09-02 merged: 070 194ce2e
+- 2026-09-02 merged: 042 4179121
+- 2026-09-02 merged: 052 941e721da7f73a8a7cab1b66231311078987eda1
+- 2026-09-02 merged: 056 7f72a9e
+- 2026-09-02 merged: 066 d9e0eaf
