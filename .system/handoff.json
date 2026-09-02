@@ -1,17 +1,9 @@
 {
-  "at": "2026-09-02T04:22:21.068Z",
+  "at": "2026-09-02T04:30:46.094Z",
   "by": "lead",
-  "head": "main@7f4aadc",
-  "summary": "Wave 2 closed: 36 tickets merged across the whole session (queue items 3-37 plus follow-ups 075-078). Every wave-2 honesty ticket, all 5 wave-3 reach items, and wave-4 #1 (grain obligation command) are done. Suite 1958 -> 2122 tests, 0 fail, 0 todo throughout (all 5 disclosure-fixtures test.todo cases are now real green). Version bump to 0.4.0/g32/h11/m24 already applied by the director mid-wave. Two Opus escalations (042, 052) were ruled by the director and both actioned (042 shipped as ticket 077, 052's declined follow-ups closed with no code change). Notable coordination events this wave: several workers' text reports claimed a commit that had not landed (real work sitting uncommitted, verified and recovered directly, never re-dispatched); worktree isolation twice let a worker's uncommitted diff bleed into a different worker's worktree (discarded once verified safe, since the real branch already had its own clean commit); one real code conflict (two workers independently fixing the same map --json gap, resolved by keeping the superset); several append-log conflicts in ticket log.md files resolved by concatenation; one genuine data-entry mixup in the queue (ticket 076's note filed under 075's slot) caught and fixed, and the director independently caught+fixed a related ticket-log misattribution. Escalated to the director: queue is empty, plus a bookkeeping note that tickets 040 and 043 (pre-dating this session) still show Status: OPEN despite 043's fix being verifiable in shipped code.",
-  "inFlight": [
-    {
-      "name": 38,
-      "task": "",
-      "since": "2026-09-02T04:22:21.103Z",
-      "reportsTo": "lead",
-      "branch": "instr/corpus-ladder-2"
-    }
-  ],
+  "head": "main@9ac2bde",
+  "summary": "Caught up on a large batch of delivered messages (worker confirmations already processed via Agent tool results, plus team-lead guidance spanning the whole session). Two concrete gaps closed: (1) fix/where-named (ticket 012, director-approved ranking change) was assigned to the lead but never merged -- merged now at 6f50d9f, suite 2128/2128. (2) escalation records backfilled for 065/046/053/057/067 individually plus a consolidated record for the rest of this wave's user-facing changes, per the corrected process (escalate before merging, don't wait on the ruling). Also corrected a stale queue entry (instr/corpus-ladder-2 showed running; director had landed it directly in the 0.4.0 wave-close commits). Queue is empty. Going forward: will escalate at merge time for every user-facing change, not batch it.",
+  "inFlight": [],
   "pendingDecisions": [],
   "waitingOn": [
     {
@@ -36,19 +28,19 @@
     }
   ],
   "lastActions": [
-    "- 2026-09-02 merged: 075 a7fd8e9",
-    "- 2026-09-02 merged: 076 dee0d99",
-    "- 2026-09-02 merged: 077 73d78dcc4b2c7540f113c833cec3459af18a8453",
     "- 2026-09-02 merged: 073 25971e4",
     "- 2026-09-02 0.4.0 landed: 113ef97 (ENGINE 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24, validation.md re-anchored) + c847bb0 (three plugin manifests; a blind sed corruption of dependency versions caught and reverted). Suite 2115/2115.",
     "- 2026-09-02 merged: 074 5bce5ef",
     "- 2026-09-02 merged: 078 0a67b89",
     "# Fala 2 — close 2026-09-02",
     "suite: 2122",
-    "note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 discovered mid-wave): all 5 disclosure-fixtures todos now real green (041/046/053/057 + the original 4 from wave 1's close); wave-3 reach items 1-5 all shipped (completeness max-directional+ambient split, adoption fixes, used-by names, tested-by, how liveness+map --json parity); wave-4 #1 (grain obligation command) shipped and measured (precision clears 0.80 bar, coverage 0.048 below the 0.08 target, disclosed honestly per director ruling); both whereEval instrument bugs fixed (card-width gaming, own-commit leak — the latter found no shipped bug, landed as prospective harness guard); PHP PSR-4 cross-component resolution and #[ attribute sigil; Scala object/type classification plus 5 more grammar gaps; catch/finally fabricated-name and double-count fixes; two Opus measurements shipped honest dispositions (042 per-file vote confirmed correct then extended per director approval, 052's siblings line deleted at 0.364 measured precision). Suite 1958->2122, 0 fail, 0 todo throughout. Version bump (ENGINE_VERSION 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24) already applied by the director mid-wave to unblock 073/074's dependent work."
+    "note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 discovered mid-wave): all 5 disclosure-fixtures todos now real green (041/046/053/057 + the original 4 from wave 1's close); wave-3 reach items 1-5 all shipped (completeness max-directional+ambient split, adoption fixes, used-by names, tested-by, how liveness+map --json parity); wave-4 #1 (grain obligation command) shipped and measured (precision clears 0.80 bar, coverage 0.048 below the 0.08 target, disclosed honestly per director ruling); both whereEval instrument bugs fixed (card-width gaming, own-commit leak — the latter found no shipped bug, landed as prospective harness guard); PHP PSR-4 cross-component resolution and #[ attribute sigil; Scala object/type classification plus 5 more grammar gaps; catch/finally fabricated-name and double-count fixes; two Opus measurements shipped honest dispositions (042 per-file vote confirmed correct then extended per director approval, 052's siblings line deleted at 0.364 measured precision). Suite 1958->2122, 0 fail, 0 todo throughout. Version bump (ENGINE_VERSION 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24) already applied by the director mid-wave to unblock 073/074's dependent work.",
+    "# Fala 3 — start 2026-09-02",
+    "- 2026-09-02 opened by director after wave-2 close; items (a)(b) independent of the trial; the rest decided by research/trial-0.4.0",
+    "- 2026-09-02 merged: where-named 6f50d9f"
   ],
   "nextActions": [
-    "Queue is empty — awaiting the director's next assignment. instr/F-2 corpus-ladder (Symfony scale-ladder retry) is still running in its own worktree and reports directly to the director per the original handoff, not to the lead."
+    "Awaiting the director's next assignment. Queue is empty; nothing running that reports to the lead."
   ],
   "notes": []
 }

@@ -202,3 +202,24 @@ Wave 2 close acknowledged: 36 merged, 2122/2122, 0 todo. Three audits zgodny. WA
 
 ## 2026-09-02 · lead-process-corrections-wave-2 · class D
 Z zamknięcia fali 2 (36 scaleń, wszystko zielone): (1) lead rozstrzygał konflikty scalania ręcznie — §6 pkt 3 mówi ESKALUJ, nigdy nie rozstrzygaj; wyniki zweryfikowane suitą, nic nie cofamy, ale następny ręcznie rozstrzygnięty konflikt to porażka checklisty; (2) commitowanie niezacommitowanej pracy pracownika: dopuszczalne tylko po premerge i z wpisem tk log 'lead committed'; (3) wyciek diffu między worktree (izolacja harnessu): pierwsza akcja pracownika to git merge main ORAZ git status czysty — inaczej stop i raport; (4) liczniki testów grep-em zawyżały — bramką jest wyłącznie premerge.mjs; (5) pracownicy zgłaszali 'done' z niezacommitowanym commitem — premerge łapie, ale brief pracownika ma wymagać git log -1 w raporcie.
+
+## 2026-09-02 · esc-4 · ticket 012
+Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## 2026-09-02 · esc-5 · ticket 065
+Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## 2026-09-02 · esc-6 · ticket 046
+Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## 2026-09-02 · esc-7 · ticket 053
+Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## 2026-09-02 · esc-8 · ticket 057
+Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## 2026-09-02 · esc-9 · ticket 067
+Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## 2026-09-02 · esc-10
+Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
