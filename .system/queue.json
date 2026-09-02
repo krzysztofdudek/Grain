@@ -477,9 +477,9 @@
       "kind": "research",
       "agent": "opus",
       "branch": "research/where-newdir",
-      "state": "queued",
+      "state": "running",
       "note": "WAVE 4 #3 where for a not-yet-existing directory; design + instrument",
-      "updated": "2026-09-02 06:46"
+      "updated": "2026-09-02 10:31"
     },
     {
       "id": 45,
@@ -498,9 +498,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/087",
-      "state": "queued",
+      "state": "running",
       "note": "WAVE 3/4: profile learn() on symfony-full; incremental derivation or disclosed cap; judged by the ladder row",
-      "updated": "2026-09-02 08:21"
+      "updated": "2026-09-02 10:31"
     },
     {
       "id": 47,
@@ -552,9 +552,19 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/088",
-      "state": "queued",
+      "state": "running",
       "note": "WAVE 4 #2a: advertisement + pre-write hook volunteers obligation; judged on the trial harness",
-      "updated": "2026-09-02 08:54"
+      "updated": "2026-09-02 10:31"
+    },
+    {
+      "id": 52,
+      "ticket": "089",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/089",
+      "state": "queued",
+      "note": "HIGH class C: disclosures[] on every --json surface, generic; instrument A consumes it",
+      "updated": "2026-09-02 11:01"
     }
   ]
 }
