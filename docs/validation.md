@@ -208,7 +208,24 @@ primary constructor (`class X @Inject() (deps) extends Y`), and 45 (46%, overlap
 curried implicit parameter list (`(implicit ec: ExecutionContext)`); a long tail of infix/function-type
 ascriptions (12) and inline XML literals (2) accounts for most of the rest, and 14 files carry an error under none
 of the three. Both dominant idioms are ordinary Play/Guice convention, not exotic syntax — the corpus is not
-unusual, so the gap is the grammar's; and a data-grammar (JSON/YAML/TOML) mapping's own KEY — a service id in a
+unusual, so the gap is the grammar's; and a style convention (`auto.lex:quote`, `:semi`, `:decl`, `:indent`) is
+scored per FILE, never per literal — `lexicalPreds` collapses a file's string literals into one categorical that
+reads `double` while at most 20% of them are single-quoted, so `check` can call a file conforming while literals
+inside it depart, and the silent budget is 0.25 × the majority count, growing with file size. Measured end to end:
+telescope.nvim's `lua/telescope/previewers/buffer_previewer.lua` absorbs 50 newly added single-quoted literals
+with zero flags and flips only at 51; express's smaller `test/acceptance/mvc.js` absorbs 12 and flips at 15;
+repo-wide the budget is 957 literals on telescope.nvim, 2 050 on express and 1 067 on flask. The vote is kept as
+the mining unit deliberately, because the minority is mostly not a style choice at all: of the literals departing
+their file's majority, 11 of 11 on telescope.nvim, 19 of 31 on flask and 2 of 24 on express contain the majority
+delimiter in their own body, so the other quote is forced by the content rather than chosen. What was wrong was
+what `check` SAID — a binary conforming verdict over instances it never named — so it now discloses the tally it
+scored (`governed[].withinFile` in `--json`, and a clause on the conformance line, printed even when diff scoping
+keeps a file-kind fact off it). Acceptance, `idxCost` and the candidate universe are untouched: the counts are an
+out-parameter of `lexicalPreds`, never a predicate. The residue this leaves stated rather than hidden: the 22
+literals on express and 12 on flask that depart their file's majority WITHOUT a forcing delimiter are real
+departures no `check` run flags, only counts.
+
+A data-grammar (JSON/YAML/TOML) mapping's own KEY — a service id in a
 Symfony-style `services.yml`, say — is findable by `what`, but only ever as a gated, honestly-disclosed value,
 never as a `defined:` declaration the way a `class`/`function` is (§056): a key declared once, in one file, can
 never clear the cross-file population floor (`CFG.valueDfMin`=2) that `model.valueIndex`'s value-concordance
