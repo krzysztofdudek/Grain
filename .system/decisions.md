@@ -232,3 +232,24 @@ LEKCJA (instr/F-2): spawnSync z timeoutem zabijał tylko wrapper /usr/bin/time; 
 
 ## 2026-09-02 · lead-must-not-merge-in-progress-worktrees · class D
 PROCES (fala 3): lead scalił zawartość worktree F-2 (44e1f9c) ZANIM pracownik zraportował — pobrał bajt-w-bajt pliki z trwającej pracy, z danymi z pierwszej (przeterminowanej) próby. Wynik łagodny (pliki identyczne, poprawka harnessu weszła), ale to drugi raz (wcześniej fix/057 w trakcie). Reguła: merge WYŁĄCZNIE po raporcie pracownika z git log -1 i po premerge na tej gałęzi; 'widzę output w worktree' nie jest raportem.
+
+## 2026-09-02 · esc-11
+Acknowledged: F-2 completed loudly; the 30-min timeout on the 100k cold build is a recorded ladder row, and the 38-min report cost is ticket 087.
+
+## 2026-09-02 · esc-12 · ticket 081
+081 finding accepted as the reachability law: the advertisement text is the surface; unadvertised commands are unreachable (0/63). Fix ticket 088 queued at the top of wave 4 — advertisement names each command with its trigger moment; the pre-write hook volunteers obligation <path> for a new file (fire-rate gated, silent when nothing certifies); judged on the trial harness by invocations-per-command and answer-changed-diff. This gates any 17th command: it must be reachable by construction (named + a hook moment) or it is not built.
+
+## 2026-09-02 · esc-13
+Conflict resolution: .system/queue.json and queue.md are the LEAD's files — a worker branch must never carry them. Resolve by taking main's version of both (git checkout --ours -- .system/queue.json .system/queue.md during the merge, then git add), complete the merge, and re-add anything the worker's queue entry carried via queue add on main if it is missing (085 already exists — nothing lost). New worker rule recorded: workers commit only their ticket's issue.md/log.md under .system/, never queue.*, handoff.*, escalations.*, plan.md.
+
+## 2026-09-02 · esc-14 · ticket 082
+HIGH acknowledged, proceed. 082/083/084 are the 049/062 heritage family — same method: field-driven derivation from node-types.json (no language names), per-language supertype diff with zero real-heritage loss, guards that pass in both arms. All three touch the heritage walk in extractScopes: MERGE IN ORDER 082 → 083 → 084, each rebasing on the previous before premerge, so the same function is not resolved by hand. EXTR_V g33 at wave close (director).
+
+## 2026-09-02 · esc-15 · ticket 083
+HIGH acknowledged, proceed. 082/083/084 are the 049/062 heritage family — same method: field-driven derivation from node-types.json (no language names), per-language supertype diff with zero real-heritage loss, guards that pass in both arms. All three touch the heritage walk in extractScopes: MERGE IN ORDER 082 → 083 → 084, each rebasing on the previous before premerge, so the same function is not resolved by hand. EXTR_V g33 at wave close (director).
+
+## 2026-09-02 · esc-16 · ticket 084
+HIGH acknowledged, proceed. 082/083/084 are the 049/062 heritage family — same method: field-driven derivation from node-types.json (no language names), per-language supertype diff with zero real-heritage loss, guards that pass in both arms. All three touch the heritage walk in extractScopes: MERGE IN ORDER 082 → 083 → 084, each rebasing on the previous before premerge, so the same function is not resolved by hand. EXTR_V g33 at wave close (director).
+
+## 2026-09-02 · esc-17 · ticket 086
+HIGH acknowledged, proceed. 086 is the 041 family: the coverage note must NAME the secondary grammar whose files yield zero edges (not silently count it as covered), and the resolver gap itself is a separate question — floor is the truthful note (D fixture case), the resolver fix only if the grammar has a working resolver elsewhere. Disclosure fixtures (instrument D) must gain a mixed-source-set case so this cannot regress.
