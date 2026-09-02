@@ -11,6 +11,7 @@ import { includeUses } from './vendor/relations/extractors/c-cpp-shared.mjs';
 import { SymbolTable } from './vendor/relations/symbol-table.mjs';
 import { makeResolver, resolveCandidateGroup } from './vendor/relations/resolver.mjs';
 import { makeResolvePathToFile } from './vendor/relations/resolve-path.mjs';
+import { parsePsr4, resolvePhpFqn } from './vendor/relations/extractors/php-resolve.mjs';
 
 const SEP = '\u0001'; // a control byte, never inside a path; kept as an ESCAPE - literal control bytes in source are exactly what died in the prototype's vendoring
 const LANG = { c_sharp: 'csharp' }; // grain grammar name → extractor language id (identity otherwise)
@@ -237,6 +238,34 @@ export function aliasResolverFor({ tsAliases, fileSet }) {
   };
 }
 
+// re-exported so core.mjs's PSR-4 discovery (below, at index time) parses composer.json with the SAME logic
+// resolvePhpFqn itself trusts — never a second, hand-rolled JSON reader that could drift from it.
+export { parsePsr4 };
+
+// issue 059: a PHP MONOREPO declares PSR-4 autoload per COMPONENT — Symfony's src/Symfony/Component/Xxx/
+// each carries its OWN composer.json, mapping only ITS OWN namespace prefix to its own directory; there is
+// no single repo-root composer.json covering the lot. The vendored per-file resolver (php-resolve.mjs's
+// `makePhpResolveDeps`, invoked as `base` below) walks UP from the REFERENCING file looking for the nearest
+// ANCESTOR composer.json — for a `use` reaching across to a SIBLING component that finds only the referencing
+// component's own map, which never contains the target's namespace, so the candidate silently fails to
+// resolve (44 real HttpKernel → EventDispatcher edges, gone). Mirrors `wsResolverFor`/`aliasResolverFor`:
+// core.mjs reads EVERY composer.json in the tree once (not just ancestors of one file) and merges their
+// psr-4 prefixes into one repo-wide map; this resolver re-runs the IDENTICAL longest-prefix/exists/ambiguity
+// resolution (`resolvePhpFqn`) against that union instead of one nearest ancestor, and only when the
+// per-file resolution above already came up empty — a component's own internal `use`s keep resolving via
+// their own composer.json exactly as before.
+export function phpAutoloadResolverFor({ phpAutoload = [], fileSet }) {
+  if (!phpAutoload.length) return () => undefined;
+  const merged = new Map();
+  for (const { prefix, dirs } of phpAutoload) {
+    const arr = merged.get(prefix) || (merged.set(prefix, []).get(prefix));
+    for (const d of dirs) if (!arr.includes(d)) arr.push(d);
+  }
+  const deps = { psr4For: () => merged, exists: f => fileSet.has(f), isExcluded: f => !fileSet.has(f) };
+  return (specifier, language, fromFile) =>
+    language === 'php' ? resolvePhpFqn(specifier, fromFile, deps) : undefined;
+}
+
 // the shared edge resolver: the full pass and the single-file `check` path resolve through the SAME machinery
 export function makeEdgeResolver({
   root,
@@ -245,6 +274,7 @@ export function makeEdgeResolver({
   workspaces = [],
   pkgs = [],
   tsAliases = [],
+  phpAutoload = [],
   csGlobal = { usings: [], aliases: [] },
 }) {
   const ownerOf = f => (fileSet.has(f) ? f : undefined);
@@ -255,10 +285,12 @@ export function makeEdgeResolver({
   const base = makeResolvePathToFile(root, modOwner, isExcluded);
   const ws = wsResolverFor({ workspaces, fileSet });
   const alias = aliasResolverFor({ tsAliases, fileSet });
+  const phpMono = phpAutoloadResolverFor({ phpAutoload, fileSet });
   const resolvePathToFile = (specifier, fromFile, language, isPackage) =>
     base(specifier, fromFile, language, isPackage) ??
     alias(specifier, language, fromFile) ??
-    ws(specifier, language);
+    ws(specifier, language) ??
+    phpMono(specifier, language, fromFile);
   const resolver = makeResolver({ ownerIndex: { ownerOf }, symbolTable: table, resolvePathToFile });
   return (rel, f) => {
     // one file's resolved out-edges (deduplicated, deterministic)
@@ -328,10 +360,10 @@ export function hydrateTable(relDecls) {
 }
 
 // ---- resolution over the whole indexed tree → deduplicated file→file edges ----
-export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], tsAliases = [] }) {
+export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], tsAliases = [], phpAutoload = [] }) {
   const fileSet = new Set(files);
   const { table, csGlobal } = tableFrom(files, relFacts);
-  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, tsAliases, csGlobal });
+  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, tsAliases, phpAutoload, csGlobal });
   const edges = [];
   for (const rel of files) edges.push(...resolve(rel, relFacts[rel]));
   return edges.sort((a, b) =>
