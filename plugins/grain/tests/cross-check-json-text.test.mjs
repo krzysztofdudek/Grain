@@ -35,7 +35,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -196,6 +196,98 @@ test('map: the "decisions:" headline and every fully-listed layer\'s module set 
     checkedAtLeastOneFull = true;
   }
   assert.ok(checkedAtLeastOneFull, `fixture sanity: expected at least one untruncated layer segment to check fully: ${layerLine}`);
+});
+
+// ===== `map --json` completeness (§066/051): text renders `concepts:`, `changes:` and derives `layers:` from the
+// module dependency graph; `--json` used to carry none of the three (only `nodes`/`decisions`) — a published
+// interface strictly poorer than the text answer it mirrors, with nothing disclosing the gap. Additive fields
+// only: `concepts`, `changes`, `edges`. =====
+test('map: `concepts:` line names exactly JSON\'s new concepts[]', () => {
+  const { out, code, err } = grainIn(repo, ['map']);
+  assert.equal(code, 0, `${out}\n${err}`);
+  const j = JSON.parse(grainIn(repo, ['map', '--json']).out);
+  const conceptsLine = out.split('\n').find(l => l.startsWith('map: concepts:'));
+  assert.ok(conceptsLine, out);
+  const textConcepts = conceptsLine.slice('map: concepts:'.length).trim().split(/,\s*/);
+  assert.ok(textConcepts.length > 0, `fixture sanity: expected non-empty concepts: ${out}`);
+  assert.deepEqual(textConcepts, j.concepts, `text concepts ${JSON.stringify(textConcepts)} vs JSON concepts ${JSON.stringify(j.concepts)}`);
+});
+
+// A separate, dedicated fixture: `repo` above (shared by every other test in this file) never accumulates enough
+// IDENTICALLY-shaped commits to certify a change archetype (CFG.minRaw), nor any cross-module import, so its own
+// `map --json` legitimately has empty `changes`/`edges` — proving nothing about whether those two fields actually
+// carry data when the model has some. This fixture mirrors tests/how-hook.test.mjs's own (8 "add handler"/"add
+// status" waves, each growing the SAME 4 status files — well past minRaw), plus one real cross-module import
+// (a handler importing the shared `core` base class) so `model.moduleGraph.edges` is non-empty too.
+test('map --json: `changes` and `edges` — both previously absent from --json — carry the same data the text renderer used (concepts/changes/layers) and model.json\'s own ground truth (edges)', () => {
+  const T0b = Date.UTC(2026, 0, 5, 12, 0, 0);
+  const Cap = s => s[0].toUpperCase() + s.slice(1);
+  const HANDLERS = ['create', 'cancel', 'ship', 'refund', 'archive', 'restore', 'split', 'merge'];
+  const STATUSES = ['Pending', 'Approved', 'Rejected', 'Escrowed', 'Settled', 'Voided', 'Frozen', 'Lapsed'];
+  const NOISE = [
+    ['alpha', 'util', ['compress', 'inflate']], ['beta', 'helper', ['schedule', 'cancelTimer']],
+    ['gamma', 'client', ['dial', 'hangup']], ['delta', 'guard', ['permit', 'refuse']],
+    ['epsilon', 'mapper', ['flatten', 'nest']], ['zeta', 'runner', ['spawn', 'reap']],
+  ];
+  const writeStatuses = (dir, names) => {
+    wIn(dir, 'src/enums/order-status.enum.ts', `export class OrderStatus {\n${names.map(x => `  static ${x}(): string { return '${x}'; }`).join('\n')}\n}\n`);
+    wIn(dir, 'src/dto/order.dto.ts', `export class OrderDto {\n  id = '';\n  known(): boolean { return [${names.map(x => `'${x}'`).join(', ')}].includes(this.id); }\n}\n`);
+    wIn(dir, 'tests/fixtures/order.fixture.ts', `${names.map(x => `export function make${x}Order(): { id: string } { return { id: '${x}' }; }`).join('\n')}\n`);
+    wIn(dir, 'tests/order.test.ts', `export function checkOrders(): boolean { return [${names.map(x => `make${x}Order()`).join(', ')}].every(o => o.id.length > 0); }\n`); };
+  const dir2 = mkdtempSync(join(tmpdir(), 'grain-crosscheck-map-'));
+  try {
+    let day2 = 0;
+    const commit2 = msg => { day2 += 2; const d = new Date(T0b + day2 * 86400000).toISOString();
+      gitIn(dir2, {}, 'add', '-A'); gitIn(dir2, dateEnv(d), 'commit', '-qm', msg); };
+    gitIn(dir2, {}, 'init', '-q', '-b', 'main'); gitIn(dir2, {}, 'config', 'commit.gpgsign', 'false');
+    wIn(dir2, 'src/core/base.ts', `export class Base {\n  id(): string { return ''; }\n  kind(): string { return 'base'; }\n}\n`);
+    writeStatuses(dir2, ['Draft']);
+    commit2('core scaffolding');
+    const writeHandler = n => {
+      wIn(dir2, `src/handlers/${n}.handler.ts`, `import { Base } from '../core/base';\n\nexport class ${Cap(n)}Handler extends Base {\n  handle(input: string): string { return input + '${n}'; }\n  name(): string { return '${n}'; }\n}\n`);
+      wIn(dir2, `src/dto/${n}.dto.ts`, `export class ${Cap(n)}Dto {\n  payload = '';\n  valid(): boolean { return this.payload.length > 0; }\n  render(): string { return this.payload; }\n}\n`);
+      wIn(dir2, `tests/${n}.test.ts`, `export function test${Cap(n)}(): boolean { return true; }\nexport function bench${Cap(n)}(): number { return 1; }\n`); };
+    const grown = ['Draft'];
+    for (let i = 0; i < 8; i++) {
+      writeHandler(HANDLERS[i]); commit2(`add handler ${HANDLERS[i]}`);
+      grown.push(STATUSES[i]); writeStatuses(dir2, grown); commit2(`add status ${STATUSES[i].toLowerCase()}`);
+      if (i < NOISE.length) { const [g, suf, ms] = NOISE[i];
+        wIn(dir2, `src/${g}/${g}.${suf}.ts`, `export class ${Cap(g)}${Cap(suf)} {\n${ms.map((m2, k) => `  ${m2}(v: number): number { return v + ${k}; }`).join('\n')}\n}\n`);
+        commit2(`rework ${g} ${suf} internals`); } }
+
+    const st = grainIn(dir2, ['status']);
+    assert.equal(st.code, 0, `fixture setup: grain status failed: ${st.out}\n${st.err}`);
+
+    const { out, code, err } = grainIn(dir2, ['map']);
+    assert.equal(code, 0, `${out}\n${err}`);
+    const j = JSON.parse(grainIn(dir2, ['map', '--json']).out);
+
+    // `changes:` — every archetype named in text ("label" — N changes) appears in JSON's changes[] with the same n
+    const changesLine = out.split('\n').find(l => l.startsWith('changes:'));
+    assert.ok(changesLine, `fixture sanity: expected a changes: line (>= CFG.minRaw identically-shaped commits): ${out}`);
+    assert.ok(j.changes.length > 0, `fixture sanity: expected non-empty JSON changes[]: ${JSON.stringify(j)}`);
+    const textChanges = [...changesLine.matchAll(/"([^"]+)" — (\d+) changes?/g)].map(m => [m[1], +m[2]]);
+    assert.ok(textChanges.length > 0, `expected at least one parsed change segment: ${changesLine}`);
+    for (const [label, n] of textChanges) {
+      const hit = j.changes.find(c => c.label === label);
+      assert.ok(hit, `text names archetype "${label}", missing from JSON changes[]: ${JSON.stringify(j.changes)}`);
+      assert.equal(hit.n, n, `archetype "${label}": text says ${n} changes, JSON says ${hit.n}`);
+    }
+
+    // `edges` — previously absent from --json entirely; must now equal model.json's own moduleGraph.edges exactly,
+    // and every from/to module id must be a real node already listed in `nodes`
+    const model = JSON.parse(readFileSync(join(dir2, '.grain', 'cache', 'model.json'), 'utf8'));
+    const groundTruth = (model.moduleGraph.edges || []).map(e => ({ from: e.from, to: e.to, n: e.n }));
+    assert.ok(groundTruth.length > 0, `fixture sanity: expected a real cross-module import edge: ${JSON.stringify(model.moduleGraph)}`);
+    assert.deepEqual(j.edges, groundTruth, `JSON edges ${JSON.stringify(j.edges)} vs model.json's own moduleGraph.edges ${JSON.stringify(groundTruth)}`);
+    const nodeIds = new Set(j.nodes.map(n => n.id));
+    for (const e of j.edges) {
+      assert.ok(nodeIds.has(e.from), `edge names module ${e.from} not present in nodes[]: ${JSON.stringify(j.nodes)}`);
+      assert.ok(nodeIds.has(e.to), `edge names module ${e.to} not present in nodes[]: ${JSON.stringify(j.nodes)}`);
+    }
+  } finally {
+    rmSync(dir2, { recursive: true, force: true });
+  }
 });
 
 // ===== `check` (the happy-path gap check-json-contract.test.mjs leaves open) =====
