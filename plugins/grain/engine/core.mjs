@@ -2413,6 +2413,15 @@ export function isDefiningFact(medoids, f) {
 // hasOwnProperty: model JSON counts are plain objects — a value literally named "constructor" must read 0, not Object.prototype.constructor
 export const kt = (c, K, x, n) =>
   (((Object.prototype.hasOwnProperty.call(c, x) ? c[x] : 0) || 0) + 0.5) / (n + K / 2);
+// the "ambient" acceptance test, shared: a candidate's OWN global rate (`k` of `n`) already clears the λ=8 display
+// bound (docs/mathematics.md, "naming an expected value") with no look at whatever specific relationship is under
+// test — the exact judgment call "this repo touches these with almost everything" needs, independent of which
+// pairing produced the candidate. `certifyObligationRules` (ticket 073, birth-obligation companions) and
+// `cochangeData` (ticket 074, co-change partners) both call this SAME function so the two callers can never drift
+// on what counts as background versus a genuine, specific pattern — no new constant, CFG.lambda is the one this
+// repo's other display-bound checks already use.
+const K2 = 2;
+export const clearsOwnRate = (k, n) => n > 0 && (k + 0.5) / (n + K2 / 2) >= 1 - 1 / CFG.lambda;
 
 // file-level lineage over `H.fps`: `H.lc`'s keys are rewritten FORWARD on a rename (history.mjs moves the row to the
 // new path and DELETES the old key), so a historical path is simply absent from it and cannot be looked up there.
@@ -2485,10 +2494,10 @@ function certifyObligationRules(rec, { fileCommits, nonMegaCommits, idxCost, liv
     const clearsDisplay = (k + 0.5) / (rec.n + K / 2) >= 1 - 1 / CFG.lambda; // gate 2: the display bound (docs/mathematics.md, "naming an expected value"), λ = 8
     if (bits > 0 && clearsDisplay) {
       rules.push({ file: o, k, n: rec.n, bits: +bits.toFixed(2), share: +(k / rec.n).toFixed(3) });
-    } else if (N > 0 && (gp + 0.5) / (N + K / 2) >= 1 - 1 / CFG.lambda) {
+    } else if (clearsOwnRate(gp, N)) {
       // not a discovery about THIS class: O's OWN base rate over the whole history already clears the identical λ
-      // bound, so it would read this high beside almost ANY class — §2's finding, applied here rather than to
-      // co-change. Reported separately (never silently dropped) so a reader can see it is background, not signal.
+      // bound (§074 shares this exact test for co-change partners too), so it would read this high beside almost
+      // ANY class. Reported separately (never silently dropped) so a reader can see it is background, not signal.
       ambient.push({ file: o, k: gp, n: N, share: +(gp / N).toFixed(3) });
     }
   }
@@ -2573,6 +2582,17 @@ export function obligationFor(model, rel) {
 }
 // the standalone `grain obligation <path>` text renderer AND the single-line hook `check <file> --as <path>` uses
 // (`{ top: 1 }`, first rule only) — one function, one wording, never two copies drifting apart.
+// the ambient half of a "two labelled sets" answer — ticket 073's obligation table and ticket 074's completeness
+// partners both split a candidate list into a specific set and this one, and BOTH print it with this same
+// wording/shape so a reader never has to learn a second phrasing for the identical judgment call ("this repo
+// touches these with almost everything"). `a.k`/`a.n` are always the candidate's OWN global rate (never a
+// case-specific count) — that is what makes a candidate ambient in the first place.
+function ambientLines(ambient, top) {
+  if (!ambient.length) return [];
+  const out = ['ambient (this repo touches these with almost everything):'];
+  for (const a of ambient.slice(0, top)) out.push(`  ${a.file}  ${a.k} of ${a.n} commits`);
+  return out;
+}
 export function obligationLines(model, rel, { top = 5 } = {}) {
   const { module, suffix, n, rules, ambient } = obligationFor(model, rel);
   const kindWord = suffix ? `*.${suffix}` : '(no extension)';
@@ -2587,10 +2607,7 @@ export function obligationLines(model, rel, { top = 5 } = {}) {
       `a new ${kindWord} under ${dirWord} has been born ${n} time${n === 1 ? '' : 's'} — nothing certifies as a specific obligation`
     );
   }
-  if (ambient.length) {
-    out.push('ambient (this repo touches these with almost everything):');
-    for (const a of ambient.slice(0, top)) out.push(`  ${a.file}  ${a.k} of ${a.n} commits`);
-  }
+  out.push(...ambientLines(ambient, top));
   return out;
 }
 
@@ -5150,6 +5167,13 @@ export async function learn({
         .sort((a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1))
         .slice(0, 5000)
     : []; // cap by descending support
+  // §074: the exact population `model.cochange`'s own `commitsA`/`commitsB` were drawn from (state.fileCommits,
+  // history.mjs) — carried onto the model so `cochangeData` can test a co-change partner's OWN global rate
+  // (commitsX / nonMegaCommits) against the same λ bound `certifyObligationRules`' ambient gate uses, without
+  // re-deriving it from `H.fps` (which `buildObligationTable` does for a DIFFERENT reason — current-path-keying —
+  // that does not apply here: cochange's commitsA/commitsB are already historical-path-keyed, so this must stay
+  // historical-path-keyed too, or the two counts would disagree about what a "file" is).
+  model.nonMegaCommits = H ? H.nonMegaCommits : 0;
   // scope-level co-change (§J5.7b): mirrors model.cochange above, but `a`/`b` are scope keys whose path half is a
   // HISTORICAL path (§J4.1) — remapped through currentPathOf ONCE here, at learn-time, because checkFile never
   // sees H (only the model, exactly like model.cochange/model.moves/model.msgAffinity).
@@ -9758,6 +9782,15 @@ export function completeness(model, changed) {
 // false "no file historically changes with these" — see .system/research/question-catalog.md §3.2). A multi-file
 // `changed` set (`review` over several touched files) keeps the stricter CFG.cochangeMinConf: more files already
 // means more corroborating evidence, so the sparse-history case for the looser floor doesn't apply.
+// §074: `ambient` on a hit below is structural, not a new tunable — a partner whose OWN global commit count
+// (`c.commitsA`/`c.commitsB`, whichever side IS the partner — never the display `commits`, which §063 already
+// picks as whichever direction's denominator cleared the confidence bar and so can legitimately be the CHANGED
+// file's own count instead) already clears the same λ bound `certifyObligationRules`' ambient gate uses, against
+// `model.nonMegaCommits` — the exact population those counts were drawn from (history.mjs). Measured in
+// `.system/research/obligations-design.md` §2: pooled over 20 repos, raw co-change recall@3 (0.285) loses to the
+// null "3 hottest recently-changed files" (0.336), and the entire deficit is the ambient half — on companions
+// outside the 10 hottest files co-change alone scores 0.198 against the null's 0.000. Never merge the two: an
+// ambient partner crowds out a specific one at the top of a ranked list an agent has room to read only 3-5 of.
 export function cochangeData(model, changed) {
   const hits = new Map();
   // §023: same liveness source and idiom as `cochangePartners`'s own `live` (core.mjs ~2552, added for §020) and
@@ -9765,6 +9798,7 @@ export function cochangeData(model, changed) {
   // a second/third liveness check invented per renderer.
   const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
   const minConf = changed.length === 1 ? 1 / 3 : CFG.cochangeMinConf;
+  const N = model.nonMegaCommits || 0;
   for (const c of model.cochange) {
     const confAB = c.sup / (c.commitsA || 1),
       confBA = c.sup / (c.commitsB || 1);
@@ -9773,13 +9807,25 @@ export function cochangeData(model, changed) {
     // the changed side's own count (§063: `test/res.attachment.js (8/10)`, not the hub's own `8/392`)
     const commits = confAB >= confBA ? c.commitsA || c.sup : c.commitsB || c.sup;
     for (const f of changed) {
-      if (c.a === f && !changed.includes(c.b)) hits.set(c.b, { file: c.b, sup: c.sup, commits, dead: !live.has(c.b) });
-      if (c.b === f && !changed.includes(c.a)) hits.set(c.a, { file: c.a, sup: c.sup, commits, dead: !live.has(c.a) });
+      if (c.a === f && !changed.includes(c.b)) {
+        const k = c.commitsB || 0; // the PARTNER's (c.b) own global count — independent of which direction won `commits` above
+        hits.set(c.b, clearsOwnRate(k, N)
+          ? { file: c.b, sup: c.sup, commits, dead: !live.has(c.b), ambient: true, k, n: N, share: +(k / N).toFixed(3) }
+          : { file: c.b, sup: c.sup, commits, dead: !live.has(c.b), ambient: false });
+      }
+      if (c.b === f && !changed.includes(c.a)) {
+        const k = c.commitsA || 0; // the PARTNER's (c.a) own global count
+        hits.set(c.a, clearsOwnRate(k, N)
+          ? { file: c.a, sup: c.sup, commits, dead: !live.has(c.a), ambient: true, k, n: N, share: +(k / N).toFixed(3) }
+          : { file: c.a, sup: c.sup, commits, dead: !live.has(c.a), ambient: false });
+      }
     }
   }
   // strongest partner first (confidence, then raw support), file only as the final tiebreak — under the looser
   // single-file floor there can be more than 5 candidates, and slice(0,5) below must keep the best ones, not
-  // whichever sort alphabetically first
+  // whichever sort alphabetically first. Ambient hits sort in the same pass (a caller that wants them separated,
+  // like `completenessDirectional`, filters by `.ambient` afterward) — this order is never itself rendered as one
+  // ranked list.
   return [...hits.values()].sort(
     (a, b) => b.sup / b.commits - a.sup / a.commits || b.sup - a.sup || (a.file < b.file ? -1 : a.file > b.file ? 1 : 0)
   );
@@ -9817,24 +9863,30 @@ export function scopeCochangeLines(model, rel, partitionName) {
       )
     );
 }
-// stable contract: the standalone `completeness <file>` command prints this text verbatim on a hit — do not
-// change it (§023: except the new `(deleted)` marker on a dead partner, which the ticket's own acceptance
+// stable contract: the standalone `completeness <file>` command prints this text verbatim on a SPECIFIC hit — do
+// not change it (§023: except the new `(deleted)` marker on a dead partner, which the ticket's own acceptance
 // requires — the live-partner case below is byte-for-byte unchanged, so the frozen contract holds for every
 // fixture that predates it). The NO-hit case changed under §063: never certify `(complete)` — that phrase claims
 // an absence this model cannot actually see (44 of the 45 hottest files in the measured corpus got exactly that
-// false claim). Name the threshold that was actually applied instead.
+// false claim). Name the threshold that was actually applied instead. §074 adds a SEPARATE ambient section
+// (`ambientLines`, shared with `obligationLines`) — never merged into this list: `.system/research/
+// obligations-design.md` §2 measured raw co-change losing to the null "3 hottest recent files" pooled (0.285 vs
+// 0.336), entirely because the ambient half crowds out the non-obvious half worth reading (0.198 vs 0.000 there).
 export function completenessDirectional(model, changed) {
   // ranked by the max of the two directional confidences — see cochangeData's own §063 comment
   const hits = cochangeData(model, changed);
-  if (hits.length)
-    return [
-      `[grain] Edits like this historically also touch:`,
-      ...hits
-        .slice(0, 5)
-        .map(h => `  - ${h.file}${h.dead ? ' (deleted)' : ''} (co-changed in ${h.sup}/${h.commits} commits)`),
-    ];
+  const specific = hits.filter(h => !h.ambient);
+  const ambient = hits.filter(h => h.ambient);
   const minConf = changed.length === 1 ? 1 / 3 : CFG.cochangeMinConf;
-  return [`no partner above ${pct(minConf)}% co-change confidence`];
+  const out = specific.length
+    ? [
+        `[grain] Edits like this historically also touch:`,
+        ...specific
+          .slice(0, 5)
+          .map(h => `  - ${h.file}${h.dead ? ' (deleted)' : ''} (co-changed in ${h.sup}/${h.commits} commits)`),
+      ]
+    : [`no partner above ${pct(minConf)}% co-change confidence`];
+  return [...out, ...ambientLines(ambient, 5)];
 }
 // the recipe half of `missingLines`: a NEW file's own carried marker (decorator/supertype/return type) or group role
 // borrows exactly the "a new carrier/member comes with" mechanism `whereCmd` already reads off markerImplied/

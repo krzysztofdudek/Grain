@@ -25,7 +25,9 @@ const hubModel = () => ({
 test('a hub file (huge own commit count) gets its tightly-coupled partner printed with the PARTNER\'S OWN support numbers, not the hub\'s', () => {
   const hits = cochangeData(hubModel(), ['src/hub.ts']);
   assert.equal(hits.length, 1, `expected exactly one partner surfaced: ${JSON.stringify(hits)}`);
-  assert.deepEqual(hits[0], { file: 'src/partner.ts', sup: 8, commits: 8, dead: false });
+  // §074: `ambient` is false here because the fixture carries no `nonMegaCommits` (no history at all to test the
+  // partner's own global rate against) — see completeness-ambient-split.test.mjs for the ambient=true case.
+  assert.deepEqual(hits[0], { file: 'src/partner.ts', sup: 8, commits: 8, dead: false, ambient: false });
 });
 
 test('completeness <hub file> renders the partner line with real support numbers, never "(complete)"', () => {
