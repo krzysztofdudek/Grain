@@ -39,6 +39,7 @@ import {
   parseJsonc,
   relSupported,
   relPathOnly,
+  parsePsr4,
 } from './relations.mjs';
 
 const S = '\u0001'; // cell-key separator (was a literal SOH byte in the prototype)
@@ -4491,7 +4492,51 @@ export async function learn({
     } catch {
       /* aliases are an extra channel, never a reason to fail the pass */
     }
-    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, tsAliases });
+    // issue 059: PHP monorepos (Symfony's src/Symfony/Component/Xxx/, one composer.json per component) declare
+    // PSR-4 autoload PER COMPONENT — there is no single repo-root composer.json a `use` into a sibling component
+    // could walk up to. Read every composer.json in the tree ONCE here (same allPaths/EXCL scan as tsconfig above)
+    // and merge every prefix's base dirs into one repo-wide map; `phpAutoloadResolverFor` (relations.mjs) then
+    // resolves a cross-component `use` against that union when the per-file (nearest-ancestor composer.json)
+    // resolution above already came up empty.
+    const phpAutoload = [];
+    try {
+      const merged = new Map();
+      const addComposer = composerRel => {
+        let text;
+        try {
+          text = readFileSync(join(root, composerRel), 'utf8');
+        } catch {
+          return;
+        }
+        const dir = dirname(composerRel);
+        for (const [prefix, dirs] of parsePsr4(text, dir === '.' ? '' : dir)) {
+          const arr = merged.get(prefix) || (merged.set(prefix, []).get(prefix));
+          for (const d of dirs) if (!arr.includes(d)) arr.push(d);
+        }
+      };
+      if (tree && tree.allPaths) {
+        for (const rel2 of tree.allPaths)
+          if (basename(rel2) === 'composer.json' && !HARD_EXCL.test(rel2)) addComposer(rel2);
+      } else
+        (function fc(d) {
+          let es;
+          try {
+            es = readdirSync(d, { withFileTypes: true });
+          } catch {
+            return;
+          }
+          for (const e of es) {
+            const full = join(d, e.name);
+            if (EXCL.test(toPosix(relative(root, full)) + '/')) continue;
+            if (e.isDirectory()) fc(full);
+            else if (e.name === 'composer.json') addComposer(toPosix(relative(root, full)));
+          }
+        })(root);
+      for (const [prefix, dirs] of merged) phpAutoload.push({ prefix, dirs });
+    } catch {
+      /* an extra channel, never a reason to fail the pass */
+    }
+    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, tsAliases, phpAutoload });
     model.edges = edges.slice(0, 30000);
     model.edgesTruncated = Math.max(0, edges.length - 30000);
     model.moduleGraph = moduleGraph(edges, files, pkgs);
@@ -4499,6 +4544,7 @@ export async function learn({
     model.relDecls = compactDecls(files, relFacts);
     model.workspaces = workspaces;
     model.tsAliases = tsAliases;
+    model.phpAutoload = phpAutoload;
     model.csGlobal = tableFrom(files, relFacts).csGlobal;
     model.filesAll = files;
     // every tracked path, not only the code-parseable ones: placement advice and companion-file facts are pure
@@ -5937,6 +5983,7 @@ function computeArchHits({ model, root, effRel, relFact }) {
         workspaces: model.workspaces || [],
         pkgs: model.pkgs || [],
         tsAliases: model.tsAliases || [],
+        phpAutoload: model.phpAutoload || [],
         csGlobal: model.csGlobal || { usings: [], aliases: [] },
       });
       const mg = model.moduleGraph;
@@ -8093,11 +8140,23 @@ export const TEMPLATE_DESCRIPTIVE_NOTE =
 // The {n, grammars} shape is exported (not just the prose below) so export.mjs (§027) can carry the identical
 // fact `report`/`status` print — one function computes it, so the two surfaces can never drift apart the way
 // rules/report once did (§007).
+// issue 059: PHP is NOT `relPathOnly` — its extractor resolves call/type-ref/instanceof references through
+// the symbol table like any full-featured language, not a literal-path grep — so `relSupported && !relPathOnly`
+// alone reads it as genuinely covered. But EVERY one of those resolutions still bottoms out in a PSR-4 lookup
+// (`resolvePhpFqn`, php-resolve.mjs): with no psr-4 autoload map anywhere in the tree (no composer.json, or one
+// with no `autoload`/`autoload-dev` psr-4 section) that lookup can never succeed for ANY `use`, and grain's own
+// merged map (`model.phpAutoload`, relations.mjs `phpAutoloadResolverFor`) stays empty — the same "near-total
+// real-world resolution failure reading as covered" 041 caught for path-only extractors, just keyed on repo
+// CONTENT (a PSR-4 map to consult) instead of extractor STRUCTURE. A PHP repo that pins its architecture down
+// to composer.json (Symfony, Slim, virtually every modern framework) is unaffected — flagged only when that
+// signal is entirely absent, the one case a real edge could never have existed.
 export function relCoverageData(model) {
   const uncovered = new Map(); // grammar name -> file count
+  const phpNoAutoload = !(model.phpAutoload && model.phpAutoload.length);
   for (const f of model.filesAll || []) {
     const g = EXT2GRAMMAR[extname(f)];
-    if (g && (!relSupported(g) || relPathOnly(g))) uncovered.set(g, (uncovered.get(g) || 0) + 1);
+    if (g && (!relSupported(g) || relPathOnly(g) || (g === 'php' && phpNoAutoload)))
+      uncovered.set(g, (uncovered.get(g) || 0) + 1);
   }
   const n = [...uncovered.values()].reduce((a, b) => a + b, 0);
   return { n, grammars: [...uncovered.keys()].sort() };
