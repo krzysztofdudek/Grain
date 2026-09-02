@@ -1,6 +1,6 @@
 # 043 · Solidity modifiers are not modelled — a function missing `onlyOwner` passes `check` clean
 
-**Status:** OPEN
+**Status:** FIXED — landed in fix-040-043 (wave 1): modifier_invocation derived as a decoration from node-types.json (0→140 on OpenZeppelin, onlyOwner learnable); the planted-omission miss moved to 047 (deviant exclusion), which shipped its disclosure at 0.78% fire rate
 **Found by:** round 3 field test, Solidity/OpenZeppelin, 2026-09-01
 **Severity:** HIGH — the safety-net command silently passes the exact edit it exists to catch
 
