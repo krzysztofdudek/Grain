@@ -826,6 +826,16 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   const scopes = [];
   const imports = [];
   const isScope = n => b.scope.has(n.type);
+  // §075 — a catch/finally clause's collection below searches bodyN's WHOLE subtree (descendantsOfType does not
+  // stop at a nested scope's own boundary), so the SAME physical clause is found once when its enclosing METHOD
+  // is walked and again when that method's enclosing CLASS is walked (and again for every further ancestor up
+  // the chain) — one clause in the source, one scope entry per body-bearing ancestor above it. The walk visits an
+  // ancestor strictly before any of its descendants (a scope's own catch/finally loop runs before its children
+  // are pushed onto `treeStack`), so the NEAREST enclosing scope always claims a given clause LAST. Keying each
+  // claim by the clause's own node id and letting a later claim overwrite an earlier one — instead of pushing a
+  // second `scopes` entry — leaves exactly one entry per physical clause, claimed by its nearest enclosing scope,
+  // regardless of nesting depth or grammar (no per-language special case: purely a fact about tree structure).
+  const catchOwnerIdx = new Map();
   // iterative pre-order, left-to-right traversal (no call-stack frame per AST level — a recursive `walk` overflowed
   // the stack on a deeply left-nested `binary_expression`, one JS frame per operator): children are pushed in
   // REVERSE order so the first child pops first, preserving the exact visitation order `scopes` array order,
@@ -1334,7 +1344,14 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
           'defer_statement',
         ])) {
           const bkind = /finally|ensure/.test(blk.type) ? 'finally' : 'catch';
-          scopes.push(blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope));
+          const blkScope = blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope);
+          // §075 dedup (see the comment on `catchOwnerIdx` above): a later claim on the same physical clause
+          // replaces the earlier one in place, rather than adding a second `scopes` entry beside it.
+          if (catchOwnerIdx.has(blk.id)) scopes[catchOwnerIdx.get(blk.id)] = blkScope;
+          else {
+            catchOwnerIdx.set(blk.id, scopes.length);
+            scopes.push(blkScope);
+          }
         }
       pushKids(bodyN || ch, treeStack);
     } else {
@@ -8446,13 +8463,22 @@ export function leakSubtractedH(H, sha) {
 //     token with the query: the half no name matcher can win, reported BESIDE the pooled numbers, never instead
 //     of them. Together with the baseline arm that is two independent controls on the one confound this ground
 //     truth cannot remove — the query and the answer were written by the same person in the same sitting.
-// Returns { where, base, unnamed: { n, where, base }, n, silent }, each arm { hit3, mrr, place3, placeWidth }: `n`
-// is the candidate count, `silent` counts candidates where `where` ranked nothing at all (a genuine no-match or
-// the concentration safeguard suppressing an untrustworthy top hit — both still count as a 0, or the gate would
-// be gameable by staying quiet on everything hard). `place3` discounts a containment-only credit by 1/cardWidth
-// (§068) so a directory or group wide enough to cover most of the repository cannot pass as a precise hit;
-// `placeWidth` is the mean file-count of the cards actually credited, printed beside place3 so that artifact is
-// visible directly instead of requiring a researcher to dig it out by hand.
+//   · a third, additive stratum (§071) — every query above is built from `toks`, the commit message run through
+//     `tokenize`+`normTok`, which SPLITS camelCase/snake_case (`sendStatus` → `send`+`status`) — so none of them
+//     can ever contain a verbatim identifier, and `whereCmd`'s own exact-name pin (`qraw`/`c.exact`) can only ever
+//     fire off a query's own whole, unsplit word. That is an instrument boundary, not a fact about `where`: typed
+//     by a human, `where sendStatus` pins correctly. `symbol` re-runs the identical scoring over just the
+//     candidates whose raw message carried such a word (`fp.symToks`, history.mjs), on a query that keeps it
+//     whole ALONGSIDE the ordinary split form — never replacing `where`/`base`/`unnamed` above, which stay
+//     computed exactly as before.
+// Returns { where, base, unnamed: { n, where, base }, symbol: { n, where, base }, n, silent }, each arm
+// { hit3, mrr, place3, placeWidth }: `n` is the candidate count, `silent` counts candidates where `where` ranked
+// nothing at all (a genuine no-match or the concentration safeguard suppressing an untrustworthy top hit — both
+// still count as a 0, or the gate would be gameable by staying quiet on everything hard). `place3` discounts a
+// containment-only credit by 1/cardWidth (§068) so a directory or group wide enough to cover most of the
+// repository cannot pass as a precise hit; `placeWidth` is the mean file-count of the cards actually credited,
+// printed beside place3 so that artifact is visible directly instead of requiring a researcher to dig it out by
+// hand.
 export function whereEval({ model, H, last = 100 }) {
   const DEPTH = 10; // the ranked list is read this deep: `hit3`/`place3` are the product's OWN default `--top 3`; the rest of the depth is there so `mrr` can tell "just missed" from "nowhere at all"
   const fps = (H && H.fps) || [];
@@ -8497,7 +8523,7 @@ export function whereEval({ model, H, last = 100 }) {
         claimed.add(cur);
       }
     }
-    if (truth.length) eligible.push({ toks: fp.toks, truth });
+    if (truth.length) eligible.push({ toks: fp.toks, symToks: fp.symToks || [], truth });
   }
   const n = Math.max(0, Math.floor(last) || 0);
   const candidates = n > 0 ? eligible.slice(-n) : []; // the LAST n are the most recent — the conventions in force now
@@ -8532,10 +8558,12 @@ export function whereEval({ model, H, last = 100 }) {
     const d = dirOf(p);
     dirFileCount.set(d, (dirFileCount.get(d) || 0) + 1);
   }
-  const rows = [];
-  let silent = 0;
-  for (const C of candidates) {
-    const query = C.toks.join(' ');
+  // §071 — the per-candidate scoring math, unchanged in every particular from before this ticket, pulled out to
+  // a function so it can be reused verbatim for a SECOND query built off the same candidate (the symbol stratum
+  // below) without duplicating (and risking drift in) the arithmetic the pooled/unnamed strata are judged by.
+  // Called once per candidate exactly as the inline loop used to call it — same query, same truth, same DEPTH —
+  // so the pooled/named/unnamed numbers this returns are bit-for-bit what the old inline code produced.
+  const scoreQuery = (C, query) => {
     const qt = new Set(
       tokenize(query)
         .map(normTok)
@@ -8544,7 +8572,6 @@ export function whereEval({ model, H, last = 100 }) {
     const truth = new Set(C.truth),
       truthDirs = new Set(C.truth.map(dirOf));
     const { hits } = whereCmd({ model, query, top: DEPTH, mapRows: 0 }); // mapRows 0: the compact map is render-only and this reads ranks
-    if (!hits.length) silent++;
     let wHit = 0,
       wPlace = 0,
       wContainRank = 0,
@@ -8592,16 +8619,38 @@ export function whereEval({ model, H, last = 100 }) {
     });
     const bPlaceW = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? bContainWidth : 0;
     const bPlaceCredit = bHit && bHit <= 3 ? 1 : bContainRank && bContainRank <= 3 ? 1 / bContainWidth : 0;
+    return { qt, silent: !hits.length, wHit, wPlaceCredit, wPlaceW, bHit, bPlaceCredit, bPlaceW };
+  };
+  const rows = [];
+  let silent = 0;
+  for (const C of candidates) {
+    const query = C.toks.join(' ');
+    const r = scoreQuery(C, query);
+    if (r.silent) silent++;
     const nameToks = new Set(C.truth.flatMap(f => nameTokens(f).map(normTok)));
     rows.push({
-      named: [...qt].some(t => nameToks.has(t)),
-      wHit,
-      wPlaceCredit,
-      wPlaceW,
-      bHit,
-      bPlaceCredit,
-      bPlaceW,
+      named: [...r.qt].some(t => nameToks.has(t)),
+      wHit: r.wHit,
+      wPlaceCredit: r.wPlaceCredit,
+      wPlaceW: r.wPlaceW,
+      bHit: r.bHit,
+      bPlaceCredit: r.bPlaceCredit,
+      bPlaceW: r.bPlaceW,
     });
+  }
+  // §071 — the symbol stratum: purely additive, never read by (and never feeding back into) `rows` above, so it
+  // cannot move the pooled/named/unnamed numbers by so much as a rounding error. Limited to candidates whose OWN
+  // commit message actually contained a verbatim identifier-shaped word (`symToks`, history.mjs) — a candidate
+  // with none would score identically to its own `rows` entry, diluting the stratum with cases that test nothing
+  // new. The query fed to `whereCmd` is the existing split/stemmed form PLUS those verbatim words appended (never
+  // instead of it — option (a) from the ticket): `qraw`/`c.exact` (core.mjs's exact-name pin) can only ever fire
+  // off a query's own WHOLE, unsplit word, and `toks` alone can never contain one.
+  const symRows = [];
+  for (const C of candidates) {
+    if (!C.symToks.length) continue;
+    const query = [...C.toks, ...C.symToks].join(' ');
+    const r = scoreQuery(C, query);
+    symRows.push({ wHit: r.wHit, wPlaceCredit: r.wPlaceCredit, wPlaceW: r.wPlaceW, bHit: r.bHit, bPlaceCredit: r.bPlaceCredit, bPlaceW: r.bPlaceW });
   }
 
   const at = (rs, f, k) => (rs.length ? rs.filter(r => r[f] && r[f] <= k).length / rs.length : 0);
@@ -8632,6 +8681,14 @@ export function whereEval({ model, H, last = 100 }) {
       n: unnamed.length,
       where: arm(unnamed, 'wHit', 'wPlaceCredit', 'wPlaceW'),
       base: arm(unnamed, 'bHit', 'bPlaceCredit', 'bPlaceW'),
+    },
+    // §071 — candidates whose commit message carried at least one verbatim identifier-shaped word, scored on a
+    // query that keeps that word whole (alongside the ordinary split/stemmed tokens): the stratum `unnamed`
+    // structurally cannot cover, since a query built only from `toks` can never pin `whereCmd`'s exact-name match.
+    symbol: {
+      n: symRows.length,
+      where: arm(symRows, 'wHit', 'wPlaceCredit', 'wPlaceW'),
+      base: arm(symRows, 'bHit', 'bPlaceCredit', 'bPlaceW'),
     },
     n: rows.length,
     silent,
@@ -9123,22 +9180,33 @@ export function report(model, { top = 15, outcomes } = {}) {
 // line whose whole point is to be skimmed, and `report`'s detailed section already exists for exactly that
 // evidence. `decisions:` is a bare count/structure line (like a header or a stamp), never a claim, so it carries
 // no voice() marker at all.
+// the module→layer grouping `map`'s text `layers:` line renders (byLayer, below) — extracted so a second caller
+// (ticket 072: `report --json`'s `layers` field) computes the identical grouping instead of re-deriving its own,
+// the same "one function computes it" discipline as relCoverageData/relCoverageNote above (§G21). Returns the
+// FULL, untruncated module list per layer, ascending by layer number, modules sorted alphabetically within — the
+// same sort mapSections' own `mods.sort()` already used; mapSections' 4-per-layer "+K more" cap is a display
+// concern layered on top by its own caller, exactly like cmdMap's `changes` field already keeps the full
+// `model.changeArchetypes` list while its OWN text line caps to 4 (§066/051).
+export function moduleLayers(model) {
+  const mg = model.moduleGraph;
+  if (!mg || !mg.nodes.length) return [];
+  const byLayer = new Map();
+  for (const n of mg.nodes) {
+    if (n.layer === undefined) continue;
+    (byLayer.get(n.layer) || byLayer.set(n.layer, []).get(n.layer)).push(n.id);
+  }
+  return [...byLayer.keys()]
+    .sort((a, b) => a - b)
+    .map(l => ({ layer: l, modules: byLayer.get(l).sort() }));
+}
 export function mapSections(model) {
   const lines = [];
   const mg = model.moduleGraph;
   if (mg && mg.nodes.length) {
-    const byLayer = new Map();
-    for (const n of mg.nodes) {
-      if (n.layer === undefined) continue;
-      (byLayer.get(n.layer) || byLayer.set(n.layer, []).get(n.layer)).push(n.id);
-    }
     const label = id => (id === '.' ? '.' : id + '/');
-    const segs = [...byLayer.keys()]
-      .sort((a, b) => a - b)
-      .map(l => {
-        const mods = byLayer.get(l).sort();
-        return `layer ${l}${l === 0 ? ' (leaves)' : ''}: ${mods.slice(0, 4).map(label).join(', ')}${mods.length > 4 ? `, +${mods.length - 4} more` : ''}`;
-      });
+    const segs = moduleLayers(model).map(({ layer: l, modules: mods }) => {
+      return `layer ${l}${l === 0 ? ' (leaves)' : ''}: ${mods.slice(0, 4).map(label).join(', ')}${mods.length > 4 ? `, +${mods.length - 4} more` : ''}`;
+    });
     if (segs.length) lines.push(voice('map', `layers: ${segs.join(' · ')}`));
   }
   if (model.concepts && model.concepts.length)
