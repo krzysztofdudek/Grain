@@ -566,9 +566,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/089",
-      "state": "running",
-      "note": "HIGH class C: disclosures[] on every --json surface, generic; instrument A consumes it",
-      "updated": "2026-09-02 12:14"
+      "state": "merged",
+      "note": "premerge READY (after rebase c3ccd06), merged clean, 2181/2181",
+      "updated": "2026-09-02 13:40",
+      "sha": "80d5b5c"
     },
     {
       "id": 53,
@@ -576,9 +577,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/090",
-      "state": "running",
-      "note": "where <path> query routing: tokenize destroys path structure before ranker; medium/G; instrument required before ship per acceptance",
-      "updated": "2026-09-02 12:56"
+      "state": "dropped",
+      "note": "STOPPED by the user (experiment ended 2026-09-02 ~11:55Z); worker killed mid-suite, uncommitted diff in worktree-agent-aa61d414bec19a299",
+      "updated": "2026-09-02 13:46"
     },
     {
       "id": 54,
@@ -596,9 +597,9 @@
       "kind": "research",
       "agent": "opus",
       "branch": "research/092",
-      "state": "queued",
+      "state": "running",
       "note": "WAVE 5 #2 trial redesign: tasks selected by without-arm failure",
-      "updated": "2026-09-02 13:00"
+      "updated": "2026-09-02 13:42"
     }
   ]
 }
