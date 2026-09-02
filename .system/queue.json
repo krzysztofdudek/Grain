@@ -415,6 +415,26 @@
       "state": "running",
       "note": "port salvaged run-corpus.mjs + corpus.json onto main; run ladder; Symfony must complete or fail loudly (055)",
       "updated": "2026-09-02 06:06"
+    },
+    {
+      "id": 39,
+      "ticket": "corpus-validation-run",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "instr/corpus-validation",
+      "state": "queued",
+      "note": "WAVE 3 (a): after instr/F-2 — run A/B/D/E instruments across corpus.json; validated-vs-parsed table into docs/validation.md; no engine change",
+      "updated": "2026-09-02 06:23"
+    },
+    {
+      "id": 40,
+      "ticket": "package-json-0.4.0",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/package-json",
+      "state": "queued",
+      "note": "WAVE 3 (b): package.json 0.2.0→0.4.0 via npm install (lockfile root), never sed; docs-audit stays green",
+      "updated": "2026-09-02 06:23"
     }
   ]
 }

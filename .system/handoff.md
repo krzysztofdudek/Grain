@@ -1,16 +1,14 @@
 # Handoff
 
-at: 2026-09-02T04:11:36.882Z
-by: director
-head: main@7ca251b
+at: 2026-09-02T04:22:21.068Z
+by: lead
+head: main@7f4aadc
 
 ## Summary
-0.4.0 on main (113ef97 + c847bb0; local only, no push per user). Wave 2 done under lead: 34 merged, suite 2115, 0 todo, 073 grain obligation landed. MISSION DECISION POINT RUNNING: research/trial-0.4.0 (Opus) — paired with/without replay on ≥3 repos measuring pre-write tool calls, grain consultations, answer-changed-diff. instr/F died (stale base) → salvaged → instr/F-2 running (reports to lead). 074 and 078 running as wave-3 items.
+Wave 2 closed: 36 tickets merged across the whole session (queue items 3-37 plus follow-ups 075-078). Every wave-2 honesty ticket, all 5 wave-3 reach items, and wave-4 #1 (grain obligation command) are done. Suite 1958 -> 2122 tests, 0 fail, 0 todo throughout (all 5 disclosure-fixtures test.todo cases are now real green). Version bump to 0.4.0/g32/h11/m24 already applied by the director mid-wave. Two Opus escalations (042, 052) were ruled by the director and both actioned (042 shipped as ticket 077, 052's declined follow-ups closed with no code change). Notable coordination events this wave: several workers' text reports claimed a commit that had not landed (real work sitting uncommitted, verified and recovered directly, never re-dispatched); worktree isolation twice let a worker's uncommitted diff bleed into a different worker's worktree (discarded once verified safe, since the real branch already had its own clean commit); one real code conflict (two workers independently fixing the same map --json gap, resolved by keeping the superset); several append-log conflicts in ticket log.md files resolved by concatenation; one genuine data-entry mixup in the queue (ticket 076's note filed under 075's slot) caught and fixed, and the director independently caught+fixed a related ticket-log misattribution. Escalated to the director: queue is empty, plus a bookkeeping note that tickets 040 and 043 (pre-dating this session) still show Status: OPEN despite 043's fix being verifiable in shipped code.
 
 ## In flight
-- 33 branch:fix/074 —  (since 2026-09-02T04:11:36.834Z, reports to lead)
-- 37 branch:research/obligation-coverage —  (since 2026-09-02T04:11:36.834Z, reports to lead)
-- 38 branch:instr/corpus-ladder-2 —  (since 2026-09-02T04:11:36.834Z, reports to lead)
+- 38 branch:instr/corpus-ladder-2 —  (since 2026-09-02T04:22:21.103Z, reports to lead)
 
 ## Pending decisions
 (none)
@@ -22,23 +20,19 @@ head: main@7ca251b
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
 
 ## Last actions
-- - 2026-09-02 merged: instr/C cross-check 9485001
-- - 2026-09-02 merged: 050 1080ad7
-- - 2026-09-02 audit: 060 zgodny — engine diff = 2 lines in extractScopes (descend into ERROR node's children, extract nothing from the ERROR itself); scala-error-region-salvage.test 9/4 on parent 4d84b66 (isolated worktree) → 13/0 on main; validation.md Scala coverage note updated; hasError unchanged so 053's caveat still fires. Third sample of wave 2 (batch 3, 11 merges).
-- - 2026-09-02 merged: 071 d494386bb42bd2f5e857233b29395325f4917500
-- - 2026-09-02 merged: 072 c146442
 - - 2026-09-02 merged: 075 a7fd8e9
 - - 2026-09-02 merged: 076 dee0d99
 - - 2026-09-02 merged: 077 73d78dcc4b2c7540f113c833cec3459af18a8453
 - - 2026-09-02 merged: 073 25971e4
 - - 2026-09-02 0.4.0 landed: 113ef97 (ENGINE 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24, validation.md re-anchored) + c847bb0 (three plugin manifests; a blind sed corruption of dependency versions caught and reverted). Suite 2115/2115.
+- - 2026-09-02 merged: 074 5bce5ef
+- - 2026-09-02 merged: 078 0a67b89
+- # Fala 2 — close 2026-09-02
+- suite: 2122
+- note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 discovered mid-wave): all 5 disclosure-fixtures todos now real green (041/046/053/057 + the original 4 from wave 1's close); wave-3 reach items 1-5 all shipped (completeness max-directional+ambient split, adoption fixes, used-by names, tested-by, how liveness+map --json parity); wave-4 #1 (grain obligation command) shipped and measured (precision clears 0.80 bar, coverage 0.048 below the 0.08 target, disclosed honestly per director ruling); both whereEval instrument bugs fixed (card-width gaming, own-commit leak — the latter found no shipped bug, landed as prospective harness guard); PHP PSR-4 cross-component resolution and #[ attribute sigil; Scala object/type classification plus 5 more grammar gaps; catch/finally fabricated-name and double-count fixes; two Opus measurements shipped honest dispositions (042 per-file vote confirmed correct then extended per director approval, 052's siblings line deleted at 0.364 measured precision). Suite 1958->2122, 0 fail, 0 todo throughout. Version bump (ENGINE_VERSION 0.4.0, EXTR_V g32, HIST_V h11, MODEL_V m24) already applied by the director mid-wave to unblock 073/074's dependent work.
 
 ## Next actions
-- READ trial-0.4.0 verdict: if pre-write calls fall and answer-changed-diff > 0 → wave 4 = reach (078 coverage, 074 ambient/specific, next obligation types Q9/N5); if not → wave 4 = ADOPTION redesign (grain volunteers via hooks at the moments the catalog identified), not more capabilities
-- test the skill across a session restart: fresh session, /director, does it boot from .system/ + handoff without this context
-- language-support claim: run instruments A–F on the full 25-repo corpus (instr/F-2), publish validated-vs-parsed in docs
-- package.json is 0.2.0 (stale) — bump with npm install deliberately, never sed
+- Queue is empty — awaiting the director's next assignment. instr/F-2 corpus-ladder (Symfony scale-ladder retry) is still running in its own worktree and reports directly to the director per the original handoff, not to the lead.
 
 ## Notes
-- Lead has not written a handoff since 00:35 despite four reminders; results are excellent, the recovery point is not — treat as a checklist failure next time
-- Blind version sed corrupted dependency versions in lockfile + grammar manifest; caught and reverted; lesson no-blind-version-sed
+(none)
