@@ -49,9 +49,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/064",
-      "state": "running",
+      "state": "merged",
       "note": "WAVE 3 #3 used by: names from model.edges",
-      "updated": "2026-09-02 01:23"
+      "updated": "2026-09-02 02:30",
+      "sha": "b1394f8"
     },
     {
       "id": 6,
@@ -59,9 +60,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/065",
-      "state": "running",
+      "state": "merged",
       "note": "WAVE 3 #4 tested by: on what",
-      "updated": "2026-09-02 01:23"
+      "updated": "2026-09-02 02:34",
+      "sha": "574bafa"
     },
     {
       "id": 7,
@@ -145,9 +147,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/059",
-      "state": "running",
+      "state": "merged",
       "note": "HIGH PHP PSR-4 use edges unresolved",
-      "updated": "2026-09-02 01:23"
+      "updated": "2026-09-02 02:09",
+      "sha": "b4dfbe5e8319629a68798062455b6c9fa8bc6fc7"
     },
     {
       "id": 15,
@@ -155,9 +158,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/062",
-      "state": "running",
+      "state": "merged",
       "note": "HIGH qualified heritage takes namespace (049-class)",
-      "updated": "2026-09-02 01:23"
+      "updated": "2026-09-02 02:12",
+      "sha": "2ed263a"
     },
     {
       "id": 16,
@@ -175,9 +179,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/053",
-      "state": "running",
+      "state": "merged",
       "note": "review drops check's parse-degraded caveat (D fixture todo)",
-      "updated": "2026-09-02 01:23"
+      "updated": "2026-09-02 02:26",
+      "sha": "64ebca6"
     },
     {
       "id": 18,
@@ -185,9 +190,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/046",
-      "state": "running",
+      "state": "merged",
       "note": "selftest 0/0/0/0 must say why (D fixture todo)",
-      "updated": "2026-09-02 01:23"
+      "updated": "2026-09-02 02:23",
+      "sha": "24dc14f"
     },
     {
       "id": 19,
@@ -275,9 +281,10 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "fix/068",
-      "state": "running",
+      "state": "merged",
       "note": "HIGH instrument: place@3 weight by card width",
-      "updated": "2026-09-02 01:23"
+      "updated": "2026-09-02 02:16",
+      "sha": "51cc429"
     },
     {
       "id": 28,
@@ -285,9 +292,10 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "fix/069",
-      "state": "running",
+      "state": "merged",
       "note": "HIGH instrument: hide candidate's own commit from history signals in whereEval",
-      "updated": "2026-09-02 01:23"
+      "updated": "2026-09-02 02:20",
+      "sha": "8d5db98"
     },
     {
       "id": 29,
