@@ -48,6 +48,23 @@ A type name can legitimately appear at more than one declaration in the same fil
 generic-parameter overloading (the same identifier naming genuinely distinct declarations); grain counts each as its
 own scope, so repeated same-name entries in `where`/`check`/`export` output are expected there, not a bug.
 
+### `disclosures[]` — every hedge the text answer carries, structured (§089)
+
+`where`, `what`, `check` and `review`'s `--json` output each carry an additive `disclosures: [{ kind, text }]`
+field: `text` is the identical sentence the text renderer prints for that same caveat, `kind` a stable identifier
+for which one it is (`weak-answer`, `no-content-foothold`, `partial-word-coverage`, `ungrammared`, `honest-negative`,
+`sparse-model`/`empty-model`/`no-source-partition`, `dirty-tree` for `where`/`what`; `blind-weak`, `gated`,
+`ungrammared`, `blind` for `what`; `no-grammar`, `no-partition`, `parse-failed`, `parse-degraded` for `check`/
+`review`, the last nested inside each `findings[]` entry alongside the rest of that file's own verdict). This closed
+a real gap (escalation 20, ticket 089): before it, an agent or harness reading `--json` alone got the confident
+ranked answer with none of the honesty the text answer next to it already carried — `where --json`'s top hit could
+score high while the text run, on the identical query, was disclosing that the real text lives in a file grain has
+no grammar for at all. Nothing existing changed shape; a command with no matching caveat carries an empty array,
+never an absent key. `check`/`review`'s `disclosures[]` deliberately does not attempt every hedge line either
+renders (see their own §089 comments in `grain.mjs`) — only the caveats backed by a flag the JSON already carried
+as a boolean (`noGrammar`, `noPartition`, `parseFailed`, `hasError`), so text and JSON are guaranteed to speak from
+the identical fact, never two hand-synced copies of one sentence.
+
 ## Voices
 
 Every line grain prints as a claim carries exactly one of four voices (`voice(kind, text, meta)`, `core.mjs`),
@@ -316,4 +333,6 @@ findings, cochangePartners, missing, schema`) suitable for a script to consume w
 Each item of `findings[]` that came from a parseable file carries its own `schema: "grain-check/1"` too (it is the
 same object `check --json` on a single file returns); a `findings[]` item for a file with no grammar (placement
 only) does not — a minor, known asymmetry, harmless since the aggregate's own top-level `schema` already identifies
-the whole payload's shape.
+the whole payload's shape. That same parseable-file item also carries `disclosures[]` (§089, see above) — a
+degraded parse on a file review lists for another reason is disclosed there exactly like `check`'s own verdict for
+that file, even when `review`'s own text collapses several such files into one aggregate line above its display cap.
