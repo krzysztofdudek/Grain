@@ -170,9 +170,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/050",
-      "state": "running",
+      "state": "merged",
       "note": "Scala object_definition not type-like; derive + all-23-grammar test",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 04:07",
+      "sha": "1080ad7"
     },
     {
       "id": 17,
