@@ -523,3 +523,107 @@ test('map: `concepts:`/`changes:` text lines have a --json twin carrying the sam
     rmSync(tmp2, { recursive: true, force: true });
   }
 });
+
+// ===== disclosures[] parity (§089) — every command whose text renderer prints a hedge/caveat qualifying an
+// otherwise-confident answer must now carry the SAME text as a structured { kind, text } entry in --json's new,
+// additive `disclosures[]` field (where/what: top-level; check/review: per-file, inside `findings[]`/the verdict
+// object itself). This is instrument C's own generic acceptance test (§089's ruling, escalation 20): an agent
+// reading JSON alone must not get the confident answer stripped of the honesty the text carries.
+//
+// GENERIC by construction: one assertion function, reused verbatim by every fixture below — it never special-cases
+// a command or a kind. Each fixture only supplies (repo, args, expected kind, and how to reach the disclosures[]
+// array in that command's JSON shape). Fixtures are deliberately minimal/dedicated (not the shared `repo` above,
+// whose files were built for other cross-checks and do not fire any of these hedges) — several are adapted, at
+// reduced size, from working fixtures already proven to fire each exact condition (what-weak-answer-disclosure.
+// test.mjs's blind-weak repo; check-json-contract.test.mjs's no-grammar/no-partition repos; cross-check-check-
+// review-parity.test.mjs's broken.ts parse-degraded snippet) — never re-derived from scratch or guessed.
+function assertDisclosureParity(dir, args, expectedKind, pick = j => j.disclosures || []) {
+  const t = grainIn(dir, args);
+  assert.equal(t.code, 0, `text run failed: ${t.out}\n${t.err}`);
+  const j = JSON.parse(grainIn(dir, [...args, '--json']).out);
+  const list = pick(j);
+  assert.ok(Array.isArray(list), `expected a disclosures[] array in --json: ${JSON.stringify(j)}`);
+  const hit = list.find(d => d.kind === expectedKind);
+  assert.ok(hit, `expected a "${expectedKind}" disclosure in --json, got kinds ${JSON.stringify(list.map(d => d.kind))}: ${JSON.stringify(j)}`);
+  assert.ok(typeof hit.text === 'string' && hit.text.length > 0, `disclosure text must be a non-empty string: ${JSON.stringify(hit)}`);
+  assert.ok(t.out.includes(hit.text), `--json's "${expectedKind}" disclosure text does not appear verbatim in the text rendering (text and JSON must share the identical string, never two hand-synced copies) — text:\n${t.out}\njson entry: ${JSON.stringify(hit)}`);
+}
+
+test('disclosures §089: `check --json` on a file with no grammar carries a "no-grammar" entry matching the text sentence', () => {
+  const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-nogrammar-');
+  try {
+    wIn(r1, 'src/a.ts', 'export const a = 1;\n');
+    const d1 = dateEnv('2026-03-01T00:00:00Z');
+    gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'init');
+    wIn(r1, 'weird.zzz', 'whatever\n');
+    assertDisclosureParity(r1, ['check', 'weird.zzz'], 'no-grammar');
+  } finally { rmSync(t1, { recursive: true, force: true }); }
+});
+
+test('disclosures §089: `check --json` on a file outside any partition carries a "no-partition" entry matching the text sentence', () => {
+  const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-nopartition-');
+  try {
+    wIn(r1, 'README.md', 'hello\n'); // no source file ever committed — the model ends up with zero partitions
+    const d1 = dateEnv('2026-03-01T00:00:00Z');
+    gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'init');
+    wIn(r1, 'new.ts', 'export class Foo {}\n'); // untracked, has a grammar: partitionFor still returns null
+    assertDisclosureParity(r1, ['check', 'new.ts'], 'no-partition');
+  } finally { rmSync(t1, { recursive: true, force: true }); }
+});
+
+test('disclosures §089: `check --json` on a degraded-but-parseable file carries a "parse-degraded" entry matching the text caveat', () => {
+  const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-degraded-');
+  try {
+    // 10 siblings, the same count cross-check-check-review-parity.test.mjs's own PAIRED fixture uses to reliably
+    // clear the certification floor and form a real partition src/broken.ts below can join
+    for (const n of ['Alpha', 'Beta', 'Gamma', 'Delta', 'Epsilon', 'Zeta', 'Eta', 'Theta', 'Iota', 'Kappa'])
+      wIn(r1, `src/${n}.ts`, `export class ${n} {\n  run(): number {\n    return 1;\n  }\n}\n`);
+    const d1 = dateEnv('2026-03-01T00:00:00Z');
+    gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'base');
+    // a real parse error inside a real function (hasError, scopesN > 0 — "parse degraded", not "parse failed") —
+    // the exact snippet cross-check-check-review-parity.test.mjs's own broken.ts fixture uses
+    wIn(r1, 'src/broken.ts', 'export function util99() { return 99; }\n\nexport function broken(x: <<not valid) {\n  return x\n');
+    assertDisclosureParity(r1, ['check', 'src/broken.ts'], 'parse-degraded');
+    // the identical fact, reached through review's per-file findings[] entry instead of check's own verdict object
+    const rt = grainIn(r1, ['review']);
+    assert.equal(rt.code, 0, `${rt.out}\n${rt.err}`);
+    const rj = JSON.parse(grainIn(r1, ['review', '--json']).out);
+    const entry = rj.findings.find(f => f.file === 'src/broken.ts');
+    assert.ok(entry, `expected src/broken.ts in review --json's findings[]: ${JSON.stringify(rj.findings.map(f => f.file))}`);
+    const hit = (entry.disclosures || []).find(d => d.kind === 'parse-degraded');
+    assert.ok(hit, `expected a parse-degraded disclosure on review's own entry: ${JSON.stringify(entry)}`);
+    assert.ok(rt.out.includes(hit.text), `review's text output does not contain the same parse-degraded sentence as its own --json:\n${rt.out}`);
+  } finally { rmSync(t1, { recursive: true, force: true }); }
+});
+
+test('disclosures §089: `what --json` on a weak, non-empty answer carries a "blind-weak" entry matching the text caveat', () => {
+  const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-blindweak-');
+  try {
+    // the okhttp shape (§037's own fixture, trimmed): a const-only file yields zero scopes, so grain cannot see
+    // the real declaration; a test file sharing all three query tokens is a weak, unrelated match that used to
+    // suppress the caveat entirely
+    wIn(r1, 'src/settings.ts', [
+      'export const MAX_CONCURRENT_STREAMS = 4;',
+      'export const HEADER_TABLE_SIZE = 1;',
+      'export const DEFAULT_WINDOW = MAX_CONCURRENT_STREAMS * HEADER_TABLE_SIZE;',
+      ''].join('\n'));
+    wIn(r1, 'src/http2.test.ts', 'export function settingsLimitsMaxConcurrentStreams(): number { return 7; }\n');
+    for (let i = 1; i <= 15; i++) wIn(r1, `src/filler${i}.ts`, `export function f${i}(): number { return ${i}; }\n`);
+    const d1 = dateEnv('2026-03-01T00:00:00Z');
+    gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'the weak-answer fixture');
+    assert.equal(grainIn(r1, ['status']).code, 0);
+    assertDisclosureParity(r1, ['what', 'MAX_CONCURRENT_STREAMS'], 'blind-weak');
+  } finally { rmSync(t1, { recursive: true, force: true }); }
+});
+
+test('disclosures §089: `where --json` on a query with zero lexical overlap, verbatim in an ungrammared file, carries an "ungrammared" entry', () => {
+  const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-ungrammared-');
+  try {
+    wIn(r1, 'src/foo.ts', 'export function bar(): number {\n  return 1;\n}\n');
+    wIn(r1, 'NOTES.md', 'remember to fix zzqfrobnicate before release\n'); // tracked, no grammar for .md
+    const d1 = dateEnv('2026-03-01T00:00:00Z');
+    gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'base');
+    assert.equal(grainIn(r1, ['status']).code, 0);
+    assertDisclosureParity(r1, ['where', 'zzqfrobnicate'], 'ungrammared');
+  } finally { rmSync(t1, { recursive: true, force: true }); }
+});

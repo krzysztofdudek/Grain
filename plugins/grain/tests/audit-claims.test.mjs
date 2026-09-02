@@ -205,6 +205,46 @@ test('noDeclarationsAnywhere: a confident `where` hit that never mentions the te
   assert.equal(res.samples[0].file, 'schema.xml');
 });
 
+// §089 — the exact bug the 085 worker's escalation reported: `where --json` used to carry no disclosure text at
+// all, so this instrument kept counting a confident-but-DISCLOSED hit as silent fabrication even after `where`'s
+// own text answer had already told the reader the real text sits in a file grain cannot read (§057/§085). Now
+// that --json carries the identical { kind: 'ungrammared', text } entry the text renderer emits, the SAME
+// confident-wrong hit as the red test above must no longer be flagged — this is red BEFORE §089's `disclosed`
+// check (proved by the sibling test above, whose mock carries no `disclosures` field) and green after it.
+test('noDeclarationsAnywhere: a confident hit that ALSO carries a matching "ungrammared" disclosure is NOT counted as fabrication (§089)', () => {
+  const cacheDir = mkdtempSync(join(tmpdir(), 'audit-claims-cache-'));
+  mkdirSync(join(cacheDir, '.grain', 'cache'), { recursive: true });
+  writeFileSync(join(cacheDir, '.grain', 'cache', 'model.json'), JSON.stringify({ filesAll: ['src/a.ts'], pathsAll: ['src/a.ts', 'schema.xml', 'schema2.xml'] }));
+  const corpus = { index: new Map([['schemaLocation', new Set(['schema.xml', 'schema2.xml'])]]) };
+  try {
+    // identical shape to the red test above (a confident hit that does not point at the truth) EXCEPT this
+    // response also carries the disclosures[] entry §089 added to `where --json`
+    const res = checkNoDeclarationsAnywhere({}, cacheDir, corpus, { whereQueries: 5 }, () => ({
+      hits: [{ type: 'file', label: 'src/a.ts', score: 0.8, members: [{ rel: 'src/a.ts' }] }],
+      disclosures: [{ kind: 'ungrammared', text: '"schemaLocation" is not a name grain parsed anywhere — that exact text appears in schema.xml, and grain has no grammar for ".xml"' }],
+    }));
+    assert.equal(res.checked, 1, 'expected the candidate to actually be exercised — disclosure must not skip the check itself');
+    assert.equal(res.fabricated, 0, `a disclosed weak/never-parsed answer must not be counted as fabrication: ${JSON.stringify(res)}`);
+  } finally { rmSync(cacheDir, { recursive: true, force: true }); }
+});
+
+// a disclosure of an UNRELATED kind (not `ungrammared`) must not launder an otherwise-undisclosed confident-wrong
+// hit — §089 only suppresses the exact class of caveat that actually applies to this check's own sampling shape
+// (candidates that appear ONLY in a no-grammar file), never any disclosure whatsoever.
+test('noDeclarationsAnywhere: a disclosure of a DIFFERENT kind does not suppress a genuine, undisclosed fabrication', () => {
+  const cacheDir = mkdtempSync(join(tmpdir(), 'audit-claims-cache-'));
+  mkdirSync(join(cacheDir, '.grain', 'cache'), { recursive: true });
+  writeFileSync(join(cacheDir, '.grain', 'cache', 'model.json'), JSON.stringify({ filesAll: ['src/a.ts'], pathsAll: ['src/a.ts', 'schema.xml', 'schema2.xml'] }));
+  const corpus = { index: new Map([['schemaLocation', new Set(['schema.xml', 'schema2.xml'])]]) };
+  try {
+    const res = checkNoDeclarationsAnywhere({}, cacheDir, corpus, { whereQueries: 5 }, () => ({
+      hits: [{ type: 'file', label: 'src/a.ts', score: 0.8, members: [{ rel: 'src/a.ts' }] }],
+      disclosures: [{ kind: 'weak-answer', text: 'weak match: the best hit covers 31% of the query\'s weight' }],
+    }));
+    assert.equal(res.fabricated, 1, `an unrelated disclosure kind must not launder a genuine confident-wrong hit: ${JSON.stringify(res)}`);
+  } finally { rmSync(cacheDir, { recursive: true, force: true }); }
+});
+
 test('noDeclarationsAnywhere: no false positive when the hit correctly points at the no-grammar file', () => {
   const cacheDir = mkdtempSync(join(tmpdir(), 'audit-claims-cache-'));
   mkdirSync(join(cacheDir, '.grain', 'cache'), { recursive: true });
