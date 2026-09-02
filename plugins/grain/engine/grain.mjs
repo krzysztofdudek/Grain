@@ -2767,6 +2767,7 @@ export async function main(argv) {
                   where: null,
                   base: null,
                   unnamed: null,
+                  symbol: null,
                   n: 0,
                   silent: 0,
                   asOf: stamp().replace(/^as of /, ''),
@@ -2786,6 +2787,10 @@ export async function main(argv) {
           lines = [
             `where: ${armLine(res.where)} · path-match baseline: ${armLine(res.base)} · n=${res.n} · nothing-ranked=${res.silent}`,
             `query does not name the file (n=${res.unnamed.n}) — where: ${armLine(res.unnamed.where)} · baseline: ${armLine(res.unnamed.base)}`,
+            // §071 — additive symbol stratum: candidates whose own commit message carried a verbatim identifier
+            // (`sendStatus`, `send_status`), scored on a query that keeps it whole instead of only the
+            // tokenize+normTok-split form the two lines above are stuck with
+            `message names a symbol verbatim (n=${res.symbol.n}) — where: ${armLine(res.symbol.where)} · baseline: ${armLine(res.symbol.base)}`,
             stamp(),
           ];
         }
