@@ -805,6 +805,16 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   const scopes = [];
   const imports = [];
   const isScope = n => b.scope.has(n.type);
+  // §075 — a catch/finally clause's collection below searches bodyN's WHOLE subtree (descendantsOfType does not
+  // stop at a nested scope's own boundary), so the SAME physical clause is found once when its enclosing METHOD
+  // is walked and again when that method's enclosing CLASS is walked (and again for every further ancestor up
+  // the chain) — one clause in the source, one scope entry per body-bearing ancestor above it. The walk visits an
+  // ancestor strictly before any of its descendants (a scope's own catch/finally loop runs before its children
+  // are pushed onto `treeStack`), so the NEAREST enclosing scope always claims a given clause LAST. Keying each
+  // claim by the clause's own node id and letting a later claim overwrite an earlier one — instead of pushing a
+  // second `scopes` entry — leaves exactly one entry per physical clause, claimed by its nearest enclosing scope,
+  // regardless of nesting depth or grammar (no per-language special case: purely a fact about tree structure).
+  const catchOwnerIdx = new Map();
   // iterative pre-order, left-to-right traversal (no call-stack frame per AST level — a recursive `walk` overflowed
   // the stack on a deeply left-nested `binary_expression`, one JS frame per operator): children are pushed in
   // REVERSE order so the first child pops first, preserving the exact visitation order `scopes` array order,
@@ -1313,7 +1323,14 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
           'defer_statement',
         ])) {
           const bkind = /finally|ensure/.test(blk.type) ? 'finally' : 'catch';
-          scopes.push(blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope));
+          const blkScope = blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope);
+          // §075 dedup (see the comment on `catchOwnerIdx` above): a later claim on the same physical clause
+          // replaces the earlier one in place, rather than adding a second `scopes` entry beside it.
+          if (catchOwnerIdx.has(blk.id)) scopes[catchOwnerIdx.get(blk.id)] = blkScope;
+          else {
+            catchOwnerIdx.set(blk.id, scopes.length);
+            scopes.push(blkScope);
+          }
         }
       pushKids(bodyN || ch, treeStack);
     } else {
