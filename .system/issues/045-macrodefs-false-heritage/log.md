@@ -20,4 +20,4 @@ pass against pre-fix code, then reapplying and confirming all 6 green.
 Full suite: `npm test` → 1831/1831 pass (0 fail) — the ticket's baseline 1825 plus these 6 new tests.
 
 Commit: see fix/045 branch, worktree
-`/Users/me/repos/github.com/krzysztofdudek/Grain/.claude/worktrees/agent-a1ce6d14bff289e9c`.
+`<repo>/.claude/worktrees/agent-a1ce6d14bff289e9c`.

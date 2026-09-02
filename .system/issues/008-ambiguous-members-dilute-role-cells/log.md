@@ -284,7 +284,7 @@ are editing at once. A future measurement dispatch should snapshot and restore b
 
 ## Artifacts
 
-`/private/tmp/claude-501/-Users-me-repos-github-com-krzysztofdudek-Grain/c143e2fb-fb0d-4914-9d6c-1869f930a863/scratchpad/i008/`
+`<scratch>/i008/`
 — `models/` (per repo × mode `model.json` + refresh logs), `diff.mjs` (fact-set diff, tier-aware),
 `verify.mjs` (independent text probe of a fact's claim), `members.mjs` (a role's unambiguous membership),
 `checkall.mjs` (`checkFile` over every file + `mutateTest`), `ambstat.mjs` / `ambshare.mjs` (agreement and

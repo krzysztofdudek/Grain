@@ -144,6 +144,9 @@ The full cards, the `check` view and everything the hooks say unbidden are furth
 
 Grain's own claims are held to grain's standard. What has actually been measured, negatives included:
 
+**The complete record, including the negative result that paused development — two paired trials on this build with
+zero diffs changed by a grain answer — is in [docs/results.md](docs/results.md). Read that first.**
+
 - **Truth audits** (independent sessions, no shared context, every claim re-verified with find/grep/git): audit #1 —
   13/15 claims exactly true, 0 false; audit #2, after the mathematical rebuild — 39 claims: 28 exact, 8
   true-but-imprecise, 2 unverifiable, **1 false class** (deviant counts mixed populations with the percentage beside them — fixed at
@@ -387,14 +390,16 @@ It does not judge quality. A convention is a majority, not a virtue.
 
 ## Documentation
 
-Three documents carry the depth this file only gestures at: [docs/mathematics.md](docs/mathematics.md), the single
+Four documents carry the depth this file only gestures at: [docs/results.md](docs/results.md), the complete measured
+record at the point development paused, negatives first; [docs/mathematics.md](docs/mathematics.md), the single
 objective and its special cases with the honest residue; [docs/validation.md](docs/validation.md), every measurement
 with its method, the corpus tables and the known boundaries; [docs/reference.md](docs/reference.md), commands, hooks,
 the store, environment switches, cache version keys and the export schema contract.
 
 ## Status
 
-0.4.0. The number describes the age of the interfaces, not the weight of the evidence above: the export schema
+0.3.0, released as a portfolio piece. Development paused on 2026-09-02; the measured reasons are in [docs/results.md](docs/results.md).
+The number describes the age of the interfaces, not the weight of the evidence above: the export schema
 established at 0.1.0 is unbroken — every new convention family added since (constructor shape, marker alternatives,
 file-birth pattern, author concentration, established layering) flows through the same generic per-fact serialization,
 never a hand-listed schema addition — and nothing has yet earned the right to break compatibility. The engine is the
