@@ -2213,7 +2213,14 @@ export function applyVocab(s, vb) {
   if (s.kind === 'method' && inDom(vb.PNT, s.nt))
     for (const r of vb.PT || []) s.preds['auto.ptype:' + r] = (s.ptypes || []).includes(r) ? 'true' : 'false';
   if (s.kind === 'file') {
-    for (const i of vb.IMP) s.preds['auto.imp:' + i] = s.imports.includes(i) ? 'true' : 'false';
+    // §058: a data grammar (JSON/YAML/TOML/properties, `b.data` — no name+body scope at all) has no import
+    // construct to begin with, so scoring one against another grammar's import vocabulary is vacuously always
+    // `false` — noise, not a fact ("composer.json does not import PHPUnit\Framework\TestCase"). Same category
+    // boundary as `inGrammar` above (undecidable ⇒ absent, never `false`), keyed on `b.data` instead of a node
+    // type since an import TOKEN is an open-vocabulary value, not a grammar-owned surface to look up.
+    const gb = s.g && bindings[s.g];
+    if (!gb || !gb.data)
+      for (const i of vb.IMP) s.preds['auto.imp:' + i] = s.imports.includes(i) ? 'true' : 'false';
     if (vb.LEX) {
       const dom = vb.LEX[s.g || ''] || [];
       for (const pid of Object.keys(s.preds))
