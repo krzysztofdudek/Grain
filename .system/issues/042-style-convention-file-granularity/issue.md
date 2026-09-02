@@ -1,6 +1,6 @@
 # 042 · A style convention is scored per FILE, not per literal — 7 violations in a 100%-conforming file flag nothing
 
-**Status:** OPEN — reported with an exact repro; not yet reproduced by the orchestrator
+**Status:** APPROVED — measured: per-file majority vote is correct reading (delimiter-forced minorities: 11/11, 19/31, 2/24); shipped honest withinFile disclosure, zero mining churn; per-literal check-rule addition flagged to director, not implemented
 **Found by:** round 3 field test, Lua/telescope.nvim, 2026-09-01
 **Severity:** medium — `check` silently passes the exact edit it exists to catch
 
