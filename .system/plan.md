@@ -5046,3 +5046,4 @@ note: fala 1 zamknięta: 4 landings + instrumenty A/B/D + katalog G + badanie wh
 - 2026-09-02 merged: 060 c1808a5
 - 2026-09-02 merged: instr/C cross-check 9485001
 - 2026-09-02 merged: 050 1080ad7
+- 2026-09-02 audit: 060 zgodny — engine diff = 2 lines in extractScopes (descend into ERROR node's children, extract nothing from the ERROR itself); scala-error-region-salvage.test 9/4 on parent 4d84b66 (isolated worktree) → 13/0 on main; validation.md Scala coverage note updated; hasError unchanged so 053's caveat still fires. Third sample of wave 2 (batch 3, 11 merges).

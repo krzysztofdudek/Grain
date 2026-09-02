@@ -337,6 +337,118 @@ test('report: the partition header\'s convention count equals JSON\'s total (spo
   assert.ok(+m[1] > j.partitions[0].conventions.length, `fixture sanity: header total (${m[1]}) must exceed the sliced --top 5 list (${j.partitions[0].conventions.length}) or this spot-check proves nothing`);
 });
 
+// ===== `report --json` architecture completeness (ticket 072, same failure family as §041/§051/§066/§059): text's
+// `== architecture — N modules · M directed dependencies · K cycle(s) ==` section (report(), core.mjs) renders
+// modules, their layer placement, directed edges, cycles and a relation-resolution coverage note — `--json` used
+// to carry none of it (only `repo`/`partitions`/`asOf`, per cross-check-map-report-parity.test.mjs's own recorded
+// gap). A dedicated fixture (not the shared `repo` above, whose module graph is a plain 3-tier chain with no
+// cycle and no resolution gap): a real modA->modB->modC dependency chain (a non-vacuous edge, per this file's own
+// "not just the trivial all-visible case" reasoning), a genuine 2-module cycle (cycx<->cycy, so `cycles` is
+// exercised non-trivially, not just an empty array), 7 disjoint single-file modules (mod0..mod6, forcing
+// mapSections' own "+K more" truncation on `map`'s text `layers:` line — the same technique
+// cross-check-map-report-parity.test.mjs uses for its own module-count test), and one `.c` file (relPathOnly —
+// §041/§G21 — so the coverage note fires on real, non-zero data).
+test('report --json: modules/edges/cycles/relCoverage agree with what report\'s text architecture section actually shows', () => {
+  const dir3 = mkdtempSync(join(tmpdir(), 'grain-crosscheck-reportarch-'));
+  try {
+    gitIn(dir3, {}, 'init', '-q', '-b', 'main');
+    gitIn(dir3, {}, 'config', 'commit.gpgsign', 'false');
+    for (const m of ['mod0', 'mod1', 'mod2', 'mod3', 'mod4', 'mod5', 'mod6'])
+      wIn(dir3, `${m}/index.ts`, `export const ${m}Value = () => '${m}';\n`);
+    wIn(dir3, 'modC/leaf.ts', "export const leaf = () => 'leaf';\n");
+    wIn(dir3, 'modB/mid.ts', "import { leaf } from '../modC/leaf';\nexport const mid = () => leaf() + 'mid';\n");
+    wIn(dir3, 'modA/top.ts', "import { mid } from '../modB/mid';\nexport const top = () => mid() + 'top';\n");
+    wIn(dir3, 'cycx/a.ts', "import { yThing } from '../cycy/b';\nexport const xThing = () => 'x' + yThing();\n");
+    wIn(dir3, 'cycy/b.ts', "import { xThing } from '../cycx/a';\nexport const yThing = () => 'y' + xThing();\n");
+    wIn(dir3, 'uncov/thing.c', '#include "missing.h"\nint zzThing(void) { return 1; }\n');
+    const d1 = dateEnv('2026-01-10T12:00:00Z');
+    gitIn(dir3, d1, 'add', '-A');
+    gitIn(dir3, d1, 'commit', '-qm', 'base: chain + cycle + disjoint modules + one uncovered grammar');
+    const st = grainIn(dir3, ['status']);
+    assert.equal(st.code, 0, `fixture setup: grain status failed: ${st.out}\n${st.err}`);
+
+    const { out, code, err } = grainIn(dir3, ['report']);
+    assert.equal(code, 0, `${out}\n${err}`);
+    const j = JSON.parse(grainIn(dir3, ['report', '--json']).out);
+
+    // header counts: modules / directed dependencies / cycles
+    const hm = /^== architecture — (\d+) modules · (\d+) directed dependencies · (\d+) cycle\(s\) ==/m.exec(out);
+    assert.ok(hm, out);
+    assert.equal(+hm[1], j.modules.length, `text says ${hm[1]} modules, JSON modules.length is ${j.modules.length}`);
+    assert.equal(+hm[2], j.edges.length, `text says ${hm[2]} directed dependencies, JSON edges.length is ${j.edges.length}`);
+    assert.equal(+hm[3], j.cycles.length, `text says ${hm[3]} cycle(s), JSON cycles.length is ${j.cycles.length}`);
+    assert.equal(+hm[3], 1, 'fixture sanity: expected exactly the one cycx<->cycy cycle');
+
+    // per-module edge lines ("modA/ → modB/ (1)") each appear, with the same n, in JSON edges[]
+    const edgeLines = out.split('\n').filter(l => / → .+\(\d+\)/.test(l));
+    assert.ok(edgeLines.length > 0, `fixture sanity: expected at least one "X/ → Y/ (n)" line: ${out}`);
+    let checkedEdge = false;
+    for (const line of edgeLines) {
+      const from = /^\s*(\S+)\/ → /.exec(line)[1];
+      for (const seg of line.matchAll(/(\S+)\/ \((\d+)\)/g)) {
+        const [, to, n] = seg;
+        const hit = j.edges.find(e => e.from === from && e.to === to);
+        assert.ok(hit, `text names edge ${from} -> ${to}, missing from JSON edges[]: ${JSON.stringify(j.edges)}`);
+        assert.equal(hit.n, +n, `edge ${from} -> ${to}: text says n=${n}, JSON says n=${hit.n}`);
+        checkedEdge = true;
+      }
+    }
+    assert.ok(checkedEdge, `expected to check at least one edge: ${JSON.stringify(edgeLines)}`);
+
+    // the cycle line names exactly the same module set as one of JSON's cycles[]
+    const cycleLine = out.split('\n').find(l => l.trim().startsWith('cycle (strongly connected):'));
+    assert.ok(cycleLine, out);
+    const cycMods = /cycle \(strongly connected\): ([^—]+) —/.exec(cycleLine)[1].split(',').map(s => s.trim()).sort();
+    assert.deepEqual(cycMods, ['cycx', 'cycy'], `fixture sanity: expected the cycx/cycy cycle: ${cycleLine}`);
+    assert.ok(j.cycles.some(c => JSON.stringify([...c].sort()) === JSON.stringify(cycMods)), `text cycle ${JSON.stringify(cycMods)} missing from JSON cycles: ${JSON.stringify(j.cycles)}`);
+
+    // the coverage note's N/grammars agree with relCoverage
+    const covLine = out.split('\n').find(l => l.trim().startsWith('resolution does not cover'));
+    assert.ok(covLine, out);
+    const cm = /resolution does not cover (\d+) files? \(([^)]+)\)/.exec(covLine);
+    assert.ok(cm, covLine);
+    assert.equal(+cm[1], j.relCoverage.n, `text coverage note says ${cm[1]} files, JSON relCoverage.n is ${j.relCoverage.n}`);
+    assert.deepEqual(cm[2].split(', '), j.relCoverage.grammars, `text coverage note names grammars ${cm[2]}, JSON relCoverage.grammars is ${JSON.stringify(j.relCoverage.grammars)}`);
+    assert.ok(j.relCoverage.n > 0, 'fixture sanity: expected a non-zero, real coverage gap (the one .c file), not a vacuous 0');
+
+    // `layers`: report --json's new field must describe the identical module->layer grouping `map`'s own text
+    // `layers:` line renders (same moduleLayers() source, per this fix) — reconstructed through every "+K more"
+    // tail the same way cross-check-map-report-parity.test.mjs's own module-count test does, plus a full,
+    // untruncated set comparison for at least one layer (this file's own "map:" test above does the same for
+    // `map --json`'s `nodes`).
+    const mp = grainIn(dir3, ['map']).out;
+    const layerLine = mp.split('\n').find(l => l.startsWith('map: layers:'));
+    assert.ok(layerLine, mp);
+    const segs = [...layerLine.matchAll(/layer (\d+)(?: \(leaves\))?: ([^·]+?)(?= · |$)/g)];
+    assert.ok(segs.length >= 2, `expected multiple layer segments: ${layerLine}`);
+    let total = 0, checkedFullLayer = false, sawTruncation = false;
+    for (const seg of segs) {
+      const layerN = +seg[1], body = seg[2].trim();
+      const jsonLayer = j.layers.find(l => l.layer === layerN);
+      assert.ok(jsonLayer, `text names layer ${layerN}, missing from JSON layers[]: ${JSON.stringify(j.layers)}`);
+      const more = /,?\s*\+(\d+) more$/.exec(body);
+      if (more) {
+        sawTruncation = true;
+        const visible = body.slice(0, more.index).split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean);
+        total += visible.length + +more[1];
+        for (const v of visible) assert.ok(jsonLayer.modules.includes(v), `truncated layer ${layerN}: text-visible module ${v} missing from JSON layer's full modules ${JSON.stringify(jsonLayer.modules)}`);
+      } else {
+        const textMods = body.split(',').map(s => s.trim().replace(/\/$/, '')).filter(Boolean).sort();
+        total += textMods.length;
+        assert.deepEqual(textMods, jsonLayer.modules.slice().sort(), `layer ${layerN}: text lists ${JSON.stringify(textMods)}, JSON layer modules are ${JSON.stringify(jsonLayer.modules)}`);
+        checkedFullLayer = true;
+      }
+    }
+    assert.ok(sawTruncation, `fixture sanity: expected the 7 disjoint modules to force at least one "+K more" layer segment: ${layerLine}`);
+    assert.ok(checkedFullLayer, `fixture sanity: expected at least one untruncated layer segment to check fully: ${layerLine}`);
+    const jsonTotal = j.layers.reduce((a, l) => a + l.modules.length, 0);
+    assert.equal(total, jsonTotal, `map's layers: line implies ${total} modules total (visible + "+K more" tails); JSON layers[] sums to ${jsonTotal}`);
+    assert.equal(jsonTotal, j.modules.length, `JSON layers[] total (${jsonTotal}) must account for every module in JSON modules[] (${j.modules.length})`);
+  } finally {
+    rmSync(dir3, { recursive: true, force: true });
+  }
+});
+
 // ===== `review` — its own dedicated field check, the same gap this file's `check` test closed but for `review`'s
 // aggregate headline (review had never joined even the GENERIC loop above until this pass) =====
 test('review: the headline\'s file count and "across N file(s)" count equal JSON files.length and findings.length', () => {

@@ -85,6 +85,8 @@ import {
   voice,
   inLineForFile,
   mapSections,
+  moduleLayers,
+  relCoverageData,
   archCellLabel,
   ptr,
   skipLineNote,
@@ -1868,6 +1870,22 @@ export async function cmdReport({ model, meta, head, isGit, args, opts, stamp, s
           })),
           total: p.facts.length,
         })),
+        // ticket 072: `report` (text, report() in core.mjs) also renders an `== architecture — N modules · N
+        // directed dependencies · N cycle(s) ==` section — modules, their layer placement, directed dependency
+        // edges, cycles, and the relation-resolution coverage note (§G21) — none of which `--json` carried before
+        // this, a strictly poorer machine-readable answer than the human-readable one for a published-interface
+        // command (same failure family as §041/§051/§066/§059). Additive only (no existing field touched):
+        // `modules`/`edges` are the same `model.moduleGraph` arrays `map --json` already surfaces (§066/051,
+        // `nodes`/`edges` there); `layers` reuses `moduleLayers()` — the same grouping mapSections' own text
+        // `layers:` line computes, here UNCAPPED (mapSections' 4-per-layer "+K more" cap is a display concern, the
+        // same relationship cmdMap's `changes` field already has to its own text line's top-4 slice); `cycles` is
+        // `model.moduleGraph.cycles` verbatim; `relCoverage` is the identical `{n, grammars}` shape `export --json`
+        // already publishes for the SAME fact `report`'s own coverage-note text line states in prose.
+        modules: (model.moduleGraph?.nodes || []).map(n => ({ id: n.id, layer: n.layer })),
+        edges: (model.moduleGraph?.edges || []).map(e => ({ from: e.from, to: e.to, n: e.n })),
+        layers: moduleLayers(model),
+        cycles: model.moduleGraph?.cycles || [],
+        relCoverage: relCoverageData(model),
         asOf: stamp().replace(/^as of /, ''),
       }),
     ];
@@ -2767,6 +2785,7 @@ export async function main(argv) {
                   where: null,
                   base: null,
                   unnamed: null,
+                  symbol: null,
                   n: 0,
                   silent: 0,
                   asOf: stamp().replace(/^as of /, ''),
@@ -2786,6 +2805,10 @@ export async function main(argv) {
           lines = [
             `where: ${armLine(res.where)} · path-match baseline: ${armLine(res.base)} · n=${res.n} · nothing-ranked=${res.silent}`,
             `query does not name the file (n=${res.unnamed.n}) — where: ${armLine(res.unnamed.where)} · baseline: ${armLine(res.unnamed.base)}`,
+            // §071 — additive symbol stratum: candidates whose own commit message carried a verbatim identifier
+            // (`sendStatus`, `send_status`), scored on a query that keeps it whole instead of only the
+            // tokenize+normTok-split form the two lines above are stuck with
+            `message names a symbol verbatim (n=${res.symbol.n}) — where: ${armLine(res.symbol.where)} · baseline: ${armLine(res.symbol.base)}`,
             stamp(),
           ];
         }
