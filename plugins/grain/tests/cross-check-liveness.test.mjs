@@ -1,14 +1,16 @@
 // INVARIANT under audit (ticket .temp/issues/020-where-leaks-deleted-files/issue.md, OPEN): no grain surface may
-// name a repo-relative PATH that is absent from HEAD without marking it as such. The house shape for that mark
-// already exists in three independent places — `how`'s places[] renders `(deleted)` for a dead path (from its own
-// `exists` flag, sourced from the live file set), `model.waivers`/`model.steers` render "not found in HEAD —
-// inert", and `model.boundaries` renders "a side names no indexed files — inert". Ticket 020 shows `where`'s
+// name a repo-relative PATH that is absent from HEAD without marking it as such — OR omit it outright. The house
+// shape for that already exists in three independent places — `model.waivers`/`model.steers` render "not found in
+// HEAD — inert", `model.boundaries` renders "a side names no indexed files — inert", and (since §066, superseding
+// the `(deleted)` label ticket 020 originally put here) `how`'s places[] OMITS a dead path entirely rather than
+// marking it — measured on a real corpus, marking still put 13 of 28 CleanArchitecture places on files gone from
+// HEAD, which still reads as "somewhere to edit" to an agent skimming the list. Ticket 020 shows `where`'s
 // "historically co-changes with:" co-change line naming a long-deleted file with NO marker at all — same
-// underlying fact (`cochangePartners`, core.mjs ~2543) as `how`'s already-correct places[], just a different
-// renderer that never reused the existing `exists` check. The ticket's own "wider check" section asks for exactly
-// this: an audit of every OTHER surface that can name a historical path — `missingLines`'s cochange/recipe/kin
-// lines, `completeness`, `model.moves`' rename targets, `report`, `rules`, `map`, `what`'s places — either marked
-// consistently or reported as already correct.
+// underlying fact (`cochangePartners`, core.mjs ~2543) as `how`'s own liveness check (core.mjs's `live` set inside
+// `howCmd`), just a different renderer that never reused it. The ticket's own "wider check" section asks for
+// exactly this: an audit of every OTHER surface that can name a historical path — `missingLines`'s
+// cochange/recipe/kin lines, `completeness`, `model.moves`' rename targets, `report`, `rules`, `map`, `what`'s
+// places — either marked consistently, omitted, or reported as already correct.
 //
 // This file IS that audit, made permanent and property-style: one fixture with a doomed file that co-changes
 // heavily with a live file before being deleted, then every read command run over it once, with a single generic
@@ -176,21 +178,19 @@ test('PRECONDITION: model.moves carries an entry for the lib/ -> lib/moved/ rena
   assert.ok(hit, `expected a model.moves entry recording the lib -> lib/moved rename: ${JSON.stringify(moves)}`);
 });
 
-test('PRECONDITION / REGRESSION GUARD (ticket 020, the surface that is already fixed): `how` marks the dead place (deleted)/exists:false and leaves the live one unmarked/exists:true', () => {
+test('PRECONDITION / REGRESSION GUARD (§066, superseding ticket 020\'s original fix): `how` OMITS the dead place entirely and still reports the live one, exists:true', () => {
   const j = JSON.parse(grainIn(repo, ['how', HOW_QUERY, '--json']).out);
   const byRel = Object.fromEntries(j.places.map(p => [p.rel, p]));
-  const dead = byRel[DEAD_PATH], live = byRel[LIVE_PATH];
-  assert.ok(dead, `expected a --json place entry for the dead file: ${JSON.stringify(j.places)}`);
+  const live = byRel[LIVE_PATH];
+  assert.ok(!byRel[DEAD_PATH], `the dead file must not appear in --json places at all (omitted, not marked): ${JSON.stringify(j.places)}`);
   assert.ok(live, `expected a --json place entry for the live file: ${JSON.stringify(j.places)}`);
-  assert.equal(dead.exists, false, `the dead file's place must read exists:false: ${JSON.stringify(dead)}`);
   assert.equal(live.exists, true, `the live file's place must read exists:true: ${JSON.stringify(live)}`);
 
   const lines = outputs[HOW_KEY].out.split('\n');
   const deadLine = lines.find(l => l.trim().startsWith(DEAD_PATH + ' '));
   const liveLine = lines.find(l => l.trim().startsWith(LIVE_PATH + ' '));
-  assert.ok(deadLine, `expected a text places line for the dead file: ${outputs[HOW_KEY].out}`);
+  assert.ok(!deadLine, `expected no text places line for the dead file (omitted): ${outputs[HOW_KEY].out}`);
   assert.ok(liveLine, `expected a text places line for the live file: ${outputs[HOW_KEY].out}`);
-  assert.match(deadLine, /\(deleted\)/, `the dead file's text line must read (deleted): ${deadLine}`);
   assert.doesNotMatch(liveLine, /\(deleted\)/, `the live file must not be marked deleted: ${liveLine}`);
 });
 
