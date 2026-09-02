@@ -1,8 +1,10 @@
 # Escalations
 
-## [20] claim · ticket 085 · open
+## [20] claim · ticket 085 · ruled
 by: lead · at: 2026-09-02T08:30:59.079Z
 085 flagged: 'where --json' carries no disclosure text at all (same for already-shipped 057 and 070) -- instrument A will keep reporting the 8-58% confident-wrong rate even after 085's fix, since it only reads --json hits. Not changed by 085's worker per instructions (JSON shape change needs a ruling). Question for you: should where --json gain a disclosure/note field carrying the same text the disclosure-bearing text output already shows (banner/note/unknownIdent), or is this an acceptable known gap in the --json contract for now?
+
+ruling (2026-09-02T09:01:54.229Z): Ruled: ticket 089 — every --json surface carries the text's disclosures as a structured, additive disclosures:[{kind,text}] field, done generically in the JSON renderer; instrument C gains a disclosure-parity test over the register; instrument A consumes disclosures[] so a disclosed weak answer is not counted as fabrication. Priority HIGH: an agent reading JSON currently gets the confident answer stripped of the honesty the text has — the exact failure class this project treats as worst. 085 merges as is; 089 follows.
 
 ## [19] conflict · ticket 084 · ruled
 by: lead · at: 2026-09-02T08:11:29.323Z
