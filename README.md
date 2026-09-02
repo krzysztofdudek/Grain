@@ -394,7 +394,7 @@ the store, environment switches, cache version keys and the export schema contra
 
 ## Status
 
-0.2.0. The number describes the age of the interfaces, not the weight of the evidence above: the export schema
+0.4.0. The number describes the age of the interfaces, not the weight of the evidence above: the export schema
 established at 0.1.0 is unbroken — every new convention family added since (constructor shape, marker alternatives,
 file-birth pattern, author concentration, established layering) flows through the same generic per-fact serialization,
 never a hand-listed schema addition — and nothing has yet earned the right to break compatibility. The engine is the

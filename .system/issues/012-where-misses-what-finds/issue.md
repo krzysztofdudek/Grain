@@ -1,6 +1,6 @@
 # 012 · `where <intent>` misses a file that `what <term>` finds perfectly — same fact, two answers
 
-**Status:** DIAGNOSED (b) ranking bug — root cause is an IDF pathology, not a card gap. PetValidator.java has a file card carrying its own name and ranks #5 (0.3152); `top:3` cuts it. `field` (df=2) takes 35.8% of the query IDF budget and is rare *because* it is incidental (Spring `setAllowedFields`), nothing to do with validation. The concentration>=0.5 safeguard misses it because the 3 coincidental tokens come from 3 differently-named methods, not one. Fix BLOCKED on a validation gap, not on a design: `where` has no eval harness of any kind. See log.md.
+**Status:** FIXED — where ranks by volume-channel normalisation: scope-name token weighed by share of file, directory bonus by earned coverage; named hit@3 +0.184 across 12 repos, leak-free guard also up; director-approved
 **Found by:** Java/spring-petclinic, 2026-09-01; re-confirmed byte-for-byte identical after round 1 fixes
 **Severity:** medium — a coverage inconsistency between two of the four headline commands
 

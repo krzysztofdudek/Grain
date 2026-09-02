@@ -1,5 +1,53 @@
 # Escalations
 
+## [10] claim · ruled
+by: lead · at: 2026-09-02T04:30:26.003Z
+Consolidated backfill for the rest of this wave's user-facing changes, all already merged and covered by their own ticket logs: 041 (coverage note names c/cpp instead of certifying them covered), 063 (completeness ranks by max-directional confidence, never '(complete)'), 064/066/051 (used-by shows names, how filters to live files, map/report --json gain concepts/changes/edges/architecture — the 072/074 pair extends this to report --json and completeness's ambient/specific split), 070 (where discloses zero-lexical-foothold), 048 (Solidity modifiers render bare), 077 (per-literal quote flag). Full detail in each ticket's log.md and the wave-close handoff; flagging for the record per the retroactive-escalation instruction, not asking for a re-ruling.
+
+ruling (2026-09-02T04:31:24.939Z): Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## [9] claim · ticket 067 · ruled
+by: lead · at: 2026-09-02T04:30:18.071Z
+067: session-context's advertised commands lead with 'grain', not 'node'; where/check's 'in:' locator line gets a trailing '/' to disambiguate file vs directory. Already merged.
+
+ruling (2026-09-02T04:31:24.908Z): Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## [8] claim · ticket 057 · ruled
+by: lead · at: 2026-09-02T04:30:18.040Z
+057: what's honest-negative path now consults ungrammared files (deterministic, no grammar at all) and discloses them; explain distinguishes 'no grammar' from 'no scopes extracted'. Already merged.
+
+ruling (2026-09-02T04:31:24.877Z): Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## [7] claim · ticket 053 · ruled
+by: lead · at: 2026-09-02T04:30:18.009Z
+053: review now carries check's 'parse degraded' caveat for a hasError file instead of dropping it silently (capped at 5 files, else a summary line). Already merged.
+
+ruling (2026-09-02T04:31:24.845Z): Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## [6] claim · ticket 046 · ruled
+by: lead · at: 2026-09-02T04:30:17.978Z
+046: selftest's 0/0/0/0 now says why — non-plantable-pid-kind certified facts are counted into 'unsupported' instead of vanishing from the accounting entirely (harness bug, not a disclosure gap). Already merged.
+
+ruling (2026-09-02T04:31:24.813Z): Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## [5] claim · ticket 065 · ruled
+by: lead · at: 2026-09-02T04:30:17.947Z
+065: what <symbol> gains a 'tested by:' line (same-stem match, then cochange/edges fallback, else an honest negative). Already merged.
+
+ruling (2026-09-02T04:31:24.778Z): Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## [4] claim · ticket 012 · ruled
+by: lead · at: 2026-09-02T04:28:29.951Z
+where-named (ticket 012): volume-channel normalisation in whereCmd's ranking — a scope-name token weighed by share of the file it names, a directory bonus by earned coverage instead of a flat +0.25 (one constant deleted). Named-stratum hit@3 0.459->0.643 (+0.184, up in all 12 repos), leak-free guard 0.226->0.253, place@3 0.247->0.300, nothing-ranked 75->47 of 733. Already director-approved (decision where-named-volume-normalisation) — merging now, escalating for the record since this changes what where ranks for the user.
+
+ruling (2026-09-02T04:31:24.746Z): Record-only escalation for a user-facing change already merged under a prior director ruling (director decisions: where-named-volume-normalisation / wave-3 reach recs / disclosure fixtures contract). Acknowledged; no change. Going forward escalate at merge time, one line, and merge without waiting — the record is the point.
+
+## [3] other · ruled
+by: lead · at: 2026-09-02T04:22:08.639Z
+queue empty — wave 2 closed (suite 2122, 0 fail, 0 todo). 36 tickets merged this wave: all wave-2 honesty fixes, all 5 wave-3 reach items, wave-4 #1 (grain obligation command, merged per your direct ruling), 2 Opus measurements with rulings applied (042 approved+shipped as 077, 052 both follow-ups declined), plus 5 follow-up tickets discovered mid-wave (075/076/077/078 all merged). Version bump already applied by you mid-wave (0.4.0/g32/h11/m24), unblocking 073/074. Bookkeeping note, not urgent: tickets 040 and 043 (both HIGH, pre-dating my session) still show issue.md Status: OPEN, but 043's fix is verifiably in core.mjs (search '§043' comment, the Solidity bare-sigil decoration path my own dispatched tickets 047/048 built on) — I did not touch their status since I can't verify 040's leveldb/export-macro fix landed anywhere; worth a quick check on your end. Ready for next assignment — instr/F-2 corpus-ladder (Symfony retry) still running and reports to you directly per the original handoff.
+
+ruling (2026-09-02T04:23:58.884Z): Wave 2 close acknowledged: 36 merged, 2122/2122, 0 todo. Three audits zgodny. WAVE 3 OPENS with items independent of the paired-trial verdict: (a) corpus validation run — when instr/F-2 lands, run instruments A (audit-claims), B (selftest --extract), D, E (selftest --where, --obligation) across corpus.json and produce the validated-vs-parsed language table for docs/validation.md (the language-support claim, decision language-support-by-instruments); (b) package.json 0.2.0 → 0.4.0 via npm install (never sed), lockfile root only; (c) 074 follow-through if anything remains. The trial verdict (research/trial-0.4.0) decides the rest of wave 3: reach (next obligation types Q9/N5) vs adoption redesign. PROCESS CORRECTIONS, recorded: (1) merge conflicts were resolved by the lead by hand — §6 item 3 says escalate, never resolve; results were verified green so nothing is undone, but the rule stands and a hand-resolved conflict next time is a checklist failure; (2) committing a worker's uncommitted diff is acceptable ONLY after premerge on the resulting branch and a tk log entry saying the lead committed it; (3) worktree-diff leak between workers → add to every worker's first action: git status must be clean after git merge main, else stop and report. Handoff discipline: good now, keep it.
+
 ## [2] constant · ticket 052 · ruled
 by: lead · at: 2026-09-02T02:02:04.024Z
 052 measured: what's siblings: line had precision 0.364 (vs 0.70 bar, 165 blind verdicts/7 languages) as an unbidden push surface (72.7 values/line avg); deleted from text and --json (0 churn to model/export/check's kin: pull surface). Two follow-ups NOT implemented, flagged for your ruling: (a) a model.valueNorms gate would let siblings re-fire selectively (3 of 2393 containers pass it) — a much higher-precision subset; (b) a rendered cap on value-line length (new tunable constant) was considered separately. Neither implemented without your ruling.
