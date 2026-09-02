@@ -487,9 +487,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/085",
-      "state": "running",
+      "state": "merged",
       "note": "measure whether where's confident-wrong-on-no-grammar-file rate (8-58% across 20/22 corpus repos) is fixable without a ranking redesign, or is a boundary to disclose like the 070 zero-foothold precedent",
-      "updated": "2026-09-02 08:22"
+      "updated": "2026-09-02 10:29",
+      "sha": "ae1169c"
     },
     {
       "id": 46,
@@ -518,9 +519,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/083",
-      "state": "running",
+      "state": "merged",
       "note": "HIGH: Kotlin by-delegation delegate expression recorded as bogus supertype; same family as 049",
-      "updated": "2026-09-02 08:22"
+      "updated": "2026-09-02 10:09",
+      "sha": "2d1fc05"
     },
     {
       "id": 49,
@@ -528,9 +530,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/084",
-      "state": "running",
+      "state": "merged",
       "note": "HIGH: Rust 'static lifetime recorded as bogus trait/heritage claim; same family as 049",
-      "updated": "2026-09-02 08:22"
+      "updated": "2026-09-02 10:20",
+      "sha": "f231b26"
     },
     {
       "id": 50,
@@ -538,9 +541,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/086",
-      "state": "running",
+      "state": "merged",
       "note": "HIGH: secondary grammar in mixed-source-set repo gets zero edges, undisclosed; same family as 041/059",
-      "updated": "2026-09-02 08:22"
+      "updated": "2026-09-02 10:24",
+      "sha": "8efac06"
     },
     {
       "id": 51,

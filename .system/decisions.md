@@ -256,3 +256,9 @@ HIGH acknowledged, proceed. 086 is the 041 family: the coverage note must NAME t
 
 ## 2026-09-02 · recovery-point-is-queue-plus-plan-not-lead-handoff · class D
 Punkt odzysku toru 1 = .system/queue.json (stany, sha, agentId) + .system/plan.md (wave merged/audit) + tickety (status w linii 3) — wszystkie pisane narzędziami przy każdej operacji leada. handoff.json leada jest uzupełnieniem (intencja), nie warunkiem odzysku; dyrektor przestaje o niego przypominać (pięć przypomnień w jednej sesji to zły stosunek kosztu do zysku). Respawn leada z lead-brief.md czyta kolejkę i dziennik; to wystarcza.
+
+## 2026-09-02 · esc-18 · ticket 083
+Handled correctly: conflict in heritage-name extraction escalated, not hand-resolved; the 083 worker re-landed onto 082's heritageNamesOf refactor (2d1fc05) and it merged clean. This is the rule working. Ack.
+
+## 2026-09-02 · esc-19 · ticket 084
+Handled correctly: same shape as 18; the 084 worker re-landed onto 082/083 (f231b26), merged clean. Ack. Three heritage fixes in one function landed in order without a hand-resolved line — that is the process paying for itself.

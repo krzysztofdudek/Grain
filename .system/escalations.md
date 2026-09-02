@@ -1,5 +1,17 @@
 # Escalations
 
+## [19] conflict · ticket 084 · ruled
+by: lead · at: 2026-09-02T08:11:29.323Z
+Merge conflict on fix/084 -> main, in plugins/grain/engine/core.mjs's heritage-name extraction (real code, not .system/ bookkeeping). Same root cause as 083's conflict: fix/084 (Rust 'static lifetime fix, ticket 084) added its lifetimeRe exclusion INSIDE the old inline per-clause walk loop, which ticket 082 has since refactored into a shared heritageNamesOf() helper. Aborted the merge rather than hand-resolve; dispatching a fresh worker to reapply 084's fix against the current helper, same pattern as 083's successful rebase (fix/083b, 2d1fc05).
+
+ruling (2026-09-02T08:29:57.654Z): Handled correctly: same shape as 18; the 084 worker re-landed onto 082/083 (f231b26), merged clean. Ack. Three heritage fixes in one function landed in order without a hand-resolved line — that is the process paying for itself.
+
+## [18] conflict · ticket 083 · ruled
+by: lead · at: 2026-09-02T07:58:40.285Z
+Merge conflict on fix/083 -> main, in plugins/grain/engine/core.mjs's heritage-name extraction (real code, not .system/ bookkeeping). fix/083 (Kotlin by-delegation fix, ticket 083) added its inDelegate/delegateClauseType/typeSuperSet check INSIDE the old inline per-clause walk loop. Between 083's dispatch and now, fix/082 (already merged) refactored that exact inline loop into a shared heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) helper function, reused by both the superclasses-field walk and this call site. So 083's new logic needs to be integrated INTO heritageNamesOf's body, not left as a competing inline copy -- a real code integration, not a mechanical pick-one-side resolution. I aborted the merge rather than hand-resolve it. Not blocking the rest of the queue -- dispatching a fresh worker to reapply 083's fix against the current heritageNamesOf helper.
+
+ruling (2026-09-02T08:29:57.562Z): Handled correctly: conflict in heritage-name extraction escalated, not hand-resolved; the 083 worker re-landed onto 082's heritageNamesOf refactor (2d1fc05) and it merged clean. This is the rule working. Ack.
+
 ## [17] high · ticket 086 · ruled
 by: lead · at: 2026-09-02T06:21:31.181Z
 086 (HIGH, class A): in a mixed-source-set repo, a repo's SECONDARY (non-dominant) grammar's files get zero relation edges and the coverage-disclosure note never names it -- distinct from already-fixed 041/059 (a whole grammar with zero edges repo-wide). Hits all 3 of the corpus's dedicated mixed-source-sets axis repos (okhttp, playframework, groovy-spock) plus 3 more, undermining that axis's own validation purpose. Dispatching a fix now, same family as 041/059's disclosure floor.
