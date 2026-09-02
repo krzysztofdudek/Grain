@@ -744,6 +744,14 @@ export async function cmdMap({ model, args, opts, stamp, treeDirty }) {
     return [
       JSON.stringify({
         nodes: (model.moduleGraph?.nodes || []).map(n => ({ id: n.id, layer: n.layer })),
+        // §051: mapSections' text renders `concepts:`/`changes:` lines whenever the model has them — the JSON twin
+        // used to stop at `nodes`/`decisions`, silently poorer than the human view with nothing saying so. `concepts`
+        // is already the full, learn-time-capped (top 12) list text joins verbatim, so no further slicing here.
+        // `changes` mirrors mapSections' own fields (id/label/n) rather than the full model.changeArchetypes shape
+        // (cells/exemplars/toks are model-internal detail no map render ever shows) and is NOT capped to 4 like the
+        // text's scannable summary — JSON is the complete twin, `map`'s text is the skimmable one.
+        concepts: model.concepts || [],
+        changes: (model.changeArchetypes || []).map(a => ({ id: a.id, label: a.label, n: a.n })),
         decisions:
           (model.steers || []).length + (model.boundaries || []).length + (model.waivers || []).length,
         asOf: stamp().replace(/^as of /, ''),
