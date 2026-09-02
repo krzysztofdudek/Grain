@@ -7190,13 +7190,46 @@ export function inLineForCard(model, h) {
 // use (computeArchHits' own memoization pattern: a closure can't survive model.json serialization, so it is
 // recomputed once per in-memory model and cached on it, never persisted). §067c: trailing `/` for the same reason
 // as inLineForCard above — `check <file>`'s own first line is this same locator, so it gets the same marker.
+// §080 — and it must not read as a MEASUREMENT of a place that is not there. `refineModOf` is a pure path
+// function: it names a module for any string, existing or not, and `moduleGraph` has no node to contradict it,
+// so the first file of a brand-new top-level or second-level directory (`tools/Codegen/Gen.cs` — trial-0.4.0
+// §4b's case, an author creating a directory that does not exist yet) used to print
+// `in: tools/Codegen/ · used by 0 modules`: a module id no file lives under, and a fan-in of 0 that reads as
+// an observation about a real module rather than the absence of one. Same disease class as §057's "this
+// concept isn't in the repository" and §070's no-content-foothold banner — a confident shape outrunning what
+// was observed. The hedge states the absence and hands back the nearest ancestor that DOES hold files, with
+// that ancestor's own layer and fan-in, which are the only measured numbers available.
+//
+// Deliberately claims nothing further. Ticket 080 asked whether a new directory's COMPANIONS could be mined
+// the way ticket 073 mines a new file's; `.system/research/where-new-directory.md` measured five candidate
+// directory-birth classes over 1050 real directory births in 11 repos and every one of them failed 073's own
+// published acceptance bar (coverage 0.008 against its 0.08 floor, repo-macro precision@1 0.33 against its
+// 0.80 bar, firing on 2 of 11 repos — and naming repo furniture when it did), so there is no certified
+// companion, sibling or archetype to add here — only the tree, which is a fact and not a prediction.
+// A path whose refined module DOES hold files is untouched: its layer and fan-in are real.
 export function inLineForFile(model, rel) {
   if (!model.moduleGraph || !model.filesAll) return null;
   const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll, model.pkgs || []));
   const mod = refined(rel);
-  const node = model.moduleGraph.nodes.find(n => n.id === mod);
-  const k = model.moduleGraph.edges.filter(e => e.to === mod).length;
-  return `in: ${mod}/${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
+  // "exists" is a fact about the indexed tree, never a threshold: the union `pathsAll ∪ filesAll` is the same
+  // liveness set changeArchetypes/buildObligationTable already treat as "alive at HEAD", so a directory holding
+  // only unparsed files (a README, a manifest) still counts as existing.
+  const holds = d =>
+    d === '.'
+      ? (model.pathsAll || []).length + model.filesAll.length > 0
+      : (model.pathsAll || []).some(f => (f + '/').startsWith(d + '/')) ||
+        model.filesAll.some(f => (f + '/').startsWith(d + '/'));
+  const meas = m => {
+    const node = model.moduleGraph.nodes.find(n => n.id === m);
+    const k = model.moduleGraph.edges.filter(e => e.to === m).length;
+    return `${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
+  };
+  if (!holds(mod)) {
+    let anc = mod;
+    while (anc !== '.' && !holds(anc)) anc = anc.includes('/') ? anc.slice(0, anc.lastIndexOf('/')) : '.';
+    return `in: ${mod}/ does not exist yet — nearest existing: ${anc === '.' ? 'the repo root' : anc + '/'}${meas(anc)}`;
+  }
+  return `in: ${mod}/${meas(mod)}`;
 }
 export function whereCmd({
   model,
