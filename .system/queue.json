@@ -71,9 +71,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/066",
-      "state": "queued",
+      "state": "running",
       "note": "WAVE 3 #5 how liveness filter + map --json changes/concepts (folds 051)",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 8,
@@ -169,9 +169,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/050",
-      "state": "queued",
+      "state": "running",
       "note": "Scala object_definition not type-like; derive + all-23-grammar test",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 17,
@@ -201,9 +201,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/061",
-      "state": "queued",
+      "state": "running",
       "note": "catch/finally scope named by parent",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 20,
@@ -211,9 +211,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/042",
-      "state": "queued",
+      "state": "running",
       "note": "style convention file-vs-literal granularity",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 21,
@@ -221,9 +221,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/052",
-      "state": "queued",
+      "state": "running",
       "note": "what siblings precision, 044 method",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 22,
@@ -231,9 +231,9 @@
       "kind": "measure",
       "agent": "sonnet",
       "branch": "research/056",
-      "state": "queued",
+      "state": "running",
       "note": "data-grammar keys as declarations? decide, document",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 23,
@@ -241,9 +241,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/058",
-      "state": "queued",
+      "state": "running",
       "note": "JSON scored against PHP-shaped cells; grammar-scoped populations",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 24,
@@ -251,9 +251,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/060",
-      "state": "queued",
+      "state": "running",
       "note": "Scala braced-package/DI ctor error swallows nested object",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 25,
@@ -261,9 +261,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/048",
-      "state": "queued",
+      "state": "running",
       "note": "low: @ sigil rendered for sigil-less languages",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:35"
     },
     {
       "id": 26,
@@ -271,9 +271,9 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/cross-check",
-      "state": "queued",
+      "state": "running",
       "note": "all surface pairs text⇔json, report⇔rules, check⇔review, map⇔report",
-      "updated": "2026-09-01 23:46"
+      "updated": "2026-09-02 02:36"
     },
     {
       "id": 27,
@@ -303,9 +303,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/070",
-      "state": "queued",
+      "state": "running",
       "note": "where discloses zero lexical foothold; fire-rate gated",
-      "updated": "2026-09-01 23:49"
+      "updated": "2026-09-02 02:35"
     }
   ]
 }
