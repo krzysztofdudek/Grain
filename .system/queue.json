@@ -433,9 +433,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/package-json",
-      "state": "queued",
+      "state": "merged",
       "note": "WAVE 3 (b): package.json 0.2.0→0.4.0 via npm install (lockfile root), never sed; docs-audit stays green",
-      "updated": "2026-09-02 06:23"
+      "updated": "2026-09-02 06:42",
+      "sha": "9d15850"
     },
     {
       "id": 41,

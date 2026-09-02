@@ -5064,3 +5064,7 @@ note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 disco
 # Fala 3 — start 2026-09-02
 - 2026-09-02 opened by director after wave-2 close; items (a)(b) independent of the trial; the rest decided by research/trial-0.4.0
 - 2026-09-02 merged: where-named 6f50d9f
+
+# Fala 3 — start 2026-09-02
+- 2026-09-02 two items independent of research/trial-0.4.0's verdict: package-json-0.4.0 (dispatched now), corpus-validation-run (queued behind instr/F-2's Symfony ladder completion)
+- 2026-09-02 merged: package-json-0.4.0 9d15850
