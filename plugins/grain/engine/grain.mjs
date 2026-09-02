@@ -714,7 +714,7 @@ export async function cmdWhat({ model, root, isGit, args, opts, stamp, store, tr
     const blindHit = findBlindHit(model, root, query, true);
     if (blindHit) res = whatCmd({ model, H, query, exemplarOk: existsMemo(root), rawScopes, blindHit });
   }
-  const { lines, defined, values, spread, siblings, changes, usedBy, referenced, testedBy, note } = res;
+  const { lines, defined, values, spread, changes, usedBy, referenced, testedBy, note } = res;
   if (opts.json)
     return [
       JSON.stringify({
@@ -722,7 +722,6 @@ export async function cmdWhat({ model, root, isGit, args, opts, stamp, store, tr
         defined,
         values,
         spread,
-        siblings,
         changes,
         usedBy,
         referenced: referenced || null,
