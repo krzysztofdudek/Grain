@@ -201,9 +201,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/061",
-      "state": "running",
+      "state": "merged",
       "note": "catch/finally scope named by parent",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:23",
+      "sha": "230cf0a"
     },
     {
       "id": 20,
@@ -306,6 +307,16 @@
       "state": "running",
       "note": "where discloses zero lexical foothold; fire-rate gated",
       "updated": "2026-09-02 02:35"
+    },
+    {
+      "id": 30,
+      "ticket": "071",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "fix/071",
+      "state": "queued",
+      "note": "selftest --where: identifier-preserving query mode or symbol stratum; existing strata numbers must not move",
+      "updated": "2026-09-02 03:25"
     }
   ]
 }
