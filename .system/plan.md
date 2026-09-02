@@ -5072,3 +5072,4 @@ note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 disco
 - 2026-09-02 merged: instr/F-2 corpus-ladder 2a13242
 - 2026-09-02 merged: 079 6160bc5
 - 2026-09-02 merged: 081 c371383
+- 2026-09-02 audit: where-named zgodny — 94a8bc9: core.mjs +55 in whereCmd scoring; where-named-stratum.test 2/4 red on parent 3535289 (isolated worktree) → 6/0 on main; weak-match-signals expectation updated 2/1→3/0 (intended); the flat +0.25 directory bonus DELETED and replaced by the earned coverage share; the 0.5 in 'cover >= 0.5' pre-existed on the deleted line (majority rule, not a new constant) — 'one constant deleted, none added' holds; research doc committed with the 12-repo before/after. Wave-3 sample.
