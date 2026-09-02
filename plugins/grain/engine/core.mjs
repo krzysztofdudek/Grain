@@ -6412,7 +6412,6 @@ export function buildCards(model) {
       for (const f of md.feats)
         for (const t of tokenize(f.slice(4))) addTok(toks, t, f.startsWith('imp:') ? TOKW.imp : TOKW.name);
       for (const t of tokenize(md.label)) addTok(toks, t, TOKW.name);
-      for (const k of members) for (const t of tokenize(k.split('#')[2] || '')) addTok(toks, t, TOKW.fact);
       const facts = part.facts.filter(f => f.cid.startsWith('r' + r + ':'));
       for (const f of facts)
         for (const t of tokenize(f.pid.replace(/^auto\.[a-z0-9]+:?@?/, ''))) addTok(toks, t, TOKW.fact);
@@ -6423,12 +6422,24 @@ export function buildCards(model) {
       }
       const topDirs = [...dirs].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3);
       for (const [d] of topDirs) for (const t of tokenize(d)) addTok(toks, t, TOKW.fact); // the directory a group lives in is context for it, not its name — a directory named `middleware` outranks a 4-member group that merely lives there
+      // §012/G2 — a group's member NAMES are the same volume channel a file card's scope names are, and are
+      // separated for the same reason (see `tw` in whereCmd). The member loop moved below the others only so
+      // `baseToks` can be snapshotted before it; `addTok` keeps a max, so the order never changed `toks`.
+      const gBaseToks = new Map(toks);
+      const gMemberTok = new Map();
+      for (const k of members)
+        for (const t of new Set(tokenize(k.split('#')[2] || '').map(normTok)))
+          gMemberTok.set(t, (gMemberTok.get(t) || 0) + 1);
+      for (const k of members) for (const t of tokenize(k.split('#')[2] || '')) addTok(toks, t, TOKW.fact);
       cards.push({
         type: 'group',
         part: part.name,
         label: md.label,
         n: members.length,
         toks,
+        baseToks: gBaseToks,
+        memberTok: gMemberTok,
+        memberW: TOKW.fact,
         facts,
         topDirs,
         members,
@@ -6579,6 +6590,16 @@ export function buildCards(model) {
       for (const t of tokenize(rel)) addTok(toks, t, TOKW.fact);
       for (const t of part.fileDocs?.[rel] || []) addTok(toks, t, TOKW.doc); // what the doc comments say this file is for
       for (const x of part.fileSups?.[rel] || []) for (const t of tokenize(x)) addTok(toks, t, TOKW.name); // the interfaces its types implement ARE what the file is
+      // §012/G2 — the two channels kept apart, because `where` weighs them differently (see `tw` in whereCmd).
+      // `baseToks` is what the file IS (name, path, docs, supertypes); `memberTok` counts how many of the file's
+      // OWN scopes carry each token, so a name that covers the whole file can be told from one mentioned once in
+      // a 169-scope test. `toks` below is left exactly as it was — every other consumer of a card reads it
+      // unchanged, and `where`'s own IDF is still counted over it.
+      const baseToks = new Map(toks);
+      const memberTok = new Map();
+      for (const m of members)
+        for (const t of new Set(tokenize(m.name).map(normTok)))
+          memberTok.set(t, (memberTok.get(t) || 0) + 1);
       for (const m of members) for (const t of tokenize(m.name)) addTok(toks, t, TOKW.name);
       const dir = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '.';
       const dirFacts = part.facts
@@ -6597,6 +6618,8 @@ export function buildCards(model) {
         label: rel,
         n: members.length,
         toks,
+        baseToks,
+        memberTok,
         names: new Set([
           ...members.map(m => m.name.toLowerCase()),
           ...(part.fileSups?.[rel] || []).map(x => x.toLowerCase()),
@@ -6790,9 +6813,27 @@ export function whereCmd({
   const idf = new Map();
   for (const t of qt) idf.set(t, df.get(t) ? Math.log2(1 + cards.length / df.get(t)) : maxIdf);
   const idfSum = [...idf.values()].reduce((a, b) => a + b, 0);
+  // §012/G2 — what one query word is WORTH to a card. Every card but a file card answers with its own token
+  // weights unchanged. A file card's weight is the max of two channels, because they are different evidence:
+  //   · what the file IS — its own basename, its path, its doc comments, the supertypes it implements — at full
+  //     weight, exactly as before (`baseToks`);
+  //   · what the file CONTAINS — the names of its scopes — in proportion to HOW MUCH of the file carries the
+  //     word: one of 3 scopes called `json` says the file is about json, 2 of 169 says almost nothing.
+  // Before this, both channels were flat 1 (addTok keeps a max), so a 169-scope test file whose vocabulary
+  // happened to contain every query word scored 100% and outranked the small file the query actually named —
+  // measured as `where`'s single largest ranking defect on the stratum where the query names its file
+  // (express: `added res json test` returned test/app.router.js, then test/res.send.js, over test/res.json.js).
+  // No constant: the divisor is the card's own scope count, the same `n` the card already reports.
+  const tw = (c, t) =>
+    c.memberTok
+      ? Math.max(
+          c.baseToks.get(t) || 0,
+          (c.memberW ?? TOKW.name) * ((c.memberTok.get(t) || 0) / Math.max(1, c.n || 1))
+        )
+      : c.toks.get(t) || 0;
   for (const c of cards) {
     let s = 0;
-    for (const [t, w] of idf) s += (c.toks.get(t) || 0) * w;
+    for (const [t, w] of idf) s += tw(c, t) * w;
     c.score = idfSum ? s / idfSum : 0;
     c.exact = c.names ? [...qraw].some(t => c.names.has(t)) : false; // a query word that IS a function/class name in this file
     // a pinned identifier that IS most of the query wins outright (`where sendStatus`); one that covers a minority of the
@@ -6807,7 +6848,11 @@ export function whereCmd({
       const hit = [...qt].filter(t => c.dirName.has(t));
       if (hit.length) {
         const cover = hit.length / Math.max(1, qt.size);
-        c.score = cover >= 0.5 ? Math.max(c.score, 1) : Math.min(1, c.score + 0.25);
+        // §012/G2 — a directory whose NAME is most of the query still wins outright. One that matches a minority
+        // of it is worth exactly the share of the query it covers, not a flat +0.25: that constant routinely lifted
+        // a wide directory card above the file the query actually named (petclinic: `src/test/` over
+        // ValidatorTests.java on one shared word). Measured: it lifts BOTH strata, and deletes a tuned number.
+        c.score = cover >= 0.5 ? Math.max(c.score, 1) : Math.max(c.score, cover);
       }
     }
     c.score = Math.min(1, c.score);
@@ -6856,12 +6901,12 @@ export function whereCmd({
       `weak match: the best hit covers ${Math.round(hits[0].score * 100)}% of the query's weight — a hint, not an answer. If the hits look unrelated to what you are writing, open the nearest sibling of the file you expect to edit instead.`
     );
   else if (hits.length && qt.size >= 3 && !hits[0].exact) {
-    const contributing = [...idf.keys()].filter(t => (hits[0].toks.get(t) || 0) > 0);
+    const contributing = [...idf.keys()].filter(t => tw(hits[0], t) > 0); // the SAME per-word weight the score was built from, so "which words carried this hit" can never disagree with the score itself
     // mass concentration: "exactly one contributing word" (ratio 1) generalized to how much of the top hit's matched
     // weight sits in its single heaviest word — a hit carried almost entirely by one term is just as coincidental as a
     // one-word hit, even when a second term nominally "contributed" (measured: a query's rare words each independently
     // landing on unrelated cards inflated `contributing.length` past 1 while the hit stayed just as coincidental)
-    const weights = contributing.map(t => (hits[0].toks.get(t) || 0) * idf.get(t));
+    const weights = contributing.map(t => tw(hits[0], t) * idf.get(t));
     const totalW = weights.reduce((a, b) => a + b, 0);
     const concentration = totalW ? Math.max(...weights) / totalW : 1;
     if (contributing.length < qt.size && concentration >= 0.5) {
