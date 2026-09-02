@@ -1,6 +1,6 @@
 # 053 · `check` says "parse degraded" and `review` does not — the caveat is dropped in the aggregate
 
-**Status:** OPEN
+**Status:** FIXED — review propagates check's parse-degraded caveat (capped at 5 files); Scala/Play parse-degradation measured at 11.5%, dominated by @Inject() ctors, documented in validation.md
 **Found by:** round 4 field test, Scala/playframework, 2026-09-01
 **Severity:** medium — a disclosure that exists but does not survive aggregation
 

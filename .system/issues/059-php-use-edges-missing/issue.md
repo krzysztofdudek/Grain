@@ -1,6 +1,6 @@
 # 059 · PHP cross-component `use` dependencies are not resolved — Symfony shows 2 edges (both bogus), 44 real ones missed in one package
 
-**Status:** OPEN — HIGH. Found by round 4, PHP/symfony, 2026-09-01
+**Status:** FIXED — repo-wide composer.json PSR-4 map (model.phpAutoload) resolves cross-component PHP use edges; Symfony fixture 0->1 edge; relCoverageData flags php when no psr-4 data exists
 `map --json`: 68 modules, 67 layer-0 "leaves", **0 edges**. `report`: "2 directed dependencies", both from
 `.github/` CI scripts. Meanwhile 44 files in HttpKernel `use Symfony\Component\EventDispatcher\…` (grep-verified),
 undetected. PHP was earlier tested only on Slim (tiny, single-package) so this never showed.

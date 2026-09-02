@@ -1,6 +1,6 @@
 # 046 · `selftest` reports `0/0/0/0` on a repo with 7 certified conventions — a pass-shaped answer
 
-**Status:** OPEN — NEEDS INVESTIGATION. Observed once, in the field; NOT reproduced by the orchestrator, and the
+**Status:** FIXED — harness bug: mutateTest filtered non-plantable pid kinds before the unsupported counter; now counted, no unexplained 0/0/0/0
 reporter went idle before the follow-up could be answered. Verify before designing anything.
 **Found by:** round 3 field test, Lua/telescope.nvim, 2026-09-01
 **Severity:** medium — but on a trust surface, which raises it
