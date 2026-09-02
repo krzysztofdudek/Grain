@@ -744,6 +744,17 @@ export async function cmdMap({ model, args, opts, stamp, treeDirty }) {
     return [
       JSON.stringify({
         nodes: (model.moduleGraph?.nodes || []).map(n => ({ id: n.id, layer: n.layer })),
+        // §066/051: `map` (text, mapSections) also renders `concepts:` and `changes:` (from model.changeArchetypes,
+        // there truncated to the top 4 for a scannable line) and derives its `layers:` line from the module
+        // dependency graph — `--json` carried none of the three, a strictly poorer machine-readable answer than
+        // the human-readable one for a published-interface command. Additive only (no existing field touched):
+        // `concepts`/`edges` are the same model arrays the text renderer reads (`model.concepts`,
+        // `model.moduleGraph.edges` — not previously surfaced as data at all, `nodes` above carries layer
+        // placement only); `changes` is the FULL `model.changeArchetypes` list, uncapped — the text line's own
+        // top-4 slice is a display concern, and nothing else in `--json` exposes the rest of this array either.
+        concepts: model.concepts || [],
+        changes: (model.changeArchetypes || []).map(a => ({ id: a.id, label: a.label, n: a.n })),
+        edges: (model.moduleGraph?.edges || []).map(e => ({ from: e.from, to: e.to, n: e.n })),
         decisions:
           (model.steers || []).length + (model.boundaries || []).length + (model.waivers || []).length,
         asOf: stamp().replace(/^as of /, ''),
