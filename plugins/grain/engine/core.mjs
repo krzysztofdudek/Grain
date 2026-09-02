@@ -1981,7 +1981,13 @@ export function docTokens(text) {
 // whole gap between "the right file" and "the convention": 'use strict' 21/21, single quotes, var vs const, a UTF-8 BOM on
 // 70/108 C# files that no Read ever shows. Each is a categorical value per file; whether it is a CHOICE is decided per
 // grammar by the partition (lexDomain), never written down here.
-export function lexicalPreds(tree, b) {
+// `tally` (§042) is an optional OUT-parameter, written but never read here and never mixed into the returned preds:
+// per ratio-shaped surface, a map from the predicate's own VALUE to how many INSTANCES in this file carry it
+// (`{single: 3, double: 200}`). The returned categorical is a per-file majority vote, so it cannot say how many
+// literals actually conform; `check` needs that count to disclose what the vote hid. Keeping it out of `out` is
+// load-bearing: `out` is spread straight into a file scope's `preds` (extractScopes), so any extra key here would
+// become a mined predicate and widen the candidate universe.
+export function lexicalPreds(tree, b, tally = null) {
   const root = tree.rootNode;
   const text = root.text || '';
   const out = {};
@@ -2021,6 +2027,11 @@ export function lexicalPreds(tree, b) {
       out['auto.lex:indent'] = unit ? 'space' + unit : 'other';
     } else out['auto.lex:indent'] = 'mixed';
   } // the unit is the smallest width that recurs (most lines sit deeper than one level)
+  if (tally) {
+    const t = { tab: tabs };
+    for (const w of [2, 3, 4, 8]) t['space' + w] = widths[w] || 0;
+    tally['auto.lex:indent'] = t;
+  }
   // quote style of string literals (delimiter of each string node; prefixes like f"…" / r'…' skipped; backticks ignored)
   let sq = 0,
     dq = 0;
@@ -2031,6 +2042,7 @@ export function lexicalPreds(tree, b) {
   }
   if (sq + dq >= 2)
     out['auto.lex:quote'] = sq >= (sq + dq) * 0.8 ? 'single' : dq >= (sq + dq) * 0.8 ? 'double' : 'mixed';
+  if (tally) tally['auto.lex:quote'] = { single: sq, double: dq };
   // statement terminator: simple statements ending in `;` vs not (compound statements — blocks, declarations with bodies — skipped)
   let semi = 0,
     nosemi = 0;
@@ -2059,6 +2071,7 @@ export function lexicalPreds(tree, b) {
   if (semi + nosemi >= 5)
     out['auto.lex:semi'] =
       semi >= (semi + nosemi) * 0.8 ? 'semi' : nosemi >= (semi + nosemi) * 0.8 ? 'nosemi' : 'mixed';
+  if (tally) tally['auto.lex:semi'] = { semi, nosemi };
   // leading directive: a first statement that is a short string expression (`'use strict'`, `'use client'`)
   const first = root.namedChildren.find(c => c.type !== 'comment' && c.type !== 'hash_bang_line');
   if (
@@ -2077,6 +2090,7 @@ export function lexicalPreds(tree, b) {
     if (kw) decl[kw[1]] = (decl[kw[1]] || 0) + 1;
   }
   const tot = Object.values(decl).reduce((a, b) => a + b, 0);
+  if (tally) tally['auto.lex:decl'] = { ...decl };
   if (tot >= 2) {
     const [k, c] = Object.entries(decl).sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
     out['auto.lex:decl'] = c >= tot * 0.8 ? k : 'mixed';
@@ -5505,6 +5519,11 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   // callers need this signal to tell "genuinely nothing here" apart from "the parser gave up on part of this file"
   const scopes = extractScopes(effRel, tr, b, p._g).filter(s => s.name !== '<anon>');
   const relFact = relFactsFor(effRel, src, tr, p._g);
+  // §042 — the instance counts behind each per-file lexical vote, for `lexTallyNote`. Taken here because `tr` is freed
+  // on the next line and the governed loop below runs after that. A second walk of one already-parsed file, on the
+  // check path only; extraction and mining call `lexicalPreds` without a tally and are byte-for-byte unaffected.
+  const lexT = Object.create(null);
+  lexicalPreds(tr, b, lexT);
   tr.delete();
   const archHits = computeArchHits({ model, root, effRel, relFact });
   const placeHit = placementHit(model, effRel);
@@ -5577,6 +5596,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
           label,
           conforms: lead === f.exp,
           fact: f,
+          tally: lexTally(f.pid, f.exp, lexT[f.pid]), // §042 — null unless the per-file vote hid departing instances
           defining: isDefiningFact(medoids, f),
         });
       // the lead surface speaks for the cluster; a deviation on any sibling surface (same conform set) is still a deviation
@@ -8461,6 +8481,36 @@ export function factTiers(p) {
 // own generated-document text (below) share one wording instead of two that could drift apart.
 export const DIRTY_TREE_NOTE =
   'the worktree has uncommitted changes — this answer is computed from the indexed commit, not the current files on disk';
+// §042: a lexical style surface is a per-FILE majority vote (lexicalPreds) — `auto.lex:quote` reads `double` while at
+// most 20% of the file's literals are single-quoted. So a conforming file can hold, or GAIN, many departing literals
+// without the value ever moving: measured, telescope.nvim's buffer_previewer.lua absorbs 50 new single-quoted literals
+// in silence and flips only at 51; express's test/acceptance/mvc.js absorbs 12 and flips at 15; the budget is 0.25 ×
+// the majority count, so it grows with file size (957 / 2050 / 1067 literals repo-wide on telescope.nvim / express /
+// flask). The vote is the right unit to MINE — a delimiter forced by the content (`'he said "hi"'`) is not a style
+// choice, and 11 of 11 minority literals in telescope.nvim are exactly that — but `check` must not call the file
+// conforming without saying what a file-granularity vote cannot see. Same register and same one-constant-two-renderers
+// discipline as TEMPLATE_DESCRIPTIVE_NOTE below.
+const LEX_UNIT = {
+  'auto.lex:quote': ['string literal', 'string literals'],
+  'auto.lex:semi': ['statement', 'statements'],
+  'auto.lex:decl': ['declaration', 'declarations'],
+  'auto.lex:indent': ['indented line', 'indented lines'],
+};
+// null when there is nothing to disclose; otherwise the counts AND the sentence, from one computation, so the JSON
+// field and the printed clause can never disagree about the same file.
+export function lexTally(pid, exp, tally) {
+  const unit = LEX_UNIT[pid];
+  if (!unit || !tally || tally[exp] === undefined) return null; // `mixed`/`other` name no instance: nothing to count
+  const total = Object.values(tally).reduce((a, c) => a + c, 0);
+  const conforming = tally[exp];
+  const off = total - conforming;
+  if (total <= 0 || off <= 0) return null; // every instance conforms: the file-level verdict is true per instance too
+  return {
+    conforming,
+    total,
+    note: ` — scored per file, not per ${unit[0]}: ${off} of ${total} ${unit[1]} here depart from it and none of them is flagged`,
+  };
+}
 // §030: a `report`/`rules` TEMPLATE line (mineTemplates/profileOf — unclustered residue, never a role group) is a
 // render-only structural superposition: it has no cell in `part.facts`, so `check`/`review`/hooks cannot fail a
 // member for breaking its shape — not even the partial bridge J5.8 gives CLUSTERED role-group profiles
