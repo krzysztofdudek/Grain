@@ -13,6 +13,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { whereEval } from '../engine/core.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -137,7 +138,7 @@ test('the text report prints both strata and carries the as-of stamp', () => {
   const r = grain(['selftest', '--where'], repo);
   assert.equal(r.code, 0, r.err);
   const lines = r.out.split('\n').filter(l => !l.startsWith('[grain]'));
-  assert.match(lines[0], /^where: hit@3=\d\.\d\d MRR=\d\.\d\d place@3=\d\.\d\d · path-match baseline: hit@3=\d\.\d\d MRR=\d\.\d\d place@3=\d\.\d\d · n=\d+ · nothing-ranked=\d+$/);
+  assert.match(lines[0], /^where: hit@3=\d\.\d\d MRR=\d\.\d\d place@3=\d\.\d\d cardW=\d+\.\d · path-match baseline: hit@3=\d\.\d\d MRR=\d\.\d\d place@3=\d\.\d\d cardW=\d+\.\d · n=\d+ · nothing-ranked=\d+$/);
   assert.match(lines[1], /^query does not name the file \(n=\d+\) — where: hit@3=/);
   assert.match(lines[2], /^as of [0-9a-f]{7}/);
 });
@@ -160,4 +161,66 @@ test('a repository with no history says so instead of reporting a hollow zero', 
   assert.match(j.note, /needs commit history/);
   assert.equal(j.where, null);
   assert.equal(j.n, 0);
+});
+
+// §068 — `place@3` was gameable by card width: a directory or group card wide enough to cover most of the
+// repository contains the truth file almost by construction, so the OLD scoring (`place3 = at(rows,'wPlace',3)`,
+// a flat 1 for any row where SOMETHING — hit or mere containment — landed by rank 3) credited a 64%-of-repo card
+// exactly as much as an actual named hit. `whereEval` is exercised directly here (as weak-match-signals.test.mjs
+// does for `whereCmd`) with a hand-built model/history — no git or CLI needed, since the only thing under test is
+// the scoring math, not the ranker or the candidate-derivation machinery already covered above.
+//
+// Both fixtures below use a MARKER card (never a directory) as the credited card, specifically so the credit is
+// unambiguous: a marker can never itself register as an exact `hit` (only `type === 'file'` can), and its query
+// token ('widemk' / 'narrowmk') appears NOWHERE in any carrier file's own path, so every carrier's individual
+// file-card scores exactly 0 for that query and is filtered out before ranking — the marker is the ONLY hit,
+// its width is exactly its carrier count, and hit3 comes out 0 in both, proving this is pure containment credit,
+// not an accidental exact match.
+function markerModel(carrierKeys, markerName) {
+  const files = carrierKeys.map(k => k.split('#')[0]);
+  const part = {
+    name: '_root',
+    medoids: [],
+    assignments: {},
+    facts: [],
+    markers: { ['deco:' + markerName]: carrierKeys },
+    files,
+  };
+  return { partitions: [part], steers: [], filesAll: files };
+}
+function whereEvalFor(model, truthFile, query) {
+  const H = {
+    fps: [{ ts: 1, toks: [query], files: [truthFile], renames: [] }],
+    lc: [[truthFile + '#x', { first: 1, newFile: true }]],
+  };
+  return whereEval({ model, H, last: 1 });
+}
+
+test('§068: a card spanning 20 files earns only 1/20 of a hit — not the full 1 a precise hit gets', () => {
+  const keys = Array.from({ length: 19 }, (_, i) => `src/w/filler${i}.ts#method#Run${i}`);
+  keys.push('src/w/truth.ts#method#RunTruth');
+  const model = markerModel(keys, 'widemk');
+  const res = whereEvalFor(model, 'src/w/truth.ts', 'widemk');
+  assert.equal(res.n, 1);
+  assert.equal(res.where.hit3, 0, 'the marker is not a file, so this must be pure containment, not an exact hit');
+  assert.equal(res.where.place3, 1 / 20, 'a 20-file card must earn exactly 1/20 of a real hit, not a flat 1');
+  assert.equal(res.where.placeWidth, 20, 'the credited card width must be reported, not left for a researcher to dig out by hand');
+});
+
+test('§068: a 2-file card earns 1/2 — proportionally more than the 20-file card above for the identical scenario shape', () => {
+  const keys = ['src/n/fileA.ts#method#RunA', 'src/n/truth2.ts#method#RunB'];
+  const model = markerModel(keys, 'narrowmk');
+  const res = whereEvalFor(model, 'src/n/truth2.ts', 'narrowmk');
+  assert.equal(res.n, 1);
+  assert.equal(res.where.hit3, 0);
+  assert.equal(res.where.place3, 1 / 2, 'a narrower, more precise card must be worth more place@3 credit than a wide one');
+  assert.equal(res.where.placeWidth, 2);
+});
+
+test('§068: a genuine hit (a one-file card, by construction) still earns full place@3 credit — the discount never inverts hit3 ≤ place3', () => {
+  const keys = ['src/f/truth.ts#method#Run'];
+  const model = markerModel(keys, 'onlymk');
+  const res = whereEvalFor(model, 'src/f/truth.ts', 'onlymk');
+  assert.equal(res.where.place3, 1, 'a 1-file card is the narrowest possible — full credit, matching a real hit');
+  assert.equal(res.where.placeWidth, 1);
 });
