@@ -1,12 +1,14 @@
 // J3.3 — `grain what <words>`: a fourth lens distinct from `where` (place for NEW code) and `how` (past change
 // shape). Given a word or phrase, gather every kind of fact the model already carries about that CONCEPT into one
-// card: declarations (a), indexed values (b), its spread across modules (c), sibling values (d), historical commit
-// mentions (e), and file-level fan-in (f).
+// card: declarations (a), indexed values (b), its spread across modules (c), historical commit mentions (e), and
+// file-level fan-in (f). Source (d), sibling values, was DELETED by §052 (measured 0.364 per-value precision as
+// a push surface) — see tests/what-siblings-not-a-push-line.test.mjs.
 //
 // Fixture (repo A): an enum `OrderStatus { PENDING_STATUS, SHIPPED_STATUS, CANCELLED }` declared identically in two
 // files (src/orders/status.ts, src/billing/status.ts) — J3.1's cross-file identity merge means this is ONE sibling
 // container. Two of its three members carry the word "status" in their own name (PENDING_STATUS, SHIPPED_STATUS);
-// the third (CANCELLED) does not, so it shows up only via (d) siblings, never independently matched by (b). Three
+// the third (CANCELLED) does not, so it is never independently matched by (b) — §052 deleted the (d) line that
+// used to be the only place it surfaced. Three
 // consumer files (src/consumers/{a,b,c}.ts) each hold a switch on both matched members as string literals, giving
 // those two values df=3 as `str:` entries. src/consumers/importer.ts imports OrderStatus from orders/status.ts —
 // the one file-level edge (f) fan-in counts. src/churn.ts (23 commits), src/misc.ts (1 commit) and src/orders/
@@ -109,7 +111,7 @@ test('(a) fixture sanity: the model carries the enum, its value index and messag
   assert.deepEqual(hits[0][1], ['enum:CANCELLED', 'enum:PENDING_STATUS', 'enum:SHIPPED_STATUS']);
 });
 
-test('(a) `grain what status` reports declarations, values, spread and siblings with correct counts', () => {
+test('(a) `grain what status` reports declarations, values and spread with correct counts', () => {
   const r = grainIn(repo, ['what', 'status', '--json']);
   assert.equal(r.code, 0, `exit 0 expected — stderr:\n${r.err}\nstdout:\n${r.out}`);
   const j = JSON.parse(r.out);
@@ -141,10 +143,10 @@ test('(a) `grain what status` reports declarations, values, spread and siblings 
   assert.equal(byModule['src/billing'], 1);
   assert.equal(j.spread[0].module, 'src/consumers', 'most-files-first ordering');
 
-  // siblings: CANCELLED is the enum's only member never independently matched by (b)
-  assert.equal(j.siblings.length, 1, JSON.stringify(j.siblings));
-  assert.match(j.siblings[0], /CANCELLED/);
-  assert.doesNotMatch(j.siblings[0], /PENDING_STATUS|SHIPPED_STATUS/, 'an already-matched sibling is not "other" news');
+  // §052 — source (d) is deleted, so there is no `siblings` field to assert. `CANCELLED` is still the enum's
+  // only member never independently matched by (b), and it is still in the model (see
+  // tests/what-siblings-not-a-push-line.test.mjs (c)); what changed is that `what` no longer volunteers it.
+  assert.ok(!('siblings' in j), `§052: the siblings field is deleted — got keys ${Object.keys(j).join(',')}`);
 
   // fan-in: importer.ts is the one file that imports one of the two declaration files — §064: the actual name,
   // not just a count
@@ -169,8 +171,7 @@ test('(a2) the text rendering carries the same facts in the documented voices', 
   assert.match(values, /`PENDING_STATUS` in 3 places/);
   const spread = lines.find(l => l.startsWith('spread:'));
   assert.match(spread, /src\/consumers \(3\)/);
-  const siblings = lines.find(l => l.startsWith('siblings:'));
-  assert.match(siblings, /CANCELLED/);
+  assert.equal(lines.find(l => l.startsWith('siblings:')), undefined, `§052: no siblings: line:\n${r.out}`);
   const usedBy = lines.find(l => l.startsWith('used by:'));
   assert.equal(usedBy, 'used by: src/consumers/importer.ts', `§064: text output must show the actual file name, not a count: ${usedBy}`);
   assert.match(r.out, /\nas of [0-9a-f]{7}/, 'every answer ends with the freshness stamp');
@@ -214,7 +215,8 @@ test('(c) a concept absent everywhere: map: alone, no crash', () => {
     `every other source must stay silent, got:\n${r.out}`);
 
   const j = JSON.parse(grainIn(repo, ['what', 'zzznonexistentconcept', '--json']).out);
-  assert.deepEqual(j.defined, []); assert.deepEqual(j.values, []); assert.deepEqual(j.spread, []); assert.deepEqual(j.siblings, []);
+  assert.deepEqual(j.defined, []); assert.deepEqual(j.values, []); assert.deepEqual(j.spread, []);
+  assert.ok(!('siblings' in j), '§052: no siblings field at all, empty or otherwise');
 });
 
 test('(d) determinism: two runs against the same unchanged repository are byte-identical', () => {
@@ -228,7 +230,7 @@ test('(d) determinism: two runs against the same unchanged repository are byte-i
 test('(e-json) --json carries the documented shape', () => {
   const j = JSON.parse(grainIn(repo, ['what', 'status', '--json']).out);
   assert.equal(typeof j.query, 'string');
-  for (const k of ['defined', 'values', 'spread', 'siblings']) assert.ok(Array.isArray(j[k]), `${k} must be an array: ${JSON.stringify(j)}`);
+  for (const k of ['defined', 'values', 'spread']) assert.ok(Array.isArray(j[k]), `${k} must be an array: ${JSON.stringify(j)}`);
   for (const k of ['changes', 'usedBy']) assert.equal(typeof j[k], 'object', `${k} must be an object: ${JSON.stringify(j)}`);
   assert.equal(typeof j.asOf, 'string');
   for (const d of j.defined) { assert.equal(typeof d.rel, 'string'); assert.equal(typeof d.name, 'string'); assert.equal(typeof d.kind, 'string'); assert.equal(typeof d.line, 'number'); }
