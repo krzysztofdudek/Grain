@@ -6794,6 +6794,12 @@ export function whereCmd({
     let s = 0;
     for (const [t, w] of idf) s += (c.toks.get(t) || 0) * w;
     c.score = idfSum ? s / idfSum : 0;
+    // §070 — snapshot the score BEFORE the exact-name/dirName pins below can lift it off zero. This is the
+    // card's own bag-of-words overlap with the query and nothing else: a card can only clear zero here by
+    // sharing an actual query token with its content (doc comments, member names, values — whatever `c.toks`
+    // indexes), never by an identifier or directory NAME merely matching. Read-only bookkeeping: nothing past
+    // this line changes what `c.score` becomes or how `hits` gets filtered/sorted/sliced.
+    c.lex0 = c.score;
     c.exact = c.names ? [...qraw].some(t => c.names.has(t)) : false; // a query word that IS a function/class name in this file
     // a pinned identifier that IS most of the query wins outright (`where sendStatus`); one that covers a minority of the
     // query's words only adds to the lexical score — `where command handler for TodoList archive` must rank the command
@@ -6851,7 +6857,22 @@ export function whereCmd({
   }
   let noConfidentHit = false,
     suppressedScore = 0; // set when the top hit is demoted to "untrustworthy" below — distinct wording from a genuine zero-hit
-  if (hits.length && hits[0].score < 0.34)
+  // §070 (research/where-lever) — on the leak-free stratum, 36% of the files `where` should have named share zero
+  // content-lexical overlap with the query (`lex0` above). Most of those are NOT the `!hits.length` case below —
+  // something ELSE in the repo still scores — so the reader sees a normal-looking ranked list built entirely on an
+  // identifier or directory NAME pin, with zero corroborating content-word overlap anywhere in the top hits — the exact shortcut
+  // §2.1 of the research doc measured directly ("cards lifted off zero by the exact-name pin without any token
+  // match"). Checked before `weak match` below because a name pin can win outright (`score` reaches 1, well past
+  // 0.34), so the flat-score banner never catches it — the structural fact that NO shown card's content shares a
+  // query word is the one signal here, not a new cutoff (§018/§037's rule: an already-weak answer cannot be made
+  // overconfident by saying so, so this fires regardless of how high the pinned score climbed).
+  const noContentFoothold = hits.length > 0 && hits.every(h => h.lex0 === 0);
+  if (noContentFoothold) {
+    const sig = hits[0].exact ? 'an exact identifier/name match' : 'a directory-name match';
+    lines.push(
+      `no card matches these words — the ranking below is by ${sig}, not text overlap; verify before building on it.`
+    );
+  } else if (hits.length && hits[0].score < 0.34)
     lines.push(
       `weak match: the best hit covers ${Math.round(hits[0].score * 100)}% of the query's weight — a hint, not an answer. If the hits look unrelated to what you are writing, open the nearest sibling of the file you expect to edit instead.`
     );
