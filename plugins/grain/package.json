@@ -1,6 +1,6 @@
 {
   "name": "grain-engine",
-  "version": "0.2.0",
+  "version": "0.4.0",
   "private": true,
   "description": "grain — ask a repository about its own conventions before writing code.",
   "type": "module",
