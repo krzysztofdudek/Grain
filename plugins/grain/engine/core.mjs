@@ -7874,6 +7874,68 @@ export function howEval({ model, H, root, last = 100 }) {
   };
 }
 
+// §069 (research/where-lever, `.system/research/where-ranking-design.md` §4.4) — leak subtraction for ANY
+// history-reading lever a future `where` ranker might add. `howEval` just above protects itself cheaply: it
+// drops the candidate commit from `fps` before handing history to `howCmd`, because `howCmd` matches directly
+// against `H.fps` and nothing else. A future `where`-side lever (commit-message affinity, co-change propagation,
+// a birth-place prior — the three measured on that research branch) needs the same protection, but over more of
+// `H`: those three read `H.msgAff` / `H.msgTokCommits` / `H.fileCommits` / `H.nonMegaCommits` / `H.lc`'s birth
+// records directly, not just `fps`. Left alone, such a lever sees the very commit that CREATED the candidate —
+// that commit's message and file list ARE the ground truth `whereEval` is scoring against, so the lever
+// "predicts" the answer from the question. Measured: a message-affinity lever scored `hit@3` 0.500 on
+// openzeppelin with its own commit left in, 0.000 once subtracted — up to 2× inflation.
+// Every field this function touches is a plain additive counter (one commit's contribution is exactly −1
+// wherever it added +1), so subtracting one commit's contribution is exact, not an approximation — this is NOT
+// true of `model.cochange` / `model.msgAffinity` (or `H.cochange` / `H.scopeCochange`, their un-pruned-by-model
+// but still support/confidence-FILTERED cousins on `H` itself): those are gated by a support/confidence floor or
+// an MDL cut applied before the aggregate is ever exposed, so subtracting one commit's contribution cannot
+// restore a pair the floor already dropped, and reading them here would silently stay leaky. This function
+// therefore strips `cochange`/`scopeCochange` from the returned object entirely — a lever that needs co-change
+// must rebuild it from the (now leak-subtracted) `fps`, the same way `H.pairSup` was rebuilt into `H.cochange`
+// in the first place, and a read of `.cochange` on the result throws instead of quietly returning leaky data.
+// `whereEval` has no such lever wired in today (`whereCmd`'s score is purely lexical/structural — nothing here
+// changes that), so this is currently unused by any product code path; it exists so the next lever cannot ship
+// without the one property that makes this harness trustworthy for judging it.
+export function leakSubtractedH(H, sha) {
+  if (!H) return H;
+  const self = (H.fps || []).find(fp => fp.sha === sha);
+  const fps = (H.fps || []).filter(fp => fp.sha !== sha);
+  if (!self) return { ...H, fps, cochange: undefined, scopeCochange: undefined };
+
+  const msgAff = {};
+  for (const [t, byFile] of Object.entries(H.msgAff || {})) msgAff[t] = { ...byFile };
+  const msgTokCommits = { ...(H.msgTokCommits || {}) };
+  const fileCommits = { ...(H.fileCommits || {}) };
+  const dec = (obj, k) => {
+    if (obj[k] == null) return;
+    obj[k] -= 1;
+    if (obj[k] <= 0) delete obj[k];
+  };
+  for (const t of self.toks) {
+    if (msgAff[t]) {
+      for (const f of self.files) dec(msgAff[t], f);
+      if (!Object.keys(msgAff[t]).length) delete msgAff[t];
+    }
+    dec(msgTokCommits, t);
+  }
+  for (const f of self.files) dec(fileCommits, f);
+  const nonMegaCommits = Math.max(0, (H.nonMegaCommits || 0) - 1);
+
+  // birth records: `H.lc` (per-scope lifecycle) carries no sha (§13.3's lineage remap discards it), so a scope
+  // born by THIS commit is identified the same way `whereEval`'s own truth derivation identifies it — the file
+  // half of its key is one of `self.files` and its birth timestamp equals `self.ts`. Demoted to `newFile: false`
+  // rather than deleted: every other lifecycle fact on the entry (mods/churn/author) still describes something
+  // real, only "this commit is what created it" must go dark for evaluating this one candidate.
+  let lc = H.lc;
+  if (H.lc) {
+    lc = new Map(H.lc);
+    for (const [k, L] of lc)
+      if (L.newFile && L.first === self.ts && self.files.includes(k.split('#')[0])) lc.set(k, { ...L, newFile: false });
+  }
+
+  return { ...H, fps, msgAff, msgTokCommits, fileCommits, nonMegaCommits, lc, cochange: undefined, scopeCochange: undefined };
+}
+
 // `selftest --where` (§J2.3's sibling gate) — the same automatically-derived ground truth `selftest --how` runs
 // on (real commits), asked the other question. `how` grades a prediction of which files an intent TOUCHES;
 // `where` answers "where do such things live, what is expected there, which exemplar to copy", and a commit that
