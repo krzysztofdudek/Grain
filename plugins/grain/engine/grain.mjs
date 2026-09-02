@@ -467,7 +467,7 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
   if (!args.length) throw new Error('usage: grain where <intent words>');
   const query = args.join(' ');
   const whereArgs = { model, query, top: +opts.top || 3, mapRows: +opts['map-rows'] || 60, exemplarOk: existsMemo(root) };
-  let { lines, hits, unknownIdent } = whereCmd(whereArgs);
+  let { lines, hits, unknownIdent, disclosures } = whereCmd(whereArgs);
   // §057 — a zero-hit answer reads as "this concept isn't in the repository". Before accepting that, a bounded
   // scan (never a repo-wide grep) checks whether the query's exact text lives, verbatim, in a tracked file grain
   // never had a grammar for at all — a stronger, cheaper, deterministic sibling of the peer-anomalous blind-file
@@ -481,11 +481,25 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
   // plain words, and every identifier the repo actually declares — still opens no file at all.
   if (!hits.length || unknownIdent) {
     const ungrammaredHit = findUngrammaredHit(model, root, query);
-    if (ungrammaredHit) ({ lines, hits } = whereCmd({ ...whereArgs, ungrammaredHit }));
+    if (ungrammaredHit) ({ lines, hits, disclosures } = whereCmd({ ...whereArgs, ungrammaredHit }));
   }
   const sig = signal(model);
-  if (/empty|sparse|no source/.test(sig.verdict))
-    lines.push(`model note: ${sig.facts} conventions over ${sig.files} source files — ${sig.verdict}`);
+  // §089 — same register as whereCmd's own hedges above: a sparse/empty/partitionless model means the ranked
+  // answer below rests on very little, which is exactly the kind of thing an agent reading JSON must not miss.
+  // `kind` is derived from `sig.verdict`'s own existing category words, not a new name.
+  if (/empty|sparse|no source/.test(sig.verdict)) {
+    const text = `model note: ${sig.facts} conventions over ${sig.files} source files — ${sig.verdict}`;
+    lines.push(text);
+    const kind = /no source/.test(sig.verdict)
+      ? 'no-source-partition'
+      : /empty/.test(sig.verdict)
+        ? 'empty-model'
+        : 'sparse-model';
+    disclosures = [...disclosures, { kind, text }];
+  }
+  // §089 — a HEAD-reading command never claims `+dirty`, but a dirty tree still means this answer may not match
+  // what's on disk today; text already says so via DIRTY_TREE_NOTE below, JSON never carried it at all until now.
+  if (treeDirty) disclosures = [...disclosures, { kind: 'dirty-tree', text: DIRTY_TREE_NOTE }];
   if (opts.json) {
     const { hits } = whereCmd({
       model,
@@ -535,6 +549,7 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
           })),
         })),
         signal: sig,
+        disclosures, // §089 — additive: the same { kind, text } lines the text renderer above already emitted
         asOf: stamp().replace(/^as of /, ''),
       }),
     ];
@@ -726,7 +741,7 @@ export async function cmdWhat({ model, root, isGit, args, opts, stamp, store, tr
     const blindHit = findBlindHit(model, root, query, true);
     if (blindHit) res = whatCmd({ model, H, query, exemplarOk: existsMemo(root), rawScopes, blindHit });
   }
-  const { lines, defined, values, spread, changes, usedBy, referenced, testedBy, note } = res;
+  const { lines, defined, values, spread, changes, usedBy, referenced, testedBy, note, disclosures } = res;
   if (opts.json)
     return [
       JSON.stringify({
@@ -739,6 +754,10 @@ export async function cmdWhat({ model, root, isGit, args, opts, stamp, store, tr
         referenced: referenced || null,
         testedBy: testedBy || null,
         note: note && note.kind !== 'absent' ? note : null,
+        // §089 — additive: the same { kind, text } hedges the text renderer below already emits, plus dirty-tree
+        // (a HEAD-reading command never claims `+dirty`, but text already discloses a dirty worktree via
+        // DIRTY_TREE_NOTE below — JSON never carried it at all until now).
+        disclosures: treeDirty ? [...disclosures, { kind: 'dirty-tree', text: DIRTY_TREE_NOTE }] : disclosures,
         asOf: stamp().replace(/^as of /, ''),
       }),
     ];
@@ -968,6 +987,18 @@ function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp }) {
           statement: r.placeHit.text.replace(/^\[grain\] /, ''),
         }
       : null,
+    // §089 — the exact caveat `check`'s own text renderer prints under the headline for this same `r.hasError`
+    // flag (already present above as a plain boolean); review's text prints the identical sentence per file, or
+    // (over its display cap) an aggregate line naming the count instead — either way the underlying fact is the
+    // same, so it is always disclosed here structurally, one place, matching `check`'s own wording verbatim.
+    disclosures: r.hasError
+      ? [
+          {
+            kind: 'parse-degraded',
+            text: '(parse degraded — part of this file sits in error nodes; the scope list above may be incomplete)',
+          },
+        ]
+      : [],
     asOf: stamp(dirty).replace(/^as of /, ''),
   };
 }
@@ -987,6 +1018,8 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   if (!EXT2GRAMMAR[extname(rel)]) {
     const ph = placementHit(model, rel);
     const dirty0 = fileDirty(root, rel, isGit, refs?.diffArgs);
+    // §089 — the same sentence the text branch below prints, kept in one place so JSON and text can never drift
+    const noGrammarText = `check ${rel}: no grammar for "${extname(rel) || 'a file without extension'}" — grain parses ${GRAMMARS.join(', ')}`;
     if (opts.json)
       return [
         JSON.stringify({
@@ -997,20 +1030,19 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
           placement: ph
             ? { token: ph.token, dir: ph.dir, statement: ph.text.replace(/^\[grain\] /, '') }
             : null,
+          disclosures: [{ kind: 'no-grammar', text: noGrammarText }],
           asOf: stamp(dirty0).replace(/^as of /, ''),
         }),
       ];
-    return [
-      `check ${rel}: no grammar for "${extname(rel) || 'a file without extension'}" — grain parses ${GRAMMARS.join(', ')}`,
-      ...(ph ? [ph.text] : []),
-      stamp(dirty0),
-    ];
+    return [noGrammarText, ...(ph ? [ph.text] : []), stamp(dirty0)];
   }
   const r = await checkFile({ model, root, rel, content, asPath: opts.as, exemplarOk: existsMemo(root) });
   const dirty = fromFlag !== undefined ? true : fileDirty(root, rel, isGit, refs?.diffArgs);
   const lines = [];
   if (!r.partition) {
     const arch = (r.archHits || []).map(h => h.text);
+    // §089 — same sentence as the text branch below, one place so JSON and text can never drift
+    const noPartitionText = `check ${rel}: ${r.reason} — grain has no norm to hold this file against`;
     if (opts.json)
       return [
         JSON.stringify({
@@ -1031,11 +1063,12 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
             line: h.line,
             seed: h.id || null,
           })),
+          disclosures: [{ kind: 'no-partition', text: noPartitionText }],
           asOf: stamp(dirty).replace(/^as of /, ''),
         }),
       ];
     return [
-      `check ${rel}: ${r.reason} — grain has no norm to hold this file against`,
+      noPartitionText,
       ...(r.placeHit ? [r.placeHit.text] : []),
       ...arch,
       stamp(dirty),
@@ -1044,6 +1077,8 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   const scopesN = r.scopes.filter(s => s.kind !== 'file').length;
   if (r.hasError && scopesN === 0) {
     // a real parse failure, not a genuinely trivial file — the ONLY case this branch may fire for now (it used to be permanently dead: r.scopes.length is never 0 because extractScopes always pushes a file-kind pseudo-scope)
+    // §089 — same sentence as the text branch below, one place so JSON and text can never drift
+    const parseFailedText = `check ${rel}: parse failed — this file is largely unparseable (unsupported syntax or a grammar limitation); its scope list is empty and may be missing real content`;
     if (opts.json)
       return [
         JSON.stringify({
@@ -1051,13 +1086,11 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
           file: rel,
           parseFailed: true,
           hasError: true,
+          disclosures: [{ kind: 'parse-failed', text: parseFailedText }],
           asOf: stamp(dirty).replace(/^as of /, ''),
         }),
       ];
-    return [
-      `check ${rel}: parse failed — this file is largely unparseable (unsupported syntax or a grammar limitation); its scope list is empty and may be missing real content`,
-      stamp(dirty),
-    ];
+    return [parseFailedText, stamp(dirty)];
   }
   const { touched, inChange, preOnly, steerIn, steerPre, waiveIn, waivePre, archIn, archPre } =
     await fileFindings({
