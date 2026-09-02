@@ -246,9 +246,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/058",
-      "state": "running",
+      "state": "merged",
       "note": "JSON scored against PHP-shaped cells; grammar-scoped populations",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:51",
+      "sha": "7a262c4"
     },
     {
       "id": 24,
@@ -256,9 +257,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/060",
-      "state": "running",
+      "state": "merged",
       "note": "Scala braced-package/DI ctor error swallows nested object",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:55",
+      "sha": "c1808a5"
     },
     {
       "id": 25,
@@ -277,9 +279,10 @@
       "kind": "instr",
       "agent": "sonnet",
       "branch": "instr/cross-check",
-      "state": "running",
+      "state": "merged",
       "note": "all surface pairs text⇔json, report⇔rules, check⇔review, map⇔report",
-      "updated": "2026-09-02 02:36"
+      "updated": "2026-09-02 04:01",
+      "sha": "9485001"
     },
     {
       "id": 27,
@@ -353,6 +356,26 @@
       "state": "queued",
       "note": "completeness: specific vs ambient split; share renderer with 073",
       "updated": "2026-09-02 03:48"
+    },
+    {
+      "id": 34,
+      "ticket": "075",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/075",
+      "state": "queued",
+      "note": "medium: catch/finally clause double-counted once per enclosing method+class ancestor; extraction-level fix, EXTR_V candidate",
+      "updated": "2026-09-02 04:01"
+    },
+    {
+      "id": 35,
+      "ticket": "075",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/075",
+      "state": "queued",
+      "note": "type-like gaps in 5 grammars + Ruby singleton_method false positive; 050 method; EXTR_V",
+      "updated": "2026-09-02 04:03"
     }
   ]
 }
