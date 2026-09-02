@@ -518,6 +518,26 @@ const wordBounded = words => new RegExp('(?:^|_)(?:' + words.join('|') + ')(?:_|
 // C/C++/Rust/TS/Solidity — the bulk of TYPE_LIKE_RE's existing entries — and gains only the two Scala node types
 // already covered here; "declares no `parameters` field" wrongly promotes Java/Groovy's `record_declaration`,
 // which legitimately carries one for its primary constructor.
+// §076 — the SAME childless-companion gap §050 fixed for Scala's `object`, now for five more node types that
+// §050's own type-like-coverage.test.mjs surfaced: a bodiless/vals-only Java or Groovy `module_declaration`, Ruby
+// `module`, TS `internal_module`/`module` (`namespace Foo {}`/`module Foo {}`), and Solidity `library_declaration`
+// all fell through to kind `method` for want of a nested child scope, exactly like the pre-fix Scala `object`.
+// Fixed the same way: add the bare words `module` and `library` to this list. Verified against all 23 shipped
+// node-types.json (tests/type-like-coverage.test.mjs) by the same method as §050 — since TYPE_LIKE_RE only ever
+// runs on a node already gated through `isScope` (b.scope), the census that matters is over EACH GRAMMAR'S OWN
+// `b.scope` set, not the grammar's raw node-types.json: `module` occurs in exactly seven b.scope node types
+// across all 23 grammars — groovy/java `module_declaration`, ruby `module`, tsx/typescript `internal_module` and
+// `module` — every one of them genuinely type-like, and no others (C#'s own `module` token and Python's root
+// `module` node, and Java/Groovy's unrelated `module_directive`/`module_body`/`requires_module_directive`/etc.,
+// are none of them b.scope members, so they never reach this regex at all). `library` occurs in exactly one
+// b.scope node type anywhere — Solidity's `library_declaration` — so it carries no collision risk by construction.
+// Also removed the pre-existing `singleton` entry: a census of all 23 grammars' b.scope sets found it matches
+// exactly ONE node type anywhere — Ruby's `singleton_method` (a `def self.foo` class method) — which is a
+// METHOD, not a type, and was a straight false positive (typeLike wins ties in extractScopes below, so this
+// singleton_method was misclassified as kind `type` despite FUNC_LIKE_RE also correctly matching it via
+// `method`). Ruby's own `singleton_class` (`class << self`) and Scala's `singleton_type` are NOT b.scope members
+// (no name+body of their own) and were never reachable through this entry either, so `singleton` had zero
+// legitimate match in the entire corpus — removing it fixes the false positive with no loss of coverage anywhere.
 export const TYPE_LIKE_RE = wordBounded([
   'class',
   'struct',
@@ -530,7 +550,8 @@ export const TYPE_LIKE_RE = wordBounded([
   'impl_item',
   'type_declaration',
   'companion',
-  'singleton',
+  'module',
+  'library',
   'union',
   'contract',
 ]);
