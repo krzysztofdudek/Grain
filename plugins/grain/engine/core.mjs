@@ -103,6 +103,22 @@ export function bindingFor(gname) {
     // argument list. Singular and plural both: Solidity's operands are `call_argument`, Kotlin's
     // `value_argument`, C#'s `argument`; `varargs`-style names (no separator) are deliberately not matched.
     argRe: /(^|_)arg(ument)?s?(_list)?$/,
+    // a LIFETIME node — Rust's `'static`, `'a`, `'de`: a quote-prefixed identifier that names a lifetime,
+    // never a trait or type. `trait_bounds` (already in `heritageRe`) lists `lifetime` as one of its own
+    // child types right alongside `_type` (node-types.json), so `pub trait Handler: Clone + Send + Sync +
+    // 'static` bounds a trait by four things and only three are traits — the ancestor walk finds `'static`'s
+    // inner `identifier` exactly like it finds `Clone`'s, and nothing before this told them apart. Structurally
+    // distinct from every real type: it declares no fields at all (`fields: {}`) and, unlike `type_identifier`/
+    // `scoped_type_identifier`/…, it is not among `_type`'s own listed subtypes — it sits outside the type
+    // hierarchy entirely, wrapping a bare `identifier` the same way a loop label does (Rust's `label` has the
+    // identical shape, for the identical apostrophe syntax, and is irrelevant to heritage for the same reason).
+    // A lifetime can also reach a heritage clause one level down — a generic bound's own `lifetime_parameter`
+    // (`<'a: 'b>`) declares its `name` as a `lifetime` node, and `for_lifetimes` (`for<'a>`) lists `lifetime`
+    // children directly — so excluding the ancestor node type, not just a direct parent, is what the
+    // ancestor-walk in `heritageNamesOf` already does for `genArgRe`/`argRe`, applied here the same way. Named
+    // literally (`lifetime`, not a language check): no other shipped grammar defines a node type of this name,
+    // so this generalizes on its own to any future grammar that reuses the name for the same construct.
+    lifetimeRe: /^lifetime$/,
     // a "named slot" node type — one whose OWN fields (per node-types.json) declare BOTH a `name` and a `type`:
     // Go's `parameter_declaration`/`variadic_parameter_declaration`, TS's `required_parameter`/`optional_parameter`,
     // Scala 3's `name_and_type` (named-tuple elements), C#'s `tuple_element`, and every ordinary function-parameter
@@ -865,12 +881,21 @@ function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
       inArg = false,
       inPrefix = false,
       inDelegate = false,
+      inLifetime = false,
       hKind = null;
     while (anc && anc.id !== c2.id) {
       if (b.genArgRe.test(anc.type) || b.argRe.test(anc.type)) {
         inArg = true;
         break;
       } // `AbstractValidator<TQuery>`: TQuery sits under a type_argument_list — a slot, not a base type. `AbstractController(cc)`: cc sits under an argument list — a call operand, not a base type
+      // §084: `anc` is a LIFETIME node (Rust's `'static`, `'a`, `'de`) — a lifetime annotation, never a
+      // trait or type, however deep the walk needs to climb to find it (a generic bound's own
+      // `lifetime_parameter`, `for_lifetimes`'s children). `Sync + Send + 'static`: `static` sits under a
+      // `lifetime` node — a lifetime bound, not a base type.
+      if (b.lifetimeRe.test(anc.type)) {
+        inLifetime = true;
+        break;
+      }
       // §083: `anc` is a TYPE-vs-EXPRESSION duality clause (Kotlin's `explicit_delegation` — `Bar by
       // expr`) and `prevChild` is whichever of its two children `id` descends through. Only the child
       // that resolves into the TYPE side's own supertype closure (`b.typeSuperSet`) is real heritage;
@@ -901,7 +926,7 @@ function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
       prevChild = anc;
       anc = anc.parent;
     }
-    if (!inArg && !inPrefix && !inDelegate) {
+    if (!inArg && !inPrefix && !inDelegate && !inLifetime) {
       if (!hKind)
         hKind = b.implementsClauseRe.test(c2.type)
           ? 'impl'
