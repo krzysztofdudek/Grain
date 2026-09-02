@@ -1,0 +1,263 @@
+{
+  "_comment": "Fixed, versioned corpus for the scale ladder and instrument suite (loop-v2.md §3.F, §4). Each entry pins url+sha so numbers are comparable across engine versions. `lang` is the grammar id from plugins/grain/engine/grammars/manifest.json. `axes` names the idiom/shape this repo was chosen to exercise (see docs at bottom of file). `size` is measured directly in the clone this entry was pinned from (`git rev-list --count HEAD` / `git ls-files | wc -l`); for a shallow/partial clone, `size.commits` reflects what is ACTUALLY present locally (not the upstream repo's true history) and `upstreamCommits` records the full repo's real depth for comparison — the gap between the two is itself the thing the shallow/partial entries exist to measure. `bucket` is the scale-ladder rung this entry represents (§3.F: ~1k / ~10k / ~100k commits); shallow/partial entries are bucketed 'boundary' because their local history does not represent their nominal scale. To run: point run-corpus.mjs --ladder --corpus-dir at a directory containing one subdirectory per `id` (a real clone checked out at, or reachable to, `sha`).",
+
+  "_grammarCoverageNote": "manifest.json ships 23 grammars today: the 19 code languages this corpus's `lang` field targets (typescript, tsx, javascript, python, go, java, c_sharp, ruby, rust, php, c, cpp, kotlin, scala, bash, lua, zig, groovy, solidity) plus 4 config-file formats (json, yaml, toml, properties) added since this corpus was first pinned. The 4 config grammars are not given dedicated axis entries — they are ubiquitous incidentally (package.json/composer.json, Cargo.toml in axum-full/serde-full, .yml in symfony-*/nest, application.properties in spring-petclinic/okhttp) rather than each repo's reason for being chosen; instrument B (declaration coverage) is what should be pointed at them specifically if that incidental coverage is ever in doubt. Six of the 19 code languages had no prior field evidence anywhere before this corpus: kotlin, lua, zig, bash, groovy, tsx.",
+
+  "repos": [
+    {
+      "id": "leveldb",
+      "url": "https://github.com/google/leveldb",
+      "sha": "7ee830d02b623e8ffe0b95d59a74db1e58da04c5",
+      "lang": "cpp",
+      "axes": ["types-in-headers", "cpp-header-ext-routing-risk"],
+      "size": { "commits": 447, "files": 154 },
+      "bucket": "1k",
+      "note": "Google's LevelDB. .cc/.h C++, not pure C (a prior scratchpad clone named 'leveldb-test' is actually this — mislabeled, corrected here). Class declarations live in .h headers, but EXT2GRAMMAR (plugins/grain/engine/config.mjs) routes .h to the C grammar unconditionally, even in an all-C++ repo — worth an instrument-B declaration-coverage check on this repo specifically: are the class types declared in db/*.h even seen?"
+    },
+    {
+      "id": "kotlin-datetime",
+      "url": "https://github.com/Kotlin/kotlinx-datetime.git",
+      "sha": "e8019ead59ba44bb300c12108185f0f69a6ebd2c",
+      "lang": "kotlin",
+      "axes": ["heritage-constructor-args"],
+      "size": { "commits": 395, "files": 909 },
+      "bucket": "1k",
+      "note": "Pure Kotlin, no prior field contact for this grammar anywhere in the project. Small and fast — good smoke-test repo for kotlin."
+    },
+    {
+      "id": "CleanArchitecture",
+      "url": "https://github.com/jasontaylordev/CleanArchitecture.git",
+      "sha": "6bc6f89403c75a9bd2da407f1f2e13f14a973874",
+      "lang": "c_sharp",
+      "axes": ["attributes"],
+      "size": { "commits": 939, "files": 258 },
+      "bucket": "1k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus. ASP.NET controllers/DTOs use attributes ([ApiController], [HttpGet], validation attributes) heavily."
+    },
+    {
+      "id": "spring-petclinic",
+      "url": "https://github.com/spring-projects/spring-petclinic.git",
+      "sha": "818c4136ea971c21674525f9053de0d9c7ad8cfe",
+      "lang": "java",
+      "axes": [],
+      "size": { "commits": 1042, "files": 132 },
+      "bucket": "1k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus. Baseline java."
+    },
+    {
+      "id": "telescope.nvim",
+      "url": "https://github.com/nvim-telescope/telescope.nvim",
+      "sha": "40aedd8a68c78a656a10a8d62d80c54af59420fb",
+      "lang": "lua",
+      "axes": ["module-table"],
+      "size": { "commits": 1529, "files": 113 },
+      "bucket": "1k",
+      "note": "Neovim plugin: pervasive `local M = {}; ... return M` module-table idiom. No prior field contact for lua anywhere in the project."
+    },
+    {
+      "id": "tsx-zustand",
+      "url": "https://github.com/pmndrs/zustand.git",
+      "sha": "b57db4f86ef179285da216eeb291266da82c361c",
+      "lang": "tsx",
+      "axes": ["tsx-jsx-volume"],
+      "size": { "commits": 1381, "files": 144 },
+      "bucket": "1k",
+      "note": "Only 13 .tsx files among 21 .ts + 8 .jsx — a real but thin tsx sample. No prior field contact for tsx anywhere in the project. If a heavier tsx repo is wanted later, revisit."
+    },
+    {
+      "id": "axum-full",
+      "url": "https://github.com/tokio-rs/axum.git",
+      "sha": "194030d7d0c9395cd98c172d1cfd08777332d7b2",
+      "lang": "rust",
+      "axes": ["cargo-workspace"],
+      "size": { "commits": 1985, "files": 503 },
+      "bucket": "1k",
+      "note": "Full-history reclone of the docs/validation.md axum entry (that scratchpad copy was shallow, commits=1); this one is a real Cargo workspace (multiple member crates, one root Cargo.toml with [workspace])."
+    },
+    {
+      "id": "gin",
+      "url": "https://github.com/gin-gonic/gin.git",
+      "sha": "dcaa4296d111981ffb31ac3eba90bb63e1eb5ab9",
+      "lang": "go",
+      "axes": [],
+      "size": { "commits": 2007, "files": 130 },
+      "bucket": "1k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus. Baseline go."
+    },
+    {
+      "id": "zig-zls",
+      "url": "https://github.com/zigtools/zls.git",
+      "sha": "8da87d4f3305a550e7b739bad764e34bf1e46a08",
+      "lang": "zig",
+      "axes": ["type-as-const-binding"],
+      "size": { "commits": 3653, "files": 132 },
+      "bucket": "10k",
+      "note": "Zig language server. `const Foo = struct {...}` is the idiomatic way to declare a type in Zig — a type is a value bound to a const, not a keyword-introduced declaration. No prior field contact for zig anywhere in the project."
+    },
+    {
+      "id": "groovy-spock",
+      "url": "https://github.com/spockframework/spock.git",
+      "sha": "37e5e9a663ac6bc1ed1f72ac8374a81b879c66b0",
+      "lang": "groovy",
+      "axes": ["mixed-source-sets"],
+      "size": { "commits": 3530, "files": 1460 },
+      "bucket": "10k",
+      "note": "674 .java + 607 .groovy files side by side (Gradle mixed source sets). No prior field contact for groovy anywhere in the project."
+    },
+    {
+      "id": "openzeppelin-contracts",
+      "url": "https://github.com/OpenZeppelin/openzeppelin-contracts",
+      "sha": "6c703c9acaed58cba829039414e7d0f3d36ccace",
+      "lang": "solidity",
+      "axes": ["sigilless-modifiers"],
+      "size": { "commits": 4193, "files": 960 },
+      "bucket": "10k",
+      "note": "Solidity `modifier onlyOwner` etc. — no `@`/sigil marks a modifier apart from a function; already had first-contact field evidence per loop-v2.md §1 (defect found). Corpus entry pins it for repeatable measurement."
+    },
+    {
+      "id": "serde-full",
+      "url": "https://github.com/serde-rs/serde.git",
+      "sha": "a874a1b1bb1cc16cf5ee3b1b7b527af5705742bb",
+      "lang": "rust",
+      "axes": ["macro-generated-declarations"],
+      "size": { "commits": 4365, "files": 361 },
+      "bucket": "10k",
+      "note": "`#[derive(Serialize, Deserialize)]` generates impls grain never sees as source text — the canonical macro-generated-declarations case. Full-history reclone (a shallow copy also exists at corpus/serde, commits=1)."
+    },
+    {
+      "id": "bash-it",
+      "url": "https://github.com/Bash-it/bash-it.git",
+      "sha": "2a613f270c6daad0a3062eb52fd3d3a98a21b19b",
+      "lang": "bash",
+      "axes": [],
+      "size": { "commits": 4594, "files": 493 },
+      "bucket": "10k",
+      "note": "331 .bash plugin files. No prior field contact for bash anywhere in the project."
+    },
+    {
+      "id": "Slim",
+      "url": "https://github.com/slimphp/Slim.git",
+      "sha": "73274eb88e5c62b8f299fc46a7ba89ceb104d1be",
+      "lang": "php",
+      "axes": [],
+      "size": { "commits": 4586, "files": 145 },
+      "bucket": "10k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus. Baseline php (pre-attribute era idioms)."
+    },
+    {
+      "id": "cpp-json",
+      "url": "https://github.com/nlohmann/json.git",
+      "sha": "c864bb36da3d35e406ea7cf98fae0f8a13a27383",
+      "lang": "cpp",
+      "axes": ["types-in-headers"],
+      "size": { "commits": 5053, "files": 1230 },
+      "bucket": "10k",
+      "note": "Header-only C++ JSON library: the whole public API (57 .hpp headers) IS the header, no separate .cpp implementation to fall back on."
+    },
+    {
+      "id": "sinatra",
+      "url": "https://github.com/sinatra/sinatra.git",
+      "sha": "cb22afd7902b566b6eaba6c4ea89739494a65d12",
+      "lang": "ruby",
+      "axes": ["metaprogramming"],
+      "size": { "commits": 4684, "files": 292 },
+      "bucket": "10k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus. `class << self`, `define_method`, DSL-style route blocks."
+    },
+    {
+      "id": "flask",
+      "url": "https://github.com/pallets/flask.git",
+      "sha": "d318b683471101618febed18996405ad26462110",
+      "lang": "python",
+      "axes": [],
+      "size": { "commits": 5556, "files": 236 },
+      "bucket": "10k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus."
+    },
+    {
+      "id": "express",
+      "url": "https://github.com/expressjs/express.git",
+      "sha": "023767fe9872e029271df1418f73401bff20ff40",
+      "lang": "javascript",
+      "axes": [],
+      "size": { "commits": 6163, "files": 213 },
+      "bucket": "10k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus."
+    },
+    {
+      "id": "okhttp",
+      "url": "https://github.com/square/okhttp.git",
+      "sha": "c467a32e881fe24f620ace35f0da307c426f47ff",
+      "lang": "kotlin",
+      "axes": ["mixed-source-sets", "heritage-constructor-args"],
+      "size": { "commits": 6447, "files": 845 },
+      "bucket": "10k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus (there labeled java). Actually 573 .kt + 71 .java — predominantly Kotlin, explicitly the 'mixed source sets' example the spec names."
+    },
+    {
+      "id": "playframework",
+      "url": "https://github.com/playframework/playframework",
+      "sha": "61ec05922cc0ba163084de3ae074e272aaa9fbfe",
+      "lang": "scala",
+      "axes": ["mixed-source-sets", "heritage-constructor-args"],
+      "size": { "commits": 15223, "files": 2715 },
+      "bucket": "10k",
+      "note": "840 .scala + 787 .java. Scala case classes / heritage-with-constructor-args; already had first-contact field evidence per loop-v2.md §1 (defect found). Corpus entry pins it for repeatable measurement, and its 15k commits make it the largest '10k-bucket' entry."
+    },
+    {
+      "id": "nest",
+      "url": "https://github.com/nestjs/nest.git",
+      "sha": "39fbddae51281ca56bf2fed9123d98e61509066c",
+      "lang": "typescript",
+      "axes": [],
+      "size": { "commits": 21710, "files": 2307 },
+      "bucket": "10k",
+      "note": "Also in docs/validation.md's existing 12-repo corpus. Heavy decorator use (@Injectable, @Controller); upper end of the 10k bucket."
+    },
+    {
+      "id": "curl",
+      "url": "https://github.com/curl/curl.git",
+      "sha": "5e38120ddc9896f33e63bd75d91a9c470c2a576a",
+      "lang": "c",
+      "axes": ["pure-c"],
+      "size": { "commits": 39604, "files": 4472 },
+      "bucket": "10k-100k",
+      "note": "766 .c + 258 .h. Genuinely pure C (leveldb, the other 'C' candidate the task named, turned out to be C++). Sits between the 10k and 100k rungs — a useful mid-large data point in its own right."
+    },
+    {
+      "id": "symfony-shallow",
+      "url": "https://github.com/symfony/symfony",
+      "sha": "5e9597f80aa6570bfea5fb3852362d8b41b48240",
+      "lang": "php",
+      "axes": ["monorepo", "attributes", "config-volume", "shallow-clone-boundary"],
+      "size": { "commits": 1, "files": 14887 },
+      "upstreamCommits": 82946,
+      "clone": "shallow(depth=1)",
+      "bucket": "boundary",
+      "note": "git clone --depth 1: full file tree (14,887 files, 11,309 .php + 651 .yml/.yaml + 123 .xml) but only 1 commit of history. Tests whether report/where disclose 'shallow, N commits of history available' rather than silently mining a near-empty log as if it were the whole story."
+    },
+    {
+      "id": "symfony-mid",
+      "url": "https://github.com/symfony/symfony",
+      "sha": "5e9597f80aa6570bfea5fb3852362d8b41b48240",
+      "lang": "php",
+      "axes": ["monorepo", "attributes", "config-volume", "partial-clone-boundary"],
+      "size": { "commits": 79767, "files": 14887 },
+      "upstreamCommits": 82946,
+      "clone": "shallow(depth=large, truncated ~3179 commits short of full)",
+      "bucket": "boundary",
+      "note": "Deep-but-not-full clone: 79,767 of 82,946 commits. Tests the partial-clone disclosure axis named in loop-v2.md §4 (035) at a much less obvious truncation point than symfony-shallow's depth=1."
+    },
+    {
+      "id": "symfony-full",
+      "url": "https://github.com/symfony/symfony",
+      "sha": "5e9597f80aa6570bfea5fb3852362d8b41b48240",
+      "lang": "php",
+      "axes": ["monorepo", "attributes", "config-volume"],
+      "size": { "commits": 82946, "files": 14887 },
+      "clone": "full",
+      "bucket": "100k",
+      "note": "The §055 motivating repo, full history, no shortcuts. Prior observation: `report`/`map` with history never finished and the process vanished silently after 17+ minutes with no stderr (cached 259 blobs then gone). This corpus entry exists so that observation becomes a `completed: false` row instead of an anecdote."
+    }
+  ]
+}
