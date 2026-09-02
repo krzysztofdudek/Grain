@@ -199,4 +199,13 @@ blind file, and both queries carry a genuine exact-name match somewhere else (`e
 `test/integration_helper.rb`), which is precisely the condition under which the disclosure must stay silent; the
 file-level fallback that suggests itself — flag any file containing a dynamic-definition construct — was measured
 too and is not selective enough to disclose anything, firing on 26% of sinatra's parsed files and 24% of flask's,
-which tells a reader only that a quarter of the repository might hold their answer.
+which tells a reader only that a quarter of the repository might hold their answer; and Scala's grammar does not
+fully parse ordinary Play framework code — measured directly with grain's own parser against a fresh clone of
+playframework/playframework (main, commit `61ec059`, 2026-09-01): 97 of 843 `.scala` files (11.5%) carry parser
+error nodes, the same `hasError` signal `check`'s "parse degraded" caveat and `review`'s aggregate (§053, fixed
+above) both key off. It clusters on one idiom, not evenly: 74 of the 97 (76%) contain a Guice-style annotated
+primary constructor (`class X @Inject() (deps) extends Y`), and 45 (46%, overlapping with the first) also carry a
+curried implicit parameter list (`(implicit ec: ExecutionContext)`); a long tail of infix/function-type
+ascriptions (12) and inline XML literals (2) accounts for most of the rest, and 14 files carry an error under none
+of the three. Both dominant idioms are ordinary Play/Guice convention, not exotic syntax — the corpus is not
+unusual, so the gap is the grammar's.
