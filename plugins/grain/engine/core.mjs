@@ -7742,24 +7742,23 @@ export function whatCmd({
     );
   }
 
-  // (d) siblings: the OTHER members of any container a matched value belongs to — members already matched by (b)
-  // themselves are not "other" news, so a container every one of whose survivors (b) already found contributes nothing
-  const matchedKeys = new Set(valueHits.map(h => h.key));
-  const siblings = [];
-  const seenCont = new Set();
-  for (const h of valueHits) {
-    const contEntry = Object.entries(model.valueSiblings || {}).find(([, sibs]) => sibs.includes(h.key));
-    if (!contEntry) continue;
-    const [c, sibs] = contEntry;
-    if (seenCont.has(c)) continue;
-    seenCont.add(c);
-    const others = sibs.filter(k2 => !matchedKeys.has(k2));
-    if (!others.length) continue;
-    const label = model.valueContainer?.[c];
-    siblings.push(
-      `${label ? label + ': ' : ''}${others.map(k2 => `\`${k2.slice(k2.indexOf(':') + 1)}\``).join(', ')}`
-    );
-  }
+  // (d) siblings — DELETED (§052). It printed the OTHER members of any container a matched value sits in, which
+  // by construction is exactly the set of values that did NOT match the query. Measured across 7 languages
+  // (.system/issues/052-what-siblings-noise/log.md): per-value precision 0.364 [0.29–0.44] over 165 blind hand
+  // verdicts, against a pre-registered 0.70 bar and a tie-break that counts every unsure value as a hit — so
+  // 0.364 is an upper bound. It fired on 218 of 420 of the repositories' own vocabulary queries and rendered a
+  // mean of 72.7 values per line, worst single line 759, all in the `practiced` (statistical-claim) voice. The
+  // gate does carry real signal (an arbitrary-container decoy baseline measured 0.127, z = 4.99), but this is a
+  // PUSH surface — volunteered inside the answer to a different question — and §044's ruling is that a push
+  // surface needs precision the reader does not have to audit. Restricting to NAMED containers was measured too
+  // and does not rescue it: still 27.5 values per line, and it zeroes 3 of the 7 languages outright.
+  //
+  // The evidence keeps its home, exactly as §044 kept `model.twins`: `model.valueSiblings`/`valueContainer`/
+  // `valueNorms` are untouched and `export` publishes them verbatim, and the PULL surface — `check`/`review`'s
+  // `kin:` line — still speaks about these containers. `kin:` is the right home: it fires only when the reader's
+  // own change touched that container, and it reads `model.valueNorms`, the KT/λ-certified co-travel test that
+  // this line never consulted. Across the corpus that certification accepts 3 of 2393 containers; `what` was
+  // rendering all 2393.
 
   // (e) commits: model.msgAffinity (built at index time from H.msgAff, §J2.4) works from the model alone — locating
   // it never needs H. The rendered count/date DOES need H.fps (§J2.1), so — exactly like `how` — that half is
@@ -7831,7 +7830,6 @@ export function whatCmd({
     );
   if (spread.length)
     lines.push(voice('practiced', `spread: ${spread.map(s => `${s.module} (${s.n})`).join(' · ')}`));
-  if (siblings.length) lines.push(voice('practiced', `siblings: ${siblings.join(' · ')}`));
   if (changes)
     lines.push(
       voice(
@@ -7983,7 +7981,6 @@ export function whatCmd({
     weakName,
     values: valueHits.map(h => ({ value: h.v, kind: h.k, places: h.places })),
     spread,
-    siblings,
     changes: changes || {},
     usedBy: usedBy || {},
     referenced,
