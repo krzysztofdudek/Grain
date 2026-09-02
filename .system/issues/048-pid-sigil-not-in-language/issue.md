@@ -1,6 +1,6 @@
 # 048 · Solidity modifiers render as `@onlyOwner` — grain prints a sigil the language does not have
 
-**Status:** OPEN — cosmetic, but it is an honesty defect
+**Status:** FIXED — Solidity modifiers render bare (no @); derived sigilLessGrammar(g) predicate reusing 043's b.decoBare sets, no language-name map
 **Found by:** fix-040-043 agent, reported not fixed, 2026-09-01
 **Severity:** low
 
