@@ -1,6 +1,6 @@
 # 052 · `what`'s "siblings" section is noise — reported as random string-literal soup on every term tried
 
-**Status:** OPEN — needs a measured precision figure, in the style of §044
+**Status:** RESOLVED — siblings: precision 0.364 vs 0.70 bar, unbidden push surface (72.7 values/line), deleted from text and --json; check's kin: (pull) untouched; valueNorms gate + render cap flagged to director
 **Found by:** round 4 field test, Scala/playframework, 2026-09-01 ("pure noise on every one of the 5 terms tried")
 **Severity:** medium
 

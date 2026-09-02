@@ -71,9 +71,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/066",
-      "state": "running",
+      "state": "merged",
       "note": "WAVE 3 #5 how liveness filter + map --json changes/concepts (folds 051)",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:47",
+      "sha": "d9e0eaf"
     },
     {
       "id": 8,
@@ -201,9 +202,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/061",
-      "state": "running",
+      "state": "merged",
       "note": "catch/finally scope named by parent",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:23",
+      "sha": "230cf0a"
     },
     {
       "id": 20,
@@ -211,9 +213,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/042",
-      "state": "running",
+      "state": "merged",
       "note": "style convention file-vs-literal granularity",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:35",
+      "sha": "4179121"
     },
     {
       "id": 21,
@@ -221,9 +224,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/052",
-      "state": "running",
+      "state": "merged",
       "note": "what siblings precision, 044 method",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:39",
+      "sha": "941e721da7f73a8a7cab1b66231311078987eda1"
     },
     {
       "id": 22,
@@ -231,9 +235,10 @@
       "kind": "measure",
       "agent": "sonnet",
       "branch": "research/056",
-      "state": "running",
+      "state": "merged",
       "note": "data-grammar keys as declarations? decide, document",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:43",
+      "sha": "7f72a9e"
     },
     {
       "id": 23,
@@ -261,9 +266,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/048",
-      "state": "running",
+      "state": "merged",
       "note": "low: @ sigil rendered for sigil-less languages",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:28",
+      "sha": "76cc470e78c0983814a9ca8a787842f3e9ccad9e"
     },
     {
       "id": 26,
@@ -303,9 +309,50 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/070",
-      "state": "running",
+      "state": "merged",
       "note": "where discloses zero lexical foothold; fire-rate gated",
-      "updated": "2026-09-02 02:35"
+      "updated": "2026-09-02 03:31",
+      "sha": "194ce2e"
+    },
+    {
+      "id": 30,
+      "ticket": "071",
+      "kind": "instr",
+      "agent": "sonnet",
+      "branch": "fix/071",
+      "state": "queued",
+      "note": "selftest --where: identifier-preserving query mode or symbol stratum; existing strata numbers must not move",
+      "updated": "2026-09-02 03:25"
+    },
+    {
+      "id": 31,
+      "ticket": "072",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/072",
+      "state": "queued",
+      "note": "report --json: add architecture/module data (additive); parity test",
+      "updated": "2026-09-02 03:36"
+    },
+    {
+      "id": 32,
+      "ticket": "073",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/073",
+      "state": "queued",
+      "note": "WAVE 4 #1 obligation <path>; spec in obligations-design.md §6; HIST_V+MODEL_V director's",
+      "updated": "2026-09-02 03:48"
+    },
+    {
+      "id": 33,
+      "ticket": "074",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/074",
+      "state": "queued",
+      "note": "completeness: specific vs ambient split; share renderer with 073",
+      "updated": "2026-09-02 03:48"
     }
   ]
 }
