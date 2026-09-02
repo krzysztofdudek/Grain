@@ -215,6 +215,14 @@
       "ticket": "085",
       "ruling": "Ruled: ticket 089 — every --json surface carries the text's disclosures as a structured, additive disclosures:[{kind,text}] field, done generically in the JSON renderer; instrument C gains a disclosure-parity test over the register; instrument A consumes disclosures[] so a disclosed weak answer is not counted as fabrication. Priority HIGH: an agent reading JSON currently gets the confident answer stripped of the honesty the text has — the exact failure class this project treats as worst. 085 merges as is; 089 follows.",
       "ruledAt": "2026-09-02T09:01:54.229Z"
+    },
+    {
+      "id": "21",
+      "kind": "other",
+      "why": "Record-only, ticket-status housekeeping: 045 and 073 (both HIGH) were fully shipped and merged weeks/waves ago (branches merged=y, full green suites logged, both already ratified by standing decisions macrodefs-sup-deleted-doc-kept and 073's own merge ruling) but tk status was never advanced past measured/approved. Marked fixed, no code or ruling changed. Also cleaned 016/042/044 (medium, no escalation needed) the same way.",
+      "by": "lead",
+      "at": "2026-09-02T10:56:34.954Z",
+      "state": "open"
     }
   ]
 }

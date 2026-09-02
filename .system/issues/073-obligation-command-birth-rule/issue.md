@@ -1,6 +1,6 @@
 # 073 · grain obligation <path>: what a new file under this path has historically required (birth obligation, 94.2%/81.1% precision, zero new constants)
 
-**Status:** APPROVED — grain obligation command shipped: birth-rule table from git status alone, two labelled sets (specific/ambient), check --as line, map --json table, selftest --obligation instrument. Repo-macro precision@1 0.958 and non-obvious precision 1.000 both clear the 0.80 bar; coverage 0.048 does not clear 0.08 (director ruling: merge anyway, disclosed honestly, two hypotheses split to ticket 078). Needs HIST_V + MODEL_V bump (director, at wave close).
+**Status:** FIXED — grain obligation <path> + check --as line + map --json table shipped on fix/073 (merged, 2094/2094 green); director ruled merge despite 0.048<0.08 coverage miss (precision 0.958-0.977 clears), follow-ups spun out as 077-family/078. Bookkeeping-only.
 **Found by:** research/obligations (Opus design), 2026-09-02
 **Severity:** high
 **Class:** G

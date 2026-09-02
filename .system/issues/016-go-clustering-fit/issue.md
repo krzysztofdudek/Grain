@@ -1,6 +1,6 @@
 # 016 · Go: clustering finds test scaffolding instead of the real API — a language-fit finding, not a defect
 
-**Status:** MEASURED, patch APPROVED and QUEUED (third of three extraction changes into core.mjs; single EXTR_V g31 applied by orchestrator at the end)
+**Status:** FIXED — receiver-only owner binding shipped on fix/016 (merged, EXTR_V g31, now superseded by g32); decision receiver-only-not-impl-not-nesting ratifies the choice. Bookkeeping-only: branch was merged, status line never advanced.
 
 **Answers:** (1) `featW` is NOT the cause — leave at 3x. (2) The receiver signal is real; receiver-only lands. (3) Disclosing all-test answers is DEAD — measured unreachable.
 **Found by:** round 2, Go/gin, 2026-09-01

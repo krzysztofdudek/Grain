@@ -1,6 +1,6 @@
 # 044 · Structural-twin "duplicate" suggestions are mostly noise — second language to report it
 
-**Status:** MEASURED, deletion APPROVED and QUEUED (4th of four core.mjs changes). Precision **0.24 aggregate, upper bound** (0.36 Solidity / 0.04 Go / 0.32 Python). Delete health signal 5; keep `model.twins`, the export schema, and the group card `twin:` line.
+**Status:** FIXED — twins health row deleted, twin: line kept, shipped on fix/044 (merged, 27/27 green). Bookkeeping-only.
 **Found by:** round 2 (Go/gin, ~90% noise) and round 3 (Solidity/OpenZeppelin, 83 suggestions), 2026-09-01
 **Severity:** medium — plausible noise, which this project treats as worse than silence
 

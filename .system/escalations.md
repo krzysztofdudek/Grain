@@ -1,5 +1,9 @@
 # Escalations
 
+## [21] other · open
+by: lead · at: 2026-09-02T10:56:34.954Z
+Record-only, ticket-status housekeeping: 045 and 073 (both HIGH) were fully shipped and merged weeks/waves ago (branches merged=y, full green suites logged, both already ratified by standing decisions macrodefs-sup-deleted-doc-kept and 073's own merge ruling) but tk status was never advanced past measured/approved. Marked fixed, no code or ruling changed. Also cleaned 016/042/044 (medium, no escalation needed) the same way.
+
 ## [20] claim · ticket 085 · ruled
 by: lead · at: 2026-09-02T08:30:59.079Z
 085 flagged: 'where --json' carries no disclosure text at all (same for already-shipped 057 and 070) -- instrument A will keep reporting the 8-58% confident-wrong rate even after 085's fix, since it only reads --json hits. Not changed by 085's worker per instructions (JSON shape change needs a ruling). Question for you: should where --json gain a disclosure/note field carrying the same text the disclosure-bearing text output already shows (banner/note/unknownIdent), or is this an acceptable known gap in the --json contract for now?
