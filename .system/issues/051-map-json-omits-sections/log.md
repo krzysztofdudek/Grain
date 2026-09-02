@@ -1,0 +1,2 @@
+
+## 2026-09-02 03:22 — Closed as a duplicate/subset of ticket 066, which explicitly folds this ticket in and does both fixes together. map --json now carries concepts/changes/edges (additive fields, mirroring what mapSections' text renderer already shows/derives) plus a module-edges audit (edges array = model.moduleGraph.edges verbatim, cross-checked against nodes[] and model.json's own ground truth in the new test). See ticket 066's log for full detail; no separate work was done under 051's own branch.
