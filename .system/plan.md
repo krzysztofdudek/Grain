@@ -5068,3 +5068,4 @@ note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 disco
 # Fala 3 — start 2026-09-02
 - 2026-09-02 two items independent of research/trial-0.4.0's verdict: package-json-0.4.0 (dispatched now), corpus-validation-run (queued behind instr/F-2's Symfony ladder completion)
 - 2026-09-02 merged: package-json-0.4.0 9d15850
+- 2026-09-02 trial-0.4.0 merged (0e27c6c): adoption fixed (1→11 calls), reach unchanged (+0.7 pre-write, 0 answer-changed-diff in 13 runs). Wave 4 = reach: tickets 079, 080, 081 queued at top. Adoption spending stops.
