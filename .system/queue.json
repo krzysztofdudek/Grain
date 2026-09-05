@@ -662,9 +662,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/100-seams",
-      "state": "queued",
-      "note": "po 097/098; kontrakty szwów + adapter family-candidates + test szwu",
-      "updated": "2026-09-05 06:56"
+      "state": "running",
+      "note": "Sonnet spawned; branch fix/100-seams",
+      "updated": "2026-09-05 07:50"
     },
     {
       "id": 62,
