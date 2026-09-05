@@ -28,3 +28,48 @@ jobs:
       - name: run suite
         working-directory: plugins/grain
         run: npm test
+
+  seams:
+    # The family's seam contracts (ticket 100): Grain's proposal renderer, run through Yggdrasil's REAL binary
+    # and Horde's REAL scripts — never a re-implementation of either. This is where the "compat matrix" named in
+    # decision `layers-compatible-no-user-thresholds` starts: each layer keeps its own repo and its own gate,
+    # wired together only through the versioned contracts `docs/reference.md`'s "The proposal contract" section
+    # documents (`.yggdrasil/` proposal shape, `provenance.json`, `charter.md`, `.family-candidates.json`).
+    runs-on: ubuntu-latest
+    name: seam tests (Yggdrasil + Horde)
+    timeout-minutes: 30
+    steps:
+      - name: checkout grain
+        uses: actions/checkout@v4
+        with:
+          path: grain
+      - name: checkout Yggdrasil
+        uses: actions/checkout@v4
+        with:
+          repository: krzysztofdudek/Yggdrasil
+          path: yggdrasil
+      - name: checkout Horde
+        uses: actions/checkout@v4
+        with:
+          repository: krzysztofdudek/Horde
+          path: horde
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: git identity for test fixtures
+        run: |
+          git config --global user.name ci
+          git config --global user.email ci@invalid
+          git config --global init.defaultBranch main
+      - name: build Yggdrasil's CLI
+        working-directory: yggdrasil/source/cli
+        run: |
+          npm install
+          npm run build
+      - name: run seam tests
+        working-directory: grain/plugins/grain
+        env:
+          YG_BIN: ${{ github.workspace }}/yggdrasil/source/cli/dist/bin.js
+          YGG_DIR: ${{ github.workspace }}/yggdrasil
+          HORDE_DIR: ${{ github.workspace }}/horde
+        run: node --test tests/seams.test.mjs

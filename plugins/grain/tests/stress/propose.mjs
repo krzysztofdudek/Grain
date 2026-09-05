@@ -46,6 +46,10 @@ import { fileURLToPath } from 'node:url';
 import {
   parseYaml, readGraph, expandWhen, expandMapping, jaccard, intersectSize, aspectLiterals,
 } from './reconstruct.mjs';
+// Read-only: two version constants, the same ones `grain export`'s own `proposal.json`-equivalent
+// (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
+// without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
+import { ENGINE_VERSION, EXTR_V } from '../../engine/config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '..', '..', 'bin', 'grain.mjs');
@@ -81,6 +85,12 @@ export const MIN_GROUP_MEMBERS = 3;
 export const MIN_WHEN_FIDELITY = 0.5;
 // A convention is drafted as an aspect only once this many sites carry it.
 export const MIN_CONVENTION_SITES = 5;
+// FAMILY-WITHOUT-LAW FLOOR (ticket 100). Yggdrasil's own offline miner (`scripts/family-without-law.mjs`)
+// requires 5 members before a structurally-tight cluster is a "family" worth naming rather than an anecdote
+// (`MIN_CLUSTER_SIZE`); the adapter below reuses that SAME number rather than inventing a second one for the
+// identical concept. Stated here, not hidden, per ruling `instrument-floors-allowed-if-stated-and-measured` —
+// the seam test measures how many of grain's own role groups clear it on the pattern repo.
+export const FAMILY_MIN_MEMBERS = 5;
 // Per partition, at most this many sub-gate candidates are drafted; the rest go to the backlog. A cap on how
 // much a maintainer is asked to read, not on what is measured.
 export const SUBGATE_PER_PARTITION = 6;
@@ -368,8 +378,11 @@ export function buildTypes(exp, loc, files, ctx) {
   const seenAlt = new Set();
   const addAlt = (a) => { if (!seenAlt.has(a.id)) { seenAlt.add(a.id); alternatives.push(a); } };
   const finer = [
-    ...loc.groups.map(g => ({ set: g.files, label: g.group.label || g.group.id, group: g.group, part: g.part.name, kind: 'role group' })),
-    ...loc.directories.filter(d => !active.some(a => a.dir === d.name)).map(d => ({ set: d.files, label: d.name, group: null, part: d.part.name, kind: 'directory card' })),
+    // `groupId`/`partKind` ride along ONLY so a downstream family-without-law adapter (ticket 100) can name a
+    // stable id and a language stratum for a role-group alternative without re-deriving either from `label` —
+    // they change nothing about which alternatives are offered or how.
+    ...loc.groups.map(g => ({ set: g.files, label: g.group.label || g.group.id, group: g.group, groupId: g.group.id, partKind: g.part.kind, part: g.part.name, kind: 'role group' })),
+    ...loc.directories.filter(d => !active.some(a => a.dir === d.name)).map(d => ({ set: d.files, label: d.name, group: null, groupId: null, partKind: d.part.kind, part: d.part.name, kind: 'directory card' })),
   ];
   for (const f of finer) {
     if (f.set.size < MIN_TYPE_FILES) continue;
@@ -385,11 +398,13 @@ export function buildTypes(exp, loc, files, ctx) {
       if (selected) {
         const j = jaccard(f.set, selected);
         addAlt({ id: `${base}-content`, of: host.id, form: 'content', when, groupFiles: f.set.size, selected: selected.size, fidelity: +j.toFixed(3), viable: j >= MIN_WHEN_FIDELITY,
+          kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: [...f.set].sort(),
           why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: ${f.set.size} files; generalising predicate from ${cr.why}; selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` });
       }
     }
     const paths = [...f.set].sort();
     addAlt({ id: `${base}-list`, of: host.id, form: 'list', when: { any_of: paths.map(p => ({ path: p })) }, groupFiles: f.set.size, selected: f.set.size, fidelity: 1, viable: true,
+      kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
       why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the exact ${f.set.size} files grain grouped, frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` });
   }
   alternatives.sort((a, b) => b.fidelity - a.fidelity || b.groupFiles - a.groupFiles || (a.id < b.id ? -1 : 1));
@@ -552,7 +567,7 @@ export function buildNodes(active, typeOfFile, exp, nestedRoots = []) {
   }
   for (const n of nodes) n.relations = n.relations.map(r => { const { _masked, ...rest } = r; void _masked; return rest; });
   void typeOfFile;
-  return { nodes, cycles: dropped };
+  return { nodes, cycles: dropped, nodeOfFile };
 }
 
 // ==================================================================================================
@@ -1041,7 +1056,7 @@ export async function propose(repo, outDir, opts = {}) {
   for (const a of byDepth) for (const f of a.files) typeOfFile.set(f, a.id);
   const rels = buildRelations(exp, typeOfFile, active);
   const nestedRoots = nestedProjectRoots(files);
-  const { nodes, cycles: nodeCycles } = buildNodes(active, typeOfFile, exp, nestedRoots);
+  const { nodes, cycles: nodeCycles, nodeOfFile } = buildNodes(active, typeOfFile, exp, nestedRoots);
   say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycles in the proposed node graph (declared, not hidden — the proposal is red until they are broken)`);
 
   const lat = await partitionLattice(repo, opts);
@@ -1128,6 +1143,9 @@ export async function propose(repo, outDir, opts = {}) {
     write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(doc));
     if (a.check) write(join(ygg, 'aspects', a.id, 'check.mjs'), a.check);
     else write(join(ygg, 'aspects', a.id, 'content.md'), a.content);
+    // provenance.json — same field set 097's law-loop.mjs writes for a candidate it renders from a cut export
+    // (ticket 100, "the proposal contract"); see §7a above for why the fields differ in HOW they are obtained.
+    write(join(ygg, 'aspects', a.id, 'provenance.json'), JSON.stringify(provenanceFor(a, { asOf: exp.asOf, repo }), null, 2) + '\n');
 
     const { kept, dropped } = cutDrills(repo, a, opts.holdout);
     const lines = [];
@@ -1160,6 +1178,19 @@ export async function propose(repo, outDir, opts = {}) {
   const sizing = computeSizing(repo, active, nodes, handGraphForSizing, files);
   write(join(outDir, 'sizing.json'), JSON.stringify({ instrument: sizing.instrument, repo, asOf: exp.asOf, ...sizing }, null, 1) + '\n');
 
+  // charter.md — one per proposed node, beside its yg-node.yaml (ticket 100, §7c above). Written here, AFTER
+  // sizing.json, so every charter can quote its own node's sizing row instead of recomputing it.
+  const sizingByNode = new Map((sizing.proposedNodes || []).map(s => [s.id, s]));
+  const cochangeByNode = nodeCochangePairs(exp, nodeOfFile);
+  let chartersWritten = 0, charterLines = 0;
+  for (const n of nodes) {
+    const md = renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf: exp.asOf, repo });
+    write(join(ygg, 'model', n.id, 'charter.md'), md);
+    ev('charter', n.id, `charter.md rendered for \`${n.id}\` — ${n.organizational ? 'organizational node' : `${n.files.size} files`}, ${aspects.filter(a => a.host === n.id).length} hosted aspect drafts, ${(cochangeByNode.get(n.id) || []).length} co-change partners`);
+    chartersWritten++; charterLines += md.split('\n').length;
+  }
+  say(opts, `charters: ${chartersWritten} written, avg ${(charterLines / Math.max(1, chartersWritten)).toFixed(1)} lines`);
+
   // the documents a human actually reads
   const counts = {
     types: active.length, alternatives: alternatives.length, nodes: nodes.length,
@@ -1168,15 +1199,39 @@ export async function propose(repo, outDir, opts = {}) {
     drillCases, drillHoldout: opts.holdout || null, drillDropped, nodeCycles: nodeCycles.length,
     latticeRows: lat.rows.length, subGate: sub.length, denies: rels.denies.length, denyBacklog: rels.backlog.length,
     sizingHandNodes: sizing.handNodes ? sizing.handNodes.length : null,
+    charters: chartersWritten, charterAvgLines: chartersWritten ? +(charterLines / chartersWritten).toFixed(1) : null,
   };
   write(join(outDir, 'PROPOSAL.md'), renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts }));
   write(join(outDir, 'REFACTOR-BACKLOG.md'), renderBacklogMd({ exp, sub, rels, nodeCycles }));
   write(join(outDir, 'alternatives.md'), renderAlternativesMd({ alternatives, active }));
+  // proposal.json — the published, versioned interface (ticket 100, "the proposal contract" in docs/reference.md).
+  // `schema`/`engine`/`extractor`/`schemaNotes` are ADDED here, alongside the `instrument`/`repo`/`asOf`/`files`/
+  // `counts`/`evidence` fields 094/097/098 already read — nothing existing is renamed or removed, so a reader of
+  // last wave's proposal.json keeps working unmodified (docs/reference.md, "additive fields only, never a
+  // silent shape change").
   write(join(outDir, 'proposal.json'), JSON.stringify({
-    instrument: 'propose/1', repo, asOf: exp.asOf, files: files.length, counts, evidence,
+    schema: 'grain-proposal/1',
+    engine: ENGINE_VERSION,
+    extractor: EXTR_V,
+    instrument: 'propose/1', repo, asOf: exp.asOf, files: files.length, counts,
+    schemaNotes: {
+      evidence:
+        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
+      counts:
+        'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
+      provenance:
+        'NOT inlined here — each `.yggdrasil/aspects/<id>/provenance.json` (same field set as ticket 097\'s law-loop.mjs: aspectId, conventionId, origin, enumeratorClass, identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note) is the per-aspect record; this file\'s `evidence` rows are the prose summary, provenance.json is the structured one a machine reads.',
+      sizing:
+        'NOT inlined here — `sizing.json` alongside this file carries files/bytes/codelength-lines/scopes per proposed (and, where the source repo already carries its own `.yggdrasil/`, per HAND) node; every node\'s `charter.md` quotes its own row under "## Sizing".',
+      charter:
+        'one `charter.md` per non-organizational AND organizational node, written beside its `yg-node.yaml` under `.yggdrasil/model/<node>/` — Horde\'s `node.mjs show` reads it verbatim. Sections: what lives here, depends on / used by (module edges with counts), certified conventions (share/n/deviating + exemplars), sub-gate candidates, co-change partners, sizing, and the `asOf` sha.',
+      familyCandidates:
+        'NOT part of this file — `propose.mjs --family-candidates <out.json>` writes a SEPARATE `.family-candidates.json` in the exact shape Yggdrasil\'s `yg advise` (`parseFamilyCandidates`, `advise-nominations.ts`) already accepts; see `buildFamilyCandidates` and docs/reference.md, "The proposal contract".',
+    },
+    evidence,
   }, null, 1) + '\n');
 
-  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing };
+  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc };
 }
 
 // ---- aspect drafting ----
@@ -1242,6 +1297,11 @@ export function buildAspects(exp, active, sub, opts = {}) {
       content: check ? null : contentMd(c, profile, evidenceLine, proseReason),
       drills: { satisfies: (c.conformingSites || []).slice(), violates: (c.deviatingSites || []).slice() },
       enumerator: c.feature.enumerator, argument: c.feature.argument, expected: c.expected,
+      // structured fields for provenance.json (ticket 100) — parallel to the prose already in `provenance`,
+      // never re-derived from it by regex the way a POST-HOC reader of a written proposal has to (097's
+      // law-loop.mjs `provenanceFor`, which reads back a file this renderer did not annotate at write time)
+      partition: c.partition, share: c.share ?? null, n, deviating: dev,
+      exemplars: (c.exemplars || []).slice(0, 3).map(e => ({ rel: e.rel, line: e.line, name: e.name })),
     });
   }
 
@@ -1280,6 +1340,11 @@ export function buildAspects(exp, active, sub, opts = {}) {
       content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2),
       drills: { satisfies: [], violates: r.deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
       enumerator: fam, argument: identifierOf(r.pid), expected: r.exp,
+      // sub-gate rows have no CONFORMING exemplar of their own — only `deviants` (sites that do NOT follow the
+      // candidate) — so `exemplars` (a "copy this" list, never a "avoid this" one) stays empty here, unlike a
+      // certified convention above; the charter renderer reads absence as "not yet a copy-worthy pattern".
+      partition: r.partition, share: r.share ?? null, n: r.ne ?? null, deviating: r.deviants.length,
+      exemplars: [],
     });
   }
 
@@ -1287,6 +1352,222 @@ export function buildAspects(exp, active, sub, opts = {}) {
   for (const a of active) a.aspectIds = out.filter(o => o.host === a.id).map(o => o.id);
   // (opts is read above for the sub-gate reading cap)
   return { aspects: out, skipped };
+}
+
+// ==================================================================================================
+// 7a. `provenance.json` — one per rendered aspect (ticket 100 / law-loop-yggdrasil.md §1.2).
+//
+// SAME FIELD SET 097's `law-loop.mjs` `provenanceFor` writes for a candidate it renders from a CUT export, so a
+// consumer (a human, or a future measurement) reads one shape whether the aspect came from a live `propose` run
+// or from a held-out replay. The two differ only in HOW the fields are obtained: 097 regex-parses them back out
+// of a written `provenance` prose string because it loads a proposal a PAST run already wrote to disk; here the
+// renderer has the structured numbers on hand at write time (`a.partition`, `a.share`, `a.n`, `a.deviating` —
+// added to the aspect object above for exactly this) and writes them directly, never through a regex.
+export function provenanceFor(a, { asOf, repo }) {
+  return {
+    aspectId: a.id,
+    conventionId: a.id,
+    origin: a.origin,
+    enumeratorClass: a.enumerator ?? null,
+    identifier: a.argument ?? null,
+    expected: a.expected ?? null,
+    partition: a.partition ?? null,
+    share: a.share ?? null,
+    n: a.n ?? null,
+    deviating: a.deviating ?? null,
+    asOf: asOf || null,
+    cutSha: asOf || null, // a live `propose` run has no hold-out cut of its own — the cut IS `asOf` (HEAD)
+    cutDate: null,
+    repo,
+    reviewer: a.check ? 'deterministic' : 'llm',
+    note: a.check
+      ? 'Generated by grain from measured practice at `asOf`; rendered as a deterministic check.mjs.'
+      : 'Generated by grain from measured practice at `asOf`; no template renders this class as a deterministic check, so it ships as prose (content.md) for an LLM reviewer.',
+  };
+}
+
+// ==================================================================================================
+// 7b. The `.family-candidates.json` adapter (ticket 100) — the seam to `yg advise`'s family-without-law class.
+//
+// Yggdrasil's OWN offline miner (`scripts/family-without-law.mjs`) clusters files by AST structural feature
+// vectors and cuts a fitted predicate for a cluster that shares no rule of its own. Grain never re-implements
+// that clustering: it already HOLDS the equivalent evidence in a different shape — a ROLE GROUP is exactly a
+// structurally-uniform cluster within a partition (093/094's own vocabulary), and `buildTypes` above already
+// drafts a generalising `content:` predicate for one (the `-content` alternative) whenever the group's evidence
+// supports it (`viable`, § MIN_WHEN_FIDELITY). "A family without a law" in Grain's own terms is precisely a
+// role-group alternative that (a) is `viable`, (b) clears the SAME size floor Yggdrasil's miner uses
+// (`FAMILY_MIN_MEMBERS`), and (c) has NOT already become a certified convention of its own — i.e. `exp.conventions`
+// holds no group-scoped row for that exact group. (a)+(b) is Grain's tightness/size evidence; (c) is what makes
+// it a family WITHOUT a law rather than one that already has one.
+export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) {
+  const minMembers = Number.isFinite(opts.minMembers) ? opts.minMembers : FAMILY_MIN_MEMBERS;
+  // `ts` MUST be a parseable calendar instant — Yggdrasil's `parseFamilyCandidates` runs `Date.parse` on it and
+  // rejects the whole file (silently, as stale) otherwise. `exp.asOf` is a git SHA, not a date (grain's OWN
+  // schemaNotes documents it as such); `exp.indexedAt` is the ISO instant this export was built, which is what
+  // "local analysis since <ts>" means in `yg advise`'s rendered nomination. Bug found + fixed on sight
+  // (ruling `fix-bugs-on-sight`): an earlier draft of this adapter used `exp.asOf` here and every family it
+  // wrote was silently dropped by the freshness gate.
+  const asOf = exp.indexedAt || new Date().toISOString();
+  const certifiedGroups = new Set(
+    (exp.conventions || [])
+      .filter(c => c.context?.type === 'group')
+      .map(c => `${c.partition}::${c.context.group}`)
+  );
+  const langOf = members => {
+    const counts = new Map();
+    for (const rel of members) {
+      const m = /\.([A-Za-z0-9]+)$/.exec(rel);
+      const ext = m ? m[1].toLowerCase() : 'unknown';
+      counts.set(ext, (counts.get(ext) || 0) + 1);
+    }
+    return [...counts].sort((a, b) => b[1] - a[1])[0]?.[0] || 'unknown';
+  };
+  const families = [];
+  for (const a of alternatives) {
+    if (a.kind !== 'role group' || a.form !== 'content' || !a.viable) continue;
+    if (!a.members || a.members.length < minMembers) continue;
+    // `certifiedGroups` keys by (partition NAME, group id); `a.of` is the host TYPE id (a slug), not the raw
+    // partition name, so match on the group-id half only — a group id is a small per-partition ordinal (`r0`,
+    // `r1`, ...), and colliding across two DIFFERENT partitions' groups only ever suppresses a family that
+    // would otherwise be offered, never fabricates one that has a law.
+    const alreadyLawed = a.groupId != null && [...certifiedGroups].some(k => k.endsWith('::' + a.groupId));
+    if (alreadyLawed) continue;
+    const contentPred = a.when?.all_of?.find(x => x.content)?.content ?? null;
+    const scopePath = a.when?.all_of?.find(x => x.path)?.path ?? null;
+    families.push({
+      id: `family-grain-${slug(a.groupId || a.id)}`.slice(0, 80),
+      language: langOf(a.members),
+      members: [...a.members].sort(),
+      fittedPredicate: { kind: 'regex', value: contentPred || '' },
+      scopeFilesDraft: scopePath ? [scopePath] : [],
+      evidence: { clusterSize: a.members.length, tightness: a.fidelity ?? 0 },
+      _groupId: a.groupId ?? null,
+    });
+  }
+  // (ii) role groups whose membership IS its whole host type — `buildTypes` above never drafts a `-content`
+  // ALTERNATIVE for one of these ("the candidate IS the host — nothing finer on offer", §4), because the
+  // finer-cut alternative would classify exactly what the type already does. That is not the same thing as
+  // "grain found no such family" — grain found the SAME structural cluster, it just cut it as an active TYPE
+  // instead of a sub-type. Measured on Yggdrasil's own `family-planted-mono` fixture (5 structurally-identical
+  // `*Repository.ts` files under their own directory): without this branch the adapter emitted ZERO families —
+  // the fixture's whole point — because the group coincides exactly with its directory's active type. Every
+  // group already covered by (i) above is skipped here (`seenGroupIds`) so a group never emits twice.
+  const seenGroupIds = new Set(families.map(f => f._groupId).filter(Boolean));
+  const { active = [], groups = [] } = extra;
+  for (const g of groups) {
+    const gid = g.group?.id;
+    if (gid == null || seenGroupIds.has(gid)) continue;
+    if (g.files.size < minMembers) continue;
+    if ([...certifiedGroups].some(k => k.endsWith('::' + gid))) continue;
+    const host = active.find(a => a.dir && jaccard(g.files, a.files) >= 0.9);
+    if (!host) continue; // not coincident with any active type — (i) above should have offered it as an alternative instead
+    const cr = contentRegexFor(g.group);
+    if (!cr) continue;
+    seenGroupIds.add(gid);
+    families.push({
+      id: `family-grain-${slug(gid)}`.slice(0, 80),
+      language: langOf([...g.files]),
+      members: [...g.files].sort(),
+      fittedPredicate: { kind: 'regex', value: cr.regex },
+      scopeFilesDraft: [`${host.dir}/**`],
+      evidence: { clusterSize: g.files.size, tightness: 1 }, // exact match to the host type — the strongest fit this adapter reports
+    });
+  }
+  for (const f of families) delete f._groupId;
+  families.sort((x, y) => (x.id < y.id ? -1 : 1));
+  return { v: 1, ts: asOf, families };
+}
+
+// ==================================================================================================
+// 7c. `charter.md` — one per proposed node, beside `yg-node.yaml` (ticket 100, addendum on
+// `two-granularities-rules-fine-nodes-ownership-sized`). Horde's `node.mjs show` reads this file VERBATIM from
+// `.yggdrasil/model/<node>/charter.md` — no schema of its own, so this is written the way a `where` card reads
+// a directory to a human: what lives here, depends on / used by, certified conventions with their evidence,
+// exemplars to copy, co-change partners, sizing, and the sha it is all measured as of. Every line carries a
+// number or a path; a section with nothing to report says so rather than being omitted, so an owner reading it
+// cold knows the difference between "nothing found" and "not measured".
+// ==================================================================================================
+
+// Node-level co-change: `exp.cochange` pairs FILES; a node's own partners are the pairs whose two files land in
+// two DIFFERENT nodes, aggregated by summing `support` over every such pair — the same aggregation `whereCmd`'s
+// directory-level `cochangePartners` does at file granularity, done here at node granularity instead because a
+// charter is read by the node's OWNER, who thinks in nodes, not files.
+export function nodeCochangePairs(exp, nodeOfFile, top = 5) {
+  const agg = new Map();
+  const add = (x, y, support) => { const m = agg.get(x) || agg.set(x, new Map()).get(x); m.set(y, (m.get(y) || 0) + support); };
+  for (const p of exp.cochange || []) {
+    const a = nodeOfFile.get(p.a), b = nodeOfFile.get(p.b);
+    if (!a || !b || a === b) continue;
+    add(a, b, p.support || 0);
+    add(b, a, p.support || 0);
+  }
+  const out = new Map();
+  for (const [id, m] of agg) out.set(id, [...m].sort((x, y) => y[1] - x[1]).slice(0, top).map(([partner, support]) => ({ partner, support })));
+  return out;
+}
+
+export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf, repo }) {
+  const L = [`# Charter — \`${n.id}\``, '', ...PREAMBLE.map(l => (l ? `> ${l}` : '>')), ''];
+  L.push(n.organizational
+    ? `Organizational node — no mapping of its own; every file is owned by a child under \`model/${n.id}/\`.`
+    : n.why, '');
+
+  if (!n.organizational) {
+    L.push('## What lives here', '', `- ${n.files.size} tracked files mapped to \`${n.dir}/\` (${n.ownFiles.size} owned directly; the rest belong to a nested node)`);
+    const extCounts = new Map();
+    for (const f of n.ownFiles) { const m = /\.([A-Za-z0-9]+)$/.exec(f); const ext = m ? m[1] : '(no extension)'; extCounts.set(ext, (extCounts.get(ext) || 0) + 1); }
+    const topExts = [...extCounts].sort((a, b) => b[1] - a[1]).slice(0, 6);
+    if (topExts.length) L.push(`- file types: ${topExts.map(([e, c]) => `\`.${e}\` ×${c}`).join(' · ')}`);
+    if (n.contains?.length) L.push(`- groups: ${n.contains.map(id => `\`${id}\``).join(' · ')}`);
+    L.push('');
+  }
+
+  L.push('## Depends on / used by', '');
+  const dep = n.relations || [];
+  const used = nodes
+    .filter(x => x !== n)
+    .flatMap(x => (x.relations || []).filter(r => r.target === n.id).map(r => ({ from: x.id, n: r.n })))
+    .sort((a, b) => b.n - a.n);
+  L.push(`- depends on: ${dep.length ? dep.map(r => `\`${r.target}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ') : '(no resolved outgoing import)'}`);
+  L.push(`- used by: ${used.length ? used.map(r => `\`${r.from}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ') : '(no resolved incoming import)'}`, '');
+
+  const hosted = aspects.filter(a => a.host === n.id);
+  const certified = hosted.filter(a => a.origin === 'certified-convention');
+  const subgate = hosted.filter(a => a.origin === 'sub-gate-lattice');
+  L.push('## Certified conventions', '');
+  if (certified.length) {
+    for (const a of certified) {
+      const sh = typeof a.share === 'number' ? a.share.toFixed(3) : String(a.share);
+      L.push(`- ${a.name} — share ${sh} · n ${a.n} conforming, ${a.deviating} deviating (\`${a.id}\`)`);
+      if (a.exemplars?.length) L.push(`  exemplars to copy: ${a.exemplars.map(e => `${e.rel}:${e.line}`).join(', ')}`);
+    }
+  } else {
+    L.push('- (none certified yet at this node)');
+  }
+  L.push('');
+  L.push('## Sub-gate candidates — evidence, not yet law', '');
+  if (subgate.length) {
+    for (const a of subgate) {
+      const sh = typeof a.share === 'number' ? a.share.toFixed(3) : String(a.share);
+      L.push(`- ${a.name} — share ${sh} · practised in ${a.n} · ${a.deviating} sites do not (\`${a.id}\`)`);
+    }
+  } else {
+    L.push('- (none below the certification bound worth naming)');
+  }
+  L.push('');
+
+  L.push('## Co-change partners', '');
+  const cc = cochangeByNode.get(n.id) || [];
+  L.push(cc.length ? cc.map(c => `- \`${c.partner}\` — ${c.support} shared commit${c.support === 1 ? '' : 's'}`).join('\n') : '- (no other node co-changes with this one above the support floor)', '');
+
+  L.push('## Sizing', '');
+  const sz = sizingByNode.get(n.id);
+  L.push(sz
+    ? `- ${sz.files} files · ${sz.bytes} bytes · ${sz.codelengthLines} lines · ${sz.scopes == null ? 'scopes unavailable (no `.grain/cache/tree.json`)' : `${sz.scopes} scopes`} (see \`sizing.json\`)`
+    : '- (no sizing recorded — organizational node, or `sizing.json` was not written)', '');
+
+  L.push('## As of', '', `\`${asOf}\`${repo ? ` — ${repo}` : ''}`, '');
+  return L.join('\n');
 }
 
 // ---- drills, cut from the export's own sites ----
@@ -1605,11 +1886,12 @@ function parseArgs(argv) {
     else if (a === '--json') opts.json = resolve(argv[++i]);
     else if (a === '--holdout') opts.holdout = argv[++i];
     else if (a === '--subgate-per-partition') opts.subGatePerPartition = Number(argv[++i]);
+    else if (a === '--family-candidates') opts.familyCandidates = resolve(argv[++i]);
     else if (a.startsWith('--')) throw new Error(`unknown flag ${a}`);
     else pos.push(a);
   }
   if (opts.holdout && !/^\d{4}-\d{2}-\d{2}$/.test(opts.holdout)) throw new Error('--holdout takes a YYYY-MM-DD date');
-  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--score <repo>] [--json <path>] [--quiet]');
+  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--score <repo>] [--json <path>] [--family-candidates <out.json>] [--quiet]');
   return { repo: resolve(pos[0]), outDir: resolve(pos[1]), opts };
 }
 
@@ -1622,6 +1904,12 @@ if (isMain) {
   const t0 = Date.now();
   const r = await propose(repo, outDir, opts);
   const out = { instrument: 'propose/1', repo, outDir, wallSeconds: +((Date.now() - t0) / 1000).toFixed(1), counts: JSON.parse(readFileSync(join(outDir, 'proposal.json'), 'utf8')).counts };
+  if (opts.familyCandidates) {
+    const fc = buildFamilyCandidates(r.alternatives, r.exp, {}, { active: r.active, groups: r.loc.groups });
+    writeFileSync(opts.familyCandidates, JSON.stringify(fc, null, 1) + '\n');
+    out.familyCandidates = { path: opts.familyCandidates, families: fc.families.length };
+    process.stdout.write(`[propose] family candidates: ${fc.families.length} written to ${opts.familyCandidates}\n`);
+  }
   if (opts.score) {
     say(opts, 'scoring against the hand-written graph ...');
     out.score = scoreProposal(opts.score, outDir, r.files);
