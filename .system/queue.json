@@ -769,9 +769,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "fix/111-hardening",
-      "state": "running",
-      "note": "review+simplify+security propose",
-      "updated": "2026-09-05 19:52"
+      "state": "merged",
+      "note": "premerge READY after base refresh (2314/2314); 8 correctness bugs (symlink deleted hand .yggdrasil/, YAML key injection, U+0001 unreadable yaml, no drill timeout → derived 2148ms×100), 2 security (tracked symlink content copied out, site path escaping repo), propose() 243→110 lines byte-identical; coverage 71→98% lines",
+      "updated": "2026-09-05 21:49",
+      "sha": "f488c83"
     },
     {
       "id": 72,
