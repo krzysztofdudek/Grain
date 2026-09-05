@@ -748,9 +748,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/109-sense",
-      "state": "queued",
+      "state": "running",
       "note": "po klonach korpusu",
-      "updated": "2026-09-05 19:52"
+      "updated": "2026-09-05 19:56"
     },
     {
       "id": 70,
