@@ -53,7 +53,7 @@ test('(1) writeHistoryState never calls JSON.stringify on more than one record, 
   // exactly what threw `RangeError: Invalid string length`. Every entry here is the same small shape real
   // `pairSup`/`fileCommits` entries are (§13.5) — the fix must stay correct at this shape regardless of count.
   const state = freshState();
-  for (let i = 0; i < 300000; i++) state.pairSup[`src/file${i}.jssrc/other${i}.js`] = i % 50;
+  for (let i = 0; i < 300000; i++) state.pairSup[`src/file${i}.js\x01src/other${i}.js`] = i % 50;
   for (let i = 0; i < 50000; i++) state.blobShas['b'.repeat(30) + String(i).padStart(10, '0')] = 1;
   state.lastSha = 'deadbeef';
   state.commits = 12345;
@@ -74,7 +74,7 @@ test('(1) writeHistoryState never calls JSON.stringify on more than one record, 
     JSON.stringify = origStringify;
   }
   assert.ok(calls > 300000, `expected one JSON.stringify call per record (~350000+), got ${calls}`);
-  // one record ("src/fileNNNNNN.jssrc/otherNNNNNN.js", count) tagged as ["m","pairSup",key,value] is well
+  // one record ("src/fileNNNNNN.js\x01src/otherNNNNNN.js", count) tagged as ["m","pairSup",key,value] is well
   // under a few hundred bytes; a monolithic write would instead make ONE call whose length is the size of the
   // whole state (tens of millions of characters at this fixture's scale, and past V8's cap at Symfony's).
   assert.ok(maxLen < 2000, `no single JSON.stringify call should exceed one record's size, got ${maxLen} chars`);
@@ -84,7 +84,7 @@ test('(1) writeHistoryState never calls JSON.stringify on more than one record, 
   assert.equal(back.lastSha, 'deadbeef');
   assert.equal(back.commits, 12345);
   assert.equal(Object.keys(back.pairSup).length, 300000);
-  assert.equal(back.pairSup['src/file42.jssrc/other42.js'], 42 % 50);
+  assert.equal(back.pairSup['src/file42.js\x01src/other42.js'], 42 % 50);
   assert.equal(Object.keys(back.blobShas).length, 50000);
 });
 

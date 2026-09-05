@@ -1,18 +1,14 @@
 # Handoff
 
-at: 2026-09-05T19:56:56.262Z
+at: 2026-09-05T22:06:06.098Z
 by: director
-head: claude/grain-agent-tool-b89y0x@3d249bf
+head: claude/grain-agent-tool-b89y0x@c8ce4cc
 
 ## Summary
-Fala 9 w toku, 7 pracowników równolegle w worktree'ach agenta: 108 ×3 (ślepe wyrocznie: grain, spring-petclinic, express — Opus), 109 sens (Opus), 111 utwardzenie propose (Opus), 112 próba fabryki z Horde na petclinic (Opus), 105 README (Sonnet). Korpus 18 repo sklonowany w scratchpad/clones. 110 (typy) czeka na wyrocznie z 108.
+Fala 9 w toku. Scalone: 3 wyrocznie (108), 105 README, 112 fabryka, 111 utwardzenie, 109 brzmienie, 117 bajty. W locie: 108 pomiar vs 4 wyrocznie (Opus), 114+118 charter dziedziczenie + progressive (Opus), 115+116+119 selekcja aspektów/typów (Opus). Czekają: 113 (Java 0 relacji — po pomiarze 108), 110 (typy — po 108), 120 (higiena identyfikatorów), 117 core.mjs rozmiar.
 
 ## In flight
-- 66 branch:fix/105-readme —  (since 2026-09-05T19:56:56.274Z, reports to lead)
-- 68 branch:research/108-oracles —  (since 2026-09-05T19:56:56.274Z, reports to lead)
-- 69 branch:research/109-sense —  (since 2026-09-05T19:56:56.274Z, reports to lead)
-- 71 branch:fix/111-hardening —  (since 2026-09-05T19:56:56.274Z, reports to lead)
-- 72 branch:research/112-factory —  (since 2026-09-05T19:56:56.274Z, reports to lead)
+- 68 branch:research/108-oracles —  (since 2026-09-05T22:06:06.110Z, reports to lead)
 
 ## Pending decisions
 - [d1] Czy podbić ENGINE_VERSION/package.json 0.3.0→0.4.0 za nową komendę propose (precedens wave-close-versions-0-4-0), i czy scalić przepisany README/docs pod nowy cel (bilet 105, klasa 6)? — 104 scalone; wersje nietknięte; 105 czeka na zatwierdzenie użytkownika przed dispatchem
@@ -25,22 +21,22 @@ Fala 9 w toku, 7 pracowników równolegle w worktree'ach agenta: 108 ×3 (ślepe
 - user: decyzje: bump wersji 0.3.0→0.4.0; zgoda na 105 (README/docs pod nowy cel) (since 2026-09-05T14:21:16.449Z)
 
 ## Last actions
-- - 2026-09-05 Dyrektor przy scaleniu 102 skleił definicję SYMBOL_LEVEL_KIND z komentarzem (perl), a łańcuch komend zacommitował mimo 1 fail (grep zwrócił 0). Naprawione 2272/2272. Lekcja: nigdy commit za grepem — bramką jest kod wyjścia testu.
-- - 2026-09-05 Niezależny przerender autopropozycji Yggdrasil scalonym rendererem (export 5cca6b15, YG_BIN): 124 aspekty, 33 deterministyczne drillowane (665 przypadków) → 10 enforced, 22 no-catch, 1 file-scope FA; 91 prozy draft; 37 pominięte jako nie-reguły, 17 jako group-scoped nierenderowalne; 8 cykli węzłów; 73 karty. Rozjazd z liczbami pracownika 102 (11/13) — inny export; do weryfikacji w 104 na jednym ustalonym exporcie.
-- - 2026-09-05 merged: 104 e53127f
-- - 2026-09-05 Wersje NIE podbite przy 104: ENGINE_VERSION 0.3.0 to publiczne wydanie (3bc8468 po wcześniejszym 0.4.0 → 113ef97); bump wersji to decyzja użytkownika, nie dyrektora — rekomendacja pracownika (0.4.0 za nową powierzchnię komendy) zapisana w logu 104. Wart osobnego biletu: nazwa aspektu ucięta do 70 znaków w połowie słowa (kosmetyka, na dysku tak samo).
-- # Fala Fala 8 — odbiór propozycji — close 2026-09-05
-- suite: 2290
-- note: grain propose jest komendą produktu (104), cichy raport; statusy zarabiane: enforced = certyfikowana konwencja + drill 0 FA + ≥1 mutant; advisory = krata po drillu (kandydaci); draft = reszta z powodem. Yggdrasil: 124 aspektów → 10 enforced. Grain na sobie: 81 → 0 enforced, 22 advisory, 59 prozy. Otwarte dla użytkownika: bump wersji, README (105).
-- - 2026-09-05 merged: 107 a6a2c46
 - # Fala Fala 9 — wyrocznie, sens, fabryka — start 2026-09-05
 - - 2026-09-05 Użytkownik: 'Ogień!' na A–F przy nieograniczonych zasobach. A wyrocznie (108), B sens (109), C typy (110), D utwardzenie (111), E próba fabryki (112), F README (105) + bump wersji przy zamknięciu.
+- - 2026-09-05 merged: 108-express f6b0456
+- - 2026-09-05 merged: 105 49a015c
+- - 2026-09-05 merged: 108-petclinic 4612e82
+- - 2026-09-05 merged: 108-grain ec8cc56
+- - 2026-09-05 merged: 112 397a9e4
+- - 2026-09-05 merged: 111 f488c83
+- - 2026-09-05 merged: 109 993e819
+- - 2026-09-05 merged: 117 c8ce4cc
 
 ## Next actions
-- Odbiór każdego jak hub: premerge z /home/user/Grain z --base claude/grain-agent-tool-b89y0x; nigdy z worktree; nigdy commit za grepem; nigdy pkill -f z własnym wzorcem.
-- Po trzech wyroczniach 108: dispatch pomiaru 108 (reconstruct + propose vs 4 wyrocznie) i 110 (typy).
-- 105 to klasa 6: diff README pokazać użytkownikowi przed scaleniem.
-- Bump wersji 0.3.0→0.4.0 przy zamknięciu fali 9 (użytkownik: 'Ogień!' na A–F).
+- Odbiór 108 → dispatch 113 i 110 z jego liczbami.
+- Odbiór 114+118 i 115+116+119 — oba w propose.mjs, scalać po kolei z odświeżeniem bazy.
+- Zamknięcie fali 9: bump wersji 0.3.0→0.4.0 (package.json przez npm, ENGINE_VERSION, docs/validation.md anchor), przerender autopropozycji Yggdrasil i Graina jako liczby zamknięcia.
 
 ## Notes
-(none)
+- Worktree agenta powstaje ze starego main — każdy brief zaczyna się od git merge gałęzi sesji.
+- Jedna akcja na wywołanie Bash przy merge; nigdy ';' w łańcuchu, który zapisuje stan po merge.
