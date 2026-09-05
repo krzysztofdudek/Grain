@@ -15,12 +15,16 @@ Relay the report as it stands — every line already carries a number or a path.
 
 - **architecture** — node types, nodes, relations and dependency cycles. This is the part that loads; a cycle
   count above zero is declared on purpose, and `REFACTOR-BACKLOG.md` lists them.
-- **enforced** — the rules a real `yg drill` proved on this repository's own code: zero false alarms and at
-  least one caught violation each. Nothing stands between the maintainer and turning these on. When no
-  Yggdrasil CLI was found, this says so and nothing is enforced — do not present drafts as if they were.
-- **candidates** — drafts the same drill caught a violation with but that are held back anyway, strongest
-  evidence first. Everything else (prose rules, rules nothing can violate, finer type alternatives) stays on
-  disk and is summarised in one counted line; `--full` prints all of it.
+- **enforced** — the rules a real `yg drill` proved on this repository's own code (zero false alarms, at least
+  one caught violation each) AND that came from a convention grain itself certified. Nothing stands between the
+  maintainer and turning these on. When no Yggdrasil CLI was found, this says so and nothing is enforced — do
+  not present drafts as if they were.
+- **candidates** — advisory rules first: the same drill result, but the convention sits below grain's own
+  certification bound, so it is real evidence, not yet law — turning it on is the maintainer's refactor
+  decision. Then, below them, older-style candidates: drafts the same drill caught a violation with but that are
+  held back anyway. Strongest evidence first within each group. Everything else (prose rules, rules nothing can
+  violate, finer type alternatives) stays on disk and is summarised in one counted line; `--full` prints all of
+  it.
 
 Do not edit any file, do not move the proposal into `.yggdrasil/`, and do not run `yg check --approve` unless
 the user asks. If the user wants the numbers as data, re-run with `--json <path>`.
