@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-05T14:19:28.602Z",
+  "at": "2026-09-05T14:21:16.449Z",
   "by": "director",
   "head": "claude/grain-agent-tool-b89y0x@34cd140",
   "summary": "Fala 8 zamknięta (suita 2290): 099, 102, 104, 107(+106) scalone. grain propose działa jako cicha komenda produktu; statusy aspektów zarabiane drillem i pochodzeniem. Dwie decyzje czekają na użytkownika: bump wersji 0.3.0→0.4.0 i przepisanie README/docs (105, klasa 6).",
@@ -39,6 +39,11 @@
       "who": "trial-0-4-0",
       "what": "paired trial verdict — the mission decision point",
       "since": "2026-09-02T04:11:36.882Z"
+    },
+    {
+      "who": "user",
+      "what": "decyzje: bump wersji 0.3.0→0.4.0; zgoda na 105 (README/docs pod nowy cel)",
+      "since": "2026-09-05T14:21:16.449Z"
     }
   ],
   "lastActions": [
