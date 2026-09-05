@@ -184,11 +184,22 @@ export function slug(s) {
 
 // ---- a minimal YAML emitter (block style only; the shapes this renderer writes and nothing else) ----
 const NEEDS_QUOTE = /^(\s|$)|[:#\-?*&!|>'"%@`{}[\],]|\s$|^(true|false|null|yes|no|on|off|~)$|^-?\d/i;
+// YAML's printable set (1.2 §5.1) admits tab, line feed and carriage return and NOTHING else below U+0020, and
+// excludes DEL, the C1 range and unpaired surrogates. A repository path may hold any of them, and emitted bare
+// they are not YAML: a conforming parser rejects the WHOLE document, not just the scalar — measured, a path
+// containing U+0001 makes `yg-architecture.yaml` unreadable end to end. Such a scalar is therefore always
+// quoted — and, below, escaped, since the double-quoted form admits these characters only as `\uXXXX`.
+const NOT_PRINTABLE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+// QUOTING ALONE IS NOT ENOUGH. `JSON.stringify` escapes U+0000-U+001F and unpaired surrogates but leaves DEL
+// and the C1 range raw, and a conforming parser rejects those inside double quotes exactly as it does outside
+// them — measured. Everything the plain form may not carry is therefore escaped as `\uXXXX`, which YAML's
+// double-quoted form admits for every one of them.
+const escapeNonPrintable = json => json.replace(/[\u007f-\u009f]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 export function yq(v) {
   if (v === null || v === undefined) return 'null';
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
   const s = String(v);
-  if (!s.length || NEEDS_QUOTE.test(s) || s.includes('\n')) return JSON.stringify(s);
+  if (!s.length || NEEDS_QUOTE.test(s) || s.includes('\n') || NOT_PRINTABLE.test(s)) return escapeNonPrintable(JSON.stringify(s));
   return s;
 }
 // A COMMENT VALUE IS THE REPOSITORY'S OWN PROSE, AND A REPOSITORY PATH MAY CONTAIN A LINE BREAK. Every emitted
