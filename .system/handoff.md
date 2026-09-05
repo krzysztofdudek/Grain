@@ -1,15 +1,14 @@
 # Handoff
 
-at: 2026-09-05T05:49:09.546Z
+at: 2026-09-05T07:29:23.840Z
 by: director
-head: claude/grain-agent-tool-b89y0x@413ad4c
+head: claude/grain-agent-tool-b89y0x@7076df3
 
 ## Summary
-Oba memo Fable scalone: counsel-factory (B1 pętla prawa) i ecosystem-design (413ad4c: brakuje dwu końców — kompilator intencji i drut incydentów; dwa scalenia, jedno cięcie, trzy rzeczy do zbudowania; 10 inwariantów I1–I10; sekwencja S0–S6). Zakres Grain vs poza Grainem zapisany w decyzji ecosystem-design-scope-split. 097 dostał addendum (provenance.json, I10, retirement z drills, szablon-jako-check). W locie: 094 i 096 (Opus). Yggdrasil/.grain/ zostawiony przez workerów — sprawdzić czystość po ich raportach.
+Wave 6: 093, 094, 096, 098 scalone (suita 2225/2225). 098: dług grafu Yggdrasila 4 wiersze, 0 per 100 commitów, sizing.json w propozycji, 5/7 typów dotarło. Rulingi dzisiejsze: layers-compatible-no-user-thresholds (progi wyprowadzane, nie od użytkownika; warstwy kompatybilne przez kontrakty szwów), granularity-bounded-by-evidence-not-taste, two-granularities-rules-fine-nodes-ownership-sized, no-rewrite-one-chain-three-gates. Tickety w kolejce: 100 (szwy + charter.md + adapter family-candidates), 101 (stress integracji na korpusie, sense rate). W locie: 097 (Opus, pętla prawa).
 
 ## In flight
-- 57 branch:research/094-propose —  (since 2026-09-05T05:49:09.555Z, reports to lead)
-- 58 branch:research/096-too-much —  (since 2026-09-05T05:49:09.555Z, reports to lead)
+- 59 branch:research/097-law-loop —  (since 2026-09-05T07:29:23.849Z, reports to lead)
 
 ## Pending decisions
 (none)
@@ -21,9 +20,6 @@ Oba memo Fable scalone: counsel-factory (B1 pętla prawa) i ecosystem-design (41
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
 
 ## Last actions
-- - 2026-09-02 merged: 086 8efac06
-- - 2026-09-02 merged: 085 c439ae7
-- - 2026-09-02 merged: 088 1f2efa9
 - - 2026-09-02 merged: 080 aa45602
 - - 2026-09-02 merged: 087 84f0188
 - - 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).
@@ -31,9 +27,12 @@ Oba memo Fable scalone: counsel-factory (B1 pętla prawa) i ecosystem-design (41
 - # Fala 6 — rekonstrukcja — start 2026-09-05
 - - 2026-09-05 Nowa gwiazda: miner brownfieldu dla Yggdrasila. Instrument G' (093) mierzy, ile ręcznego .yggdrasil/ Grain odzyskuje; kierunek: 094 renderer propozycji, 095 krata maintainera, 096 diagnostyka 'za dużo'.
 - - 2026-09-05 merged: 093 fdd19c9
+- - 2026-09-05 merged: 096 2c16467
+- - 2026-09-05 merged: 094 8d65a2c
+- - 2026-09-05 merged: 098 7076df3
 
 ## Next actions
-- Odbiór 094/096 jak hub (premerge, suita, Yggdrasil git status czysty). Po 094: Opus na 097 (bramki w tickecie). 098 po 094 (Sonnet). Przedstawić użytkownikowi listę decyzji poza Grainem (Yggdrasil: event stream/retirement z drills, family-without-law cut, advise→proposal; Horde: --kind incident, kolumny charteru, sizing ratio; meta-prawo; scalenie skilla dyrektora w Horde; kompilator intencji jako nowe narzędzie) — zrobione w czacie.
+- Odbiór 097 jak hub (premerge z /home/user/Grain z --base). Potem spawn 100 (Sonnet) — propose.mjs będzie wolny od konfliktów; potem 101 (Opus). Zamknięcie fali 6 po 097 (wersje bez zmian — zero zmian silnika; wave close --suite). Yggdrasil/Horde read-only; lista rzeczy po ich stronie w decyzjach ecosystem-design-scope-split, no-rewrite-one-chain-three-gates, two-granularities.
 
 ## Notes
 (none)
