@@ -1,0 +1,10 @@
+name: TestSupport
+type: test-support
+description: >-
+  `test/support/env.js` sets NODE_ENV=test and silences depd for express and
+  body-parser before any suite loads - which is why deprecation calls in the
+  library do not drown the test output. `test/support/utils.js` holds the
+  supertest response assertions; `test/support/tmpl.js` is a deliberately tiny
+  template engine so the view tests do not depend on a real one.
+mapping:
+  - test/support/*.js

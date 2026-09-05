@@ -1,0 +1,8 @@
+name: PublicApiDocumented
+description: >-
+  Every member of the published surface carries a doc comment that a user could
+  work from, and the examples in it still describe what the code does.
+status: advisory
+review_by: 2027-03-01
+scope:
+  per: file

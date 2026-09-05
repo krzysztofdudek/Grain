@@ -1,0 +1,8 @@
+name: EntryModuleIsAReexport
+description: >-
+  The published entry module re-exports the library and contains no logic of
+  its own.
+errs: exact
+review_by: 2028-01-01
+scope:
+  per: file

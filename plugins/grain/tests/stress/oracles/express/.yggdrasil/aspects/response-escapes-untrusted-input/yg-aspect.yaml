@@ -1,0 +1,8 @@
+name: ResponseEscapesUntrustedInput
+description: >-
+  Anything derived from a request that reaches a response header or a response
+  body is encoded for the place it lands in.
+status: advisory
+review_by: 2027-03-01
+scope:
+  per: file

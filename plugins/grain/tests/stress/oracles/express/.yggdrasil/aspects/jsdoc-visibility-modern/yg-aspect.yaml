@@ -1,0 +1,9 @@
+name: JsdocVisibilityModern
+description: >-
+  Documentation marks visibility with `@public` / `@private`; the legacy
+  `@api public` / `@api private` form is not used.
+status: advisory
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

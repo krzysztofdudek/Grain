@@ -1,0 +1,10 @@
+name: ActionsPinnedToSha
+description: >-
+  Every third-party GitHub Action is pinned to a full commit SHA, with the
+  human-readable version in a trailing comment.
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: ".github/workflows/*.yml"

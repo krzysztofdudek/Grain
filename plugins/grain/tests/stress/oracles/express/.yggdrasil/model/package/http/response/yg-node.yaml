@@ -1,0 +1,22 @@
+name: ResponsePrototype
+type: library-prototype
+description: >-
+  `lib/response.js` - the prototype grafted onto `http.ServerResponse`. The
+  whole outgoing surface: status, send, json, jsonp, sendFile, download,
+  cookies, headers, format, redirect, render. It is the largest module in the
+  library and the only one that writes bytes a browser will interpret, so it is
+  also the one that escapes and encodes: escape-html for redirect bodies,
+  encodeurl for locations, content-disposition for filenames, and a restricted
+  charset plus a leading comment guard for JSONP callbacks. Deprecations here go
+  through depd. `res.render` calls back into the application through
+  `this.req.app`.
+mapping:
+  - lib/response.js
+aspects:
+  - response-escapes-untrusted-input
+relations:
+  - target: package/support/utils
+    type: uses
+  - target: package/application
+    type: uses
+    consumes: [settings]

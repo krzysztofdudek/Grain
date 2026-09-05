@@ -1,0 +1,20 @@
+name: PackageEntry
+type: package-entry
+description: >-
+  `index.js` - the module a bare `require('express')` resolves to. The manifest
+  declares no `main`, so this filename IS the contract. It re-exports the
+  factory and holds no logic of its own, which is what lets the library be
+  reorganised without moving the file every consumer resolves.
+mapping:
+  - index.js
+ports:
+  public-api:
+    description: >-
+      The supported way to obtain express. Anything outside the published
+      library reaches the framework through this file - never through a path
+      into `lib/`, which is private and reorganised without notice.
+    aspects:
+      - example-uses-package-entry
+relations:
+  - target: package/factory
+    type: uses

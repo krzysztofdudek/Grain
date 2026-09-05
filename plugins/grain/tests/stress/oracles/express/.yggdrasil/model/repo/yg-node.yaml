@@ -1,0 +1,5 @@
+name: RepositoryShell
+type: subsystem
+description: >-
+  Everything that governs the repository without being shipped by it: the
+  automation, the lint and editor settings, and the prose.

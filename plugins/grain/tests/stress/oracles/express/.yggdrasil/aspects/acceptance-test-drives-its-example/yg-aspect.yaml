@@ -1,0 +1,10 @@
+name: AcceptanceTestDrivesItsExample
+description: >-
+  An acceptance suite is named after the example directory it mounts, and it
+  mounts that example rather than building an application of its own.
+errs: exact
+review_by: 2027-09-01
+scope:
+  per: file
+  files:
+    path: "test/acceptance/*.js"
