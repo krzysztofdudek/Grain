@@ -5114,3 +5114,7 @@ note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta gra
 - 2026-09-05 Niezależny przerender autopropozycji Yggdrasil scalonym rendererem (export 5cca6b15, YG_BIN): 124 aspekty, 33 deterministyczne drillowane (665 przypadków) → 10 enforced, 22 no-catch, 1 file-scope FA; 91 prozy draft; 37 pominięte jako nie-reguły, 17 jako group-scoped nierenderowalne; 8 cykli węzłów; 73 karty. Rozjazd z liczbami pracownika 102 (11/13) — inny export; do weryfikacji w 104 na jednym ustalonym exporcie.
 - 2026-09-05 merged: 104 e53127f
 - 2026-09-05 Wersje NIE podbite przy 104: ENGINE_VERSION 0.3.0 to publiczne wydanie (3bc8468 po wcześniejszym 0.4.0 → 113ef97); bump wersji to decyzja użytkownika, nie dyrektora — rekomendacja pracownika (0.4.0 za nową powierzchnię komendy) zapisana w logu 104. Wart osobnego biletu: nazwa aspektu ucięta do 70 znaków w połowie słowa (kosmetyka, na dysku tak samo).
+
+# Fala Fala 8 — odbiór propozycji — close 2026-09-05
+suite: 2290
+note: grain propose jest komendą produktu (104), cichy raport; statusy zarabiane: enforced = certyfikowana konwencja + drill 0 FA + ≥1 mutant; advisory = krata po drillu (kandydaci); draft = reszta z powodem. Yggdrasil: 124 aspektów → 10 enforced. Grain na sobie: 81 → 0 enforced, 22 advisory, 59 prozy. Otwarte dla użytkownika: bump wersji, README (105).
