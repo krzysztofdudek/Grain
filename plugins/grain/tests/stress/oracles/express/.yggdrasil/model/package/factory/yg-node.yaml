@@ -1,0 +1,19 @@
+name: ApplicationFactory
+type: library-entry
+description: >-
+  `lib/express.js` - `createApplication()` and the package's public shape. It
+  mixes the application prototype and EventEmitter into a callable function,
+  hangs per-app copies of the request and response prototypes off it, and
+  re-exports the router constructors and the four body parsers plus the static
+  server. The middleware exported here is third-party code (body-parser,
+  serve-static); this repository owns the names, not the implementations.
+mapping:
+  - lib/express.js
+relations:
+  - target: package/application
+    type: uses
+    consumes: [settings]
+  - target: package/http/request
+    type: uses
+  - target: package/http/response
+    type: uses

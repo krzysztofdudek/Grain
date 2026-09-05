@@ -1,0 +1,13 @@
+name: StrictModePragma
+description: >-
+  Every JavaScript file that runs on the server opens with the `'use strict'`
+  pragma, before any executable statement.
+status: advisory
+errs: exact
+review_by: 2027-09-01
+scope:
+  per: file
+  files:
+    all_of:
+      - path: "**/*.js"
+      - not: { path: "examples/**/public/**" }

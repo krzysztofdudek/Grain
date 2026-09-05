@@ -1,0 +1,7 @@
+name: EveryExampleHasAnAcceptanceTest
+description: >-
+  Every example application in the repository is mounted by an acceptance
+  suite, so no published example can rot unnoticed.
+status: advisory
+errs: exact
+review_by: 2027-03-01

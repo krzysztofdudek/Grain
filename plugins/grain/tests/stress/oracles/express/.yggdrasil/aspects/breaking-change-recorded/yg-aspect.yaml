@@ -1,0 +1,11 @@
+name: BreakingChangeRecorded
+description: >-
+  A change a user could notice is written down in History.md, in the terms the
+  user would notice it in.
+status: advisory
+review_by: 2027-03-01
+reviewer:
+  type: llm
+  tier: history
+references:
+  - History.md

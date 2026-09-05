@@ -1,0 +1,11 @@
+name: Utils
+type: library-support
+description: >-
+  `lib/utils.js` — private helpers shared by the application and response
+  prototypes: the lowercased HTTP method list, strong and weak ETag generators,
+  content-type normalisation and charset setting, and the compilers that turn
+  the `etag`, `query parser` and `trust proxy` settings into functions. Marked
+  private in its own comments, but `test/utils.js` and four other suites import
+  it directly, so its signatures are effectively frozen by the test suite.
+mapping:
+  - lib/utils.js

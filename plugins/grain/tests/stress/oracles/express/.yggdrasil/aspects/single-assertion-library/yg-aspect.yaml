@@ -1,0 +1,10 @@
+name: SingleAssertionLibrary
+description: >-
+  The suite asserts with node's own `assert` and supertest's expectations, and
+  brings in no second assertion library.
+errs: under
+review_by: 2027-09-01
+scope:
+  per: file
+  files:
+    path: "**/*.js"

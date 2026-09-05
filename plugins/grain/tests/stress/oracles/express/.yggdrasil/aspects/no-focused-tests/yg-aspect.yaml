@@ -1,0 +1,10 @@
+name: NoFocusedTests
+description: >-
+  No committed test is focused with `.only` - a focused suite silently
+  disables every other test in the run.
+errs: exact
+review_by: 2028-01-01
+scope:
+  per: file
+  files:
+    path: "**/*.js"

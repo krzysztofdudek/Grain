@@ -1,0 +1,9 @@
+name: NoConsoleInLibrary
+description: >-
+  A published module never prints to stdout. The single sanctioned write is
+  `console.error` from the default error handler, which an application can turn
+  off through the environment.
+errs: exact
+review_by: 2027-09-01
+scope:
+  per: file
