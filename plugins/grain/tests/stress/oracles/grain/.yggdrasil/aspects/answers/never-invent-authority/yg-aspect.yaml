@@ -1,0 +1,9 @@
+name: NeverInventAuthority
+description: >-
+  An answer states a convention only with the evidence that earned it, and says plainly when there is no
+  convention. Prose, because the failure it prevents is a matter of wording and of what a number is
+  allowed to be printed without.
+reviewer:
+  type: llm
+status: enforced
+review_by: 2027-06-01

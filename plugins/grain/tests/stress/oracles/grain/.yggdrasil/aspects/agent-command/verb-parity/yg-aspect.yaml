@@ -1,0 +1,22 @@
+name: SlashCommandVerbParity
+description: >-
+  The set of verbs the dispatcher handles and the set of verbs the command documents invoke must line up
+  in both directions.
+
+  Forward: every verb a command document runs must be one the dispatcher actually handles. A document
+  naming a verb that no longer exists is a menu entry that fails only when a user picks it — the one
+  moment nobody is watching a test run.
+
+  Backward: every verb the dispatcher handles must be invoked by some command document, unless it is on
+  the exemption list, and each exemption has a stated reason. The six hook verbs are invoked by the host
+  and never typed. The mutation harness is a development alias whose documented counterpart is the
+  self-test command. Version and help are one-liners with nothing to document.
+
+  The backward direction is the one that earns its keep: a new command lands in the dispatcher, works
+  perfectly when called by hand, and ships with no way for anyone to reach it. This repository already
+  measured command reachability as a real gap and already carries a test in the suite asserting this
+  parity; the rule is that test's shape, moved into the graph so it also binds a session that has not
+  read the suite.
+errs: exact
+status: enforced
+review_by: 2027-06-01

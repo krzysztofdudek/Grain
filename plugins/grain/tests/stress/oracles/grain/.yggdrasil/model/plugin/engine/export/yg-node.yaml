@@ -1,0 +1,21 @@
+name: Export Serializer
+type: engine-module
+description: >-
+  The whole model as one machine-readable dump, for consumers that are not a querying agent. Where the
+  query commands answer one question with a cut, this answers none and cuts nothing it holds: every
+  accepted convention with its evidence and trend, every conforming and deviating site, the anchor lines
+  a sample cutter needs, a machine check per convention, and the group, marker and co-change structure.
+  Its schema is a published interface with a real downstream consumer, so a field rename is a breaking
+  change and never a side effect of an engine refactor.
+aspects:
+  # Attached to this node rather than to the engine-module type: the two other modules of that type
+  # publish nothing outward, and a rule about a published interface has no business on them.
+  - export/schema-is-a-published-interface
+relations:
+  - target: plugin/engine/core
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/export.mjs

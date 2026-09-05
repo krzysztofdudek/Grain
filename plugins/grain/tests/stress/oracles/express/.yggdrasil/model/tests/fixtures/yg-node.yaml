@@ -1,0 +1,8 @@
+name: TestFixtures
+type: test-fixture
+description: >-
+  Data the suites read: templates, text files, and directory names chosen to be
+  awkward on purpose - a percent sign, a space, a snowman - because path
+  handling is a place express has been wrong before.
+mapping:
+  - test/fixtures/

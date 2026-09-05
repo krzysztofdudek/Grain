@@ -1,0 +1,4 @@
+name: Resources
+type: module
+description: "Non-code runtime resources: the localisation bundles and the per-dialect database scripts. Both are read at startup and both have consistency requirements that no compiler checks."
+relations: []

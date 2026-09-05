@@ -1,0 +1,10 @@
+name: Asset Regeneration
+type: build-script
+description: >-
+  Two maintainer-run scripts that rewrite committed assets: one refreshes the grammar set from the
+  dev-only grammar packages and records in its own source why each rejected language was left out, the
+  other re-vendors the relation machinery from a sibling checkout, erasing its types and cutting the
+  parts coupled to that project's own model. Their outputs are committed, so an install needs no build
+  step and no network.
+mapping:
+  - plugins/grain/scripts/

@@ -1,0 +1,9 @@
+name: RepositoryIsSpringDataInterface
+description: "A repository is an interface extending a Spring Data repository — never a hand-written class holding an EntityManager. Query derivation from method names is the whole point: it keeps persistence declarative, keeps the transaction and cache annotations visible on the method they apply to, and leaves no hand-rolled query code to drift from the entity mapping."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

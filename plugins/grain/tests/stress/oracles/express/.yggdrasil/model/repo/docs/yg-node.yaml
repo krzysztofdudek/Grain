@@ -1,0 +1,11 @@
+name: Documentation
+type: docs
+description: >-
+  The readme, the licence, and `History.md` - which is not a changelog for
+  maintainers but the upgrade contract: every entry names the user-visible
+  behaviour that changed, the pull request that changed it, and, for a breaking
+  change, what the caller must now write instead.
+mapping:
+  - Readme.md
+  - History.md
+  - LICENSE

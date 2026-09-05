@@ -1,0 +1,18 @@
+name: GrammarAssetTriad
+description: >-
+  Every shipped grammar is a complete triad: a compiled parser, its node-type metadata, and a manifest
+  entry naming the package and version it was built from. No orphan in any of the three directions.
+
+  The metadata file is not optional decoration — it is the file every per-language binding in the
+  product is derived from. There is no per-language code anywhere; what a "scope", an "import", a
+  "decorator" or a "supertype" IS in a given language is read out of that grammar's own metadata at
+  load time. A parser without its metadata is a language the engine can parse and cannot understand.
+
+  What makes this worth a rule rather than a comment: the extension map filters itself to grammars whose
+  parser AND metadata both exist, so a half-shipped grammar does not fail — it silently disappears. Files
+  in that language then stop being analysed and nothing anywhere says so. The manifest entry is the third
+  leg because it is the only record of which upstream version an asset came from, and without it a
+  regeneration cannot be reproduced or a defect attributed.
+errs: exact
+status: enforced
+review_by: 2027-06-01

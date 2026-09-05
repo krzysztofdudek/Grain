@@ -1,0 +1,14 @@
+name: InstrumentsMeasureDoNotGate
+description: >-
+  An instrument measures a class over a fixed corpus and IS the retest. It reports numbers including the
+  ones that are bad for the project, states its own floors and method rather than asserting a tuned
+  threshold, and never becomes a gate.
+
+  ADVISORY, and the reason is a limitation of this rule's author rather than of the code: this graph was
+  written blind to the instruments' bodies on purpose, so that measurements taken against it stay
+  independent of them. Their contracts are stated here from the project's own working model; whether
+  each instrument keeps them has not been checked. Promote once someone who has read them confirms it.
+reviewer:
+  type: llm
+status: advisory
+review_by: 2026-12-01

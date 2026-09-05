@@ -1,0 +1,9 @@
+name: FragmentLabelsUseMessageKeys
+description: "A form field's label is passed into the shared field fragment as a message key, not as an English string. The application ships eleven locales and a test that scans templates for untranslated text — but that test only looks at text between tags, so a literal handed to a fragment as an argument passes it and still renders in English for every locale. ADVISORY, not enforced: the pet and visit forms do exactly this today, in five places, and the fix is a translation change rather than a code change."
+reviewer:
+  type: deterministic
+status: advisory
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

@@ -1,0 +1,4 @@
+name: UserInterface
+type: module
+description: "The server-rendered user interface: Thymeleaf templates plus the SCSS and static assets they pull in. Rendered on the server for every page — there is no client-side application here."
+relations: []

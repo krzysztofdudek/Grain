@@ -1,0 +1,10 @@
+name: TestDeclaresASuite
+description: >-
+  Every file mocha loads as a test declares at least one suite, so a file that
+  silently stopped testing anything cannot pass as a green run.
+errs: exact
+review_by: 2028-01-01
+scope:
+  per: file
+  files:
+    path: "**/*.js"

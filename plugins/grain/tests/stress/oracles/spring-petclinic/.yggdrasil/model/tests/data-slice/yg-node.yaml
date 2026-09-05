@@ -1,0 +1,16 @@
+name: DataSliceTests
+type: data-slice-test
+description: "The JPA slice test — the only place the repositories are exercised against a real schema and real seed data. It is still named after a service layer this application no longer has; it is in practice the persistence contract test, including the case-insensitive uniqueness of a pet's name within one owner."
+mapping:
+  - src/test/java/org/springframework/samples/petclinic/service/ClinicServiceTests.java
+relations:
+  - target: app/owner/entities
+    type: uses
+  - target: app/owner/repositories
+    type: uses
+  - target: app/vet/entities
+    type: uses
+  - target: app/vet/repository
+    type: uses
+  - target: tests/support
+    type: uses

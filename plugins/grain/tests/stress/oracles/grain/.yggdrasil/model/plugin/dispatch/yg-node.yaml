@@ -1,0 +1,22 @@
+name: Query Dispatcher
+type: cli-dispatch
+description: >-
+  argv parsing, repository and store resolution, the auto-refresh that keeps an index current before
+  every query, the single command switch, the six host hook verbs, and the freshness stamp every answer
+  ends with. It owns the two promises a user feels directly: an answer always says which commit it was
+  computed from, and a hook never blocks. Uncommitted work never feeds the norm — only the file a
+  check-shaped command was asked about is ever read from the worktree.
+relations:
+  - target: plugin/engine/core
+    type: calls
+  - target: plugin/engine/history
+    type: calls
+  - target: plugin/engine/export
+    type: calls
+  - target: plugin/engine/propose
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/grain.mjs

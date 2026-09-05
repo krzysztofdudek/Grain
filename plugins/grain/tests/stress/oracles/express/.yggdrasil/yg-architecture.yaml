@@ -1,0 +1,323 @@
+# Architecture of express (expressjs/express @ 023767fe9872e029271df1418f73401bff20ff40, v5.2.1 line).
+#
+# Derived by reading the tree at that revision, not from any prior mental model
+# of express. Two things a reader of express 4 will expect and NOT find here:
+#
+#   * There is no router type. Routing left this repository in 2015
+#     ("Use router module for routing", cec5780d) and is now the external
+#     `router` package. `lib/router/` does not exist.
+#   * There is no middleware type. `middleware/init.js` was refactored away in
+#     2014 (78e50547) and `middleware/query.js` became a lazy getter on the
+#     request prototype. The shipped middleware (`json`, `raw`, `text`,
+#     `urlencoded`, `static`) are re-exports of `body-parser` and
+#     `serve-static` — third-party code, not files in this repo.
+#
+# There is also no benchmarks type: the benchmarks directory was deleted in
+# 2026 (5a4568ab). `.gitignore` still carries a `benchmarks/graphs` entry for
+# a directory that no longer exists.
+#
+# The library types below are LAYERS, and each one's `relations:` block is the
+# layer's import budget, read off the actual `require` graph of lib/:
+#
+#   index.js        -> lib/express.js
+#   lib/express.js  -> ./application, ./request, ./response
+#   lib/application -> ./view, ./utils
+#   lib/response    -> ./utils
+#   lib/request     -> (no intra-repo require at all)
+#   lib/utils       -> (none)   lib/view -> (none)
+#
+# The static graph is acyclic. The RUNTIME graph is not — see README.md,
+# "Cycles"; the reverse edges (application reaching the request and response
+# prototypes) are deliberately left undeclared because the four structural
+# relation types must form a DAG.
+
+node_types:
+
+  # ---------------------------------------------------------------- library --
+
+  package-entry:
+    description: >-
+      The one module npm publishes as the package entry (`index.js`). It exists
+      to re-export the application factory and nothing else, so that the file a
+      consumer resolves never accumulates behaviour of its own.
+    when:
+      path: "index.js"
+    enforce: strict
+    parents: [subsystem]
+    aspects:
+      - id: strict-mode-pragma
+        status: enforced
+      - license-banner
+      - node-core-prefix
+      - commonjs-export-surface
+      - entry-module-is-a-reexport
+    relations:
+      default: deny
+      uses: [library-entry]
+
+  library-entry:
+    description: >-
+      The application factory and the module that decides the package's public
+      shape (`lib/express.js`): it composes the application prototype with
+      EventEmitter, hangs the request and response prototypes off each app, and
+      re-exports the third-party middleware. It is the only library layer
+      allowed to know all three prototypes at once.
+    when:
+      path: "lib/express.js"
+    enforce: strict
+    parents: [subsystem]
+    aspects:
+      - id: strict-mode-pragma
+        status: enforced
+      - license-banner
+      - node-core-prefix
+      - commonjs-export-surface
+      - no-console-in-library
+      - deprecations-through-depd
+      - library-layering
+      - jsdoc-visibility-modern
+      - public-api-documented
+      - breaking-change-recorded
+    relations:
+      default: deny
+      uses: [library-core, library-prototype]
+
+  library-core:
+    description: >-
+      The application prototype (`lib/application.js`): settings, the lazily
+      constructed base router, view rendering, `listen`, and the HTTP verb
+      delegation. It owns configuration state; it must not reach for the
+      request or response prototypes by name.
+    when:
+      path: "lib/application.js"
+    enforce: strict
+    parents: [subsystem]
+    aspects:
+      - id: strict-mode-pragma
+        status: enforced
+      - license-banner
+      - node-core-prefix
+      - commonjs-export-surface
+      - no-console-in-library
+      - deprecations-through-depd
+      - library-layering
+      - jsdoc-visibility-modern
+      - public-api-documented
+      - breaking-change-recorded
+    relations:
+      default: deny
+      uses: [library-support]
+      calls: [library-support]
+
+  library-prototype:
+    description: >-
+      A prototype mixed into a live node HTTP object — `lib/request.js` onto
+      IncomingMessage, `lib/response.js` onto ServerResponse. These modules run
+      with `this` bound to a real socket-backed object, so they reach the
+      application through `this.app` (or `this.req.app`) at call time and must
+      never require it. That indirection is the whole reason the layering
+      survives: the require graph stays acyclic while the object graph does not.
+    when:
+      any_of:
+        - path: "lib/request.js"
+        - path: "lib/response.js"
+    enforce: strict
+    parents: [subsystem]
+    aspects:
+      - id: strict-mode-pragma
+        status: enforced
+      - license-banner
+      - node-core-prefix
+      - commonjs-export-surface
+      - no-console-in-library
+      - deprecations-through-depd
+      - library-layering
+      - jsdoc-visibility-modern
+      - public-api-documented
+      - breaking-change-recorded
+    relations:
+      default: deny
+      uses: [library-support, library-core]
+
+  library-support:
+    description: >-
+      A leaf helper the layers above compose: `lib/utils.js` (method list, ETag
+      and query-parser and trust-proxy compilation, content-type normalisation)
+      and `lib/view.js` (template lookup and rendering). A support module
+      requires nothing from this repository — that is what makes it safe for
+      both the application prototype and the response prototype to depend on it.
+    when:
+      any_of:
+        - path: "lib/utils.js"
+        - path: "lib/view.js"
+    enforce: strict
+    parents: [subsystem]
+    aspects:
+      - id: strict-mode-pragma
+        status: enforced
+      - license-banner
+      - node-core-prefix
+      - commonjs-export-surface
+      - no-console-in-library
+      - deprecations-through-depd
+      - library-layering
+      - jsdoc-visibility-modern
+      - public-api-documented
+    relations:
+      default: deny
+
+  # ------------------------------------------------------------------ tests --
+
+  unit-test:
+    description: >-
+      A mocha suite under `test/` named after the surface it exercises
+      (`res.send.js`, `req.host.js`, `app.listen.js`). It may reach private
+      modules directly — several of these suites are the only tests
+      `lib/utils.js` has — so its import budget is deliberately open.
+    when:
+      path: "test/*.js"
+    enforce: strict
+    parents: [subsystem]
+    aspects:
+      - id: strict-mode-pragma
+        status: enforced
+      - node-core-prefix
+      - test-declares-a-suite
+      - no-focused-tests
+      - single-assertion-library
+      - no-debug-output-in-tests
+    relations:
+      default: deny
+      uses: ['*']
+
+  acceptance-test:
+    description: >-
+      A mocha suite under `test/acceptance/` that drives one of the example
+      applications end to end through supertest. Each file is named after the
+      example directory it requires; that pairing is what keeps the examples
+      from rotting.
+    when:
+      path: "test/acceptance/*.js"
+    enforce: strict
+    parents: [subsystem]
+    aspects:
+      - strict-mode-pragma
+      - node-core-prefix
+      - test-declares-a-suite
+      - no-focused-tests
+      - single-assertion-library
+      - no-debug-output-in-tests
+      - acceptance-test-drives-its-example
+      - every-example-has-an-acceptance-test
+    relations:
+      default: deny
+      uses: ['*']
+
+  test-support:
+    description: >-
+      Shared test scaffolding under `test/support/`: the environment preamble
+      mocha loads with `--require`, the response assertion helpers, and the
+      minimal template engine the view tests render with. Not a suite — these
+      files declare no tests and are required by suites.
+    when:
+      path: "test/support/*.js"
+    enforce: strict
+    parents: [subsystem]
+    aspects:
+      - strict-mode-pragma
+      - node-core-prefix
+    relations:
+      default: deny
+
+  test-fixture:
+    description: >-
+      Inert data read by the suites — templates, text files, directory shapes
+      with deliberately awkward names (a percent sign, a non-ASCII directory).
+      Nothing here is executed, so nothing here carries a rule.
+    when:
+      any_of:
+        - path: "test/fixtures/**"
+        - path: "test/fixtures/**/.*"
+        - path: "test/fixtures/.*"
+    parents: [subsystem]
+    relations:
+      default: deny
+
+  # --------------------------------------------------------------- examples --
+
+  example-app:
+    description: >-
+      A runnable demonstration application under `examples/`, together with its
+      views and static assets. An example is documentation that executes: it
+      must be requirable without starting a server, so an acceptance test can
+      mount it, and it must consume express the way a user would — through the
+      package entry, never through `lib/`.
+    when:
+      path: "examples/**"
+    parents: [subsystem]
+    aspects:
+      - strict-mode-pragma
+      - node-core-prefix
+      - example-app-is-requirable
+      - example-listen-is-guarded
+    relations:
+      default: deny
+      uses: [package-entry]
+
+  # ------------------------------------------------------- repository shell --
+
+  ci-workflow:
+    description: >-
+      GitHub Actions workflows and the dependabot manifest. This project runs
+      OSSF Scorecard on itself, so every third-party action it invokes is
+      pinned to a full commit SHA with the human-readable version in a trailing
+      comment — a moving tag would hand a third party write access to CI.
+    when:
+      path: ".github/**"
+    parents: [subsystem]
+    aspects:
+      - actions-pinned-to-sha
+    relations:
+      default: deny
+
+  repo-config:
+    description: >-
+      Repository-level configuration: the package manifest, the eslint and
+      editorconfig rules, npm and git ignore settings. Changing one of these
+      changes the rules every other file is held to.
+    when:
+      any_of:
+        - path: "package.json"
+        - path: ".eslintrc.yml"
+        - path: ".eslintignore"
+        - path: ".editorconfig"
+        - path: ".npmrc"
+        - path: ".gitignore"
+    parents: [subsystem]
+    relations:
+      default: deny
+
+  docs:
+    description: >-
+      Prose shipped with the repository: the readme, the release history, the
+      licence, and the examples index. `History.md` is the contract with
+      upgraders — a user-visible change that is not written there is a change
+      nobody can find out about.
+    when:
+      any_of:
+        - path: "Readme.md"
+        - path: "History.md"
+        - path: "LICENSE"
+    parents: [subsystem]
+    relations:
+      default: deny
+
+  # ---------------------------------------------------------- organisational --
+
+  subsystem:
+    description: >-
+      Grouping node with no files of its own — used to give the library, the
+      test suites and the repository shell a place in the hierarchy so that a
+      rule can be attached to a whole area at once. It declares no `parents:`
+      on purpose: that is what makes it rootable, and a subsystem may still
+      nest inside another one.

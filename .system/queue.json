@@ -717,9 +717,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/105-readme",
-      "state": "running",
-      "note": "po 104; klasa 6 — użytkownik zatwierdza",
-      "updated": "2026-09-05 19:52"
+      "state": "merged",
+      "note": "premerge READY (2290/2290); class 6 shown to user (Ogień! on A–F); director fixed examples attribution at merge",
+      "updated": "2026-09-05 21:17",
+      "sha": "49a015c"
     },
     {
       "id": 67,
@@ -748,9 +749,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/109-sense",
-      "state": "queued",
+      "state": "running",
       "note": "po klonach korpusu",
-      "updated": "2026-09-05 19:52"
+      "updated": "2026-09-05 19:56"
     },
     {
       "id": 70,

@@ -1,0 +1,9 @@
+name: BookAVisit
+description: "A clinic worker finds an owner by surname, opens the owner's record, adds a pet if the animal is new, and books a visit for it. The whole process writes through the owner in one save, and every step of it is a page — so it touches the controllers, the aggregate, the owner repository, the templates that render each form, and the schema that has to accept the result."
+nodes:
+  - app/owner/web
+  - app/owner/entities
+  - app/owner/repositories
+  - app/owner/web-support
+  - ui/templates
+  - resources/db-scripts

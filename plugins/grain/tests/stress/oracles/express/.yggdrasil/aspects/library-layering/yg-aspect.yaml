@@ -1,0 +1,8 @@
+name: LibraryLayering
+description: >-
+  A published module's intra-library requires stay inside its layer's declared
+  budget, so the module graph stays acyclic.
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

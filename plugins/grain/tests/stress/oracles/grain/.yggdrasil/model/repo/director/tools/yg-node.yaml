@@ -1,0 +1,12 @@
+name: Project Tooling
+type: director-tool
+description: >-
+  Ten scripts that are the ONLY writers of the committed project state: tickets and their logs, the work
+  queue, the handoff, the escalation ledger, the decision register, the wave bookkeeping and the
+  pre-merge checklist. State moves through these and never by hand, because two agents editing the same
+  ledger at once lose entries silently and a lost entry is indistinguishable from a decision nobody made.
+relations:
+  - target: repo/director/state
+    type: uses
+mapping:
+  - .claude/skills/director/scripts/

@@ -1,0 +1,10 @@
+name: Instrument Corpus
+type: stress-corpus
+description: >-
+  The pinned corpus manifest and the one checked-in result baseline. The corpus is a MAPPING over axes —
+  every shipped grammar at least once, idioms hostile to the engine's assumptions, repository shapes,
+  and a size ladder — not a sample, so a gap in it is a named gap rather than bad luck. Per-run dumps
+  are machine-specific noise and stay out of the repository; one baseline is kept as a reference point.
+mapping:
+  - plugins/grain/tests/stress/corpus.json
+  - plugins/grain/tests/stress/results/

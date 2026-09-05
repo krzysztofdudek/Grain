@@ -1,0 +1,17 @@
+name: SingleVersionOfRecord
+description: >-
+  One version string, everywhere. The package manifest's version, the engine version constant, and the
+  version in each of the three per-host plugin manifests must all be the same.
+
+  There are five places a version is written and exactly one thing it means. They drift silently by
+  construction: three of the five are per-host files nobody edits together, and nothing at runtime
+  compares them. The consequence is not cosmetic. The engine version constant is one of the keys that
+  decides whether a stored index is still valid, and it is what the version command and every hook
+  staleness guard report; a package that says one thing while the engine says another produces a bug
+  report nobody can reproduce, because the reporter and the maintainer are not running the same thing
+  and both believe they are.
+
+  This is the cheapest possible rule and it removes an entire class of unreproducible report.
+errs: exact
+status: enforced
+review_by: 2027-06-01

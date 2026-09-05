@@ -1,0 +1,15 @@
+name: Examples
+type: example-app
+description: >-
+  Twenty-five runnable demonstration applications with their views and static
+  assets. An example is documentation that executes: eighteen of them are
+  mounted by an acceptance suite, which is only possible because they export
+  their app and guard their `listen` call behind `if (!module.parent)`. Six do
+  neither and one starts a server on require; those are recorded advisory
+  findings.
+mapping:
+  - examples/
+relations:
+  - target: package/entry
+    type: uses
+    consumes: [public-api]

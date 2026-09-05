@@ -1,0 +1,15 @@
+name: RepositoryConfiguration
+type: repo-config
+description: >-
+  The package manifest and the settings every other file is held to: eslint
+  (two-space indent, eqeqeq, no unused vars, and a ban on the global Buffer),
+  editorconfig, npm install policy (no lockfile, no install scripts, a
+  seven-day minimum release age for dependencies), and the ignore lists. The
+  gitignore still excludes `benchmarks/graphs`, a directory deleted in 2026.
+mapping:
+  - package.json
+  - .eslintrc.yml
+  - .eslintignore
+  - .editorconfig
+  - .npmrc
+  - .gitignore

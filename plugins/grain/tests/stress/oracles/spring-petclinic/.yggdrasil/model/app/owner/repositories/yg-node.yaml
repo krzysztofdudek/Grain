@@ -1,0 +1,9 @@
+name: OwnerRepositories
+type: repository
+description: "Persistence access for the owner aggregate: owners looked up by id or by a last-name prefix (paged), and the ordered pet-type list. There is deliberately no pet or visit repository — both are written through the owner."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/owner/OwnerRepository.java
+  - src/main/java/org/springframework/samples/petclinic/owner/PetTypeRepository.java
+relations:
+  - target: app/owner/entities
+    type: uses

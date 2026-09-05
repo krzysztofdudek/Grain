@@ -1,0 +1,7 @@
+name: Project Working Model
+type: area
+description: >-
+  How this project is run: the operating manual, the tools that mutate its state, and the state itself.
+  It is committed so that a session can be resumed from the repository alone, and it is never shipped —
+  no file under here may be reached from the plugin.
+relations: []

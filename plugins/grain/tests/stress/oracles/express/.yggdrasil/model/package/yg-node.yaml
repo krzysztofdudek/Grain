@@ -1,0 +1,7 @@
+name: PublishedPackage
+type: subsystem
+description: >-
+  Everything npm ships: the entry module and the six library modules listed in
+  the package manifest's `files` field. Nothing else in the repository reaches
+  a user's node_modules, so this is the boundary where a change becomes
+  someone else's problem.

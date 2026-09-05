@@ -1,0 +1,44 @@
+version: "5.2.0"
+
+# Whole repository is in scope: every tracked file belongs to a node. An
+# express checkout is small enough that leaving a corner uncovered would be a
+# choice, not an accident.
+coverage:
+  required: ["/"]
+  excluded: []
+  type_level: false
+
+quality:
+  max_direct_relations: 10
+
+# Read-only by default. The deterministic rules are the gate; they cost nothing
+# and need no key, which is the only kind of gate an OSS project with drive-by
+# contributors can actually run on every pull request.
+auto_approve: false
+
+# The judgment rules in this graph (public-api-documented,
+# breaking-change-recorded, response-escapes-untrusted-input) are all advisory,
+# so nothing here blocks without a reviewer. The tier is declared so that a
+# maintainer who wants those opinions can buy them with the CLI they already
+# have, rather than a hosted key.
+reviewer:
+  default: standard
+  tiers:
+    standard:
+      provider: claude-code
+      consensus: 1
+      config:
+        temperature: 0
+
+    # `breaking-change-recorded` has to read History.md, and History.md is the
+    # whole release history of express - roughly 130KB by the time it reaches
+    # the prompt. A reference is a whole file: there is no way to point a rule
+    # at the Unreleased section alone, so the choice is a large prompt or no
+    # rule. This tier exists to make that cost explicit and to keep it off
+    # every other rule.
+    history:
+      provider: claude-code
+      consensus: 1
+      max_prompt_chars: 250000
+      config:
+        temperature: 0

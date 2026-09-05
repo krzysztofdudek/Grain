@@ -1,0 +1,10 @@
+name: View
+type: library-support
+description: >-
+  `lib/view.js` — the View constructor: resolve a template name against the
+  configured roots, load the engine module for the extension on demand, and
+  render, forcing a synchronous engine callback onto the next tick so callers
+  never see a sometimes-sync callback. The only file in the library that
+  touches the filesystem.
+mapping:
+  - lib/view.js

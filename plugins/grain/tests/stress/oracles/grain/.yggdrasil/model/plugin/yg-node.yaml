@@ -1,0 +1,7 @@
+name: Grain Plugin
+type: area
+description: >-
+  The shipped product: the plugin an adopter installs. Everything under here goes out in the package —
+  the entry points, the engine, the agent-facing surface and the tests that hold it to its contracts.
+  Nothing here may depend on the repository's own project tooling.
+relations: []

@@ -5122,3 +5122,7 @@ note: grain propose jest komendą produktu (104), cichy raport; statusy zarabian
 
 # Fala Fala 9 — wyrocznie, sens, fabryka — start 2026-09-05
 - 2026-09-05 Użytkownik: 'Ogień!' na A–F przy nieograniczonych zasobach. A wyrocznie (108), B sens (109), C typy (110), D utwardzenie (111), E próba fabryki (112), F README (105) + bump wersji przy zamknięciu.
+- 2026-09-05 merged: 108-express f6b0456
+- 2026-09-05 merged: 105 49a015c
+- 2026-09-05 merged: 108-petclinic 4612e82
+- 2026-09-05 merged: 108-grain ec8cc56

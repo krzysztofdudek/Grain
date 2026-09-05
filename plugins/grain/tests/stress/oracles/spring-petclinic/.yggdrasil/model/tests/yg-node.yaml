@@ -1,0 +1,4 @@
+name: Tests
+type: module
+description: "The test source set, split by what each kind of test costs to run: plain unit tests, MVC slice tests, the JPA slice test, and the full-boot integration tests. The split is deliberate — it is what lets a rule say `a slice test must not touch a database` without saying it about every test in the repository."
+relations: []

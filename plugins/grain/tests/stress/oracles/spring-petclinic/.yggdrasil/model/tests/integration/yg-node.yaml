@@ -1,0 +1,18 @@
+name: IntegrationTests
+type: integration-test
+description: "Full-boot tests over a real HTTP port: the default H2 run, the same run against MySQL through Testcontainers and against PostgreSQL through Docker Compose, the error-page contract, and the concurrency test that proves two simultaneous requests cannot create two pets with the same name for one owner. Several carry a main() so a developer can launch the same configuration from an IDE."
+mapping:
+  - src/test/java/org/springframework/samples/petclinic/PetClinicIntegrationTests.java
+  - src/test/java/org/springframework/samples/petclinic/PetClinicConcurrencyTests.java
+  - src/test/java/org/springframework/samples/petclinic/MySqlIntegrationTests.java
+  - src/test/java/org/springframework/samples/petclinic/PostgresIntegrationTests.java
+  - src/test/java/org/springframework/samples/petclinic/system/CrashControllerIntegrationTests.java
+relations:
+  - target: app/bootstrap
+    type: uses
+  - target: app/owner/entities
+    type: uses
+  - target: app/owner/repositories
+    type: uses
+  - target: app/vet/repository
+    type: uses
