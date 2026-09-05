@@ -1,14 +1,14 @@
 # Handoff
 
-at: 2026-09-05T04:17:29.205Z
+at: 2026-09-05T04:36:09.807Z
 by: director
-head: claude/grain-agent-tool-b89y0x@9868c31
+head: claude/grain-agent-tool-b89y0x@4cf2a96
 
 ## Summary
-Użytkownik przestawił funkcję celu: Grain = miner brownfieldu dla Yggdrasila, konsument = maintainer wdrażający yg (architektura, aspekty, refaktor, plan pracy), NIE agent przy edycji. Yggdrasil tylko referencja, nic tam nie zmieniamy. Sesja: pełne ugruntowanie (yg prime, wszystkie knowledge, schemas, docs Graina, decisions), Grain uruchomiony na repo Yggdrasil (93 s, 19 partycji, 273 grupy, 182 konwencje, 37 modułów, 2 cykle identyczne z yg advise, 2 archNorms = ręcznie zapisane granice). Diagnoza i propozycja nowej gwiazdy polarnej przekazana użytkownikowi; czeka na potwierdzenie brzmienia i wskazanie repo-wzorców. Nic w kodzie nie zmieniono, nic nie zapisano w decisions.
+Nowa gwiazda polarna ZABETONOWANA (decyzje north-star-brownfield-miner, sub-gate-rows-are-the-product, capability-rule-superseded-by-reconstruction; SKILL.md i system.md §0 zaktualizowane; commit 4cf2a96 wypchnięty na gałąź sesji). Tickety 093 (instrument rekonstrukcji, HIGH), 094 (renderer propozycji .yggdrasil/), 095 (krata maintainera). 093 w toku: Opus w worktree, gałąź instr/093-reconstruct; wzorzec /home/user/Yggdrasil (unshallow, 1564 commity) + examples/*. Stare pozycje kolejki 091/092 dropped (zawieszone). Pętla /loop dynamic uruchomiona na życzenie użytkownika; prywatne repo-wzorce niedostępne.
 
 ## In flight
-- 55 branch:research/092 —  (since 2026-09-05T04:17:29.215Z, reports to lead)
+- 56 branch:instr/093-reconstruct —  (since 2026-09-05T04:36:09.816Z, reports to lead)
 
 ## Pending decisions
 (none)
@@ -32,7 +32,7 @@ Użytkownik przestawił funkcję celu: Grain = miner brownfieldu dla Yggdrasila,
 - - 2026-09-02 merged: 089 80d5b5c
 
 ## Next actions
-- Po potwierdzeniu użytkownika: (1) decide add nowa gwiazda polarna + supersede 'measure-on-tasks-agents-fail-counterfactual-first' i §0 system.md; (2) zaprojektować instrument 'graph reconstruction' (Grain export vs istniejące .yggdrasil/ na Yggdrasil + examples/*: precision/recall typów, mapowań, relacji, granic); (3) projekt komendy renderującej export jako propozycję .yggdrasil/ (typy z partycji+markerów, węzły z cięcia, relacje z krawędzi, archNorms jako deny, aspekty draft, backlog refaktoru z deviatingSites/twins/cykli/reguł pod bramką); (4) wstrzymać prace nad adopcją hooków i paired trials na diffach agenta.
+- Gdy 093 zaraportuje: zweryfikować jak hub (diff, test czerwono-zielony, pełna suita, liczby z przebiegu nie z docs), premerge.mjs instr/093-reconstruct, merge do gałęzi sesji, wave start. Z najgorszych chybień rekonstrukcji założyć tickety. Potem 094 do Opusa z liczbami z 093. Yggdrasil: git status musi być czysty po pracy workera.
 
 ## Notes
 (none)

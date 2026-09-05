@@ -295,3 +295,9 @@ LEKCJA z uruchomienia Graina na Yggdrasilu (2026-09-05, 93 s, 19 partycji, 273 g
 
 ## 2026-09-05 · capability-rule-superseded-by-reconstruction · class G
 Reguła zdolności 'measure-on-tasks-agents-fail-counterfactual-first' (092) dotyczyła starej funkcji celu i zostaje ZAWIESZONA, nie obalona: pozostaje w mocy, gdyby ktoś wrócił do zdolności agentowych. Nowa reguła zdolności pod nową gwiazdą: żadna nowa zdolność bez (1) wzorca — repo z istniejącym ręcznym .yggdrasil/ — i (2) instrumentu rekonstrukcji, który liczy precision/recall propozycji Graina względem tego wzorca. Pierwszy instrument G' = 'graph reconstruction' na Yggdrasilu (1564 commity po unshallow) i examples/*.
+
+## 2026-09-05 · fix-bugs-on-sight
+USER RULING (2026-09-05): każdy błąd znaleziony po drodze (w silniku Graina, instrumentach, dokumentach) naprawiamy od razu, w zakresie ticketu, w którym go znaleziono, z testem czerwono-zielonym — nie odkładamy do osobnego ticketu, chyba że naprawa wymaga decyzji o stałej/akceptacji (wtedy eskalacja jak dotąd). Yggdrasil pozostaje read-only: błąd w Yggdrasilu tylko odnotowujemy w raporcie.
+
+## 2026-09-05 · oracle-is-fallible-report-disagreements-symmetrically · ticket 093 · class G
+USER (2026-09-05): architektura Yggdrasila może nie być idealna. Konsekwencja dla instrumentu rekonstrukcji: rozjazd Grain vs ręczny graf NIE jest automatycznie chybieniem Graina. Każdy rozjazd raportować symetrycznie jako jedną z trzech klas: (a) Grain nie widzi (chybienie minera), (b) graf ręczny jest dłużny (dług grafu — kod praktykuje coś innego niż deklaracja), (c) nierozstrzygalne bez człowieka. Klasyfikuje maintainer na próbce; próbka rozstrzygnięta staje się prawdą referencyjną. Precision/recall liczone WYŁĄCZNIE na (a)+(b) po rozstrzygnięciu; przed rozstrzygnięciem publikujemy surowy rozjazd z podziałem. Ten sam raport jest dla użytkownika listą długu architektonicznego Yggdrasila — informacyjnie, nic tam nie zmieniamy.
