@@ -1,20 +1,20 @@
 {
-  "at": "2026-09-05T06:39:17.320Z",
+  "at": "2026-09-05T06:42:10.289Z",
   "by": "director",
-  "head": "claude/grain-agent-tool-b89y0x@335f501",
-  "summary": "Wave 6: 093, 096, 094 scalone i zweryfikowane (suita 2217/2217). 094: Grain pisze ładowalny .yggdrasil/ dla Yggdrasila — typy 21/36 (24 z alternatywami) przy precyzji 23/82, węzły 24/66 na ≥5 plikach, 43 wykonywalne check.mjs, drill sweep 208/29/0 FA, yg check ładuje propozycję z jednym prawdziwym błędem (cykl). 096: 'za dużo' jako nadwyżka codelength — Yggdrasil check.ts rank 1/4, Grain core.mjs rank 1; produkt = ranking, nie flaga. Trzy memo Fable: law loop (B1), ecosystem design, trzecie w toku (rewrite Yggdrasila? factory jako jeden koncept?). W locie: 097 (Opus, pomiar B1 z hold-outem, bramki ≥10/20 w werdykcie, precyzja ≥0.80), 098 (Sonnet, dług grafu per 100 commitów, sizing.json), counsel-3 (Fable). Lekcje: premerge tylko z głównego checkoutu z --base; podłogi w instrumentach dopuszczalne, jeśli nazwane i zmierzone.",
+  "head": "claude/grain-agent-tool-b89y0x@2a5cec8",
+  "summary": "Trzy memo Fable scalone (law loop; ecosystem design; rewrite+factory: 2a5cec8). Werdykty: nie przepisywać Yggdrasila (opcja iii + strangler z rankingu 096), fabryka = jeden łańcuch/dwie epistemologie/trzy bramki, nie monorepo; 'factory' nie na README do pierwszego podpisanego incydentu; progi E1/E2/E6/E7/E8 są użytkownika. Zapisane jako no-rewrite-one-chain-three-gates. W locie: 097 (Opus), 098 (Sonnet). 093/094/096 scalone, suita 2217/2217.",
   "inFlight": [
     {
       "name": 59,
       "task": "",
-      "since": "2026-09-05T06:39:17.328Z",
+      "since": "2026-09-05T06:42:10.299Z",
       "reportsTo": "lead",
       "branch": "research/097-law-loop"
     },
     {
       "name": 60,
       "task": "",
-      "since": "2026-09-05T06:39:17.328Z",
+      "since": "2026-09-05T06:42:10.299Z",
       "reportsTo": "lead",
       "branch": "fix/098-graph-currency"
     }
@@ -55,7 +55,7 @@
     "- 2026-09-05 merged: 094 8d65a2c"
   ],
   "nextActions": [
-    "Odbiór counsel-3 → przetłumaczyć użytkownikowi (dwa pytania: przepisanie Yggdrasila, fabryka jako jeden koncept). Odbiór 097 (decyzja B1 po bramkach; próbka 20 kandydatów DO KLASYFIKACJI PRZEZ UŻYTKOWNIKA) i 098 jak hub. Potem: 099 (cap fileScopes), 095 (krata) — czy wchłonięte przez 094 (lattice sub-gate w propose.mjs) → sprawdzić i zamknąć lub doprecyzować. Zamknięcie fali 6: wersje bez zmian (zero zmian silnika), wave close --suite. Yggdrasil: git status czysty po każdym workerze."
+    "Odbiór 097 i 098 jak hub (premerge z głównego checkoutu, --base). Po 097: próbka 20 kandydatów + 59 typów do klasyfikacji przez użytkownika — przygotować jedną tabelę. Zamknięcie fali 6. Kandydaci następnej fali (Grain): 099 cap fileScopes; 095 sprawdzić czy wchłonięte przez 094; grain propose jako komenda produktu dopiero po zmierzeniu podłóg; próba 'Grain jako brownfield nr 2' (094 na Grainie, użytkownik ocenia). Poza Grainem — lista dla użytkownika w decyzji ecosystem-design-scope-split i no-rewrite-one-chain-three-gates."
   ],
   "notes": []
 }
