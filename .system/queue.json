@@ -720,6 +720,16 @@
       "state": "queued",
       "note": "po 104; klasa 6 — użytkownik zatwierdza",
       "updated": "2026-09-05 12:29"
+    },
+    {
+      "id": 67,
+      "ticket": "107",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/107-advisory-candidates",
+      "state": "running",
+      "note": "enforced tylko certified+drill; lattice+drill → advisory = kandydaci; 106 nazwa aspektu przy okazji",
+      "updated": "2026-09-05 13:26"
     }
   ]
 }
