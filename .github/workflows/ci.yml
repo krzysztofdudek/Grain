@@ -53,6 +53,22 @@ jobs:
         with:
           repository: krzysztofdudek/Horde
           path: horde
+      # The two repositories the in-tree hand oracles under tests/stress/oracles/ describe. Pinned to the exact
+      # commits those oracles were written against — the oracle asserts file counts and mappings, so a moving
+      # default branch would fail the guard for a reason that has nothing to do with this repository. Without
+      # them the oracle tests skip with a reason and the rest of the suite is unaffected.
+      - name: checkout the express corpus clone
+        uses: actions/checkout@v4
+        with:
+          repository: expressjs/express
+          ref: 023767fe9872e029271df1418f73401bff20ff40
+          path: corpus/express
+      - name: checkout the spring-petclinic corpus clone
+        uses: actions/checkout@v4
+        with:
+          repository: spring-projects/spring-petclinic
+          ref: 818c4136ea971c21674525f9053de0d9c7ad8cfe
+          path: corpus/spring-petclinic
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -73,3 +89,8 @@ jobs:
           YGG_DIR: ${{ github.workspace }}/yggdrasil
           HORDE_DIR: ${{ github.workspace }}/horde
         run: node --test tests/seams.test.mjs
+      - name: run the reconstruction guard against the hand oracles
+        working-directory: grain/plugins/grain
+        env:
+          GRAIN_CORPUS_CLONES: ${{ github.workspace }}/corpus
+        run: node --test tests/reconstruct.test.mjs
