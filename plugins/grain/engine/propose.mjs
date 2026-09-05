@@ -160,7 +160,12 @@ function gitFiles(repo) {
       const m = /^(\d{6}) [0-9a-f]+ \d+\t(.*)$/s.exec(rec);
       if (!m) continue;
       if (m[1] === '160000') continue; // gitlink: a nested checkout, not a file of this repository
-      files.push(m[2].split('\\').join('/'));
+      // The path is taken VERBATIM. `-z` output is never quoted and git stores `/` as the separator on every
+      // platform, Windows included, so there is no separator here to normalise — and a `\` in the record is a
+      // filename character, legal on POSIX. Folding it to `/` could only corrupt such a path, and did:
+      // `src/we\ird.ts` became `src/we/ird.ts`, a file mapped into a directory that does not exist, sized at
+      // zero bytes because nothing on disk answers to it, and named by a node mapping `yg check` cannot resolve.
+      files.push(m[2]);
     }
     return files;
   } catch {
