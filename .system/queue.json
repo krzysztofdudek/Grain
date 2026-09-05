@@ -631,6 +631,16 @@
       "state": "running",
       "note": "Opus spawned, worktree, research/096-too-much",
       "updated": "2026-09-05 05:20"
+    },
+    {
+      "id": 59,
+      "ticket": "097",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/097-law-loop",
+      "state": "queued",
+      "note": "po 094; bramki zapisane w tickecie",
+      "updated": "2026-09-05 05:34"
     }
   ]
 }

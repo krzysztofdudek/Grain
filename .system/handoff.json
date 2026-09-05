@@ -1,14 +1,22 @@
 {
-  "at": "2026-09-05T05:25:27.984Z",
+  "at": "2026-09-05T05:34:04.480Z",
   "by": "director",
-  "head": "claude/grain-agent-tool-b89y0x@fdd19c9",
-  "summary": "093 scalone (fdd19c9), suita 2194/2194, wave 6 otwarta. Wynik rekonstrukcji na Yggdrasilu: typy 19/36 (7 więcej Grain już ma jako karty katalogów/grupy ról, ale nie oferuje jako typów), relacje na poziomie węzłów 1105/1236 recall 0.894, cykle 2/2, mapowania węzłów 83/393 (250 węzłów jednoplikowych — granularność, nie ślepota), aspekty deterministyczne 11/57 (20 chybień pod bramką λ, 6 reguł o nieobecności niewidocznych z konstrukcji, 20 bez literału). Naprawiony błąd: NUL w źródle instrumentu. Spawnuję dwóch Opusów: 094 (renderer propozycji .yggdrasil/ + pomiar recall propozycji tym samym instrumentem) i 096 (matematyka 'za dużo' + pomiar na Yggdrasilu i Grainie).",
+  "head": "claude/grain-agent-tool-b89y0x@3f1fe03",
+  "summary": "Memo Fable-counsel scalone (3f1fe03): przełom = PĘTLA PRAWA (B1) — Grain renderuje deterministyczne check.mjs z drills z hold-outem czasowym, yg simulate/drill scoruje, draft→advisory na kontrakcie 0/0, enforced tylko podpisem człowieka, retirement z catch/exposure. Zapisane jako law-loop-is-the-bet. Steer do 094: check.mjs zamiast prozy + drills. Nowe tickety: 097 (pomiar B1, bramki ≥10/20 w werdykcie, precyzja ≥0.80), 098 (B2 graf przy wave close). Horde przeczytany; użytkownik doprecyzował wizję: ekosystem, od człowieka tylko wymagania. W locie: 094, 096 (Opus).",
   "inFlight": [
     {
-      "name": "counsel-factory",
-      "task": "Fable counsel on research/counsel-factory — memo .system/research/counsel-factory-2026-09-05.md: the breakthrough for Grain/Yggdrasil toward the self-guarding software factory; Horde cloned read-only at /home/user/krzysztofdudek/horde",
-      "since": "2026-09-05T05:25:27.984Z",
-      "reportsTo": "lead"
+      "name": 57,
+      "task": "",
+      "since": "2026-09-05T05:34:04.489Z",
+      "reportsTo": "lead",
+      "branch": "research/094-propose"
+    },
+    {
+      "name": 58,
+      "task": "",
+      "since": "2026-09-05T05:34:04.489Z",
+      "reportsTo": "lead",
+      "branch": "research/096-too-much"
     }
   ],
   "pendingDecisions": [],
@@ -47,7 +55,7 @@
     "- 2026-09-05 merged: 093 fdd19c9"
   ],
   "nextActions": [
-    "Odbiór 094 i 096 jak hub: diff, red-green, suita, liczby z przebiegu. 094: decyzja czy renderer wchodzi jako komenda produktu (Sonnet) — bramka: recall typów z propozycji ≥ 26/36 bez nowego miningu, zero fabrykacji (każda propozycja z dowodem). 096: bramka — wskazuje check.ts (Yggdrasil) i core.mjs (Grain) oraz wskaźnik odpaleń na czystych plikach. Potem 095 jako część 094 albo osobno."
+    "Odbiór 094 i 096 jak hub. Po 094: spawn Opus na 097 (bramki już w tickecie). Po 096: decyzja, czy 'za dużo' wchodzi do renderera jako backlog. 098 po 094 (Sonnet). Przetłumaczyć użytkownikowi sedno memo (zrobione w czacie). Yggdrasil git status czysty po każdym workerze."
   ],
   "notes": []
 }
