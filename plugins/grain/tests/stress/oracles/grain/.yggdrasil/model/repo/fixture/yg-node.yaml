@@ -1,0 +1,12 @@
+name: Fixture Builder
+type: fixture-builder
+description: >-
+  Builds the small service repository the suite and every documented example run against:
+  convention-dense directories, a scripted history with pinned dates so two builds are byte-identical,
+  and exactly one deviant planted in the last commit. The planted conventions are the ground truth every
+  assertion about a printed answer is measured against.
+relations:
+  - target: plugin/entry
+    type: uses
+mapping:
+  - tests/fixtures/

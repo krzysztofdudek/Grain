@@ -1,0 +1,27 @@
+name: ApplicationPrototype
+type: library-core
+description: >-
+  `lib/application.js` - the object every express app inherits from. It owns
+  the settings store (etag, trust proxy, query parser, view engine), builds the
+  base router lazily on first access, delegates every HTTP verb to that router,
+  renders views through the View constructor, and wraps `http.createServer` in
+  `listen`. It reaches the request and response prototypes only through
+  properties the factory set on the app (`this.request`, `this.response`), never
+  by requiring them.
+mapping:
+  - lib/application.js
+ports:
+  settings:
+    description: >-
+      Application configuration and view rendering, as seen from inside a live
+      request. A prototype mixed onto a node HTTP object reads this off the
+      object it was called on - `this.app`, or `this.req.app` - because
+      requiring this module from there would close a cycle in the module graph
+      that node would have to resolve with a half-initialised export.
+    aspects:
+      - app-access-through-this
+relations:
+  - target: package/support/view
+    type: calls
+  - target: package/support/utils
+    type: uses

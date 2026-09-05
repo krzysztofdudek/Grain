@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter, describeRow } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -456,7 +456,7 @@ test('computeSizing reports scopes as null, not zero, when the tree cache is abs
   const bareDir = join(tmp, 'no-cache-repo');
   mkdirSync(join(bareDir, 'src', 'api'), { recursive: true });
   writeFileSync(join(bareDir, 'src', 'api', 'alpha-handler.ts'), 'export function h() { return 1; }\n');
-  const s = computeSizing(bareDir, [], [{ id: 'x', dir: 'src/api', ownFiles: new Set(['src/api/alpha-handler.ts']), organizational: false }], null, []);
+  const s = computeSizing(bareDir, [{ id: 'x', dir: 'src/api', ownFiles: new Set(['src/api/alpha-handler.ts']), organizational: false }], null, []);
   assert.equal(s.scopesAvailable, false);
   assert.equal(s.proposedNodes[0].scopes, null, 'an absent scope cache must never be misread as zero scopes');
 });
@@ -521,4 +521,104 @@ test('the YAML emitter quotes what YAML would otherwise re-read as something els
   // and it round-trips through the reader the instruments actually use
   const doc = { name: 'X', when: { all_of: [{ path: 'a/**' }, { not: { path: '**/*.test.ts' } }] }, mapping: ['a/'] };
   assert.deepEqual(parseYaml(yamlEmit(doc)), doc);
+});
+
+// ---------- 13. the node charter names the rules that govern the node (dry run 112) ----------
+//
+// `charter.md` is the ONE file Horde's `node.mjs show` reads out of a proposal, so a charter that
+// cannot name a rule leaves the layer above the graph with no rule at all. The aspect's `host` is a
+// TYPE id (`src-api`); a node's `id` is a PATH (`src/api`) and its `type` is the type id — matching
+// the host against the id instead of the type silently emptied every charter on a repository whose
+// directories are not already slugs.
+test('a node charter lists the certified conventions and sub-gate candidates hosted by its own TYPE', () => {
+  const node = { id: 'src/api', type: 'src-api', dir: 'src/api', files: new Set(['src/api/a.ts']), ownFiles: new Set(['src/api/a.ts']), relations: [], why: 'a partition' };
+  const aspects = [
+    { id: 'grain/src-api/partition-nameshape', host: 'src-api', origin: 'certified-convention', name: 'types here are named PascalCase', share: 1, n: 25, deviating: 0, exemplars: [] },
+    { id: 'grain/src-api/candidate-auto-imp-x', host: 'src-api', origin: 'sub-gate-lattice', name: 'files here import `x`', share: 0.8, n: 24, deviating: 6, exemplars: [] },
+    { id: 'grain/other/unrelated', host: 'src-util', origin: 'certified-convention', name: 'not this node', share: 1, n: 5, deviating: 0, exemplars: [] },
+  ];
+  const md = renderNodeCharter(node, { nodes: [node], aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: '/tmp/x' });
+  assert.match(md, /types here are named PascalCase/, 'the certified convention hosted by this node\'s type is missing from its charter');
+  assert.match(md, /files here import `x`/, 'the sub-gate candidate hosted by this node\'s type is missing from its charter');
+  assert.doesNotMatch(md, /not this node/, 'a rule hosted by another type must not appear');
+});
+
+// ---------- 14. a promoted check's own header stops calling itself a draft (dry run 112) ----------
+//
+// `promoteEnforceableAspects` rewrites `yg-aspect.yaml` when a drill earns `enforced` or `advisory`,
+// and used to leave `check.mjs` exactly as written — including the header stating that the aspect is
+// `status: draft` and that "the runner never executes this check". On a delivered proposal that
+// sentence is false for every promoted rule, and it is the first thing a maintainer opening the file
+// reads while Yggdrasil is running it.
+test('promotion rewrites the check.mjs header, so a promoted check never says the runner skips it', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const t3 = mkdtempSync(join(tmpdir(), 'header-'));
+  const outDir3 = join(t3, 'proposal');
+  const ygg = join(outDir3, '.yggdrasil');
+  mkdirSync(join(ygg, 'model'), { recursive: true });
+  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '5.2.0' }));
+  writeFileSync(join(ygg, 'yg-architecture.yaml'), yamlEmit({ node_types: { project: { description: 'root' } } }));
+
+  const draftHeader = [
+    '// PROVENANCE — grain measured this, it did not decide it.',
+    '//   a test rule',
+    '//',
+    '// DRAFT: this aspect is `status: draft`, so the runner never executes this check. Read it, decide whether the',
+    '// rule is real, then promote it.',
+    '// `errs: under` is the contract this template keeps: it reports only where the',
+    '// syntax tree proves the negation, and stays silent where the language gives it nothing to read.',
+  ].join('\n');
+  const body = "\nimport { walk } from '@chrisdudek/yg/ast';\nexport function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.content.includes('BAD')) v.push({ file: file.path, line: 1, column: 0, message: 'hit' });\n  return v;\n}\n";
+
+  const writeAspect = (id, origin, violatesHasBad) => {
+    const dir = join(ygg, 'aspects', id);
+    mkdirSync(join(dir, 'drills', 'violates-case'), { recursive: true });
+    writeFileSync(join(dir, 'yg-aspect.yaml'), yamlEmit({ name: id, description: id, status: 'draft', errs: 'under', scope: { per: 'file' } }));
+    writeFileSync(join(dir, 'check.mjs'), draftHeader + body);
+    writeFileSync(join(dir, 'drills', 'violates-case', 'case.txt'), violatesHasBad ? 'this file is BAD\n' : 'this file is fine\n');
+    return { id, check: draftHeader + body, kind: null, origin, drillViolatesWritten: 1, drillSatisfiesWritten: 0 };
+  };
+  const aspects = [
+    writeAspect('promoted-enforced', 'certified-convention', true),
+    writeAspect('promoted-advisory', 'sub-gate-lattice', true),
+    writeAspect('stays-draft', 'certified-convention', false),
+  ];
+  promoteEnforceableAspects(aspects, { ygg, outDir: outDir3, evidence: aspects.map(a => ({ kind: 'aspect', id: a.id })), asOf: '2026-01-01', repo: t3 });
+
+  const headerOf = (id) => readFileSync(join(ygg, 'aspects', id, 'check.mjs'), 'utf8');
+  assert.equal(aspects[0].finalStatus, 'enforced');
+  assert.doesNotMatch(headerOf('promoted-enforced'), /the runner never executes this check/,
+    'an enforced check still tells its reader the runner skips it');
+  assert.match(headerOf('promoted-enforced'), /ENFORCED:/);
+  assert.equal(aspects[1].finalStatus, 'advisory');
+  assert.doesNotMatch(headerOf('promoted-advisory'), /the runner never executes this check/,
+    'an advisory check still tells its reader the runner skips it');
+  assert.match(headerOf('promoted-advisory'), /ADVISORY:/);
+  assert.equal(aspects[2].finalStatus, 'draft');
+  assert.match(headerOf('stays-draft'), /DRAFT: this aspect is/, 'a draft check keeps its draft header');
+  for (const id of ['promoted-enforced', 'promoted-advisory', 'stays-draft']) {
+    assert.match(headerOf(id), /`errs: under` is the contract this template keeps/, id);
+  }
+
+  rmSync(t3, { recursive: true, force: true });
+});
+
+// ---------- 15. the sentence a rule states about itself (dry run 112) ----------
+//
+// `describeRow` (ticket 109 folded ticket 112`s `describePid` into it) writes the statement that becomes the aspect's `name:` and `description:`, and so the
+// line an agent reads in `yg context --file`, `yg aspects` and every `yg check` warning. Three of its
+// classes were wrong on a real repository: a decorator identifier already carries its `@`, so the
+// statement doubled it; a name-shape rule keeps its shape in `expected`, not in the pid, so the
+// statement named an empty shape; and `filenameshape` had no entry at all, so the fallback printed
+// grain's internal pid to the user.
+test('a rule states itself in words, with no doubled marker, no empty shape and no internal pid', () => {
+  assert.equal(describeRow('auto.deco:@SpringBootTest', 'true'), 'carry `@SpringBootTest`');
+  assert.equal(describeRow('auto.deco:pytest.fixture', 'true'), 'carry `@pytest.fixture`');
+  // the shape lives in `expected`, so the sentence must carry it and never an empty pair of backticks
+  assert.match(describeRow('auto.nameshape', 'a(Ua)+'), /camelCase/);
+  assert.doesNotMatch(describeRow('auto.nameshape', 'a(Ua)+'), /``/);
+  assert.match(describeRow('auto.filenameshape', '(Ua)+'), /file name PascalCase/);
+  assert.doesNotMatch(describeRow('auto.filenameshape', '(Ua)+'), /``/);
+  assert.equal(describeRow('auto.imp:jakarta.persistence.Entity', 'true'), 'import `jakarta.persistence.Entity`');
+  // an unknown class still says something, and still never prints the raw pid to a human
+  assert.doesNotMatch(describeRow('auto.mods', 'true'), /auto\./);
 });

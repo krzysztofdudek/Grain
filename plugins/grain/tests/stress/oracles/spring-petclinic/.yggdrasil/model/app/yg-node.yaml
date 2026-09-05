@@ -1,0 +1,9 @@
+name: Application
+type: module
+description: "The Java application source set (src/main/java) — bootstrap, the shared entity bases, and the three feature areas (owner, vet, system). Everything the running application is made of lives under here."
+aspects:
+  # Attached to the source set rather than to the controller type on purpose:
+  # the point of the rule is that this annotation appears nowhere in
+  # production code, including in a class that is not a controller yet.
+  - no-rest-controller
+relations: []

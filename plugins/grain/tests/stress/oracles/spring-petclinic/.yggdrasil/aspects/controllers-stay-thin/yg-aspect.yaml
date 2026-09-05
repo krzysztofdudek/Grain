@@ -1,0 +1,8 @@
+name: ControllersStayThin
+description: "A controller maps a request, binds and validates the form, asks persistence for what it needs, and picks a view. Business decisions belong on the domain object. ADVISORY: one handler in the pet area currently copies form fields onto an existing pet inside the controller, which is exactly the kind of logic this rule wants on the entity — advisory keeps that visible without blocking unrelated work."
+reviewer:
+  type: llm
+status: advisory
+review_by: 2027-03-01
+scope:
+  per: file

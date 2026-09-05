@@ -1,0 +1,8 @@
+name: Templates
+type: template
+description: "Every Thymeleaf template in the application: nine pages plus three fragments. A page never repeats the chrome — it replaces itself into the shared layout fragment and passes the menu id that decides which navigation entry is highlighted. The two form fragments (input field, select field) are what every form is built from."
+aspects:
+  - menu-id-is-known
+mapping:
+  - src/main/resources/templates/
+relations: []

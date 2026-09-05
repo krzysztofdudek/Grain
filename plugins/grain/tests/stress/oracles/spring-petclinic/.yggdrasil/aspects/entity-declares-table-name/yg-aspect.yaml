@@ -1,0 +1,9 @@
+name: EntityDeclaresTableName
+description: "Every @Entity names its table explicitly with @Table(name = \"...\"). The schema here is not generated from the entities — it ships as hand-written SQL, one file per dialect, and the application is configured never to alter it. An entity that leaves the table name implicit is relying on a naming strategy to agree with three SQL files nobody re-reads, and the failure surfaces only at startup against a real database."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

@@ -1,0 +1,6 @@
+# Derived state the CLI maintains beside the committed graph. Rebuildable, never committed.
+.feature-field.json
+.drill-results.jsonl*
+.yg-events.jsonl
+.yg-lock.deterministic.json
+.ast-cache/

@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+
+<html xmlns:th="https://www.thymeleaf.org" th:replace="~{fragments/layout :: layout (~{::body},'owners')}">
+
+<body>
+
+  <form th:object="${pet}" class="form-horizontal" method="post">
+    <div class="form-group has-feedback">
+      <input th:replace="~{fragments/inputField :: input ('Name', 'name', 'text')}" />
+      <input th:replace="~{fragments/inputField :: input ('Birth Date', 'birthDate', 'date')}" />
+      <input th:replace="~{fragments/selectField :: select ('Type', 'type', ${types})}" />
+    </div>
+  </form>
+
+</body>
+
+</html>

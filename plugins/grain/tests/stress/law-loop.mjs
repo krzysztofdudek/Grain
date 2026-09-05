@@ -486,7 +486,7 @@ export async function run(opts) {
   let headLattice = [];
   if (!opts.skipLattice) {
     try {
-      const lat = await partitionLattice(repo, { quiet: true });
+      const lat = await partitionLattice(repo);
       headLattice = subGate(lat.rows);
       say(opts, `HEAD lattice: ${lat.rows.length} rows · ${headLattice.length} in the sub-gate band`);
     } catch (e) { say(opts, `HEAD lattice unavailable (${e.message}) — sub-gate candidates get no independent label`); }

@@ -1,0 +1,8 @@
+name: NoHardcodedUserVisibleText
+description: "Text a user reads comes from a message bundle, in every place a template can produce it. ADVISORY: two forms currently hold English strings that reach the page in every locale — one as a fragment argument, one as a ternary inside a button — and the repository's own scan cannot see either, which is why judgment is doing the work here."
+reviewer:
+  type: llm
+status: advisory
+review_by: 2027-03-01
+scope:
+  per: file

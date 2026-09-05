@@ -1,0 +1,17 @@
+name: Constant Table
+type: engine-config
+description: >-
+  The single source of every path, acceptance constant, vocabulary floor, exclusion pattern and
+  cache-version key in the engine, plus the one declared per-language datum in the whole product: the
+  map from file extension to grammar. It imports nothing first-party, which is what lets it be the sink
+  of the engine's dependency graph and what makes "change the number in one place" true.
+ports:
+  constants:
+    description: >-
+      The constant table itself. A consumer takes these values by import and never restates one: a
+      redeclared threshold is a second source of truth that drifts silently, and a redeclared cache
+      key means a store that is stale without saying so.
+    aspects:
+      - engine/constants-only-in-config
+mapping:
+  - plugins/grain/engine/config.mjs

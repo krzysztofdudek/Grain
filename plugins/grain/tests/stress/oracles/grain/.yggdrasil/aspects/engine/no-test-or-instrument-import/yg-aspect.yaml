@@ -1,0 +1,21 @@
+name: NoTestOrInstrumentImport
+description: >-
+  Nothing that ships — an entry point, the dispatcher, any engine module — may import a file from the
+  test tree. Not a test, not a harness, not a measurement instrument.
+
+  This one is written from a defect that actually happened here and was actually paid for. The reader
+  for hand-written architecture graphs first appeared inside a measurement instrument, and the product
+  command that writes such a graph imported it from there — putting a shipped command downstream of a
+  test file, so a change made for a measurement could alter what a user's command produced, and the
+  shipped package depended on a directory that has no business being shipped. The fix moved the code
+  verbatim into the engine and had the instrument re-export it, which is the shape the rule now protects:
+  dependencies point from the tests INTO the product and never back out.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

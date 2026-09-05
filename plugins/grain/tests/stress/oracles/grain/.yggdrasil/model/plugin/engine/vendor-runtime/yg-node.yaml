@@ -1,0 +1,8 @@
+name: Vendored Parser Runtime
+type: vendored-runtime
+description: >-
+  The parser runtime, taken as shipped with its licence and version file beside it. It is inside the
+  plugin so that nothing is downloaded at runtime and no network call is needed to answer a question —
+  the property the whole "nothing leaves your machine" promise rests on.
+mapping:
+  - plugins/grain/engine/vendor/web-tree-sitter/

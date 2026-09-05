@@ -1,0 +1,17 @@
+name: EveryInstrumentHasAGuardianTest
+description: >-
+  Every measurement instrument must be named by at least one test in the conformance suite.
+
+  An instrument is deliberately outside the gate, which means nothing runs it on a push and nothing
+  notices when it rots. That matters more here than usual, because instruments are the only reason this
+  project's claims are believed: a measurement is retested by re-running its instrument, and an
+  instrument that has silently stopped importing, stopped parsing, or started measuring something else
+  makes the record it produced unfalsifiable rather than wrong. The guardian test is small on purpose —
+  it holds the instrument's contract, not its runtime — so the cost of keeping it honest is a few
+  seconds per push.
+
+  ADVISORY, because one of the eight instruments has no guardian today: the scale-ladder corpus runner.
+  Seven do. Promote to enforced once the eighth has one.
+errs: under
+status: advisory
+review_by: 2026-12-01

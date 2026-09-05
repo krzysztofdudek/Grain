@@ -1,0 +1,11 @@
+name: Bootstrap
+type: application-bootstrap
+description: "Starts the Spring Boot application and registers the reflection and resource hints a GraalVM native image needs — the SQL scripts, the message bundles, and the three types that are serialized."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/PetClinicApplication.java
+  - src/main/java/org/springframework/samples/petclinic/PetClinicRuntimeHints.java
+relations:
+  - target: app/model
+    type: uses
+  - target: app/vet/entities
+    type: uses

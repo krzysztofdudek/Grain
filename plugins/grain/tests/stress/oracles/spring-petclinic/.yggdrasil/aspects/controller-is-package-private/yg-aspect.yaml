@@ -1,0 +1,9 @@
+name: ControllerIsPackagePrivate
+description: "A Spring MVC controller class is package-private. Spring instantiates it by scanning, so nothing outside its package has a reason to name the type — and once a controller is public, code starts calling its handler methods directly."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

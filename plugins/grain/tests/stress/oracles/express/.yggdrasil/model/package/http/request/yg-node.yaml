@@ -1,0 +1,14 @@
+name: RequestPrototype
+type: library-prototype
+description: >-
+  `lib/request.js` - the prototype grafted onto `http.IncomingMessage`. Header
+  access, content negotiation, and a set of lazily computed getters (query, ip,
+  ips, protocol, hostname, subdomains, fresh, stale, xhr). Six of those getters
+  read application settings through `this.app`; that is this module's only tie
+  to the rest of the library, and it requires nothing from this repository at all.
+mapping:
+  - lib/request.js
+relations:
+  - target: package/application
+    type: uses
+    consumes: [settings]

@@ -1,0 +1,9 @@
+name: WebSliceMocksRepositories
+description: "A controller slice test replaces its repositories with mocks and never autowires a real one. The point of the slice is to answer one question — does this controller map, bind, validate and choose the right view — in milliseconds and with no database. A real repository in a slice test turns it into an integration test wearing the wrong annotation: slower, dependent on seed data, and failing for reasons that have nothing to do with the controller."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

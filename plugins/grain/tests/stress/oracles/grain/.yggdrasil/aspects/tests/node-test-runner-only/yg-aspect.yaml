@@ -1,0 +1,20 @@
+name: PlatformTestRunnerOnly
+description: >-
+  A test file declares its cases with the platform's own test runner and asserts with the platform's own
+  assertion module. No test framework, no assertion library, no fixture library — because the plugin has
+  no runtime dependency and its tests deliberately do not have one either.
+
+  That is what makes "clone it and the suite runs" true on any machine with the platform installed, and
+  what lets the gate run with no install step at all. A single framework import turns the suite into
+  something that needs an install to run, which turns a contributor's first five minutes into a
+  troubleshooting session and gives the gate a network dependency it currently does not have.
+
+  The rule is one import, checked on the syntax tree. It is nearly free to satisfy and the alternative
+  costs the property the whole test setup is built around.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    path: "**/*.test.mjs"

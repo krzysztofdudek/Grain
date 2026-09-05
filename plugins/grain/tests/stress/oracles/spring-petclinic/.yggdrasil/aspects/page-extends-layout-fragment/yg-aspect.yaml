@@ -1,0 +1,13 @@
+name: PageExtendsLayoutFragment
+description: "A page template renders itself into the shared layout fragment and passes the menu id for the navigation entry it belongs to. That single line is what gives every page the same head, the same navigation, the same footer and the same stylesheet links; a page that skips it renders without any of them and looks broken only when someone visits it. The three files under fragments/ are the pieces being composed, not pages, and are exempt."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    all_of:
+      - path: "src/main/resources/templates/**/*.html"
+      - not: { path: "src/main/resources/templates/fragments/**" }

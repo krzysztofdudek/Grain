@@ -1,0 +1,8 @@
+# Yggdrasil-derived local state, rebuilt for free by
+# `yg check --approve --only-deterministic`. Never committed.
+.feature-field.json
+.yg-lock.deterministic.json
+.drill-results.jsonl
+.yg-events.jsonl
+.ast-cache/
+.debug.log

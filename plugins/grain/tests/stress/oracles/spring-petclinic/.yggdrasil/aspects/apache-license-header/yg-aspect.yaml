@@ -1,0 +1,11 @@
+name: ApacheLicenseHeader
+description: "Every Java source file opens with the project's Apache 2.0 header. The repository is published under that licence and contributions arrive under a DCO sign-off; a file with no header is a file whose licence has to be argued from context. ADVISORY, not enforced, because the code does not satisfy it today: three files carry no header at all and one still names an older year range. Enforcing it now would block unrelated work on the backlog of somebody else's omission — the honest state is to keep the rule visible and fix the four files first."
+reviewer:
+  type: deterministic
+status: advisory
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "**/*.java"

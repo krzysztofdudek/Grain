@@ -1,0 +1,14 @@
+name: ExampleUsesPackageEntry
+description: >-
+  Code outside the published library obtains express through the package entry,
+  never through a path into `lib/`.
+status: advisory
+errs: under
+review_by: 2027-03-01
+when:
+  node:
+    type: example-app
+scope:
+  per: file
+  files:
+    path: "examples/**/*.js"

@@ -1,0 +1,7 @@
+name: MessageBundlesAreInSync
+description: "Every translated bundle carries every key the base bundle declares. A missing key does not fall back to English — Thymeleaf renders the raw key surrounded by question marks straight into the page, so the failure is visible to the user of that language and to nobody else. messages_en.properties is the one deliberate exception: it is empty on purpose so English resolves through the base bundle."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01

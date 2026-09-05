@@ -1,0 +1,10 @@
+name: DatabaseScripts
+type: db-script
+description: "Schema and seed data for the three supported databases. The application runs one of these directory sets at startup, chosen by the active profile, so the three schemas must describe the same database — the same seven tables, and the same uniqueness guarantee on a pet's name within an owner. The relations to the entity components exist so the rules here can read the entity mappings they are checked against."
+mapping:
+  - src/main/resources/db/
+relations:
+  - target: app/owner/entities
+    type: uses
+  - target: app/vet/entities
+    type: uses

@@ -1,0 +1,9 @@
+name: BinderDisallowsNestedIds
+description: "Every @InitBinder method that configures a WebDataBinder must disallow both `id` and `*.id`. Form binding writes straight into an entity, so a request that carries an id field can re-target the save at somebody else's row. Blocking only the top-level `id` leaves the nested path (`pet.id` on an owner form) wide open — which is exactly the hole this repository closed once already, and the same commit also found a binder that disallowed nothing at all."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

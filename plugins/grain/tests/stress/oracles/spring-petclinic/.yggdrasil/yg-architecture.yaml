@@ -1,0 +1,447 @@
+# yg-architecture.yaml — spring-petclinic (pinned at 818c4136).
+#
+# Hand-written by a maintainer reading the tree, not generated.
+#
+# The vocabulary follows what the code actually is, not what a generic
+# "Spring layered app" diagram says it should be. Two facts shape everything
+# below and are worth stating up front, because a naive Spring architecture
+# gets both wrong:
+#
+#   1. `model/` holds NO entities. It holds three @MappedSuperclass bases
+#      (BaseEntity, NamedEntity, Person) that carry the id/name/person
+#      columns. Every real @Entity lives in its own feature package —
+#      owner/ (Owner, Pet, PetType, Visit) and vet/ (Vet, Specialty).
+#      So "entities live in model/" would be false here; "entities extend
+#      one of the model/ bases" is true and is the rule that got written.
+#
+#   2. There is no service layer, and that is deliberate. Controllers talk
+#      to Spring Data repositories directly; behaviour that would live in a
+#      service sits on the aggregate root (Owner.addPet, Owner.addVisit).
+#      There is no PetRepository and no VisitRepository — pets and visits
+#      are persisted through Owner's cascade. No `service` type is defined,
+#      because defining one would invite code the design does not want.
+#
+# Relation policy is deny-by-default everywhere. Every allowed edge below is
+# an edge the code actually has (or a read boundary a rule needs), never a
+# speculative one.
+
+node_types:
+
+  # ── Organizational types (no when — parents only, never own files) ──
+
+  module:
+    description: "A source set — the application code, the user interface, the runtime resources, the tests. The four of them are the top level of this graph: everything else hangs off one of them. Owns no files itself."
+    parents: []
+    relations:
+      uses: ['*']
+      default: deny
+
+  feature-area:
+    description: "A feature area inside a source set — owner, vet, system. Owns no files itself; it exists so the layers of one feature share a parent, and so a rule or a relation that belongs to the whole feature has somewhere to be declared."
+    parents: [module]
+    relations:
+      uses: ['*']
+      default: deny
+
+  # ── Application bootstrap ──
+
+  application-bootstrap:
+    description: "Spring Boot entry point and the AOT/native runtime-hints registrar that travels with it — the two top-level classes in the root package. Wires nothing itself; it starts the context and tells GraalVM which resources and serializable types to keep."
+    enforce: strict
+    when:
+      all_of:
+        - path: "src/main/java/org/springframework/samples/petclinic/*.java"
+        - not:
+            path: "**/package-info.java"
+    aspects:
+      - id: no-stdout-in-production-code
+        status: enforced
+      - constructor-injection-only
+      - id: apache-license-header
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      uses: [mapped-superclass, entity]
+      default: deny
+
+  # ── Domain / persistence ──
+
+  mapped-superclass:
+    description: "A JPA @MappedSuperclass in model/ — the shared column and identity bases (id, name, first/last name) every entity in the application inherits. Depends on nothing inside the application: it is the bottom of the dependency order and must stay there."
+    enforce: strict
+    when:
+      all_of:
+        - path: "src/main/java/**/*.java"
+        - content: "@MappedSuperclass"
+    aspects:
+      - domain-free-of-web
+      - id: no-stdout-in-production-code
+        status: enforced
+      - constructor-injection-only
+      - id: apache-license-header
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  entity:
+    description: "A JPA @Entity — a persistent domain object mapped to one table. Every entity here extends one of the model/ mapped superclasses and declares its table explicitly. Entities carry behaviour (Owner.addPet, Owner.addVisit, Pet.addVisit) because there is no service layer to put it in; what they must never carry is any knowledge of the web."
+    enforce: strict
+    when:
+      all_of:
+        - path: "src/main/java/**/*.java"
+        - content: "@Entity\\b"
+    aspects:
+      - entity-extends-shared-base
+      - entity-declares-table-name
+      - domain-free-of-web
+      - id: no-stdout-in-production-code
+        status: enforced
+      - constructor-injection-only
+      - id: apache-license-header
+        status: advisory
+      - id: validation-lives-with-the-model
+        status: advisory
+    log_required: true
+    parents: [module, feature-area]
+    relations:
+      extends: [mapped-superclass]
+      uses: [entity, mapped-superclass]
+      default: deny
+
+  repository:
+    description: "A Spring Data repository interface — the only way application code reaches the database. Always an interface extending JpaRepository<> or Repository<>, never a hand-written class, and never a target for a native SQL query. Three exist: OwnerRepository, PetTypeRepository, VetRepository. Pets and visits deliberately have none; they are persisted through the Owner aggregate."
+    enforce: strict
+    when:
+      all_of:
+        - path: "src/main/java/**/*.java"
+        - content: "extends\\s+(JpaRepository|Repository)<"
+    aspects:
+      - repository-is-spring-data-interface
+      - no-native-queries
+      - repository-free-of-web
+      - id: no-stdout-in-production-code
+        status: enforced
+      - constructor-injection-only
+      - id: apache-license-header
+        status: advisory
+    log_required: true
+    parents: [module, feature-area]
+    relations:
+      uses: [entity]
+      default: deny
+
+  # ── Web ──
+
+  controller:
+    description: "A Spring MVC @Controller that renders server-side Thymeleaf views. Package-private by convention, constructor-injected, and returning view names that must resolve to real templates. This application renders HTML; it is not a JSON API, so @RestController is not used anywhere (VetController's one JSON endpoint uses @ResponseBody on the single method that needs it)."
+    enforce: strict
+    when:
+      all_of:
+        - path: "src/main/java/**/*.java"
+        - content: "@Controller\\b"
+    aspects:
+      - controller-is-package-private
+      - binder-disallows-nested-ids
+      - view-name-resolves-to-template
+      - id: no-stdout-in-production-code
+        status: enforced
+      - constructor-injection-only
+      - id: apache-license-header
+        status: advisory
+      - id: controllers-stay-thin
+        status: advisory
+    log_required: true
+    parents: [module, feature-area]
+    relations:
+      calls: [repository, web-support]
+      uses: [entity, marshalling-dto, template]
+      default: deny
+
+  web-support:
+    description: "Web-layer collaborators that are neither controllers nor domain objects: the Spring Formatter that turns a PetType to and from its display name, and the hand-written Validator for pet forms. They exist because Spring MVC needs them at binding time; they are wired into controllers through @InitBinder or component scanning."
+    when:
+      all_of:
+        - path: "src/main/java/**/*.java"
+        - content: "implements\\s+(Formatter|Validator)\\b"
+    aspects:
+      - id: no-stdout-in-production-code
+        status: enforced
+      - constructor-injection-only
+      - id: apache-license-header
+        status: advisory
+      - id: validation-lives-with-the-model
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      calls: [repository]
+      uses: [entity]
+      default: deny
+
+  marshalling-dto:
+    description: "A JAXB-annotated wrapper whose only purpose is to give the /vets JSON and XML representation a stable root element. Not persistent, not a domain object — it holds a list of entities and nothing else."
+    when:
+      all_of:
+        - path: "src/main/java/**/*.java"
+        - content: "@XmlRootElement"
+    aspects:
+      - id: no-stdout-in-production-code
+        status: enforced
+      - id: apache-license-header
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      uses: [entity]
+      default: deny
+
+  configuration:
+    description: "A Spring @Configuration class that customises the container — the JCache setup for the vets cache and the i18n/locale-switching MVC configuration. Configuration knows about the framework, never about a domain type."
+    enforce: strict
+    when:
+      all_of:
+        - path: "src/main/java/**/*.java"
+        - content: "@Configuration\\b"
+    aspects:
+      - id: no-stdout-in-production-code
+        status: enforced
+      - id: apache-license-header
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  package-doc:
+    description: "A package-info.java — package-level javadoc and nothing else. Carries no code and therefore no rules."
+    when:
+      path: "src/main/java/**/package-info.java"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  # ── UI resources ──
+
+  template:
+    description: "A Thymeleaf template under src/main/resources/templates. Page templates compose the shared layout fragment and pass it a menu id; the three files under fragments/ are the composable pieces (layout, input field, select field) that pages replace into. Every view name a controller returns has to land on one of these files."
+    when:
+      path: "src/main/resources/templates/**/*.html"
+    aspects:
+      - page-extends-layout-fragment
+      - id: fragment-labels-use-message-keys
+        status: advisory
+      - id: no-hardcoded-user-visible-text
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  stylesheet-source:
+    description: "SCSS sources under src/main/scss. The committed petclinic.css is generated from these by the `css` Maven profile; editing the CSS directly is a mistake the README warns about."
+    when:
+      path: "src/main/scss/**"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  static-asset:
+    description: "Served static content under src/main/resources/static — the generated stylesheet, web fonts and images. Binary or generated; nothing here is hand-authored logic."
+    when:
+      path: "src/main/resources/static/**"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  message-bundle:
+    description: "A localisation bundle under src/main/resources/messages. messages.properties is the source of truth for keys; every translated bundle must carry all of them. messages_en.properties is deliberately empty — English falls back to the base bundle."
+    when:
+      path: "src/main/resources/messages/*.properties"
+    aspects:
+      - message-bundles-are-in-sync
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  db-script:
+    description: "Schema and seed SQL under src/main/resources/db, one directory per supported dialect (h2, mysql, postgres), plus the two setup notes. Spring runs these at startup; the active dialect is chosen by the `database` property. All three dialects must describe the same database."
+    when:
+      path: "src/main/resources/db/**"
+    aspects:
+      - schema-covers-every-entity-table
+      - dialect-schemas-declare-the-same-tables
+      - pet-name-unique-per-owner-in-every-dialect
+    log_required: true
+    parents: [module, feature-area]
+    relations:
+      uses: [entity]
+      default: deny
+
+  app-config:
+    description: "Runtime configuration sitting at the resources root — the base application.properties plus one file per database profile, and the startup banner. Database credentials here are read from the environment with a local default, never written as literals."
+    when:
+      path: "src/main/resources/*"
+    aspects:
+      - credentials-come-from-the-environment
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  # ── Tests, by kind ──
+
+  unit-test:
+    description: "A plain JUnit test with no Spring context — entity behaviour, the pet validator, the pet-type formatter, bean-validation constraints, the crash controller called directly, and the i18n consistency test that walks the source tree. Fast, no container, no database."
+    when:
+      all_of:
+        - path: "src/test/java/**/*.java"
+        - content: "@Test\\b"
+        - not: { content: "@SpringBootTest" }
+        - not: { content: "@WebMvcTest" }
+        - not: { content: "@DataJpaTest" }
+    aspects:
+      - no-stdout-in-production-code
+      - id: apache-license-header
+        status: advisory
+      - id: test-class-name-ends-with-tests
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      uses: ['*']
+      calls: ['*']
+      default: deny
+
+  web-slice-test:
+    description: "A @WebMvcTest slice: one controller under MockMvc with its repositories replaced by @MockitoBean. Never touches a database — a slice test that autowires a real repository has stopped being a slice test."
+    when:
+      all_of:
+        - path: "src/test/java/**/*.java"
+        - content: "@WebMvcTest"
+    aspects:
+      - web-slice-mocks-repositories
+      - no-stdout-in-production-code
+      - id: apache-license-header
+        status: advisory
+      - id: test-class-name-ends-with-tests
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      uses: ['*']
+      calls: ['*']
+      default: deny
+
+  data-slice-test:
+    description: "A @DataJpaTest slice exercising the repositories against a real schema — the closest thing this codebase has to a service-layer test, which is why it is still called ClinicServiceTests."
+    when:
+      all_of:
+        - path: "src/test/java/**/*.java"
+        - content: "@DataJpaTest"
+    aspects:
+      - no-stdout-in-production-code
+      - id: apache-license-header
+        status: advisory
+      - id: test-class-name-ends-with-tests
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      uses: ['*']
+      calls: ['*']
+      default: deny
+
+  integration-test:
+    description: "A @SpringBootTest that boots the whole application — over H2 in-process, or over MySQL/PostgreSQL through Testcontainers or Docker Compose. Several of these double as IDE launchers via a main() method, which is why they are the ones the README points developers at."
+    when:
+      all_of:
+        - path: "src/test/java/**/*.java"
+        - content: "@SpringBootTest"
+    aspects:
+      - no-stdout-in-production-code
+      - id: apache-license-header
+        status: advisory
+      - id: test-class-name-ends-with-tests
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      uses: ['*']
+      calls: ['*']
+      default: deny
+
+  test-support:
+    description: "Test-source files that are not themselves tests: the entity lookup helper shared by the data-slice tests, and the MySQL test application that supplies a Testcontainers-backed datasource. Carrying no @Test, they are excluded from the test-naming rule on purpose."
+    when:
+      all_of:
+        - path: "src/test/java/**/*.java"
+        - not: { content: "@Test\\b" }
+        - not: { content: "@SpringBootTest" }
+        - not: { content: "@WebMvcTest" }
+        - not: { content: "@DataJpaTest" }
+    aspects:
+      - id: apache-license-header
+        status: advisory
+    parents: [module, feature-area]
+    relations:
+      uses: ['*']
+      calls: ['*']
+      default: deny
+
+  load-test-plan:
+    description: "The JMeter plan under src/test/jmeter. Run by hand, never by CI; kept in the repository so a load run is reproducible."
+    when:
+      path: "src/test/jmeter/**"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  # ── Build, CI and repository furniture ──
+
+  build-file:
+    description: "The two interchangeable build definitions (Maven and Gradle) and the Gradle settings file. Both must be able to build the project on their own — CI runs each of them."
+    when:
+      path: "{pom.xml,build.gradle,settings.gradle}"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  build-tooling:
+    description: "Committed build-tool wrappers and their pinned distributions — the Maven and Gradle wrapper scripts and properties. Vendored on purpose so a clone builds with no tooling installed."
+    when:
+      path: "{mvnw,mvnw.cmd,gradlew,gradlew.bat,gradle/wrapper/**,.mvn/**}"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  ci-workflow:
+    description: "GitHub Actions workflows and repository automation policy under .github — the Maven build, the Gradle build, the Kubernetes deploy-and-test job, and the DCO configuration."
+    when:
+      path: ".github/**"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  lint-config:
+    description: "Checkstyle configuration under src/checkstyle — the nohttp check that forbids plain-text http:// URLs anywhere in the repository, plus its suppression list for binaries."
+    when:
+      path: "src/checkstyle/**"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  deploy-manifest:
+    description: "Deployment descriptors: the Kubernetes service, deployment and database manifests, and the Compose file that stands up MySQL or PostgreSQL locally. Development credentials appear here in plain text by design; production credentials are expected to come from a bound secret."
+    when:
+      path: "{k8s/**,docker-compose.yml}"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  project-doc:
+    description: "Repository-level documentation and licence — the README that is the project's front door, and the Apache 2.0 licence text."
+    when:
+      path: "{README.md,LICENSE.txt}"
+    parents: [module, feature-area]
+    relations:
+      default: deny
+
+  dev-environment:
+    description: "Editor, VCS and dev-container settings — editorconfig, git attributes and ignores, the Gitpod description and the devcontainer definition. Affects how contributors work, never what the application does."
+    when:
+      path: "{.editorconfig,.gitattributes,.gitignore,.gitpod.yml,.devcontainer/**}"
+    parents: [module, feature-area]
+    relations:
+      default: deny

@@ -1,0 +1,17 @@
+name: ExtensionMapBijection
+description: >-
+  Every grammar shipped in the asset directory is reachable from the extension map in the constant
+  table, and every grammar the map names is shipped. A bijection, both directions checked.
+
+  The extension map is, by the product's own account, the ONLY per-language datum written down anywhere:
+  everything else about a language is derived from that grammar's own metadata. That makes it the single
+  seam where a language can be silently half-supported, and it fails in both directions. A grammar
+  shipped but unreachable is a megabyte of dead weight in every install and a language a user reasonably
+  believes is covered. A grammar named but not shipped is worse: the map filters itself at load time to
+  what actually exists, so the entry disappears without a word and files in that language stop being
+  analysed with no error, no warning and no line in the status output.
+
+  Adding a language is meant to be dropping a triad in. This is the rule that keeps that true.
+errs: exact
+status: enforced
+review_by: 2027-06-01

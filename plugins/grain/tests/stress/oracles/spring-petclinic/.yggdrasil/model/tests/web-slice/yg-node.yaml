@@ -1,0 +1,20 @@
+name: WebSliceTests
+type: web-slice-test
+description: "One MockMvc slice per controller, with every repository replaced by a mock. These are the tests that pin the view names, the model attributes and the field-error codes, so they are also where the repository-wide guarantee `every controller has a test` is checked from — the relations below exist to give that rule sight of the controllers and of the unit tests that cover the two controllers needing no MVC slice."
+mapping:
+  - src/test/java/org/springframework/samples/petclinic/owner/OwnerControllerTests.java
+  - src/test/java/org/springframework/samples/petclinic/owner/PetControllerTests.java
+  - src/test/java/org/springframework/samples/petclinic/owner/VisitControllerTests.java
+  - src/test/java/org/springframework/samples/petclinic/system/WelcomeControllerTests.java
+  - src/test/java/org/springframework/samples/petclinic/vet/VetControllerTests.java
+aspects:
+  - every-controller-has-a-test
+relations:
+  - target: app/owner/web
+    type: uses
+  - target: app/vet/web
+    type: uses
+  - target: app/system/web
+    type: uses
+  - target: tests/unit
+    type: uses
