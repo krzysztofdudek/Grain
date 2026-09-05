@@ -73,7 +73,7 @@ candidate reproduced only 2 in verdict, and 0 once the candidate is also require
 rule it reproduces; the bar was 10. Grain does not decide what a codebase must never do. That decision stays the
 maintainer's, made from requirements — not mined from what already happened.
 
-Two limits named plainly rather than papered over: Grain's own `examples/*` fixtures are too small (14–24 files, no
+Two limits named plainly rather than papered over: Yggdrasil's own `examples/*` fixtures — the only other repositories with a hand-written graph at hand — are too small (14–24 files, no
 independent commit history of their own) to serve as a second reconstruction check, so Yggdrasil's hand graph is,
 for now, the only full-scale one there is. And when what Grain mines disagrees with what a hand graph declares, the
 disagreement is reported as one of three symmetric classes — a miner miss, graph debt (the hand graph itself is
