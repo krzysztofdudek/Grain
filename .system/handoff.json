@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-05T05:34:04.480Z",
+  "at": "2026-09-05T05:37:41.400Z",
   "by": "director",
   "head": "claude/grain-agent-tool-b89y0x@3f1fe03",
   "summary": "Memo Fable-counsel scalone (3f1fe03): przełom = PĘTLA PRAWA (B1) — Grain renderuje deterministyczne check.mjs z drills z hold-outem czasowym, yg simulate/drill scoruje, draft→advisory na kontrakcie 0/0, enforced tylko podpisem człowieka, retirement z catch/exposure. Zapisane jako law-loop-is-the-bet. Steer do 094: check.mjs zamiast prozy + drills. Nowe tickety: 097 (pomiar B1, bramki ≥10/20 w werdykcie, precyzja ≥0.80), 098 (B2 graf przy wave close). Horde przeczytany; użytkownik doprecyzował wizję: ekosystem, od człowieka tylko wymagania. W locie: 094, 096 (Opus).",
@@ -17,6 +17,12 @@
       "since": "2026-09-05T05:34:04.489Z",
       "reportsTo": "lead",
       "branch": "research/096-too-much"
+    },
+    {
+      "name": "counsel-ecosystem",
+      "task": "Fable counsel-2 on research/ecosystem-design — memo .system/research/ecosystem-design-2026-09-05.md: complete ecosystem design (requirements-only human input), verdict whether existing blocks suffice; commissioned by the user",
+      "since": "2026-09-05T05:37:41.400Z",
+      "reportsTo": "lead"
     }
   ],
   "pendingDecisions": [],

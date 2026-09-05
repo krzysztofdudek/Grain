@@ -1,6 +1,6 @@
 # Handoff
 
-at: 2026-09-05T05:34:04.480Z
+at: 2026-09-05T05:37:41.400Z
 by: director
 head: claude/grain-agent-tool-b89y0x@3f1fe03
 
@@ -10,6 +10,7 @@ Memo Fable-counsel scalone (3f1fe03): przełom = PĘTLA PRAWA (B1) — Grain ren
 ## In flight
 - 57 branch:research/094-propose —  (since 2026-09-05T05:34:04.489Z, reports to lead)
 - 58 branch:research/096-too-much —  (since 2026-09-05T05:34:04.489Z, reports to lead)
+- counsel-ecosystem — Fable counsel-2 on research/ecosystem-design — memo .system/research/ecosystem-design-2026-09-05.md: complete ecosystem design (requirements-only human input), verdict whether existing blocks suffice; commissioned by the user (since 2026-09-05T05:37:41.400Z, reports to lead)
 
 ## Pending decisions
 (none)
