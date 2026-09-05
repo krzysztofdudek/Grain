@@ -673,9 +673,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/101-stress",
-      "state": "queued",
-      "note": "integracja Grain→Yggdrasil na korpusie; sense rate; granularność",
-      "updated": "2026-09-05 07:02"
+      "state": "running",
+      "note": "Opus spawned; branch research/101-stress; includes bar-2 judging of the 097 sample and the family-adapter precision gap",
+      "updated": "2026-09-05 08:35"
     }
   ]
 }
