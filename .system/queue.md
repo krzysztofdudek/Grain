@@ -16,7 +16,7 @@ _none_
 
 _none_
 
-## merged (68)
+## merged (69)
 
 | id | ticket | kind | agent | branch | sha | note | updated |
 |---|---|---|---|---|---|---|---|
@@ -88,6 +88,7 @@ _none_
 | 72 | 112 | research | opus | research/112-factory | 397a9e4 | premerge READY after base refresh (2293/2293); seams table: enforced structurally empty on petclinic (0/18), 0 relations (113), charter/aspects not read by Horde, yg check absent from Horde merge gate; 3 propose fixes on sight | 2026-09-05 21:39 |
 | 73 | 117 | fix | sonnet | fix/117-control-bytes | c8ce4cc | premerge READY (2335/2335); 5 SOH bytes escaped, C0 guard test, run-corpus 21 tests, vendor 5/5 browser-only dead code; core.mjs size left (oracle refusals 12→8) | 2026-09-05 22:06 |
 | 74 | 114 | fix | opus | fix/114-118-charter-progressive | 675d19a | with 118; premerge READY (2347/2349, 2 skipped); charter cascade = yg context parity 19/19 on petclinic sample; nodes-with-rules petclinic 2/14→4/14, Yggdrasil 16/73→50/73; progressive.reference derived from origin/HEAD; existingViolations in provenance and report | 2026-09-05 23:03 |
+| 75 | 115 | fix | opus | fix/115-116-119-selection | 148c4d0 | with 116 and 119; premerge suite 2365/2367 (2 skipped), version-constants flag verified intentional (LANG_MARKER_STEMS renderer-only); advisory petclinic 33→2, Yggdrasil 71→21, all false-direction lattice rows out; leveldb 0→37 aspects, kotlin-datetime 0→46; package-info refusals 5→0; .grain leak closed in propose gitFiles | 2026-09-05 23:16 |
 
 ## escalated (0)
 

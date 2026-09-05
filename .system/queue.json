@@ -808,6 +808,17 @@
       "updated": "2026-09-05 23:03",
       "sha": "675d19a",
       "note": "with 118; premerge READY (2347/2349, 2 skipped); charter cascade = yg context parity 19/19 on petclinic sample; nodes-with-rules petclinic 2/14→4/14, Yggdrasil 16/73→50/73; progressive.reference derived from origin/HEAD; existingViolations in provenance and report"
+    },
+    {
+      "id": 75,
+      "ticket": "115",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/115-116-119-selection",
+      "state": "merged",
+      "updated": "2026-09-05 23:16",
+      "sha": "148c4d0",
+      "note": "with 116 and 119; premerge suite 2365/2367 (2 skipped), version-constants flag verified intentional (LANG_MARKER_STEMS renderer-only); advisory petclinic 33→2, Yggdrasil 71→21, all false-direction lattice rows out; leveldb 0→37 aspects, kotlin-datetime 0→46; package-info refusals 5→0; .grain leak closed in propose gitFiles"
     }
   ]
 }

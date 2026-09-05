@@ -49,7 +49,7 @@ import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './
 // Read-only: two version constants, the same ones `grain export`'s own `proposal.json`-equivalent
 // (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
 // without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
-import { ENGINE_VERSION, EXTR_V } from './config.mjs';
+import { ENGINE_VERSION, EXTR_V, HARD_EXCL, MARKER_STEMS_BY_EXT, isLanguageMarkerFile } from './config.mjs';
 // Read-only, and only these two: the vocabulary grain ALREADY uses to put a measured value into words — a name
 // shape (`(Ua)+` -> "PascalCase") and a lexical surface (`quote`,`single` -> "quote strings with single
 // quotes"). §7-bis below words a lattice row with them rather than with a private copy, so a proposal and
@@ -142,7 +142,7 @@ const pct = x => `${(x * 100).toFixed(0)}%`;
 // It is a WEAKER file set than `git ls-files`, and knowingly so: with no git there is no `.gitignore` resolution,
 // so build output a git repo would have hidden is visible here. That is a degradation, which is the contract,
 // rather than a crash, which is not.
-const WALK_SKIP = new Set(['.git', '.grain', '.yggdrasil', 'node_modules']);
+const WALK_SKIP = new Set(['.git', '.grain', '.yggdrasil', '.yggdrasil-proposal', 'node_modules']);
 function walkWorktree(root, rel = '', out = []) {
   let entries;
   try { entries = readdirSync(join(root, rel), { withFileTypes: true }); } catch { return out; }
@@ -181,6 +181,13 @@ function gitFiles(repo) {
       // filename character, legal on POSIX. Folding it to `/` could only corrupt such a path, and did:
       // `src/we\ird.ts` became `src/we/ird.ts`, a file mapped into a directory that does not exist, sized at
       // zero bytes because nothing on disk answers to it, and named by a node mapping `yg check` cannot resolve.
+      // GRAIN'S OWN STATE IS NOT THE REPOSITORY'S CODE, EVEN WHEN IT IS TRACKED. `grain export` has always
+      // filtered it (`HARD_EXCL`), and this list — which decides which files become types, nodes, mappings and
+      // the uncovered remainder — did not, so the filter held for what grain MINED and not for what it
+      // PROPOSED. Invisible until a repository commits `.grain/`, which grain's own `.grain/.gitignore` tells
+      // it to ("everything else in .grain/ is meant to be committed"): measured, `.grain` then arrives as a
+      // node type of the adopter's architecture. Same filter, same reason, in both places.
+      if (HARD_EXCL.test(m[2])) continue;
       files.push(m[2]);
     }
     return { files, degraded: null };
@@ -238,6 +245,22 @@ export function progressiveReference(repo) {
 
 // Repo-relative directory prefix -> the tracked files beneath it.
 const underDir = (files, dir) => new Set(files.filter(f => f === dir || f.startsWith(dir + '/')));
+
+// The deepest directory every one of these paths lies under, or null when they share none (a file at the
+// repository root leaves nothing to share). Whole path SEGMENTS only: `src/apple` and `src/apricot` share
+// `src`, never `src/ap`.
+const commonDir = paths => {
+  if (!paths.length) return null;
+  let pre = paths[0].split('/').slice(0, -1);
+  for (const p of paths.slice(1)) {
+    const q = p.split('/').slice(0, -1);
+    let i = 0;
+    while (i < pre.length && i < q.length && pre[i] === q[i]) i++;
+    pre = pre.slice(0, i);
+    if (!pre.length) return null;
+  }
+  return pre.length ? pre.join('/') : null;
+};
 
 // A YAML-safe id: lowercase, path separators and dots folded to dashes, collapsed.
 export function slug(s) {
@@ -557,6 +580,34 @@ export function buildTypes(exp, loc, files, ctx) {
     a.contains = active.filter(b => b.dir && a.dir && b.dir !== a.dir && b.dir.startsWith(a.dir + '/')).map(b => b.id);
   }
 
+  // WHICH TYPE HOSTS A PARTITION WHOSE NAME IS A LABEL RATHER THAN A PATH (ticket 119).
+  //
+  // `mdlCuts` returns `['.']` for a repository it finds no reason to split, and every file's partition is then
+  // named `_root` — the whole repository in one bucket, with no directory of that name anywhere on disk;
+  // `_repo` is the same kind of name for the merged small-package residue. Downstream, `buildAspects` resolves
+  // an aspect's host TYPE by matching the partition name against a type's directory, so a row mined in such a
+  // partition used to find no host and be DROPPED, in silence, with nothing in the proposal saying a rule had
+  // been discarded. Measured across the corpus at four of seventeen repositories, two of them totally:
+  // `leveldb` (134 files, one `_root` partition) and `kotlin-datetime` (251) proposed ZERO aspects for this
+  // reason alone.
+  //
+  // The test is DERIVED, exactly as the candidate loop's is above: if no tracked file lives under the name, the
+  // name is not a directory, and the partition is resolved instead to the emitted type that actually HOLDS its
+  // files — by counting the overlap, deepest and then lowest-id on a tie. That is a real answer where one
+  // exists (`repo-root-file` when the partition's files all sit at the root, the covering source type when they
+  // do not) and no answer where none does — a type that holds none of the partition's files never hosts it, and
+  // the row is then still dropped, but for a reason the aspect renderer can state.
+  for (const p of loc.partitions) {
+    if (!p.files.size || underDir(files, p.name).size) continue;
+    const ranked = active
+      .map(a => ({ a, held: [...p.files].filter(f => a.files.has(f)).length }))
+      .filter(x => x.held > 0)
+      .sort((x, y) => y.held - x.held || (y.a.dir || '').length - (x.a.dir || '').length || (x.a.id < y.a.id ? -1 : 1));
+    if (!ranked.length) continue;
+    const { a, held } = ranked[0];
+    (a.labelPartitions ||= []).push({ name: p.name, held, total: p.files.size });
+  }
+
   // THE ALTERNATIVES: the level 093 §2 class (a) named as the cheapest recall available anywhere — sets grain
   // already holds inside a role group or an unpromoted directory card, which the hand graph turned into a node
   // type and which nothing surfaced as a type candidate.
@@ -598,10 +649,34 @@ export function buildTypes(exp, loc, files, ctx) {
           why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: ${f.set.size} files; generalising predicate from ${cr.why}; selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` });
       }
     }
+    // THE MEMBERSHIP, AS A PREDICATE WHERE THE PATHS ALLOW ONE AND AS A LIST WHERE THEY DO NOT (ticket 116).
+    //
+    // A domain cut is almost always a directory: on spring-petclinic the `owner`, `vet` and `model` groups each
+    // live entirely under one package. Frozen as an `any_of` of explicit paths that cut is EXACT today and dead
+    // tomorrow — it classifies no file grain has not already seen, so an ecosystem cannot cut a second node and
+    // a second owner out of it, and every file added to the domain lands outside its own type. Where the members
+    // share a directory below the host, the same membership is a `path:` glob over that directory: a file added
+    // there joins the type by itself. Where they do NOT share one there is no path expression to offer and the
+    // list is the honest answer, so the list stays — for exactly those candidates, and it says so.
     const paths = [...f.set].sort();
-    addAlt({ id: `${base}-list`, of: host.id, form: 'list', when: { any_of: paths.map(p => ({ path: p })) }, groupFiles: f.set.size, selected: f.set.size, fidelity: 1, viable: true,
+    const shared = commonDir(paths);
+    const finerThanHost = shared && shared !== host.dir && shared.startsWith(host.dir + '/');
+    let asPath = null;
+    if (finerThanHost) {
+      const when = { path: `${shared}/**` };
+      let selected = null;
+      try { selected = expandWhen(when, files, ctx); } catch { /* a predicate that will not compile is itself a finding */ }
+      if (selected) {
+        const j = jaccard(f.set, selected);
+        asPath = { id: `${base}-path`, of: host.id, form: 'path', when, groupFiles: f.set.size, selected: selected.size, fidelity: +j.toFixed(3), viable: j >= MIN_WHEN_FIDELITY,
+          kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
+          why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: all ${f.set.size} files share the directory \`${shared}\`, so the membership is offered as the path predicate \`${shared}/**\` rather than as a list — it GENERALISES, and a file added under that directory is classified here without grain being run again; it selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` };
+      }
+    }
+    if (asPath) addAlt(asPath);
+    else addAlt({ id: `${base}-list`, of: host.id, form: 'list', when: { any_of: paths.map(p => ({ path: p })) }, groupFiles: f.set.size, selected: f.set.size, fidelity: 1, viable: true,
       kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
-      why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the exact ${f.set.size} files grain grouped, frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` });
+      why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the ${f.set.size} files grain grouped share no directory below \`${host.dir}\`${shared ? ` (the deepest they all share is \`${shared}\`, which is not finer than the host)` : ''}, so there is no path predicate to offer and the membership is frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` });
   }
   alternatives.sort((a, b) => b.fidelity - a.fidelity || b.groupFiles - a.groupFiles || (a.id < b.id ? -1 : 1));
   return { active, alternatives };
@@ -663,6 +738,12 @@ export function buildRelations(exp, typeOfFile, active) {
 // a dot cannot be one verbatim — Yggdrasil's model walker does not descend into it. The mapping still names the
 // real path; only the node's own address is rewritten.
 export const nodePathFor = dir => (dir ? dir.split('/').map(s => (s.startsWith('.') ? 'dot-' + s.slice(1) : s)).join('/') : 'repo-root');
+
+// The path glob a type classifies by — its own `when`, said once. A dir-less (root-glob) type globs `*`, and
+// building `${a.dir}/**` for one produces the literal string `null/**`: a predicate that selects nothing, in a
+// sentence that names a directory called `null`. One expression, so a reader of a scope glob and a reader of
+// `yg-architecture.yaml` are looking at the same thing.
+export const typeGlob = a => (a.rootGlob ? '*' : `${a.dir}/**`);
 
 // A subtree that carries its own `.yggdrasil/` is a SEPARATE PROJECT, and every Yggdrasil check skips it. Grain
 // has no such notion — those files are tracked, so they are mined — and the first version of this renderer duly
@@ -1065,11 +1146,17 @@ const SHAPE = ${new RegExp(re).toString()};
 
 // grain measured this shape on the file name with its last extension removed; match what it measured.
 const stemOf = b => { const i = b.lastIndexOf('.'); return i > 0 ? b.slice(0, i) : b; };
+// A NAME THE LANGUAGE ITSELF FIXES IS NOT A NAME A CONVENTION CAN GOVERN. package-info.java has no other
+// spelling, so refusing it for not being PascalCase is a rule at odds with Java. Same table the proposal used
+// to leave these files out of the rule's population, carried here so the check agrees with the count beside it.
+const MARKER_STEMS_BY_EXT = ${JSON.stringify(MARKER_STEMS_BY_EXT)};
+const isMarker = b => { const i = b.lastIndexOf('.'); return i > 0 && (MARKER_STEMS_BY_EXT[b.slice(i).toLowerCase()] || []).includes(b.slice(0, i)); };
 
 export function check(ctx) {
   const violations = [];
   for (const file of ctx.files) {
     const base = file.path.split('/').pop();
+    if (isMarker(base)) continue;
     if (!SHAPE.test(stemOf(base))) violations.push({ file: file.path, line: 1, column: 0, message: 'file name ' + base + ' does not follow the shape this rule proposes (' + ${JSON.stringify(String(expected))} + ') (proposed rule, not yet reviewed)' });
   }
   return violations;
@@ -1141,6 +1228,19 @@ export const RENDERABLE = new Set(['imp', 'call', 'deco', 'extends', 'returns', 
 // import, a file name, a lexical layer, or a name shape the whole partition shares. A NEGATIVE rule ("nothing
 // here does X") renders in every class, because it fires only on evidence it can see and never on absence.
 const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
+
+// WHICH CLASSES SPELL "DOES NOT USE X" WITH `expected: false` (ticket 115) — and so cannot state a prohibition
+// from a majority. For every one of these the enumerator names a THING (an import specifier, a callee, a
+// marker, a supertype, a declared return type, a syntactic construct, a parameter type) and `false` says only
+// that the thing is not there. Nothing about a MAJORITY of absences is a rule: "files in `src/main/java` do not
+// import `jakarta.persistence.Entity`" was mined from 24 of 30 files, and the six that do are the entities — so
+// the sentence is refuted by the very code it was mined from. Measured on spring-petclinic: 12 of 44 standing
+// advisory refusals were of exactly this shape. `nameshape`/`filenameshape`/`lex`/`mods` and the rest are NOT
+// here: their `expected` is a VALUE the code carries, so there is no absence to mistake for a prohibition.
+const ABSENCE_CLASS = new Set([...BOOLEAN_CLASS, 'has', 'ptype']);
+// One predicate for it, because the same row must read the same way wherever the proposal shows it: as an
+// aspect, and in the refactor backlog's own listing of the lattice.
+export const isAbsenceRow = r => ABSENCE_CLASS.has(/^auto\.([a-z0-9]+):?/.exec(String(r.pid))?.[1] || '') && String(r.exp) === 'false';
 // grain's own `unitOf` domain (engine/core.mjs): a convention's `kind` names the SUBJECT its evidence is about.
 // `file` and `module` ARE the unit Yggdrasil's `scope: { per: 'file' }` reviews; every other kind — a method, a
 // type/class, a catch or finally block — is a SYMBOL living inside a file, smaller than the unit a rendered
@@ -1168,6 +1268,7 @@ export function renderableDirection(enumerator, expected, kind, ctxType) {
   return true; // filenameshape and lex: the file itself is the subject either way
 }
 export const WHY_PROSE = {
+  _absence: 'the row reports an ABSENCE, not a prohibition. Its class spells "does not use X" with `expected: false`, and its origin is the sub-gate lattice — a band grain has by definition declined to certify — so all the row says is that most things here happen not to use the identifier today. The minority that do are usually the point (the files importing an entity annotation ARE the entities), so read this as a fact about the repository and decide for yourself whether it should become a rule.',
   stshape: 'the convention asserts a STATEMENT SHAPE — a subtree, not a name. There is no identifier to match and no way to phrase it as a tree query that holds across languages.',
   has: 'the convention asserts the PRESENCE OR ABSENCE of a syntactic construct. Rendering it would mean asserting the grammar\'s own vocabulary as a rule.',
   modexport: 'the convention asserts a MODULE-LEVEL export style, which every language spells differently.',
@@ -1545,6 +1646,7 @@ export async function propose(repo, outDir, opts = {}) {
     aspectsByDraftReason,
     aspectsVerified: verify.verified, aspectsVerifiedAgainst: verify.haveYg ? verify.ygBin : null,
     aspectsSkippedUnrenderableGroupScoped: skipped.unrenderableGroupScoped, aspectsSkippedNotARule: skipped.notARule, proseByClass: skipped.byClass,
+    aspectsAbsenceNotForbiddance: skipped.absence,
     drillCases, drillHoldout: opts.holdout || null, drillDropped, nodeCycles: nodeCycles.length,
     latticeRows: lat.rows.length, subGate: sub.length, denies: rels.denies.length, denyBacklog: rels.backlog.length,
     sizingHandNodes: sizing.handNodes ? sizing.handNodes.length : null,
@@ -1565,7 +1667,7 @@ export async function propose(repo, outDir, opts = {}) {
     instrument: 'propose/1', repo, asOf: exp.asOf, files: files.length, counts,
     schemaNotes: {
       evidence:
-        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`, the same values Yggdrasil\'s own `yg-aspect.yaml` takes) and `draftReason` (`prose-unenforceable-keyless` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
+        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`, the same values Yggdrasil\'s own `yg-aspect.yaml` takes) and `draftReason` (`prose-unenforceable-keyless` | `absence-not-forbiddance` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
       counts:
         'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsAdvisory`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (ticket 102, three-way since 107 — see `provenance.json`\'s own `status`/`draftReason`): `aspectsActive` counts `status: enforced` (a certified-convention origin that cleared a real drill — nothing stands between the maintainer and turning it on), `aspectsAdvisory` counts `status: advisory` (a sub-gate-lattice origin that cleared the SAME drill but sits below grain\'s own certification bound — a refactor decision, not law; these are the report\'s `candidates`), `aspectsDraft` is everything that never cleared the drill at all. `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified), `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
       provenance:
@@ -1711,12 +1813,52 @@ const holdsPhrase = (holds, breaks, unitPlural) => {
 
 const NOT_A_RULE = new Set(['filebirth']);
 
+// EXEMPTING THE NAMES A LANGUAGE FIXES FROM A FILE-NAME RULE (ticket 116). `auto.filenameshape` is the one
+// enumerator whose subject is the file NAME, and a handful of names in most languages are not the project's to
+// choose: `package-info.java`, `__init__.py`, `index.ts`, `mod.rs`. Measured on spring-petclinic, five of the
+// forty-four standing advisory refusals were `package-info.java` — a rule refuted by the language on the day it
+// was proposed. Such a file leaves the population, leaves the drill corpus, and is skipped by the rendered
+// check (`renderCheck`, `case 'filenameshape'`); what left is stated, never silently dropped.
+//
+// ONLY `filenameshape`. Every other enumerator is about what a file CONTAINS, and a marker file's contents are
+// as governable as any other file's — `__init__.py` re-exporting a module is ordinary Python.
+const exemptMarkers = (enumerator, sites) => {
+  if (enumerator !== 'filenameshape') return { kept: sites, names: [] };
+  const kept = [], names = new Set();
+  for (const s of sites) {
+    const rel = typeof s === 'string' ? s.split('#')[0] : s?.rel;
+    if (rel && isLanguageMarkerFile(rel)) names.add(rel.split('/').pop());
+    else kept.push(s);
+  }
+  return { kept, names: [...names].sort() };
+};
+const markerNote = (...groups) => {
+  const names = [...new Set(groups.flatMap(g => g.names))].sort();
+  const n = groups.reduce((a, g) => a + g.exempted, 0);
+  return n ? ` · ${n} language marker file${n === 1 ? '' : 's'} exempted (${names.map(x => `\`${x}\``).join(', ')}) — the language fixes ${names.length === 1 ? 'that name' : 'those names'}, so no naming convention of this repository can apply to ${n === 1 ? 'it' : 'them'}` : '';
+};
+
 export function buildAspects(exp, active, sub, opts = {}) {
   const out = [];
-  const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, byClass: {} };
+  const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, absence: 0, byClass: {} };
   const asOf = (exp.asOf || '').slice(0, 8);
   const reviewBy = ((y) => `${y + 1}-01-15`)(new Date(exp.indexedAt || Date.now()).getUTCFullYear());
-  const typeForPartition = name => active.find(a => a.dir === name) || active.find(a => a.dir && name.startsWith(a.dir + '/')) || null;
+  // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH (ticket 119). The first two clauses are the
+  // path ones and are unchanged, so a partition that names a directory resolves exactly as it always did. The
+  // third is the one `_root` and `_repo` need: `buildTypes` above resolved every label partition to the emitted
+  // type that actually holds its files, and the answer rides on the type as `labelPartitions`. Reached only
+  // when the path clauses find nothing, so no host this renderer used to produce can change.
+  const typeForPartition = name => active.find(a => a.dir === name)
+    || active.find(a => a.dir && name.startsWith(a.dir + '/'))
+    || active.find(a => (a.labelPartitions || []).some(x => x.name === name))
+    || null;
+  // What to DISCLOSE when the host was resolved that way rather than by name: the rule was measured over the
+  // partition and is judged over the host type's glob, and a reader has to be told the two are not the same set.
+  const labelHosting = (host, name) => (host?.labelPartitions || []).find(x => x.name === name) || null;
+  const labelHostingNote = (host, name) => {
+    const l = labelHosting(host, name);
+    return l ? ` · partition \`${name}\` is a label, not a directory — no tracked file lives under that name — so this rule is attached to the type that holds most of it: \`${host.id}\` holds ${l.held} of its ${l.total} files, and the scope below is that type's, not the partition's` : '';
+  };
   const partOf = name => (exp.partitions || []).find(p => p.name === name);
 
   // The scope predicate an aspect is judged over. A partition- or directory-scoped convention scopes by PATH; a
@@ -1728,21 +1870,27 @@ export function buildAspects(exp, active, sub, opts = {}) {
       const g = (partOf(c.partition)?.groups || []).find(x => x.id === c.context.group);
       const cr = g ? contentRegexFor(g) : null;
       if (!cr) return null;
-      return { pred: { per: 'file', files: { all_of: [{ path: `${host.dir}/**` }, { content: cr.regex }] } }, why: `scoped by the group's own evidence (${cr.why})`, glob: `${host.dir}/**`, which: cr.sel };
+      return { pred: { per: 'file', files: { all_of: [{ path: typeGlob(host) }, { content: cr.regex }] } }, why: `scoped by the group's own evidence (${cr.why})`, glob: typeGlob(host), which: cr.sel };
     }
     if (c.context?.type === 'directory' && c.context.dir) return { pred: { per: 'file', files: { path: `${c.context.dir}/**` } }, why: `scoped to directory \`${c.context.dir}\``, glob: `${c.context.dir}/**` };
-    return { pred: { per: 'file', files: { path: `${host.dir}/**` } }, why: `scoped to partition \`${c.partition}\``, glob: `${host.dir}/**` };
+    return { pred: { per: 'file', files: { path: typeGlob(host) } }, why: `scoped to partition \`${c.partition}\``, glob: typeGlob(host) };
   };
 
   // (i) the certified set
   for (const c of exp.conventions || []) {
-    const n = c.established || 0;
-    if (n < MIN_CONVENTION_SITES) continue;
     if (NOT_A_RULE.has(c.feature.enumerator)) { skipped.notARule++; continue; }
+    // The names the language fixes leave the population BEFORE the floor is applied, so a convention that only
+    // clears `MIN_CONVENTION_SITES` on the strength of files it may not govern does not clear it at all.
+    const conf = exemptMarkers(c.feature.enumerator, c.conformingSites || []);
+    const devi = exemptMarkers(c.feature.enumerator, c.deviatingSites || []);
+    const exemptedConf = (c.conformingSites || []).length - conf.kept.length;
+    const n = Math.max(0, (c.established || 0) - exemptedConf);
+    if (n < MIN_CONVENTION_SITES) continue;
     const host = typeForPartition(c.partition);
     const scope = scopeFor(c, host);
     if (!scope) { skipped.unrenderableGroupScoped++; continue; }
-    const dev = (c.deviatingSites || []).length;
+    const dev = devi.kept.length;
+    const markers = markerNote({ names: conf.names, exempted: exemptedConf }, { names: devi.names, exempted: (c.deviatingSites || []).length - dev });
     const adoption = n / Math.max(1, n + dev);
     const ctxLabel = c.context?.type === 'group' ? `role group \`${c.context.label || c.context.group}\`` : c.context?.type === 'directory' ? `directory \`${c.context.dir}\`` : `partition \`${c.partition}\``;
     const provenance = `share ${(c.share ?? 0).toFixed(3)} · n ${n} conforming, ${dev} deviating (adoption ${pct(adoption)}) · ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance · ${ctxLabel} of \`${c.partition}\` · asOf ${asOf}`;
@@ -1754,7 +1902,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const exemplarPhrase = (c.exemplars || []).length
       ? `copy ${(c.exemplars || []).slice(0, 2).map(e => `${e.rel}:${e.line}`).join(' or ')}`
       : 'no exemplar recorded to copy';
-    const evidenceLine = `${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)} · applies to ${scopeInWords(scope.glob, scope.which)} · ${exemplarPhrase} · grain certified this from ${ctxLabel} of \`${c.partition}\`: share ${(c.share ?? 0).toFixed(3)} (adoption ${pct(adoption)}), ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance, measured at ${asOf}`;
+    const evidenceLine = `${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)} · applies to ${scopeInWords(scope.glob, scope.which)} · ${exemplarPhrase} · grain certified this from ${ctxLabel} of \`${c.partition}\`: share ${(c.share ?? 0).toFixed(3)} (adoption ${pct(adoption)}), ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance, measured at ${asOf}${labelHostingNote(host, c.partition)}${markers}`;
     const id = `grain/${slug(c.partition)}/${slug(c.context?.type === 'group' ? (c.context.label || c.context.group) : c.context?.type || 'partition')}-${slug(c.feature.enumerator)}${c.feature.argument ? '-' + slug(c.feature.argument).slice(0, 40) : ''}`;
     if (out.some(o => o.id === id)) continue;
     const check = renderableDirection(c.feature.enumerator, c.expected, c.kind, c.context?.type)
@@ -1783,13 +1931,18 @@ export function buildAspects(exp, active, sub, opts = {}) {
       scope: scope.pred, check,
       whyProse: proseReason,
       content: check ? null : contentMd(c, profile, evidenceLine, proseReason, name),
-      drills: { satisfies: (c.conformingSites || []).slice(), violates: (c.deviatingSites || []).slice() },
+      drills: { satisfies: conf.kept.slice(), violates: devi.kept.slice() },
       enumerator: c.feature.enumerator, argument: c.feature.argument, expected: c.expected, kind: c.kind,
       // structured fields for provenance.json (ticket 100) — parallel to the prose already in `provenance`,
       // never re-derived from it by regex the way a POST-HOC reader of a written proposal has to (097's
       // law-loop.mjs `provenanceFor`, which reads back a file this renderer did not annotate at write time)
       partition: c.partition, share: c.share ?? null, n, deviating: dev,
       exemplars: (c.exemplars || []).slice(0, 3).map(e => ({ rel: e.rel, line: e.line, name: e.name })),
+      // A CERTIFIED `false` direction STAYS ELIGIBLE (ticket 115). It cleared grain's own certification bound,
+      // so it is a real "this partition never uses X" and not a majority of absences — but a reader deciding
+      // whether to turn it on still needs to know it is a statement about something NOT being there, so the
+      // direction is recorded in its provenance rather than left to be inferred from `expected`.
+      ...(ABSENCE_CLASS.has(c.feature.enumerator) && String(c.expected) === 'false' ? { direction: 'absence' } : {}),
     });
   }
 
@@ -1817,30 +1970,49 @@ export function buildAspects(exp, active, sub, opts = {}) {
     // `Slim/Routing/**` — the WHOLE directory. A sentence that names a narrower subject than the check
     // enforces is a sentence a future session is right to argue with. The cluster is where grain MEASURED the
     // row and it says so in the evidence; the rule speaks about the scope it is actually judged over.
-    const glob = `${host.dir}/**`;
-    const statement = obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
-    const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.n} ${r.kind}s · ${r.deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
-    const evidenceLine = `${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}`;
-    const check = renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
+    const glob = typeGlob(host);
+    const devi = exemptMarkers(fam, r.deviants);
+    const deviants = devi.kept;
+    const markers = markerNote({ names: devi.names, exempted: r.deviants.length - deviants.length });
+    // AN ABSENCE IS NOT A FORBIDDANCE (ticket 115). ORIGIN decides, not a number: a sub-gate row sits below
+    // grain's own certification bound by construction, so a `false` majority in a class that spells "does not
+    // use X" says only that most things here happen not to use it today — and the minority that does is
+    // routinely the point of the code. Such a row is kept, in full, with its counts, as an OBSERVATION: worded
+    // as one, shipped as prose so no drill can promote it, and held at `draft` with its own reason. The same
+    // class in the `true` direction, and a `false` direction grain CERTIFIED (a real "this partition never uses
+    // X"), are untouched.
+    const absence = isAbsenceRow(r);
+    const statement = absence
+      ? `${r.ne} of ${r.ne + deviants.length} ${unitOne(r.kind)}s under \`${glob}\` do not ${describeRow(r.pid, r.exp)} — an absence, not a rule.`
+      : obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
+    const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.ne + deviants.length} ${r.kind}s · ${deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
+    const evidenceLine = `${holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}${labelHostingNote(host, r.partition)}${markers}`;
+    const check = !absence && renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
       ? renderCheck({ enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind, provenance: `${statement}\n${provenance}` })
       : null;
-    const proseReason2 = check ? null : (BOOLEAN_CLASS.has(fam) || fam === 'nameshape' ? WHY_PROSE._scopeMismatch : (WHY_PROSE[fam] || `no template renders the \`${fam}\` class`));
-    if (!check) { skipped.prose++; skipped.byClass[fam] = (skipped.byClass[fam] || 0) + 1; }
+    const proseReason2 = check ? null : absence ? WHY_PROSE._absence : (BOOLEAN_CLASS.has(fam) || fam === 'nameshape' ? WHY_PROSE._scopeMismatch : (WHY_PROSE[fam] || `no template renders the \`${fam}\` class`));
+    if (!check) {
+      if (absence) skipped.absence++;
+      else { skipped.prose++; skipped.byClass[fam] = (skipped.byClass[fam] || 0) + 1; }
+    }
     out.push({
       id, origin: 'sub-gate-lattice', host: host.id, evidenceLine, provenance, reviewBy,
       // See the certified-convention branch above (ticket 106) — same fix, same reason.
-      name: statement, holds: holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`),
-      description: `${statement} It already ${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)}.`,
+      name: statement, holds: holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`),
+      description: `${statement} It already ${holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`)}.`,
       scope: { per: 'file', files: { path: glob } }, check,
       whyProse: proseReason2,
-      content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2),
-      drills: { satisfies: [], violates: r.deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
+      content: check ? null : subGateMd({ ...r, deviants }, statement, evidenceLine, proseReason2, absence),
+      drills: { satisfies: [], violates: deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
       enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind,
       // sub-gate rows have no CONFORMING exemplar of their own — only `deviants` (sites that do NOT follow the
       // candidate) — so `exemplars` (a "copy this" list, never a "avoid this" one) stays empty here, unlike a
       // certified convention above; the charter renderer reads absence as "not yet a copy-worthy pattern".
-      partition: r.partition, share: r.share ?? null, n: r.ne ?? null, deviating: r.deviants.length,
+      partition: r.partition, share: r.share ?? null, n: r.ne ?? null, deviating: deviants.length,
       exemplars: [],
+      // Pre-set, and `promoteEnforceableAspects` keeps whatever reason an aspect already carries: verification
+      // is where a status is EARNED, and this row is not eligible to earn one at all.
+      ...(absence ? { direction: 'absence', draftReason: 'absence-not-forbiddance' } : {}),
     });
   }
 
@@ -1872,6 +2044,9 @@ export function provenanceFor(a, { asOf, repo }) {
     enumeratorClass: a.enumerator ?? null,
     identifier: a.argument ?? null,
     expected: a.expected ?? null,
+    // 'absence' when this row's class spells "does not use X" and its expected value is `false` — the one
+    // direction whose sentence a reader must not read as a prohibition (ticket 115); null otherwise.
+    direction: a.direction ?? null,
     partition: a.partition ?? null,
     share: a.share ?? null,
     n: a.n ?? null,
@@ -1893,9 +2068,10 @@ export function provenanceFor(a, { asOf, repo }) {
     // `status:` field takes (`yg schemas read aspect`), written here verbatim, not a separate Grain-internal
     // word translated at write time. Absent only if this ran before classification ran at all.
     status: a.finalStatus ?? 'draft',
-    // one of 'prose-unenforceable-keyless' | 'file-scope-approximation-fa' | 'no-catch', or null when `status`
-    // is 'enforced'/'advisory' (nothing to explain) or the aspect was never verified this run (no `YG_BIN`, no
-    // drill corpus).
+    // one of 'prose-unenforceable-keyless' | 'absence-not-forbiddance' | 'file-scope-approximation-fa' |
+    // 'no-catch', or null when `status` is 'enforced'/'advisory' (nothing to explain) or the aspect was never
+    // verified this run (no `YG_BIN`, no drill corpus). 'absence-not-forbiddance' is set BEFORE verification —
+    // it is the one reason that says the row was never eligible to earn a status at all (ticket 115).
     draftReason: a.draftReason ?? null,
     // 'file-from-symbol' when the CONVENTION's own subject (`a.kind`) is a symbol inside a file — a method, a
     // type, a catch/finally block — but Yggdrasil reviews this check per FILE; null for a file/module-level
@@ -2006,7 +2182,7 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
   try {
     for (const a of aspects) {
       a.scopeApproximation = (a.check && a.kind && SYMBOL_LEVEL_KIND.has(a.kind)) ? 'file-from-symbol' : null;
-      if (!a.check) { a.finalStatus = 'draft'; a.draftReason = 'prose-unenforceable-keyless'; continue; }
+      if (!a.check) { a.finalStatus = 'draft'; a.draftReason = a.draftReason || 'prose-unenforceable-keyless'; continue; }
       const violates = a.drillViolatesWritten || 0, satisfies = a.drillSatisfiesWritten || 0;
       if (!haveYg || (!violates && !satisfies)) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
       const r = spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26, timeout: drillTimeoutMs, killSignal: 'SIGKILL' });
@@ -2426,19 +2602,27 @@ function contentMd(c, profile, evidenceLine, whyProse, name) {
   return L.join('\n');
 }
 
-function subGateMd(r, statement, evidenceLine, whyProse) {
+function subGateMd(r, statement, evidenceLine, whyProse, absence = false) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
-  L.push('', `# ${statement}`, '', '## The rule', '', statement, '', '## Evidence', '', evidenceLine, '',
-    '## Why this is a DRAFT and not a certified convention', '',
-    `This row is below grain's own gate. It is practised by ${pct(r.share)} of the population, which clears the`,
-    "repository's two-thirds supermajority but not the certification bound — so grain refuses to state it as a",
-    'fact. That refusal is right for an agent mid-edit and wrong for you: a rule that most of the code follows',
-    'and some of it does not is either a rule with a backlog, or a habit to drop. Only you can say which.', '',
+  // AN ABSENCE ROW IS NOT HEADED "The rule" (ticket 115). Its own sentence says it is not one, and a heading
+  // that contradicts the sentence under it is the whole failure this section exists to stop.
+  L.push('', `# ${statement}`, '', absence ? '## The observation' : '## The rule', '', statement, '', '## Evidence', '', evidenceLine, '',
+    absence ? '## Why this is an OBSERVATION and not a rule' : '## Why this is a DRAFT and not a certified convention', '',
+    ...(absence
+      ? [`This row reports that ${pct(r.share)} of the population does NOT use the identifier above. A count of`,
+        'what is missing is not a prohibition: the minority that DOES use it is very often exactly the code the',
+        'identifier is for. So grain refuses to word it as "no file here may ...", renders no check for it, and',
+        'holds it out of every status a check could earn — it can be read, and made into a rule by you if it is',
+        'one, without ever being enforced by accident.']
+      : [`This row is below grain's own gate. It is practised by ${pct(r.share)} of the population, which clears the`,
+        "repository's two-thirds supermajority but not the certification bound — so grain refuses to state it as a",
+        'fact. That refusal is right for an agent mid-edit and wrong for you: a rule that most of the code follows',
+        'and some of it does not is either a rule with a backlog, or a habit to drop. Only you can say which.']), '',
     '## Why this is prose and not a check', '',
     `${whyProse || 'no template renders this class'}`, '');
   if (r.deviants.length) {
-    L.push('## The sites that do not follow it', '');
+    L.push(absence ? '## The sites that DO use it' : '## The sites that do not follow it', '');
     for (const d of r.deviants.slice(0, 30)) L.push(`- \`${d}\``);
     if (r.deviants.length > 30) L.push(`- … and ${r.deviants.length - 30} more`);
     L.push('');
@@ -2536,8 +2720,15 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
   L.push(`## 2. Candidate house rules below grain's gate (${sub.length})`, '',
     'Practised by a supermajority but not yet by enough of the code for grain to state it as a fact. This is the',
     'sub-gate lattice — the surface `grain explain` shows one file at a time, aggregated per partition.', '',
+    // A `false`-direction row of an absence class is listed as what it is (ticket 115). Printed in this table's
+    // own idiom it read `files never import X` with `8 sites to fix` beside it — an instruction to delete the
+    // eight imports, on evidence that says only that most files here do not have one.
     mdTable(['adoption', 'n', 'partition', 'scope', 'candidate rule', 'sites to fix'],
-      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describeRow(r.pid, r.exp)}`, r.deviants.length])), '');
+      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition',
+        isAbsenceRow(r)
+          ? `${r.ne} of ${r.n} ${r.kind}s do not ${describeRow(r.pid, r.exp)} — an absence, not a rule`
+          : `${r.kind}s ${describeRow(r.pid, r.exp)}`,
+        isAbsenceRow(r) ? '—' : r.deviants.length])), '');
 
   const twins = (exp.twins || []).filter(t => t.namedDifferently);
   L.push(`## 3. Structural twins — one shape under two names (${twins.length} of ${(exp.twins || []).length} twin pairs are named differently)`, '',
