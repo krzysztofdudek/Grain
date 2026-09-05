@@ -607,9 +607,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "instr/093-reconstruct",
-      "state": "running",
-      "note": "Opus worker spawned 2026-09-05, worktree, branch instr/093-reconstruct",
-      "updated": "2026-09-05 04:36"
+      "state": "merged",
+      "note": "premerge READY (2194/2194), merged; director fixed 9 literal NUL bytes in reconstruct.mjs at merge (file read as binary by git)",
+      "updated": "2026-09-05 05:18",
+      "sha": "fdd19c9"
     }
   ]
 }
