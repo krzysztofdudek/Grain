@@ -272,8 +272,15 @@ keys is unaffected by a new one; only a change to an EXISTING field's shape woul
 happened yet).
 
 Top level: `schema, engine, extractor, repo, asOf, schemaNotes, indexedAt, history, summary, steers, boundaries,
-waivers, edges, edgesTruncated, moduleGraph, archNorms, changeArchetypes, twins, moves, valueSiblings, partitions,
-conventions, cochange`.
+waivers, edges, edgesTruncated, moduleGraph, relCoverage, relStages, archNorms, changeArchetypes, twins, moves,
+valueSiblings, partitions, conventions, cochange`.
+
+`relStages`: the three stages a dependency passes on its way from source text to the architecture graph, counted over
+the run. `seen` is every reference the language extractors emitted (imports, heritage, type references — internal and
+external alike, since which of them is internal is not knowable before resolution), `resolved` how many bound to a
+file inside the indexed tree, `crossing` how many of those joined two different modules and so reached
+`moduleGraph.edges`. An empty module graph is three different situations — nothing was read, nothing resolved, or
+everything resolved inside one module — and only these three numbers tell them apart.
 
 `waivers`: maintainer exceptions, one named scope excused from one surface (`pid`), recorded in `.grain/seeds.jsonl`.
 Each entry: `id, path, name, pid, kind, line, partition, found` (plus `note`/`author`/`createdAt` when set). A waiver

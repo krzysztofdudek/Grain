@@ -2863,7 +2863,7 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   L.push(`proposed a graph for ${r.files.length} tracked files, as of ${sha} — ${ygg}/`);
   // Only when it happened, and above everything else: every count below is measured over that weaker set.
   if (r.degraded) L.push(`  WARNING: ${r.degraded}`);
-  L.push(`architecture: ${c.types} node types · ${c.nodes} nodes · ${edges} relations · ${c.nodeCycles} dependency cycle(s) — ${ygg}/yg-architecture.yaml`);
+  L.push(`architecture: ${c.types} node types · ${c.nodes} nodes · ${edges ? `${edges} relations` : `no law about dependencies could be mined (${r.exp?.relStages?.seen ?? 0} references seen, ${r.exp?.relStages?.resolved ?? 0} resolved, ${r.exp?.relStages?.crossing ?? 0} survived the module cut)`} · ${c.nodeCycles} dependency cycle(s) — ${ygg}/yg-architecture.yaml`);
   if (!r.verify?.haveYg) {
     L.push(`enforced: 0 of ${c.aspects} aspects — no Yggdrasil CLI was found, so no rule was drilled and NOTHING here is enforced (set YG_BIN to a built bin.js, or put \`yg\` on PATH, then run this again)`);
     L.push(`candidates: 0 of ${c.aspects} — a candidate is an advisory or draft aspect a real drill caught a violation with, and no drill ran`);

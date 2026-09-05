@@ -99,14 +99,14 @@ function gitFiles(repo) {
   return execFileSync('git', ['-C', repo, 'ls-files'], { encoding: 'utf8', maxBuffer: 1 << 28 }).split('\n').filter(Boolean);
 }
 
-// grain's module assignment is a pure function of (files, package roots) — `refineModOf` in engine/relations.mjs.
+// grain's module assignment is a pure function of (files, package roots, source roots) — `refineModOf` in engine/relations.mjs.
 // The instrument IMPORTS it rather than re-deriving it, so a module id here is byte-identical to the one grain's
 // own moduleGraph used. Falls back to longest-prefix over the exported node ids if that import ever fails; the
 // run's self-check (`moduleAssignmentMismatch`) reports the cost either way.
 export async function moduleAssigner(exp, cache) {
   try {
     const { refineModOf } = await import(pathToFileURL(REL_ENGINE).href);
-    if (cache && Array.isArray(cache.filesAll)) return refineModOf(cache.filesAll, cache.pkgs || []);
+    if (cache && Array.isArray(cache.filesAll)) return refineModOf(cache.filesAll, cache.pkgs || [], cache.srcRoots || []);
   } catch { /* fall through to the id-prefix approximation */ }
   const ids = (exp.moduleGraph?.nodes || []).map(n => n.id).sort((a, b) => b.length - a.length);
   return rel => ids.find(id => (id === '.' ? !rel.includes('/') : (rel + '/').startsWith(id + '/'))) || '.';
