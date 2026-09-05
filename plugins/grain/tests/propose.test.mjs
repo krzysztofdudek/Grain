@@ -622,3 +622,84 @@ test('a rule states itself in words, with no doubled marker, no empty shape and 
   // an unknown class still says something, and still never prints the raw pid to a human
   assert.doesNotMatch(describeRow('auto.mods', 'true'), /auto\./);
 });
+
+// ---------- 16. the charter names the rules that reach the node from ABOVE (ticket 114) ----------
+//
+// A grain proposal attaches every mined rule to a TYPE, and the node that owns the files is often a
+// nested one whose own type hosts nothing: on spring-petclinic the 30 Java files belong to
+// `src/main/java/org`, while all 8 rules sit on the `src-main-java` type one level up. Yggdrasil
+// resolves that correctly — `yg context --file` walks the cascade (`core/graph/aspects.ts`,
+// channels 1-4: own aspects, ancestor node aspects, own architecture type, ancestor architecture
+// type) — but the charter was per-node and flat, so the owner assigned to the node that HOLDS the
+// code read "none certified yet at this node" about code governed by eight rules. The charter is the
+// only file the layer above the graph reads, so the cascade has to be in it.
+test('a node charter names an ancestor type\'s rules as INHERITED, with their origin, status and drill numbers', () => {
+  const parent = { id: 'src/api', type: 'src-api', dir: 'src/api', files: new Set(['src/api/deep/a.ts']), ownFiles: new Set(), relations: [], why: 'a partition' };
+  const child = { id: 'src/api/deep', type: 'src-api-deep', dir: 'src/api/deep', files: new Set(['src/api/deep/a.ts']), ownFiles: new Set(['src/api/deep/a.ts']), relations: [], why: 'a directory card' };
+  const aspects = [
+    { id: 'grain/src-api/partition-nameshape', host: 'src-api', origin: 'certified-convention', name: 'Every type under `src/api/**` must be named PascalCase', share: 1, n: 25, deviating: 0, exemplars: [], finalStatus: 'enforced', drill: { pass: 5, miss: 0, falseAlarm: 0, catches: 5, violates: 5, satisfies: 5 } },
+    { id: 'grain/src-api/candidate-auto-imp-x', host: 'src-api', origin: 'sub-gate-lattice', name: 'No file under `src/api/**` may import `x`', share: 0.8, n: 24, deviating: 6, exemplars: [], finalStatus: 'advisory' },
+    { id: 'grain/other/unrelated', host: 'src-util', origin: 'certified-convention', name: 'not this node', share: 1, n: 5, deviating: 0, exemplars: [], finalStatus: 'draft' },
+  ];
+  const ctx = { nodes: [parent, child], aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: '/tmp/x' };
+  const md = renderNodeCharter(child, ctx);
+  assert.match(md, /## Rules inherited from above/, 'the charter has no inherited-rules section');
+  assert.match(md, /Every type under `src\/api\/\*\*` must be named PascalCase/, 'the ancestor type\'s certified rule is missing from the node that owns the files');
+  assert.match(md, /No file under `src\/api\/\*\*` may import `x`/, 'the ancestor type\'s sub-gate rule is missing');
+  assert.match(md, /inherited from type `src-api`/, 'an inherited rule does not say where it comes from');
+  assert.match(md, /ancestor node `src\/api`/, 'an inherited rule does not name the ancestor node it attaches at');
+  assert.match(md, /status `enforced`/, 'an inherited rule does not carry its status word');
+  assert.match(md, /status `advisory`/, 'an inherited rule does not carry its status word');
+  assert.match(md, /caught 5 of 5 · 0 false alarm/, 'an inherited rule does not carry its drill numbers');
+  assert.doesNotMatch(md, /not this node/, 'a rule hosted by an unrelated type must not appear');
+  // and the node that HOSTS them still reads them as its own, never as inherited
+  const parentMd = renderNodeCharter(parent, ctx);
+  assert.match(parentMd, /Every type under `src\/api\/\*\*` must be named PascalCase/);
+  assert.doesNotMatch(parentMd, /inherited from type/, 'a hosting node must not call its own rules inherited');
+  // the dead end the ticket was opened on: the node that owns the files must never be told there is nothing
+  assert.doesNotMatch(md, /\(none certified yet at this node\)/, 'the empty line must point at the inherited section instead');
+});
+
+// The cascade above is asserted against the ONE implementation that decides it in production: a real
+// `.yggdrasil/` tree on disk, read by the real Yggdrasil CLI. `yg context --file` is what an agent
+// mid-edit actually sees; the charter is what the layer above the graph sees. They must name the same
+// rules for the same file, so the parity is asserted directly rather than described.
+test('the charter and `yg context --file` name the same rules for the same file', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const t = mkdtempSync(join(tmpdir(), 'cascade-'));
+  const w = (rel, text) => { const p = join(t, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
+  w('svc/Root.ts', 'export class Root {\n  public run(): void {}\n}\n');
+  w('svc/deep/Leaf.ts', 'export class Leaf {\n  public run(): void {}\n}\n');
+  w('.yggdrasil/yg-config.yaml', yamlEmit({ version: '5.2.0', coverage: { required: [], excluded: [] } }));
+  w('.yggdrasil/yg-architecture.yaml', yamlEmit({
+    node_types: {
+      project: { description: 'Top-level grouping.', parents: [] },
+      svc: { description: 'The service partition.', when: { path: 'svc/**' }, parents: ['project'], aspects: ['grain/svc/partition-nameshape'] },
+      'svc-deep': { description: 'One level below.', when: { path: 'svc/deep/**' }, parents: ['project', 'svc'] },
+    },
+  }));
+  w('.yggdrasil/model/svc/yg-node.yaml', yamlEmit({ name: 'svc', type: 'svc', description: 'The service.', mapping: ['svc/'], relations: [] }));
+  w('.yggdrasil/model/svc/deep/yg-node.yaml', yamlEmit({ name: 'svc/deep', type: 'svc-deep', description: 'The nested node that owns the file.', mapping: ['svc/deep/'], relations: [] }));
+  w('.yggdrasil/aspects/grain/svc/partition-nameshape/yg-aspect.yaml', yamlEmit({
+    name: 'Every type under `svc/**` must be named PascalCase', description: 'Every type under `svc/**` must be named PascalCase.',
+    status: 'advisory', errs: 'under', review_by: '2027-01-15', scope: { per: 'file', files: { path: 'svc/**' } },
+  }));
+  w('.yggdrasil/aspects/grain/svc/partition-nameshape/check.mjs',
+    "export function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.path.includes('BAD')) v.push({ file: file.path, line: 1, column: 0, message: 'hit' });\n  return v;\n}\n");
+
+  const r = spawnSync('node', [YG_BIN, 'context', '--file', 'svc/deep/Leaf.ts'], { cwd: t, encoding: 'utf8', maxBuffer: 1 << 26 });
+  assert.equal(r.status, 0, `yg context failed: ${r.stdout}${r.stderr}`);
+  const fromYg = [...new Set([...r.stdout.matchAll(/(grain\/[A-Za-z0-9/._-]+) \[/g)].map(m => m[1]))].sort();
+  assert.deepEqual(fromYg, ['grain/svc/partition-nameshape'], `yg context did not resolve the ancestor type's rule: ${r.stdout}`);
+
+  // the same graph, described to the charter renderer exactly as the renderer's own writers describe it
+  const nodes = [
+    { id: 'svc', type: 'svc', dir: 'svc', files: new Set(['svc/Root.ts', 'svc/deep/Leaf.ts']), ownFiles: new Set(['svc/Root.ts']), relations: [], why: 'a partition' },
+    { id: 'svc/deep', type: 'svc-deep', dir: 'svc/deep', files: new Set(['svc/deep/Leaf.ts']), ownFiles: new Set(['svc/deep/Leaf.ts']), relations: [], why: 'a directory card' },
+  ];
+  const aspects = [{ id: 'grain/svc/partition-nameshape', host: 'svc', origin: 'certified-convention', name: 'Every type under `svc/**` must be named PascalCase', share: 1, n: 4, deviating: 0, exemplars: [], finalStatus: 'advisory' }];
+  const md = renderNodeCharter(nodes[1], { nodes, aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: t });
+  const fromCharter = [...new Set([...md.matchAll(/\(`(grain\/[^`]+)`\)/g)].map(m => m[1]))].sort();
+  assert.deepEqual(fromCharter, fromYg, 'the charter and yg context disagree about which rules govern this file');
+
+  rmSync(t, { recursive: true, force: true });
+});
