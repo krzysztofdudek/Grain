@@ -1,2 +1,4 @@
 
 ## 2026-09-05 04:35 — SPEC wstępna (director). explain pokazuje kratę per PLIK jako zrzut debugowy; maintainer potrzebuje jej per PARTYCJA: kandydaci na reguły z udziałem (np. catch→abortOnUnexpectedError 22% w source/cli/src/cli), lista odstępców z ścieżkami, koszt doprowadzenia do 100%. To jest backlog refaktoru i wejście do 094 (aspekt draft + lista plików do naprawy). Bramka λ nie zmienia się na powierzchniach agentowych.
+
+## 2026-09-05 08:34 — RESOLVED as absorbed (director): the lattice per partition with adoption % is computed in propose.mjs (094) and exposed with the reading cap lifted (097); law-loop-b1 ruling makes its role 'candidates for decisions with evidence', which the proposal already renders. A separate CLI surface would be a 17th command with no measured reach (081 law). Reopen only with a consumer.

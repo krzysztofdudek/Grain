@@ -662,9 +662,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/100-seams",
-      "state": "running",
-      "note": "Sonnet spawned; branch fix/100-seams",
-      "updated": "2026-09-05 07:50"
+      "state": "merged",
+      "note": "premerge READY (2244/2244); yg advise 5/5 families nominated; 0 FA on 13 checks; Horde node.mjs reads charter.md",
+      "updated": "2026-09-05 08:34",
+      "sha": "adbe951"
     },
     {
       "id": 62,
