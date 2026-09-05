@@ -10,7 +10,10 @@ import { findRepoRoot, lastSuitePath, writeJSON, fail, parseArgs, nowStamp } fro
 const HELP = `premerge <branch> — automated pre-merge checklist
 
 Usage:
-  node premerge.mjs <branch> [--no-suite] [--json] [--root <path>]
+  node premerge.mjs <branch> [--base <branch>] [--no-suite] [--json] [--root <path>]
+
+  --base   the integration branch to measure against (default: main). A remote session
+           integrates on its designated branch; pass it here or every revert-test lies.
 
 Checks:
   1. base freshness   — branch is rooted at main's tip, or already merged, or main has no
@@ -24,7 +27,9 @@ Checks:
 Exits non-zero if any checklist item is ✗. Never modifies main's tracked files.
 `;
 
-const MAIN = 'main';
+// The integration branch premerge measures against. 'main' by default; --base <branch> overrides it
+// (a remote session integrates on its designated branch, and main is then stale by construction).
+let MAIN = 'main';
 const CONFIG_PATH = 'plugins/grain/engine/config.mjs';
 
 function git(args, root) {
@@ -222,6 +227,7 @@ function main() {
     process.exit(argv.length === 0 ? 1 : 0);
   }
   const { flags, positional } = parseArgs(argv, { boolean: ['no-suite'] });
+  if (flags.base) MAIN = String(flags.base);
   const branch = positional[0];
   if (!branch) fail('usage: premerge <branch> [--no-suite] [--json] [--root <path>]');
   const root = findRepoRoot(import.meta.url, flags.root);
