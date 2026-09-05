@@ -515,6 +515,34 @@ export function buildTypes(exp, loc, files, ctx) {
     a.contains = active.filter(b => b.dir && a.dir && b.dir !== a.dir && b.dir.startsWith(a.dir + '/')).map(b => b.id);
   }
 
+  // WHICH TYPE HOSTS A PARTITION WHOSE NAME IS A LABEL RATHER THAN A PATH (ticket 119).
+  //
+  // `mdlCuts` returns `['.']` for a repository it finds no reason to split, and every file's partition is then
+  // named `_root` — the whole repository in one bucket, with no directory of that name anywhere on disk;
+  // `_repo` is the same kind of name for the merged small-package residue. Downstream, `buildAspects` resolves
+  // an aspect's host TYPE by matching the partition name against a type's directory, so a row mined in such a
+  // partition used to find no host and be DROPPED, in silence, with nothing in the proposal saying a rule had
+  // been discarded. Measured across the corpus at four of seventeen repositories, two of them totally:
+  // `leveldb` (134 files, one `_root` partition) and `kotlin-datetime` (251) proposed ZERO aspects for this
+  // reason alone.
+  //
+  // The test is DERIVED, exactly as the candidate loop's is above: if no tracked file lives under the name, the
+  // name is not a directory, and the partition is resolved instead to the emitted type that actually HOLDS its
+  // files — by counting the overlap, deepest and then lowest-id on a tie. That is a real answer where one
+  // exists (`repo-root-file` when the partition's files all sit at the root, the covering source type when they
+  // do not) and no answer where none does — a type that holds none of the partition's files never hosts it, and
+  // the row is then still dropped, but for a reason the aspect renderer can state.
+  for (const p of loc.partitions) {
+    if (!p.files.size || underDir(files, p.name).size) continue;
+    const ranked = active
+      .map(a => ({ a, held: [...p.files].filter(f => a.files.has(f)).length }))
+      .filter(x => x.held > 0)
+      .sort((x, y) => y.held - x.held || (y.a.dir || '').length - (x.a.dir || '').length || (x.a.id < y.a.id ? -1 : 1));
+    if (!ranked.length) continue;
+    const { a, held } = ranked[0];
+    (a.labelPartitions ||= []).push({ name: p.name, held, total: p.files.size });
+  }
+
   // THE ALTERNATIVES: the level 093 §2 class (a) named as the cheapest recall available anywhere — sets grain
   // already holds inside a role group or an unpromoted directory card, which the hand graph turned into a node
   // type and which nothing surfaced as a type candidate.
@@ -621,6 +649,12 @@ export function buildRelations(exp, typeOfFile, active) {
 // a dot cannot be one verbatim — Yggdrasil's model walker does not descend into it. The mapping still names the
 // real path; only the node's own address is rewritten.
 export const nodePathFor = dir => (dir ? dir.split('/').map(s => (s.startsWith('.') ? 'dot-' + s.slice(1) : s)).join('/') : 'repo-root');
+
+// The path glob a type classifies by — its own `when`, said once. A dir-less (root-glob) type globs `*`, and
+// building `${a.dir}/**` for one produces the literal string `null/**`: a predicate that selects nothing, in a
+// sentence that names a directory called `null`. One expression, so a reader of a scope glob and a reader of
+// `yg-architecture.yaml` are looking at the same thing.
+export const typeGlob = a => (a.rootGlob ? '*' : `${a.dir}/**`);
 
 // A subtree that carries its own `.yggdrasil/` is a SEPARATE PROJECT, and every Yggdrasil check skips it. Grain
 // has no such notion — those files are tracked, so they are mined — and the first version of this renderer duly
@@ -1655,7 +1689,22 @@ export function buildAspects(exp, active, sub, opts = {}) {
   const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, byClass: {} };
   const asOf = (exp.asOf || '').slice(0, 8);
   const reviewBy = ((y) => `${y + 1}-01-15`)(new Date(exp.indexedAt || Date.now()).getUTCFullYear());
-  const typeForPartition = name => active.find(a => a.dir === name) || active.find(a => a.dir && name.startsWith(a.dir + '/')) || null;
+  // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH (ticket 119). The first two clauses are the
+  // path ones and are unchanged, so a partition that names a directory resolves exactly as it always did. The
+  // third is the one `_root` and `_repo` need: `buildTypes` above resolved every label partition to the emitted
+  // type that actually holds its files, and the answer rides on the type as `labelPartitions`. Reached only
+  // when the path clauses find nothing, so no host this renderer used to produce can change.
+  const typeForPartition = name => active.find(a => a.dir === name)
+    || active.find(a => a.dir && name.startsWith(a.dir + '/'))
+    || active.find(a => (a.labelPartitions || []).some(x => x.name === name))
+    || null;
+  // What to DISCLOSE when the host was resolved that way rather than by name: the rule was measured over the
+  // partition and is judged over the host type's glob, and a reader has to be told the two are not the same set.
+  const labelHosting = (host, name) => (host?.labelPartitions || []).find(x => x.name === name) || null;
+  const labelHostingNote = (host, name) => {
+    const l = labelHosting(host, name);
+    return l ? ` · partition \`${name}\` is a label, not a directory — no tracked file lives under that name — so this rule is attached to the type that holds most of it: \`${host.id}\` holds ${l.held} of its ${l.total} files, and the scope below is that type's, not the partition's` : '';
+  };
   const partOf = name => (exp.partitions || []).find(p => p.name === name);
 
   // The scope predicate an aspect is judged over. A partition- or directory-scoped convention scopes by PATH; a
@@ -1667,10 +1716,10 @@ export function buildAspects(exp, active, sub, opts = {}) {
       const g = (partOf(c.partition)?.groups || []).find(x => x.id === c.context.group);
       const cr = g ? contentRegexFor(g) : null;
       if (!cr) return null;
-      return { pred: { per: 'file', files: { all_of: [{ path: `${host.dir}/**` }, { content: cr.regex }] } }, why: `scoped by the group's own evidence (${cr.why})`, glob: `${host.dir}/**`, which: cr.sel };
+      return { pred: { per: 'file', files: { all_of: [{ path: typeGlob(host) }, { content: cr.regex }] } }, why: `scoped by the group's own evidence (${cr.why})`, glob: typeGlob(host), which: cr.sel };
     }
     if (c.context?.type === 'directory' && c.context.dir) return { pred: { per: 'file', files: { path: `${c.context.dir}/**` } }, why: `scoped to directory \`${c.context.dir}\``, glob: `${c.context.dir}/**` };
-    return { pred: { per: 'file', files: { path: `${host.dir}/**` } }, why: `scoped to partition \`${c.partition}\``, glob: `${host.dir}/**` };
+    return { pred: { per: 'file', files: { path: typeGlob(host) } }, why: `scoped to partition \`${c.partition}\``, glob: typeGlob(host) };
   };
 
   // (i) the certified set
@@ -1693,7 +1742,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const exemplarPhrase = (c.exemplars || []).length
       ? `copy ${(c.exemplars || []).slice(0, 2).map(e => `${e.rel}:${e.line}`).join(' or ')}`
       : 'no exemplar recorded to copy';
-    const evidenceLine = `${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)} · applies to ${scopeInWords(scope.glob, scope.which)} · ${exemplarPhrase} · grain certified this from ${ctxLabel} of \`${c.partition}\`: share ${(c.share ?? 0).toFixed(3)} (adoption ${pct(adoption)}), ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance, measured at ${asOf}`;
+    const evidenceLine = `${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)} · applies to ${scopeInWords(scope.glob, scope.which)} · ${exemplarPhrase} · grain certified this from ${ctxLabel} of \`${c.partition}\`: share ${(c.share ?? 0).toFixed(3)} (adoption ${pct(adoption)}), ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance, measured at ${asOf}${labelHostingNote(host, c.partition)}`;
     const id = `grain/${slug(c.partition)}/${slug(c.context?.type === 'group' ? (c.context.label || c.context.group) : c.context?.type || 'partition')}-${slug(c.feature.enumerator)}${c.feature.argument ? '-' + slug(c.feature.argument).slice(0, 40) : ''}`;
     if (out.some(o => o.id === id)) continue;
     const check = renderableDirection(c.feature.enumerator, c.expected, c.kind, c.context?.type)
@@ -1756,10 +1805,10 @@ export function buildAspects(exp, active, sub, opts = {}) {
     // `Slim/Routing/**` — the WHOLE directory. A sentence that names a narrower subject than the check
     // enforces is a sentence a future session is right to argue with. The cluster is where grain MEASURED the
     // row and it says so in the evidence; the rule speaks about the scope it is actually judged over.
-    const glob = `${host.dir}/**`;
+    const glob = typeGlob(host);
     const statement = obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
     const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.n} ${r.kind}s · ${r.deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
-    const evidenceLine = `${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}`;
+    const evidenceLine = `${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}${labelHostingNote(host, r.partition)}`;
     const check = renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
       ? renderCheck({ enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind, provenance: `${statement}\n${provenance}` })
       : null;
