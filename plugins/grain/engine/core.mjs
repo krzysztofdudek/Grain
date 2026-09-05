@@ -4698,13 +4698,27 @@ export async function learn({
     }
     for (const rel of Object.keys(fileTypeRefs)) fileTypeRefs[rel] = [...fileTypeRefs[rel]].sort();
     for (const rel of Object.keys(fileDocs)) fileDocs[rel] = [...fileDocs[rel]].sort();
-    for (const rel of Object.keys(fileScopes))
+    // fileScopes caps at 200 scopes/file so the model stays a bounded, diffable summary rather than a second
+    // copy of tree.json (§099) — memory over completeness, kept. But a capped list alone cannot tell "this file
+    // has exactly 200 scopes" from "this file was truncated at 200", which is exactly the ambiguity that made a
+    // consumer ranking files by size (the `too-much` instrument) silently under-report core.mjs's own 326 as
+    // 200. fileScopesTotal repairs that additively and sparsely: only a file whose list was actually truncated
+    // gets an entry, so a `for (rel in fileScopesTotal)` on any partition IS the set of truncated files, and
+    // `fileScopesTotal[rel] - fileScopes[rel].length` is "truncated by N" for it. Every other file's true count
+    // is just `fileScopes[rel].length` — sparse costs the model nothing extra there and needs no separate
+    // "is this file truncated" flag.
+    const fileScopesTotal = {};
+    for (const rel of Object.keys(fileScopes)) {
+      const trueCount = fileScopes[rel].length;
       fileScopes[rel] = fileScopes[rel].sort((a, b) => a[2] - b[2]).slice(0, 200);
+      if (trueCount > 200) fileScopesTotal[rel] = trueCount;
+    }
     model.partitions.push({
       name: pname,
       scopes: ps.length,
       files: [...new Set(ps.filter(s => s.kind === 'file').map(s => s.rel))].sort(),
       fileScopes,
+      fileScopesTotal,
       fileDocs,
       fileSups,
       fileTypeRefs,
