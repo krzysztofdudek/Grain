@@ -640,9 +640,40 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/097-law-loop",
+      "state": "running",
+      "note": "Opus spawned after 094 landed; branch research/097-law-loop",
+      "updated": "2026-09-05 06:39"
+    },
+    {
+      "id": 60,
+      "ticket": "098",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/098-graph-currency",
+      "state": "merged",
+      "note": "premerge READY from main checkout (2225/2225); 4 debt rows, 0 per 100 commits; 5/7 types reached",
+      "updated": "2026-09-05 07:29",
+      "sha": "7076df3"
+    },
+    {
+      "id": 61,
+      "ticket": "100",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/100-seams",
       "state": "queued",
-      "note": "po 094; bramki zapisane w tickecie",
-      "updated": "2026-09-05 05:34"
+      "note": "po 097/098; kontrakty szwów + adapter family-candidates + test szwu",
+      "updated": "2026-09-05 06:56"
+    },
+    {
+      "id": 62,
+      "ticket": "101",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/101-stress",
+      "state": "queued",
+      "note": "integracja Grain→Yggdrasil na korpusie; sense rate; granularność",
+      "updated": "2026-09-05 07:02"
     }
   ]
 }
