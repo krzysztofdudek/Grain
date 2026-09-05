@@ -1,6 +1,6 @@
 # Handoff
 
-at: 2026-09-05T05:19:20.490Z
+at: 2026-09-05T05:25:27.984Z
 by: director
 head: claude/grain-agent-tool-b89y0x@fdd19c9
 
@@ -8,7 +8,7 @@ head: claude/grain-agent-tool-b89y0x@fdd19c9
 093 scalone (fdd19c9), suita 2194/2194, wave 6 otwarta. Wynik rekonstrukcji na Yggdrasilu: typy 19/36 (7 więcej Grain już ma jako karty katalogów/grupy ról, ale nie oferuje jako typów), relacje na poziomie węzłów 1105/1236 recall 0.894, cykle 2/2, mapowania węzłów 83/393 (250 węzłów jednoplikowych — granularność, nie ślepota), aspekty deterministyczne 11/57 (20 chybień pod bramką λ, 6 reguł o nieobecności niewidocznych z konstrukcji, 20 bez literału). Naprawiony błąd: NUL w źródle instrumentu. Spawnuję dwóch Opusów: 094 (renderer propozycji .yggdrasil/ + pomiar recall propozycji tym samym instrumentem) i 096 (matematyka 'za dużo' + pomiar na Yggdrasilu i Grainie).
 
 ## In flight
-(none)
+- counsel-factory — Fable counsel on research/counsel-factory — memo .system/research/counsel-factory-2026-09-05.md: the breakthrough for Grain/Yggdrasil toward the self-guarding software factory; Horde cloned read-only at /home/user/krzysztofdudek/horde (since 2026-09-05T05:25:27.984Z, reports to lead)
 
 ## Pending decisions
 (none)
