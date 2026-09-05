@@ -461,6 +461,7 @@ export function makeEdgeResolver({
   tsAliases = [],
   phpAutoload = [],
   csGlobal = { usings: [], aliases: [] },
+  stats = null, // §113: an optional tally of how far the pass got — {seen} reference groups the extractors emitted
 }) {
   const ownerOf = f => (fileSet.has(f) ? f : undefined);
   // package-level splits (a Go package / Java wildcard import spanning several owners → silence) are decided at MODULE
@@ -489,6 +490,7 @@ export function makeEdgeResolver({
           projectGlobalUsingAliases: csGlobal.aliases,
         })
       : f.u || [];
+    if (stats) stats.seen = (stats.seen || 0) + uses.length;
     const seen = new Map();
     for (const dep of uses) {
       const to = resolveCandidateGroup(dep.candidates, resolver, rel, f.l);
@@ -548,10 +550,10 @@ export function hydrateTable(relDecls) {
 }
 
 // ---- resolution over the whole indexed tree → deduplicated file→file edges ----
-export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], srcRoots = [], tsAliases = [], phpAutoload = [] }) {
+export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], srcRoots = [], tsAliases = [], phpAutoload = [], stats = null }) {
   const fileSet = new Set(files);
   const { table, csGlobal } = tableFrom(files, relFacts);
-  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, srcRoots, tsAliases, phpAutoload, csGlobal });
+  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, srcRoots, tsAliases, phpAutoload, csGlobal, stats });
   const edges = [];
   for (const rel of files) edges.push(...resolve(rel, relFacts[rel]));
   return edges.sort((a, b) =>

@@ -5043,11 +5043,22 @@ export async function learn({
     // the extractor already read and from the Maven/Gradle standard layout. Stored on the model because the
     // single-file `check` path has no relFacts for the whole tree and must resolve the SAME way this pass did.
     const srcRoots = sourceRootsOf(files, relFacts);
-    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, srcRoots, tsAliases, phpAutoload });
+    const relStats = {};
+    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, srcRoots, tsAliases, phpAutoload, stats: relStats });
     model.edges = edges.slice(0, 30000);
     model.edgesTruncated = Math.max(0, edges.length - 30000);
     model.srcRoots = srcRoots;
     model.moduleGraph = moduleGraph(edges, files, pkgs, srcRoots);
+    // §113: the three stages a dependency passes through before it can become a law, so a graph with no relations
+    // can say WHERE they were lost instead of printing a bare zero. `seen` counts every reference the extractors
+    // emitted (internal and external alike — which of them is internal is not knowable before resolution),
+    // `resolved` the file→file edges bound to a file in the indexed tree, `crossing` those joining two modules.
+    {
+      const mOf = refineModOf(files, pkgs, srcRoots);
+      let crossing = 0;
+      for (const e of edges) if (mOf(e.from) !== mOf(e.to)) crossing++;
+      model.relStages = { seen: relStats.seen || 0, resolved: edges.length, crossing };
+    }
     // what the single-file `check` path needs to resolve an EDITED file's references against the accepted tree
     model.relDecls = compactDecls(files, relFacts);
     model.workspaces = workspaces;
