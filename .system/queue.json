@@ -640,9 +640,19 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/097-law-loop",
-      "state": "queued",
-      "note": "po 094; bramki zapisane w tickecie",
-      "updated": "2026-09-05 05:34"
+      "state": "running",
+      "note": "Opus spawned after 094 landed; branch research/097-law-loop",
+      "updated": "2026-09-05 06:39"
+    },
+    {
+      "id": 60,
+      "ticket": "098",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/098-graph-currency",
+      "state": "running",
+      "note": "Sonnet spawned; branch fix/098-graph-currency",
+      "updated": "2026-09-05 06:39"
     }
   ]
 }
