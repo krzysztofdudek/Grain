@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -239,6 +239,24 @@ test('promoteEnforceableAspects earns `enforced` only from a real yg drill: FALS
   assert.equal(evRow.draftReason, null);
 
   rmSync(t2, { recursive: true, force: true });
+});
+
+// ---------- ticket 106: an aspect's `name` is the whole statement, never a prefix cut mid-word ----------
+test('buildAspects never truncates `name` (ticket 106 — `.slice(0, 70)` used to cut mid-word)', () => {
+  const longStatement = 'this convention has a genuinely long statement that runs well past seventy characters on purpose (`WordBoundary`)';
+  assert.ok(longStatement.length > 70, 'the fixture statement must actually exceed the old cutoff to be a real regression check');
+  const active = [{ id: 'src', dir: 'src' }];
+  const exp = {
+    conventions: [{
+      established: 6, statement: longStatement, partition: 'src', feature: { enumerator: 'has', argument: null },
+      share: 1, bitsPerInstance: 4, expected: 'true', kind: 'file', exemplars: [], deviatingSites: [], conformingSites: [],
+    }],
+  };
+  const { aspects } = buildAspects(exp, active, []);
+  assert.equal(aspects.length, 1);
+  assert.equal(aspects[0].name, longStatement, 'name must be the whole statement, not a 70-char prefix');
+  assert.ok(!aspects[0].name.endsWith('Bo'), 'a mid-word cut like the old `.slice(0, 70)` must not reappear');
+  assert.ok(aspects[0].description.startsWith(longStatement), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
 });
 
 test('provenanceFor carries status/draftReason/scopeApproximation, additive over the law-loop.mjs field set', () => {
