@@ -1,14 +1,14 @@
 # Handoff
 
-at: 2026-09-05T07:50:10.501Z
+at: 2026-09-05T08:35:57.891Z
 by: director
-head: claude/grain-agent-tool-b89y0x@54f31c0
+head: claude/grain-agent-tool-b89y0x@3e2e6af
 
 ## Summary
-Fala 6 zamknięta (5 ticketów scalonych, suita 2239/2239, zero zmian silnika, wersje bez zmian). 097 = uczciwy negatyw: B1 jako główny drut praktyka→prawo NIE wchodzi (2/20, strict 0/20; zakład szablonu przegrany); zostają hold-out (I10=1.0), provenance, errs:under wewnątrz zakresu. Nowy kształt produktu reguł zapisany w law-loop-b1-not-doing-it-with-numbers: Grain = architektura + styl/kształt nazw z drillem + krata jako kandydaci na DECYZJE; 'nigdy' pochodzi z wymagań. Fala 7 otwarta: 100 w locie (Sonnet: grain-proposal/1, charter.md per węzeł, adapter family-candidates, testy szwów przez realne yg/Horde, job CI seams), 101 w kolejce (Opus: stress integracji na korpusie, sense rate, sędzia Opus dla próbki 097).
+Fala 7: 100 scalone (adbe951; grain-proposal/1, charter.md ×73, adapter family-candidates → yg advise 5/5, testy szwów, job CI seams; suita 2244/2244). 095 rozwiązane jako wchłonięte. 101 w locie (Opus): stress integracji na korpusie, sense rate, granularność, wrogie repo, sędzia dla próbki 097 (bramka 2), luka precyzji adaptera na planted-polyglot. Otwarte: 099 (cap fileScopes).
 
 ## In flight
-- 61 branch:fix/100-seams —  (since 2026-09-05T07:50:10.510Z, reports to lead)
+- 62 branch:research/101-stress —  (since 2026-09-05T08:35:57.901Z, reports to lead)
 
 ## Pending decisions
 (none)
@@ -20,7 +20,6 @@ Fala 6 zamknięta (5 ticketów scalonych, suita 2239/2239, zero zmian silnika, w
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
 
 ## Last actions
-- - 2026-09-05 merged: 093 fdd19c9
 - - 2026-09-05 merged: 096 2c16467
 - - 2026-09-05 merged: 094 8d65a2c
 - - 2026-09-05 merged: 098 7076df3
@@ -30,9 +29,10 @@ Fala 6 zamknięta (5 ticketów scalonych, suita 2239/2239, zero zmian silnika, w
 - note: Fala 6 (rekonstrukcja): 093 instrument G', 094 renderer propozycji, 096 'za dużo', 098 dług grafu + sizing, 097 pętla prawa (negatyw z liczbami). Zero zmian silnika — wersje bez zmian (ENGINE 0.3.0, g32/h11/m24). Trzy memo Fable scalone. Rulingi: north star, law loop (przyjęty, potem 'not doing it' po 097), layers/no user thresholds, granularity (dwie granularności), no rewrite.
 - # Fala 7 — szwy i stress — start 2026-09-05
 - - 2026-09-05 100 kontrakty szwów + charter.md + adapter family-candidates; 101 stress integracji na korpusie + sense rate + sędzia Opus dla próbki 097; 099 cap fileScopes; 095 do sprawdzenia czy wchłonięte.
+- - 2026-09-05 merged: 100 adbe951
 
 ## Next actions
-- Odbiór 100 jak hub (premerge z /home/user/Grain z --base). Potem spawn 101 (Opus) z dopiskiem: próbka 20 z 097 klasyfikowana przez sędziego. Potem 099, 095. Użytkownikowi: negatyw 097 przekazany w czacie; lista rzeczy po stronie Yggdrasila/Horde w decyzjach.
+- Odbiór 101 jak hub. Potem 099 (Sonnet). Zamknięcie fali 7. Kandydaci dalej: grain propose jako komenda produktu (po zmierzeniu podłóg w 101), Grain jako brownfield nr 2 (propozycja dla samego Graina), README Graina: nowa funkcja celu i wyniki (docs/results.md rozszerzyć o 093–101) — to zmienia, co produkt twierdzi, więc eskalacja klasy 6 → decyzja dyrektora z liczbami.
 
 ## Notes
 (none)
