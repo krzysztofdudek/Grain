@@ -828,11 +828,28 @@ const NT = {
   funcDecl: '/^(function_declaration|function_definition|function_item|function_signature|method_definition|method_declaration|method_signature)$/',
 };
 
+// The header's second paragraph states the aspect's STATUS, and every check is written before its status is
+// known — a drill has not run yet. `promoteEnforceableAspects` rewrites this paragraph in place when a drill
+// earns `enforced` or `advisory`, so the sentence a maintainer reads at the top of the file is never the
+// opposite of what Yggdrasil is doing with it. The third sentence (the `errs: under` contract) is the same
+// in all three and is kept out of the swapped text.
+export const DRAFT_NOTE = `// DRAFT: this aspect is \`status: draft\`, so the runner never executes this check. Read it, decide whether the
+// rule is real, then promote it.`;
+
+export const statusNote = status => (status === 'enforced'
+  ? `// ENFORCED: a real \`yg drill\` on this repository's own code caught a violation with this check and raised no
+// false alarm, and its convention cleared grain's certification bound, so \`yg check\` runs it and a refusal blocks.`
+  : status === 'advisory'
+    ? `// ADVISORY: a real \`yg drill\` on this repository's own code caught a violation with this check and raised no
+// false alarm, but its convention sits BELOW grain's certification bound, so \`yg check\` runs it and a refusal
+// warns without blocking. Whether it should become law is the maintainer's refactor decision.`
+    : DRAFT_NOTE);
+
 const PROVENANCE = p => `// PROVENANCE — grain measured this, it did not decide it.
 //   ${p.replace(/\n/g, '\n//   ')}
 //
-// DRAFT: this aspect is \`status: draft\`, so the runner never executes this check. Read it, decide whether the
-// rule is real, then promote it. \`errs: under\` is the contract this template keeps: it reports only where the
+${DRAFT_NOTE}
+// \`errs: under\` is the contract this template keeps: it reports only where the
 // syntax tree proves the negation, and stays silent where the language gives it nothing to read.`;
 
 // Every template shares one skeleton so the contract (sync, Violation[], guard on file.ast) is identical.
@@ -1677,7 +1694,14 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
   for (const a of aspects) {
     // `enforced` and `advisory` both leave `draft` and both need `yg-aspect.yaml` rewritten with the earned
     // status; `draft` aspects keep the file this renderer already wrote above (§7).
-    if (a.finalStatus === 'enforced' || a.finalStatus === 'advisory') write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(aspectYamlDoc(a, a.finalStatus)));
+    if (a.finalStatus === 'enforced' || a.finalStatus === 'advisory') {
+      write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(aspectYamlDoc(a, a.finalStatus)));
+      const checkPath = join(ygg, 'aspects', a.id, 'check.mjs');
+      if (existsSync(checkPath)) {
+        const text = readFileSync(checkPath, 'utf8');
+        if (text.includes(DRAFT_NOTE)) write(checkPath, text.replace(DRAFT_NOTE, statusNote(a.finalStatus)));
+      }
+    }
     write(join(ygg, 'aspects', a.id, 'provenance.json'), JSON.stringify(provenanceFor(a, { asOf, repo }), null, 2) + '\n');
     const row = evidence.find(e => e.kind === 'aspect' && e.id === a.id);
     if (row) { row.status = a.finalStatus; row.draftReason = a.draftReason || null; }

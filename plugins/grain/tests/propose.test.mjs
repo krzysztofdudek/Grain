@@ -459,3 +459,62 @@ test('a node charter lists the certified conventions and sub-gate candidates hos
   assert.match(md, /files here import `x`/, 'the sub-gate candidate hosted by this node\'s type is missing from its charter');
   assert.doesNotMatch(md, /not this node/, 'a rule hosted by another type must not appear');
 });
+
+// ---------- 14. a promoted check's own header stops calling itself a draft (dry run 112) ----------
+//
+// `promoteEnforceableAspects` rewrites `yg-aspect.yaml` when a drill earns `enforced` or `advisory`,
+// and used to leave `check.mjs` exactly as written — including the header stating that the aspect is
+// `status: draft` and that "the runner never executes this check". On a delivered proposal that
+// sentence is false for every promoted rule, and it is the first thing a maintainer opening the file
+// reads while Yggdrasil is running it.
+test('promotion rewrites the check.mjs header, so a promoted check never says the runner skips it', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const t3 = mkdtempSync(join(tmpdir(), 'header-'));
+  const outDir3 = join(t3, 'proposal');
+  const ygg = join(outDir3, '.yggdrasil');
+  mkdirSync(join(ygg, 'model'), { recursive: true });
+  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '5.2.0' }));
+  writeFileSync(join(ygg, 'yg-architecture.yaml'), yamlEmit({ node_types: { project: { description: 'root' } } }));
+
+  const draftHeader = [
+    '// PROVENANCE — grain measured this, it did not decide it.',
+    '//   a test rule',
+    '//',
+    '// DRAFT: this aspect is `status: draft`, so the runner never executes this check. Read it, decide whether the',
+    '// rule is real, then promote it.',
+    '// `errs: under` is the contract this template keeps: it reports only where the',
+    '// syntax tree proves the negation, and stays silent where the language gives it nothing to read.',
+  ].join('\n');
+  const body = "\nimport { walk } from '@chrisdudek/yg/ast';\nexport function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.content.includes('BAD')) v.push({ file: file.path, line: 1, column: 0, message: 'hit' });\n  return v;\n}\n";
+
+  const writeAspect = (id, origin, violatesHasBad) => {
+    const dir = join(ygg, 'aspects', id);
+    mkdirSync(join(dir, 'drills', 'violates-case'), { recursive: true });
+    writeFileSync(join(dir, 'yg-aspect.yaml'), yamlEmit({ name: id, description: id, status: 'draft', errs: 'under', scope: { per: 'file' } }));
+    writeFileSync(join(dir, 'check.mjs'), draftHeader + body);
+    writeFileSync(join(dir, 'drills', 'violates-case', 'case.txt'), violatesHasBad ? 'this file is BAD\n' : 'this file is fine\n');
+    return { id, check: draftHeader + body, kind: null, origin, drillViolatesWritten: 1, drillSatisfiesWritten: 0 };
+  };
+  const aspects = [
+    writeAspect('promoted-enforced', 'certified-convention', true),
+    writeAspect('promoted-advisory', 'sub-gate-lattice', true),
+    writeAspect('stays-draft', 'certified-convention', false),
+  ];
+  promoteEnforceableAspects(aspects, { ygg, outDir: outDir3, evidence: aspects.map(a => ({ kind: 'aspect', id: a.id })), asOf: '2026-01-01', repo: t3 });
+
+  const headerOf = (id) => readFileSync(join(ygg, 'aspects', id, 'check.mjs'), 'utf8');
+  assert.equal(aspects[0].finalStatus, 'enforced');
+  assert.doesNotMatch(headerOf('promoted-enforced'), /the runner never executes this check/,
+    'an enforced check still tells its reader the runner skips it');
+  assert.match(headerOf('promoted-enforced'), /ENFORCED:/);
+  assert.equal(aspects[1].finalStatus, 'advisory');
+  assert.doesNotMatch(headerOf('promoted-advisory'), /the runner never executes this check/,
+    'an advisory check still tells its reader the runner skips it');
+  assert.match(headerOf('promoted-advisory'), /ADVISORY:/);
+  assert.equal(aspects[2].finalStatus, 'draft');
+  assert.match(headerOf('stays-draft'), /DRAFT: this aspect is/, 'a draft check keeps its draft header');
+  for (const id of ['promoted-enforced', 'promoted-advisory', 'stays-draft']) {
+    assert.match(headerOf(id), /`errs: under` is the contract this template keeps/, id);
+  }
+
+  rmSync(t3, { recursive: true, force: true });
+});
