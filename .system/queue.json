@@ -640,9 +640,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/097-law-loop",
-      "state": "running",
-      "note": "Opus spawned after 094 landed; branch research/097-law-loop",
-      "updated": "2026-09-05 06:39"
+      "state": "merged",
+      "note": "premerge READY from main checkout (2239/2239); bar 1 FAILED 2/20 (strict 0/20); bet lost; hold-out I10=1.000 kept",
+      "updated": "2026-09-05 07:49",
+      "sha": "80ba07d"
     },
     {
       "id": 60,
