@@ -19,8 +19,10 @@
 //                     override SUBGATE_PER_PARTITION, the READING cap on how many sub-gate candidates a
 //                     maintainer is asked to look at per partition. It bounds presentation, not measurement, so
 //                     a measurement run (097) lifts it and says so.
-//   --score <repo>    after writing, score the proposal against that repo's HAND-WRITTEN `.yggdrasil/`, in BOTH
-//                     directions (recall: hand element -> proposed element; precision: proposed -> hand)
+//   --score <dir>     after writing, score the proposal against the HAND-WRITTEN `.yggdrasil/` under <dir>, in
+//                     BOTH directions (recall: hand element -> proposed element; precision: proposed -> hand).
+//                     <dir> need not be <repo>: an oracle graph lives beside the code it describes, and the
+//                     repository's own files are always what a `content:` predicate is evaluated against.
 //   --json <path>     write the run's numbers (and the score, with --score) as JSON
 //   --quiet           no progress on stderr
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -77,10 +79,16 @@ const say = (opts, m) => { if (!opts.quiet) process.stderr.write(`[propose] ${m}
 // a proposed element with no hand counterpart is not automatically wrong. It is reported as a raw disagreement.
 // ==================================================================================================
 
-export function scoreProposal(handRepo, outDir, files) {
+// `handRepo` is where the HAND GRAPH is read from; `contentRoot` is the repository whose files `files` names and
+// whose bodies a `content:` predicate is evaluated against. They are the same directory when a repository carries
+// its own graph, and different whenever the hand graph is an ORACLE held beside the code it describes (every graph
+// under `tests/stress/oracles/<name>/`, scored against a clone). Defaulting `contentRoot` to `handRepo` keeps the
+// same-directory callers unchanged; passing it wrong silently expands every content-gated hand type to the empty
+// set, which drops that type out of the recall denominator without any error.
+export function scoreProposal(handRepo, outDir, files, contentRoot = handRepo) {
   const hand = readGraph(handRepo);
   const prop = readGraph(outDir);
-  const ctx = { root: handRepo, pathCache: new Map(), contentCache: new Map(), headCache: new Map(), unknownWhenKeys: new Set(), parsed: new Set() };
+  const ctx = { root: contentRoot, pathCache: new Map(), contentCache: new Map(), headCache: new Map(), unknownWhenKeys: new Set(), parsed: new Set() };
 
   const setsOf = graph => {
     const types = [];
@@ -207,7 +215,7 @@ if (isMain) {
   }
   if (opts.score) {
     say(opts, 'scoring against the hand-written graph ...');
-    out.score = scoreProposal(opts.score, outDir, r.files);
+    out.score = scoreProposal(opts.score, outDir, r.files, repo);
     const t = out.score.types, n = out.score.nodes;
     say(opts, `types recall ${t.recall.hit}/${t.recall.n} (with alternatives ${t.recallWithAlternatives.hit}/${t.recallWithAlternatives.n}) · precision ${t.precision.hit}/${t.precision.n}`);
     say(opts, `nodes recall ${n.recall.hit}/${n.recall.n} · precision ${n.precision.hit}/${n.precision.n}`);

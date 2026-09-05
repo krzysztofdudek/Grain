@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, scoreProposal } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -82,6 +82,37 @@ test('writes a complete proposal directory and never into the repository', () =>
   assert.equal(j.instrument, 'propose/1');
   assert.ok(j.counts.types >= 2, `expected at least the two source localities, got ${j.counts.types}`);
   assert.ok(j.counts.nodes >= j.counts.types - 1);
+});
+
+// ---------- 1b. scoring a proposal against a hand graph held OUTSIDE the repository ----------
+// An oracle graph lives beside the code it describes (tests/stress/oracles/<name>/.yggdrasil/ against a clone),
+// so the directory the graph is read from and the directory a `content:` predicate must be evaluated against are
+// two different places. Scoring both from the graph's own directory makes every content-gated hand type expand to
+// nothing and silently drop out of the recall denominator.
+test('scoreProposal evaluates a hand `content:` predicate against the repository, not the graph directory', () => {
+  const oracle = join(tmp, 'oracle-content');
+  mkdirSync(join(oracle, '.yggdrasil'), { recursive: true });
+  writeFileSync(join(oracle, '.yggdrasil', 'yg-config.yaml'), 'version: "5.2.0"\n');
+  writeFileSync(join(oracle, '.yggdrasil', 'yg-architecture.yaml'), [
+    'node_types:',
+    '  handler:',
+    '    description: "files that export a handler"',
+    '    when:',
+    '      all_of:',
+    '        - path: "src/**/*.ts"',
+    '        - content: "export function handle"',
+    '  helper:',
+    '    description: "everything else under src"',
+    '    when:',
+    '      path: "src/util/*.ts"',
+    '',
+  ].join('\n'));
+  const files = execFileSync('git', ['-C', repo, 'ls-files'], { encoding: 'utf8' }).split('\n').filter(Boolean);
+  const s = scoreProposal(oracle, out, files, repo);
+  const handler = s.types.recall.rows.find(r => r.id === 'handler');
+  assert.ok(handler, 'the content-gated hand type must be in the recall denominator, not silently dropped');
+  assert.equal(handler.files, 3, 'the three handlers are the ones whose BODY says `export function handle`');
+  assert.equal(s.types.recall.n, 2);
 });
 
 test('refuses an out-dir that is the repository itself', () => {
