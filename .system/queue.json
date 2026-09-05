@@ -653,6 +653,16 @@
       "state": "running",
       "note": "Sonnet spawned; branch fix/098-graph-currency",
       "updated": "2026-09-05 06:39"
+    },
+    {
+      "id": 61,
+      "ticket": "100",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/100-seams",
+      "state": "queued",
+      "note": "po 097/098; kontrakty szwów + adapter family-candidates + test szwu",
+      "updated": "2026-09-05 06:56"
     }
   ]
 }
