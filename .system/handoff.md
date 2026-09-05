@@ -1,38 +1,46 @@
 # Handoff
 
-at: 2026-09-02T12:38:28.783Z
+at: 2026-09-05T19:56:56.262Z
 by: director
-head: main@3bc8468
+head: claude/grain-agent-tool-b89y0x@3d249bf
 
 ## Summary
-RELEASED PUBLICLY 2026-09-02 on the user's explicit order: main pushed (601aa23..3bc8468), tag v0.3.0, GitHub Release v0.3.0 with honest notes. The build is the former working 0.4.0 renamed 0.3.0 (user's choice among three options). docs/results.md carries the complete measured record incl. the 0-in-25 verdict; README links it from evidence, documentation and status. Machine paths scrubbed from tracked .system/ and the stress baseline JSON before publication. Suite 2181/2181. Development paused; nothing is authorised beyond this release.
+Fala 9 w toku, 7 pracowników równolegle w worktree'ach agenta: 108 ×3 (ślepe wyrocznie: grain, spring-petclinic, express — Opus), 109 sens (Opus), 111 utwardzenie propose (Opus), 112 próba fabryki z Horde na petclinic (Opus), 105 README (Sonnet). Korpus 18 repo sklonowany w scratchpad/clones. 110 (typy) czeka na wyrocznie z 108.
 
 ## In flight
-- 55 branch:research/092 —  (since 2026-09-02T12:38:28.828Z, reports to lead)
+- 66 branch:fix/105-readme —  (since 2026-09-05T19:56:56.274Z, reports to lead)
+- 68 branch:research/108-oracles —  (since 2026-09-05T19:56:56.274Z, reports to lead)
+- 69 branch:research/109-sense —  (since 2026-09-05T19:56:56.274Z, reports to lead)
+- 71 branch:fix/111-hardening —  (since 2026-09-05T19:56:56.274Z, reports to lead)
+- 72 branch:research/112-factory —  (since 2026-09-05T19:56:56.274Z, reports to lead)
 
 ## Pending decisions
-(none)
+- [d1] Czy podbić ENGINE_VERSION/package.json 0.3.0→0.4.0 za nową komendę propose (precedens wave-close-versions-0-4-0), i czy scalić przepisany README/docs pod nowy cel (bilet 105, klasa 6)? — 104 scalone; wersje nietknięte; 105 czeka na zatwierdzenie użytkownika przed dispatchem
 
 ## Waiting on
 - grain-lead: wave 2 start message (workers dispatched, count), then 'queue empty' escalation (since 2026-09-01T21:51:29.863Z)
 - grain-lead: wave 2 start message (workers dispatched, count), then queue-empty escalation (since 2026-09-01T21:51:42.758Z)
 - grain-lead: wave close (wave close --suite 2115, wave start 3) and a fresh handoff (since 2026-09-02T04:11:36.859Z)
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
+- user: decyzje: bump wersji 0.3.0→0.4.0; zgoda na 105 (README/docs pod nowy cel) (since 2026-09-05T14:21:16.449Z)
 
 ## Last actions
-- - 2026-09-02 merged: 082 9c498b3
-- - 2026-09-02 merged: 083 2d1fc05
-- - 2026-09-02 merged: 084 f231b26
-- - 2026-09-02 merged: 086 8efac06
-- - 2026-09-02 merged: 085 c439ae7
-- - 2026-09-02 merged: 088 1f2efa9
-- - 2026-09-02 merged: 080 aa45602
-- - 2026-09-02 merged: 087 84f0188
-- - 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).
-- - 2026-09-02 merged: 089 80d5b5c
+- - 2026-09-05 Dyrektor przy scaleniu 102 skleił definicję SYMBOL_LEVEL_KIND z komentarzem (perl), a łańcuch komend zacommitował mimo 1 fail (grep zwrócił 0). Naprawione 2272/2272. Lekcja: nigdy commit za grepem — bramką jest kod wyjścia testu.
+- - 2026-09-05 Niezależny przerender autopropozycji Yggdrasil scalonym rendererem (export 5cca6b15, YG_BIN): 124 aspekty, 33 deterministyczne drillowane (665 przypadków) → 10 enforced, 22 no-catch, 1 file-scope FA; 91 prozy draft; 37 pominięte jako nie-reguły, 17 jako group-scoped nierenderowalne; 8 cykli węzłów; 73 karty. Rozjazd z liczbami pracownika 102 (11/13) — inny export; do weryfikacji w 104 na jednym ustalonym exporcie.
+- - 2026-09-05 merged: 104 e53127f
+- - 2026-09-05 Wersje NIE podbite przy 104: ENGINE_VERSION 0.3.0 to publiczne wydanie (3bc8468 po wcześniejszym 0.4.0 → 113ef97); bump wersji to decyzja użytkownika, nie dyrektora — rekomendacja pracownika (0.4.0 za nową powierzchnię komendy) zapisana w logu 104. Wart osobnego biletu: nazwa aspektu ucięta do 70 znaków w połowie słowa (kosmetyka, na dysku tak samo).
+- # Fala Fala 8 — odbiór propozycji — close 2026-09-05
+- suite: 2290
+- note: grain propose jest komendą produktu (104), cichy raport; statusy zarabiane: enforced = certyfikowana konwencja + drill 0 FA + ≥1 mutant; advisory = krata po drillu (kandydaci); draft = reszta z powodem. Yggdrasil: 124 aspektów → 10 enforced. Grain na sobie: 81 → 0 enforced, 22 advisory, 59 prozy. Otwarte dla użytkownika: bump wersji, README (105).
+- - 2026-09-05 merged: 107 a6a2c46
+- # Fala Fala 9 — wyrocznie, sens, fabryka — start 2026-09-05
+- - 2026-09-05 Użytkownik: 'Ogień!' na A–F przy nieograniczonych zasobach. A wyrocznie (108), B sens (109), C typy (110), D utwardzenie (111), E próba fabryki (112), F README (105) + bump wersji przy zamknięciu.
 
 ## Next actions
-- Nothing scheduled. If asked to continue: (1) hard-task paired trial with per-run counterfactual (092), (2) write-time guard product form, (3) 091/090, (4) 089 landed-unmerged, (5) worktree prune. Push again only on explicit instruction.
+- Odbiór każdego jak hub: premerge z /home/user/Grain z --base claude/grain-agent-tool-b89y0x; nigdy z worktree; nigdy commit za grepem; nigdy pkill -f z własnym wzorcem.
+- Po trzech wyroczniach 108: dispatch pomiaru 108 (reconstruct + propose vs 4 wyrocznie) i 110 (typy).
+- 105 to klasa 6: diff README pokazać użytkownikowi przed scaleniem.
+- Bump wersji 0.3.0→0.4.0 przy zamknięciu fali 9 (użytkownik: 'Ogień!' na A–F).
 
 ## Notes
 (none)

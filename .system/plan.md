@@ -5083,3 +5083,42 @@ note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 disco
 - 2026-09-02 merged: 087 84f0188
 - 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).
 - 2026-09-02 merged: 089 80d5b5c
+
+# Fala 6 — rekonstrukcja — start 2026-09-05
+- 2026-09-05 Nowa gwiazda: miner brownfieldu dla Yggdrasila. Instrument G' (093) mierzy, ile ręcznego .yggdrasil/ Grain odzyskuje; kierunek: 094 renderer propozycji, 095 krata maintainera, 096 diagnostyka 'za dużo'.
+- 2026-09-05 merged: 093 fdd19c9
+- 2026-09-05 merged: 096 2c16467
+- 2026-09-05 merged: 094 8d65a2c
+- 2026-09-05 merged: 098 7076df3
+- 2026-09-05 merged: 097 80ba07d
+
+# Fala 6 — rekonstrukcja — close 2026-09-05
+suite: 2239
+note: Fala 6 (rekonstrukcja): 093 instrument G', 094 renderer propozycji, 096 'za dużo', 098 dług grafu + sizing, 097 pętla prawa (negatyw z liczbami). Zero zmian silnika — wersje bez zmian (ENGINE 0.3.0, g32/h11/m24). Trzy memo Fable scalone. Rulingi: north star, law loop (przyjęty, potem 'not doing it' po 097), layers/no user thresholds, granularity (dwie granularności), no rewrite.
+
+# Fala 7 — szwy i stress — start 2026-09-05
+- 2026-09-05 100 kontrakty szwów + charter.md + adapter family-candidates; 101 stress integracji na korpusie + sense rate + sędzia Opus dla próbki 097; 099 cap fileScopes; 095 do sprawdzenia czy wchłonięte.
+- 2026-09-05 merged: 100 adbe951
+- 2026-09-05 merged: 101 b3a9b32
+- 2026-09-05 101 odebrany jako hub: 17/17 propozycji ładowalnych przez yg, wrogie repo 17/17, sens det. aspektów 60% / typów 12% / węzłów 36% / prozy 0%, bar 2 (0.091/0.300) NIE zdany — 14/20 to nie reguły. Sześć defektów propose.mjs naprawionych od ręki. Cztery orzeczenia zapisane (proza draft, FA-etykieta jako odbiór, _root/MIN_TYPE_FILES, no-catch draft).
+
+# Fala 7 — szwy i stress — close 2026-09-05
+suite: 2260
+note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta grafu 0 długu/100 commitów (098). Wniosek fali: Grain dostarcza architekturę + reguły leksykalne z drillem; proza i no-catch to kandydaci, nie prawo.
+
+# Fala Fala 8 — odbiór propozycji — start 2026-09-05
+- 2026-09-05 099 (cap fileScopes) + 102 (skutki 101 w rendererze) → Sonnet; potem decyzja z liczbami: grain propose jako komenda produktu, Grain jako brownfield nr 2, README pod nową funkcję celu (klasa 6).
+- 2026-09-05 merged: 099 498da86
+- 2026-09-05 merged: 102 26acdf0
+- 2026-09-05 Dyrektor przy scaleniu 102 skleił definicję SYMBOL_LEVEL_KIND z komentarzem (perl), a łańcuch komend zacommitował mimo 1 fail (grep zwrócił 0). Naprawione 2272/2272. Lekcja: nigdy commit za grepem — bramką jest kod wyjścia testu.
+- 2026-09-05 Niezależny przerender autopropozycji Yggdrasil scalonym rendererem (export 5cca6b15, YG_BIN): 124 aspekty, 33 deterministyczne drillowane (665 przypadków) → 10 enforced, 22 no-catch, 1 file-scope FA; 91 prozy draft; 37 pominięte jako nie-reguły, 17 jako group-scoped nierenderowalne; 8 cykli węzłów; 73 karty. Rozjazd z liczbami pracownika 102 (11/13) — inny export; do weryfikacji w 104 na jednym ustalonym exporcie.
+- 2026-09-05 merged: 104 e53127f
+- 2026-09-05 Wersje NIE podbite przy 104: ENGINE_VERSION 0.3.0 to publiczne wydanie (3bc8468 po wcześniejszym 0.4.0 → 113ef97); bump wersji to decyzja użytkownika, nie dyrektora — rekomendacja pracownika (0.4.0 za nową powierzchnię komendy) zapisana w logu 104. Wart osobnego biletu: nazwa aspektu ucięta do 70 znaków w połowie słowa (kosmetyka, na dysku tak samo).
+
+# Fala Fala 8 — odbiór propozycji — close 2026-09-05
+suite: 2290
+note: grain propose jest komendą produktu (104), cichy raport; statusy zarabiane: enforced = certyfikowana konwencja + drill 0 FA + ≥1 mutant; advisory = krata po drillu (kandydaci); draft = reszta z powodem. Yggdrasil: 124 aspektów → 10 enforced. Grain na sobie: 81 → 0 enforced, 22 advisory, 59 prozy. Otwarte dla użytkownika: bump wersji, README (105).
+- 2026-09-05 merged: 107 a6a2c46
+
+# Fala Fala 9 — wyrocznie, sens, fabryka — start 2026-09-05
+- 2026-09-05 Użytkownik: 'Ogień!' na A–F przy nieograniczonych zasobach. A wyrocznie (108), B sens (109), C typy (110), D utwardzenie (111), E próba fabryki (112), F README (105) + bump wersji przy zamknięciu.

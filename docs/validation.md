@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2181 tests under engine 0.3.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2288 tests under engine 0.3.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 

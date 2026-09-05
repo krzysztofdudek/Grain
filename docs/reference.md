@@ -27,6 +27,7 @@ worktree.
 | `report` | `--top N`, `--json` | top conventions with trends and ages, templates of the unclustered residue, drift, the module graph with cycles, boundaries, and a `== health ==` section of conventions worth a decision |
 | `rules` | `--out <file>`, `--top N` | a generated Markdown document of established conventions over the same data `report` prints, stamped with the commit; no `--out` prints it to stdout (so `grain rules > CONVENTIONS.md` works) — for a reader with no terminal and no grain plugin |
 | `export` | `--out <file>`, `--max-sites N`, `--compact`, `--no-anchors` | the whole model as data; see the schema contract below |
+| `propose [<out-dir>]` | `--full`, `--json <path>`, `--holdout <YYYY-MM-DD>` | a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository, written to `<out-dir>` (default `.yggdrasil-proposal/`); the report names the architecture, the rules a real `yg drill` proved, and the candidates, with `--full` for every draft it kept back; see the proposal contract below |
 | `decide steer <path>#<name>` | `--surfaces <pid,…>`, `--instead-of <pid,…>`, `--note`, `--topic`, `--weight`, `--author` | record a maintainer decision; without `--surfaces` it refuses and lists the exemplar's properties (alias `seed add`) |
 | `decide boundary <from>` | `--never-imports <to>`, `--note`, `--author` | an architecture decision; new imports crossing it are flagged at edit time (alias `seed add-boundary`) |
 | `decide waive <path>#<name>` | `--on <pid>`, `--note`, `--author` | excuse one named scope from one convention; `check` reports the departure as deliberate, the counts still count it non-conforming |
@@ -198,9 +199,10 @@ at the same binary by hand.
   `-32602`); a failure while answering (a bad `repo` path, a file that does not exist) comes back as a normal
   result with `isError: true` so the calling model can see and react to it. Neither kind ever crashes the server —
   it keeps answering later calls.
-- Mutating commands (`decide`/`seed`, `refresh`) and `map`/`explain`/`selftest` (not part of the four-question read
-  surface `where`/`how`/`what`/`check` answers) are deliberately not exposed; this is a read-only query surface
-  over the questions an agent asks mid-task, not the whole CLI.
+- Mutating commands (`decide`/`seed`, `refresh`, `propose` — which writes a whole staging tree) and
+  `map`/`explain`/`selftest` (not part of the four-question read surface `where`/`how`/`what`/`check` answers) are
+  deliberately not exposed; this is a read-only query surface over the questions an agent asks mid-task, not the
+  whole CLI.
 
 ## The store
 
@@ -224,6 +226,11 @@ at the same binary by hand.
 ```
 
 Deleting `cache/` is always safe; the next query rebuilds the same bytes.
+
+`grain propose` writes outside this store, to `<repo>/.yggdrasil-proposal/` (or the out-dir you name): a staging
+tree, not state. It carries its own ignore file (`*`) from the first run, so it never shows as an uncommitted
+change and can never be committed by accident, and deleting it is always safe — the next `propose` rewrites it.
+The repository's own `.yggdrasil/` is never written by grain, at all.
 
 ## Environment
 
@@ -336,3 +343,169 @@ only) does not — a minor, known asymmetry, harmless since the aggregate's own 
 the whole payload's shape. That same parseable-file item also carries `disclosures[]` (§089, see above) — a
 degraded parse on a file review lists for another reason is disclosed there exactly like `check`'s own verdict for
 that file, even when `review`'s own text collapses several such files into one aggregate line above its display cap.
+
+## The proposal contract
+
+`grain propose [<out-dir>]` writes a proposed `.yggdrasil/` graph to `<out-dir>` — `PROPOSAL.md`,
+`REFACTOR-BACKLOG.md`, `alternatives.md`, `sizing.json` and the `.yggdrasil/` tree itself.
+`<out-dir>/proposal.json` prints `schema: "grain-proposal/1"`.
+
+**The out-dir defaults to `.yggdrasil-proposal/` at the repository root and is never the repository's own
+`.yggdrasil/`** — the command refuses that path outright. A proposal is a staging tree a human reads, edits and
+moves in; nothing installs it. The directory is written with its own ignore file (`*`, the same self-ignoring
+form `.grain/`'s own uses for the cache) the first time it appears, so a proposal under review never shows up as
+an untracked change and can never be committed by accident. Naming `.yggdrasil-proposal/` in the repository's
+top-level ignore list as well is fine; nothing in grain requires it.
+
+The same renderer is also driven by the measurement instrument `node tests/stress/propose.mjs <repo> <out-dir>`,
+which adds `--score <repo>` (compare against a hand-written graph, both directions) and `--family-candidates
+<out.json>`. The instrument and the command write byte-identical trees — the renderer lives in
+`plugins/grain/engine/propose.mjs` and neither surface has a rendering path of its own.
+
+**What the command prints** is deliberately short (ruling `propose-default-is-quiet`), and every line of it
+carries a number or a path: the architecture (node types, nodes, relations, dependency cycles), the aspects that
+EARNED `status: enforced` from a real drill with what each one checks and its drill numbers, and the
+CANDIDATES. Ticket 107, ruling `enforced-requires-certified-origin`: earning `status: enforced` needs the drill
+AND a `certified-convention` origin — a rule cleared grain's own MDL/λ certification bound. A `sub-gate-lattice`
+origin (a rule below that bound — grain itself declined to certify it; ruling `sub-gate-rows-are-the-product`, a
+lattice row is a refactor plan, not law) that clears the SAME drill earns `status: advisory` instead: real, but
+not yet a maintainer's decision to switch on. The candidates section lists these advisory aspects first,
+strongest evidence first, then — folded into the same list, below them — the older definition: a draft (any
+origin) the same real drill still caught at least one violation with. A candidate is a definition, not a
+cut-off: with no drill there are no candidates and the report says that instead of ranking drafts nobody has
+judged. Everything else (prose aspects, no-catch drafts, finer type alternatives, conventions skipped as not a
+rule) is written to disk exactly as before and summarised in one counted line naming the file that holds it;
+`--full` prints all of it. `--json <path>` writes the same report as a
+`schema: "grain-propose/1"` document built in the same pass, so the two cannot disagree. When no Yggdrasil CLI
+resolves (`YG_BIN`, or `yg` on PATH) nothing is drilled, nothing is enforced, and the report says so in place of
+the enforced list. **The schema is a published,
+versioned interface exactly like `grain-export/1` above**: Yggdrasil's own `yg check`/`yg drill`/`yg advise`
+read the `.yggdrasil/` tree this renderer writes, and Horde's `node.mjs show` reads `charter.md` from it — a
+shape change here is a breaking change for both neighbours, made deliberately and versioned, never as a side
+effect of a refactor. **Fields are added freely without bumping the schema number**; only a change to an
+EXISTING field's shape needs `grain-proposal/2` (has not happened yet). 094/097/098's existing output is
+untouched by this contract — nothing already there was renamed or removed to make room for it.
+
+`proposal.json` top level: `schema, engine, extractor, instrument, repo, asOf, files, counts, schemaNotes,
+evidence`. `schema`/`engine`/`extractor` mirror `grain-export/1`'s own fields (the same `ENGINE_VERSION`/
+`EXTR_V` constants) — a proposal names the engine build that produced it without a consumer re-deriving that
+from the export it was rendered from. `instrument: "propose/1"`, `repo` and `asOf` are 094's original fields,
+unchanged. `evidence[]` is the full audit trail: one row per emitted element (`kind`: `type` | `relations` |
+`deny` | `node` | `charter` | `aspect`), `id` naming the element, `evidence` the exact prose a human reads on
+the file itself, plus `kind`-specific structured detail (an `aspect` row carries `enumerator`/`identifier`/
+`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`) and
+`draftReason`, see below). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there
+for the exact, current wording.
+
+### What "enforced" means in a proposal (ticket 102, sharpened by 107)
+
+Every element this renderer writes starts as a candidate, never a claim: no type carries `enforce: strict`
+(Yggdrasil's bidirectional-coverage flag — a `yg-architecture.yaml` node-type field, unrelated to the aspect
+`status` below despite the name), and every aspect starts `status: draft`. What changes is which aspects EARN
+their way out of draft, and how a consumer is told why one has not:
+
+- **Prose never leaves draft.** An aspect that ships `content.md` (no template renders its convention's class as
+  a syntax-tree check) needs a configured LLM reviewer to produce a verdict at all, and this renderer never
+  assumes one exists. Ticket 101 measured prose's sense rate under a keyless gate at 0% (1305 of 1671 proposed
+  aspects on a 17-repository corpus) — a judgment call is a candidate for a human decision, never a rule this
+  renderer ships as enforceable. `draftReason: "prose-unenforceable-keyless"`.
+- **A deterministic check (`check.mjs`) is judged by a REAL `yg drill`.** When `YG_BIN` resolves to a built
+  Yggdrasil CLI, this renderer stages the `.yggdrasil/` tree it JUST wrote into a throwaway copy and runs
+  `yg drill --aspect <id>` for every check that shipped a corpus — the same measurement a maintainer would run
+  by hand, not a claim this script computes on its own. A check that comes back with zero FALSE-ALARMs and at
+  least one caught `violates-*` case has PROVEN `check.mjs` correct — but the drill only ever measures whether
+  the check is right, never whether the rule is ADOPTED (ticket 107). What happens next turns on the
+  convention's ORIGIN:
+  - `origin: certified-convention` (cleared grain's own certification bound) → promoted: its `yg-aspect.yaml` is
+    rewritten `status: enforced`, and a plain `yg check` on the delivered proposal enforces it immediately, no
+    further review needed to turn it on.
+  - `origin: sub-gate-lattice` (a row BELOW that bound — grain itself declined to certify it) → promoted only to
+    `status: advisory` instead: Yggdrasil runs the same reviewer and records the same baseline, but a refusal
+    warns rather than blocks. Measured on Grain's own young, uncertified repository: EVERY sub-gate row that
+    cleared this exact drill (22 of 22) would otherwise have gone straight to `enforced`, including rules
+    practised in as little as 67% of sites with a third deviating — `enforced-requires-certified-origin` exists
+    because turning `yg check` red on a third of the existing code for a rule grain itself would not certify is
+    not what "enforced" is supposed to mean.
+
+  Everything else stays draft, with one of two reasons:
+  - `draftReason: "file-scope-approximation-fa"` — the drill found at least one FALSE-ALARM. Ticket 101 §8.1
+    traced every remaining FALSE-ALARM in its whole corpus to one shape: the convention's own subject is a
+    SYMBOL inside a file (a method, a type) while Yggdrasil reviews the check per FILE, and a drill corpus cut
+    from a sample of sites mislabels the file. Ruling `drill-fa-labelling-is-acceptance-not-defect`: this is
+    accepted as a corpus-labelling artifact, not chased as a defect — the fix is to demote the rule, not
+    relabel the corpus, and 0 FALSE-ALARMs is not a matter of taste; it is the only value at which a keyless CI
+    never blocks a legitimately clean change.
+  - `draftReason: "no-catch"` — zero FALSE-ALARMs, but also zero caught `violates-*` cases. Ruling
+    `no-catch-rules-stay-draft`: a rule nothing can ever be shown to violate does not enforce architecture,
+    whatever else is true of it — 125 of 366 deterministic aspects in ticket 101's corpus were exactly this.
+  - `draftReason: null` with no verdict at all means the aspect was never verified this run — no `YG_BIN`
+    resolvable, or the check shipped no drill corpus to run. This is not one of the three reasons above: it says
+    nothing about the check's quality, only that nobody has looked yet. This was every deterministic aspect's
+    fate before ticket 102 — the only regression-proof default when Yggdrasil is not available to ask.
+
+`counts.aspectsActive` (kept named for schema stability; counts `status: enforced`) / `counts.aspectsAdvisory`
+(ticket 107, additive — counts `status: advisory`) / `counts.aspectsDraft` / `counts.aspectsByDraftReason` (a
+count per reason above) and `counts.aspectsVerified` / `counts.aspectsVerifiedAgainst` (how many deterministic
+aspects a real drill actually judged, and against which Yggdrasil binary — `null` when `YG_BIN` did not resolve)
+summarize this split for the whole run; `evidence[]`'s own `aspect` rows and each aspect's `provenance.json`
+(below) carry it per element.
+
+**What an adopter actually gets, in plain terms**: `status: enforced` means a deterministic rule that survived a
+real drill on this repository's own code with zero false alarms and at least one caught violation, AND whose
+convention cleared grain's own certification bound — nothing between the maintainer and turning this rule on
+today. `status: advisory` means the identical drill result but a rule grain itself declined to certify: real
+evidence, worth reading, but a refactor decision rather than a rule to switch on unread — Yggdrasil records its
+baseline and warns on a refusal without blocking `yg check`. Everything else — every prose aspect, every check
+that false-alarmed or caught nothing, every check nobody has verified yet — is a candidate too: worth reading,
+not worth trusting sight unseen. Adopting a proposal means reviewing the drafts (and the advisory rules), not
+merely running `yg check --approve` on the enforced set and calling the rest done.
+
+**Per-aspect `provenance.json`** — `.yggdrasil/aspects/<id>/provenance.json`, one per rendered aspect, same
+field set as the law-loop measurement's own (ticket 097): `aspectId, conventionId, origin, enumeratorClass,
+identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note`. A live
+`propose` run has no hold-out cut of its own, so `cutSha` is `asOf` (HEAD) and `cutDate` is `null` — the two
+differ only in provenance, never in the fields carried.
+
+**Three fields ADDED here (ticket 102), additive per the rule above — not shared with law-loop.mjs's own replay
+provenance, which describes a held-out cut rather than a live run with a real `.yggdrasil/` tree on disk**:
+`status` (`"enforced"` | `"advisory"` | `"draft"` — ticket 107 adds `"advisory"` to what shipped as a two-value
+`"active"` | `"draft"` pair; adding a value to an existing field is additive, not a shape change, so this needed
+no `grain-proposal/2` — the SAME three values Yggdrasil's own `yg-aspect.yaml` `status:` field takes, written
+here verbatim rather than through a separate Grain-internal word translated at write time),
+`draftReason` (one of `"prose-unenforceable-keyless"` | `"file-scope-approximation-fa"` | `"no-catch"`, or `null`
+when `status` is `"enforced"`/`"advisory"` or the aspect was never verified this run), and `scopeApproximation`
+(`"file-from-symbol"` when the convention's own subject — `a.kind`, grain's `unitOf` domain: `method` | `type` |
+`catch` | `finally` | `case` — is a symbol living inside a file rather than the file itself, `null` for a
+file/module-level convention where the check's unit and the convention's subject are the same thing). This flag
+is set independently of drill results — a symbol-scoped check can still earn `enforced` if its own drill comes
+back clean; the flag explains WHY a FALSE-ALARM would happen here if one ever does, it does not by itself demote
+anything.
+
+**Per-node `charter.md`** — `.yggdrasil/model/<node>/charter.md`, beside `yg-node.yaml`, one per proposed node
+(including organizational ones). Rendered the way a `where` card reads a directory to a human: what lives here
+(files, extensions, nested groups), depends on / used by (module edges with resolved-import counts in both
+directions), certified conventions (share, n conforming/deviating, exemplars to copy — `path:line`), sub-gate
+candidates (evidence below the certification bound, not yet law), co-change partners (aggregated from `.grain`'s
+own file-level co-change up to node granularity), sizing (the node's own row from `sizing.json`), and the `asOf`
+sha. Every line carries a number or a path; a section with nothing to report says so rather than being omitted.
+Horde's `node.mjs show <node>` reads this file verbatim — no schema of its own beyond "a markdown file at that
+path".
+
+**`sizing.json`** (ticket 098) is unchanged by this contract — see its own header comment in
+`plugins/grain/engine/propose.mjs` for the field-by-field explanation; every `charter.md` quotes its own node's row from
+it rather than duplicating the numbers.
+
+**The `.family-candidates.json` adapter** — the instrument's `--family-candidates <out.json>` writes a SEPARATE file
+(not part of `proposal.json`) in the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
+`advise-nominations.ts`): `{v: 1, ts, families: [{id, language, members, fittedPredicate: {kind, value},
+scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `ts` MUST be a parseable calendar instant (Yggdrasil's
+freshness gate runs `Date.parse` on it and silently drops the whole file otherwise) — grain's own `asOf` is a git
+sha, so this adapter uses the export's `indexedAt` instead. A "family without a law" in grain's own terms is a
+role group (093/094's structural cluster within a partition) that clears the same size floor Yggdrasil's own
+offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `plugins/grain/engine/propose.mjs`) and carries no certified
+convention of its own — whether that group ended up as a finer `-content` alternative (a subset of its host
+type) or, when the group coincides with its whole host type, was cut directly as an active type with no
+alternative offered. Dropping the file into an existing `.yggdrasil/` at `.family-candidates.json` and running
+`yg advise` there makes Yggdrasil nominate the family with zero code changes on Yggdrasil's side —
+`plugins/grain/tests/seams.test.mjs` proves this against a real `yg` binary and against Yggdrasil's own
+planted-family precision fixtures.
