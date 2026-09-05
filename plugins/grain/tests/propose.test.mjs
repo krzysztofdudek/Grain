@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter, describePid } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter, describeRow } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -272,9 +272,92 @@ test('buildAspects never truncates `name` (ticket 106 — `.slice(0, 70)` used t
   };
   const { aspects } = buildAspects(exp, active, []);
   assert.equal(aspects.length, 1);
-  assert.equal(aspects[0].name, longStatement, 'name must be the whole statement, not a 70-char prefix');
+  // Ticket 109 words the name as an obligation with its scope inside it, so `name` is no longer the mined
+  // statement verbatim — but 106's guarantee is untouched and asserted the same way: every word of the mined
+  // statement survives, and nothing is cut. This fixture's statement has no ` here ` to rewrite around, which
+  // is the branch that words it exactly as mined under its scope.
+  assert.ok(aspects[0].name.includes(longStatement), `name must carry the whole statement, not a 70-char prefix: ${aspects[0].name}`);
   assert.ok(!aspects[0].name.endsWith('Bo'), 'a mid-word cut like the old `.slice(0, 70)` must not reappear');
-  assert.ok(aspects[0].description.startsWith(longStatement), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
+  assert.ok(aspects[0].description.startsWith(aspects[0].name), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
+});
+
+// ---------- ticket 109: the obligation form, and the two things it may never do ----------
+test('buildAspects words a rule as an obligation with its scope inside it, and keeps every word of the mined predicate', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const conv = (statement, expected, enumerator, argument) => ({
+    established: 6, statement, partition: 'src', feature: { enumerator, argument },
+    share: 1, bitsPerInstance: 4, expected, kind: 'method', exemplars: [], deviatingSites: [], conformingSites: [],
+  });
+  const { aspects } = buildAspects({
+    conventions: [
+      conv('methods here are annotated with `@Handler`', 'true', 'deco', '@Handler'),
+      conv('methods here do not import `lodash`', 'false', 'imp', 'lodash'),
+      conv('methods here are not annotated with `@Test`', 'false', 'deco', '@Test'),
+    ],
+  }, active, []);
+  assert.equal(aspects.length, 3);
+  assert.equal(aspects[0].name, 'Every method under `src/**` must be annotated with `@Handler`.');
+  // a prohibition reads as one, and the identifier the rule is about survives the rewrite intact
+  assert.equal(aspects[1].name, 'No method under `src/**` may import `lodash`.');
+  assert.equal(aspects[2].name, 'No method under `src/**` may be annotated with `@Test`.');
+  for (const a of aspects) {
+    assert.match(a.name, /^(Every|No) method under `src\/\*\*` (must|may) /, `not an obligation: ${a.name}`);
+    assert.ok(a.name.endsWith('.'), `an obligation is a sentence: ${a.name}`);
+    // the scope the sentence names is the scope the aspect is judged over — never a narrower one
+    assert.equal(a.scope.files.path, 'src/**');
+  }
+});
+
+test('a lattice row is worded from the value it was measured at, not from its pid (ticket 109)', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const row = (pid, exp) => ({ partition: 'src', pid, exp, share: 0.8, n: 10, ne: 8, bits: 1, kind: 'method', role: 3, deviants: ['a.ts#x', 'b.ts#y'] });
+  const { aspects } = buildAspects({ conventions: [] }, active, [
+    row('auto.nameshape', '(Ua)+'),
+    row('auto.lex:quote', 'single'),
+    row('auto.mods', 'public'),
+    row('auto.imp:lodash', 'false'),
+  ]);
+  const names = aspects.map(a => a.name);
+  assert.deepEqual(names, [
+    'Every method under `src/**` must be named PascalCase.',
+    'Every method under `src/**` must quote strings with single quotes.',
+    'Every method under `src/**` must carry the modifiers `public`.',
+    'No method under `src/**` may import `lodash`.',
+  ]);
+  for (const a of aspects) {
+    assert.ok(!/auto\./.test(a.name), `an internal pid leaked into the rule: ${a.name}`);
+    assert.ok(!/``/.test(a.name), `the rule names an empty identifier: ${a.name}`);
+    // the role cluster is where the row was MEASURED; the rule speaks about the scope it is judged over
+    assert.ok(!/role/.test(a.name), `the sentence claims a narrower subject than the scope: ${a.name}`);
+    assert.match(a.evidenceLine, /role cluster \(r3\)/, 'the cluster must still be disclosed in the evidence');
+  }
+});
+
+// ---------- ticket 109 (defect): a lattice row's rule names the value it was measured at ----------
+//
+// The categorical families carry their value in the ROW, not in the predicate id: `auto.nameshape` has no
+// argument at all and `auto.lex:quote` names the surface, never `single`. Reading the pid alone produced a
+// rule with an empty identifier and a rule that printed an internal predicate id at a maintainer — while the
+// `check.mjs` rendered beside it was compiling the right value all along (`renderCheck` reads `expected`).
+test('a lattice-row rule names the value grain measured, never its internal predicate id', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const row = (pid, exp) => ({ partition: 'src', pid, exp, share: 0.8, n: 10, ne: 8, bits: 1, kind: 'method', role: null, deviants: ['a.ts#x', 'b.ts#y'] });
+  const { aspects } = buildAspects({ conventions: [] }, active, [
+    row('auto.nameshape', '(Ua)+'),
+    row('auto.lex:quote', 'single'),
+    row('auto.mods', 'public'),
+    row('auto.first1', 'return_statement'),
+  ]);
+  assert.equal(aspects.length, 4);
+  for (const a of aspects) {
+    assert.ok(!/auto\./.test(a.name), `an internal predicate id leaked into the rule: ${a.name}`);
+    assert.ok(!/``/.test(a.name), `the rule names an empty identifier: ${a.name}`);
+  }
+  // the value itself, in the vocabulary grain's own report already uses for it
+  assert.match(aspects[0].name, /PascalCase/);
+  assert.match(aspects[1].name, /quote strings with single quotes/);
+  assert.match(aspects[2].name, /`public`/);
+  assert.match(aspects[3].name, /`return_statement`/);
 });
 
 test('provenanceFor carries status/draftReason/scopeApproximation, additive over the law-loop.mjs field set', () => {
@@ -521,18 +604,21 @@ test('promotion rewrites the check.mjs header, so a promoted check never says th
 
 // ---------- 15. the sentence a rule states about itself (dry run 112) ----------
 //
-// `describePid` writes the statement that becomes the aspect's `name:` and `description:`, and so the
+// `describeRow` (ticket 109 folded ticket 112`s `describePid` into it) writes the statement that becomes the aspect's `name:` and `description:`, and so the
 // line an agent reads in `yg context --file`, `yg aspects` and every `yg check` warning. Three of its
 // classes were wrong on a real repository: a decorator identifier already carries its `@`, so the
 // statement doubled it; a name-shape rule keeps its shape in `expected`, not in the pid, so the
 // statement named an empty shape; and `filenameshape` had no entry at all, so the fallback printed
 // grain's internal pid to the user.
 test('a rule states itself in words, with no doubled marker, no empty shape and no internal pid', () => {
-  assert.equal(describePid('auto.deco:@SpringBootTest', 'true'), 'carry `@SpringBootTest`');
-  assert.equal(describePid('auto.deco:pytest.fixture', 'true'), 'carry `@pytest.fixture`');
-  assert.equal(describePid('auto.nameshape', 'a(Ua)+'), 'follow the name shape `a(Ua)+`');
-  assert.equal(describePid('auto.filenameshape', '(Ua)+'), 'are named with the shape `(Ua)+`');
-  assert.equal(describePid('auto.imp:jakarta.persistence.Entity', 'true'), 'import `jakarta.persistence.Entity`');
+  assert.equal(describeRow('auto.deco:@SpringBootTest', 'true'), 'carry `@SpringBootTest`');
+  assert.equal(describeRow('auto.deco:pytest.fixture', 'true'), 'carry `@pytest.fixture`');
+  // the shape lives in `expected`, so the sentence must carry it and never an empty pair of backticks
+  assert.match(describeRow('auto.nameshape', 'a(Ua)+'), /camelCase/);
+  assert.doesNotMatch(describeRow('auto.nameshape', 'a(Ua)+'), /``/);
+  assert.match(describeRow('auto.filenameshape', '(Ua)+'), /file name PascalCase/);
+  assert.doesNotMatch(describeRow('auto.filenameshape', '(Ua)+'), /``/);
+  assert.equal(describeRow('auto.imp:jakarta.persistence.Entity', 'true'), 'import `jakarta.persistence.Entity`');
   // an unknown class still says something, and still never prints the raw pid to a human
-  assert.doesNotMatch(describePid('auto.mods', 'true'), /auto\./);
+  assert.doesNotMatch(describeRow('auto.mods', 'true'), /auto\./);
 });

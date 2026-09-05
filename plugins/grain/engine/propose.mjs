@@ -50,6 +50,12 @@ import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './
 // (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
 // without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
 import { ENGINE_VERSION, EXTR_V } from './config.mjs';
+// Read-only, and only these two: the vocabulary grain ALREADY uses to put a measured value into words — a name
+// shape (`(Ua)+` -> "PascalCase") and a lexical surface (`quote`,`single` -> "quote strings with single
+// quotes"). §7-bis below words a lattice row with them rather than with a private copy, so a proposal and
+// grain's own report can never drift into two names for one thing. Everything else this renderer needs from
+// `core.mjs` still comes through the dynamic import in `partitionLattice`, which is where the model is read.
+import { shapeWords, lexWords } from './core.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '..', 'bin', 'grain.mjs');
@@ -367,8 +373,8 @@ export function contentRegexFor(group) {
   for (const mk of group.markers || []) {
     const nm = mk.name || mk.marker;
     if (!nm || !/^[A-Za-z_][A-Za-z0-9_.]*$/.test(nm)) continue;
-    if (mk.type === 'decorator') return { regex: `@${esc(nm)}\\b`, why: `marker \`@${nm}\` (${(mk.carriers || []).length} carriers)` };
-    if (mk.type === 'supertype') return { regex: `\\b(extends|implements)\\s+${esc(nm)}\\b`, why: `marker \`extends ${nm}\` (${(mk.carriers || []).length} carriers)` };
+    if (mk.type === 'decorator') return { regex: `@${esc(nm)}\\b`, why: `marker \`@${nm}\` (${(mk.carriers || []).length} carriers)`, sel: `carrying \`@${nm}\`` };
+    if (mk.type === 'supertype') return { regex: `\\b(extends|implements)\\s+${esc(nm)}\\b`, why: `marker \`extends ${nm}\` (${(mk.carriers || []).length} carriers)`, sel: `extending \`${nm}\`` };
   }
   // (2) the members' own name shape — the longest common prefix and suffix over the member names. This is what
   //     a hand-written type does: `command` vs `command-support` in the pattern repo is literally "does this
@@ -376,13 +382,13 @@ export function contentRegexFor(group) {
   if (names.length >= MIN_GROUP_MEMBERS) {
     const pre = commonAffix(names, 'prefix'), suf = commonAffix(names, 'suffix');
     if (pre.length >= 3 && suf.length >= 3 && pre.length + suf.length < Math.min(...names.map(n => n.length)))
-      return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the prefix \`${pre}\` and the suffix \`${suf}\` (${names.length} names)` };
-    if (pre.length >= 5) return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*\\b`, why: `member names share the prefix \`${pre}\` (${names.length} names)` };
-    if (suf.length >= 5) return { regex: `\\b[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the suffix \`${suf}\` (${names.length} names)` };
+      return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the prefix \`${pre}\` and the suffix \`${suf}\` (${names.length} names)`, sel: `declaring a name that starts with \`${pre}\` and ends in \`${suf}\`` };
+    if (pre.length >= 5) return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*\\b`, why: `member names share the prefix \`${pre}\` (${names.length} names)`, sel: `declaring a name that starts with \`${pre}\`` };
+    if (suf.length >= 5) return { regex: `\\b[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the suffix \`${suf}\` (${names.length} names)`, sel: `declaring a name that ends in \`${suf}\`` };
   }
   // (3) a shared import — weaker (an import is a dependency, not an identity) but real, and anchored.
   const imps = (group.imports || []).filter(i => i && i.length >= 4);
-  if (imps.length === 1) return { regex: esc(imps[0]), why: `every member's file imports \`${imps[0]}\`` };
+  if (imps.length === 1) return { regex: esc(imps[0]), why: `every member's file imports \`${imps[0]}\``, sel: `importing \`${imps[0]}\`` };
   // (4) a defining name token, when the group named itself one word.
   //
   // CASE. A `nameTokens` entry is a CASE-FOLDED subword out of grain's own vocabulary (`core.mjs`'s `tokenize`
@@ -394,7 +400,7 @@ export function contentRegexFor(group) {
   // capital F) and 0 of 6 on `family-planted-polyglot`, while selecting all 5 snake_case Python members
   // (`find_first`) — i.e. the predicate silently worked in one casing convention and was vacuous in the other.
   const toks = (group.nameTokens || []).filter(t => t && t.length >= 5);
-  if (toks.length) return { regex: `\\b[A-Za-z0-9_]*${caseTolerant(toks[0])}[A-Za-z0-9_]*\\b`, why: `group's defining name token \`${toks[0]}\`` };
+  if (toks.length) return { regex: `\\b[A-Za-z0-9_]*${caseTolerant(toks[0])}[A-Za-z0-9_]*\\b`, why: `group's defining name token \`${toks[0]}\``, sel: `mentioning \`${toks[0]}\`` };
   return null;
 }
 
@@ -457,11 +463,11 @@ export function buildTypes(exp, loc, files, ctx) {
       // type already models (`when: { path: '*' }`); anything else has no path expression and is disclosed as
       // an alternative rather than guessed at.
       if ([...p.files].every(f => !f.includes('/'))) {
-        put({ dir: null, id: slug(p.name), rootGlob: true, files: p.files, src: 'partition', why: `grain partition \`${p.name}\` (kind ${p.part.kind}, ${p.part.files} files, ${p.part.scopes} scopes, ${p.part.groups.length} role groups) — a synthetic bucket, not a directory: every file in it sits at the repository root, so it is drafted as the root glob rather than as a path prefix` });
+        put({ dir: null, id: slug(p.name), rootGlob: true, files: p.files, src: 'partition', why: `${p.part.files} of them group together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind}) — and no directory of that name exists: every one of them sits at the repository root, so the type is drafted as the root glob rather than as a path prefix` });
       }
       continue;
     }
-    put({ dir: p.name, files: p.files, src: 'partition', why: `grain partition (kind ${p.part.kind}, ${p.part.files} files, ${p.part.scopes} scopes, ${p.part.groups.length} role groups)` });
+    put({ dir: p.name, files: p.files, src: 'partition', why: `${p.part.files} of them group together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind})` });
   }
   const partRoots = new Set([...cands.keys()]);
   // grain's OTHER cut of the same tree: the refined module graph. It is coarser than the partition set in some
@@ -469,7 +475,7 @@ export function buildTypes(exp, loc, files, ctx) {
   for (const m of exp.moduleGraph?.nodes || []) {
     const s = underDir(files, m.id);
     if (s.size < GROUP_MIN) continue;
-    put({ dir: m.id, files: s, src: 'module', why: `grain module \`${m.id}\` (${m.files} files, dependency layer ${m.layer})` });
+    put({ dir: m.id, files: s, src: 'module', why: `${m.files} of them ${m.files === 1 ? 'is code grain parsed and grouped' : 'are code grain parsed and grouped'} as one unit of the dependency graph, at layer ${m.layer} above its leaves` });
   }
   // directory cards ONE LEVEL below a partition root. Grain publishes a card only for a directory that carries
   // scopes, so a published card is evidence of its own; one level is where a hand architecture actually splits
@@ -479,7 +485,7 @@ export function buildTypes(exp, loc, files, ctx) {
     const owner = [...partRoots].filter(r => d.name.startsWith(r + '/')).sort((a, b) => b.length - a.length)[0];
     const depth = owner ? d.name.slice(owner.length + 1).split('/').length : null;
     if (depth !== 1) continue;
-    put({ dir: d.name, files: d.files, src: 'directory', why: `grain directory card \`${d.name}\` (${d.card.files} files, ${d.card.scopes} scopes), one level below the partition \`${owner}\`` });
+    put({ dir: d.name, files: d.files, src: 'directory', why: `${d.card.files} of them ${d.card.files === 1 ? 'is code grain parsed' : 'are code grain parsed'} (${d.card.scopes} declarations) in a directory one level below \`${owner}\`` });
   }
   for (const c of [...cands.values()].sort((a, b) => (String(a.dir) < String(b.dir) ? -1 : 1))) {
     if (c.files.size < GROUP_MIN) continue;
@@ -497,10 +503,10 @@ export function buildTypes(exp, loc, files, ctx) {
   }
   for (const [top, set] of [...rest].sort((a, b) => b[1].size - a[1].size)) {
     if (set.size < GROUP_MIN || top === '.' || cands.has(top)) continue;
-    active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'uncovered', why: `directory \`${top}\` holds ${set.size} tracked files no grain partition, module or directory card claims — a grouping from the layout alone, with no mining behind it` });
+    active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'uncovered', why: `\`${top}\` holds ${set.size} tracked files nothing else in this proposal claims — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
   }
   const rootFiles = rest.get('.');
-  if (rootFiles && rootFiles.size >= GROUP_MIN && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and no grain partition, module or directory card claims them — a grouping from the layout alone, with no mining behind it` });
+  if (rootFiles && rootFiles.size >= GROUP_MIN && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and nothing else in this proposal claims them — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
 
   for (const a of active) {
     a.when = a.rootGlob ? { path: '*' } : { path: `${a.dir}/**` };
@@ -1281,13 +1287,27 @@ function writeArchitecture(ygg, { active, nodes, rels, files, ev }) {
   for (const a of active) {
     const targets = uniq([...(rels.uses.get(a.id) || new Map()).keys()]).sort();
     const deny = rels.denies.find(d => d.fromType === a.id);
-    const line = `${a.why}; the drafted \`when\` selects ${a.selected.size} of ${files.length} tracked files, ${intersectSize(a.files, a.selected)} of them the ones the evidence names (J=${a.fidelity.toFixed(2)})`;
+    // WHAT THE PREDICATE ACTUALLY SELECTS, said as a match and a miss rather than as a coefficient (ticket
+    // 109). The same three numbers as before — selected, overlap, total — plus the Jaccard the earlier line
+    // led with, kept at the tail and named, because `J=0.62` is not a fact a maintainer can act on and
+    // "selects 31 files, 12 of which the evidence never named" is.
+    const hit = intersectSize(a.files, a.selected);
+    const line = `\`${a.rootGlob ? '*' : `${a.dir}/**`}\` selects ${a.selected.size} of ${files.length} tracked files; ${hit === a.files.size && hit === a.selected.size ? `exactly the ${hit} the evidence names` : `${hit} of them are among the ${a.files.size} the evidence names, ${a.selected.size - hit} are not`} (Jaccard ${a.fidelity.toFixed(2)}) · ${a.why}`;
     const relBlock = {};
     if (targets.length) relBlock.uses = targets;
     if (deny) relBlock.default = 'deny';
+    // A TYPE IS A CLASSIFIER, AND ITS `relations:` ARE THE ONE OBLIGATION IT CARRIES. Yggdrasil constrains a
+    // relation type the moment a list is given for it ("the validator then rejects any target not in that
+    // list" — `yg knowledge read ports-and-relations`), and refuses a node that depends on a node it has not
+    // declared a relation to (`relation-undeclared-dependency`, always an error). So where this renderer
+    // writes a `uses:` list, the description says what the list MEANS for an agent about to add an import,
+    // instead of naming the miner's cut it came from.
+    const mayUse = targets.length
+      ? ` Code of this type may depend on ${targets.map(t => `\`${t}\``).join(', ')}${deny ? ' and on nothing else' : ''} — \`yg check\` refuses a dependency on any other node until the architecture declares it.`
+      : deny ? ' This type declares no outgoing dependency, and none is allowed — `yg check` refuses the first one until the architecture declares it.' : '';
     nodeTypes[a.id] = {
       '#e': ev('type', a.id, line, { level: a.source, dir: a.dir, evidenceFiles: a.files.size, selects: a.selected.size, fidelity: +a.fidelity.toFixed(3) }),
-      description: `Files under \`${a.dir || 'the repository root'}\` — proposed from ${a.source === 'partition' ? "grain's own partition of the directory tree" : a.source === 'module' ? "grain's refined module graph" : a.source === 'directory' ? 'a grain directory card' : 'the repository layout alone'}.`,
+      description: `${a.dir ? `Put a file under \`${a.dir}/\`` : 'Put a file at the repository root itself'} only if it belongs to this type: a file placed there is classified here with no further step, and every rule attached to this type applies to it from that moment.${mayUse || (a.aspectIds?.length ? '' : ' No rule and no relation are attached to this type yet, so today it constrains nothing — it is where they will attach.')}`,
       when: a.when,
       // a nested type's node sits under its ancestors' nodes, and Yggdrasil rejects a parent whose type is not
       // listed here (`parent-type-forbidden`) — so every ancestor type is an allowed parent, by construction
@@ -1511,6 +1531,123 @@ export async function propose(repo, outDir, opts = {}) {
 //
 // `filebirth` is excluded from drafting entirely. "Types here are new" is a statement about the repository's
 // history, not about how a file should be written; making it an aspect would be a category error.
+// ==================================================================================================
+// 7-bis. THE OBLIGATION FORM — the one thing this renderer does to a mined sentence (ticket 109).
+//
+// `verbalize` (engine/core.mjs) writes a mined fact in the INDICATIVE, because grain's own query surface
+// REPORTS what the code does: "methods here are annotated with `[Then]`". An aspect is not a report. It is the
+// sentence a future agent session is held to, read cold, months later, with no access to the run that mined it
+// and no way to ask what "here" meant. Ticket 101's independent judge read 14 of 20 such rows as "not a rule,
+// an observation"; ticket 109 measures whether the WORDING is what costs that, by changing the wording and
+// nothing else.
+//
+// Three things this section deliberately does NOT do:
+//   - It re-measures nothing. `share`, `n`, `deviating`, the `check.mjs` body, the id, the scope predicate and
+//     the status are the same bytes before and after — 109 diffs every rendered tree round to round to prove
+//     it, and a difference outside a prose field fails the round.
+//   - It does not touch `verbalize`. Those sentences are grain's OWN report surface (`grain where`, `grain
+//     what`, `grain explain`, and the README's examples), read by an agent mid-edit who asked what the code
+//     does. One vocabulary, two moods: the miner reports, the aspect obliges.
+//   - It adds no hedge. "must" and "may not" are the whole point. A rule that says "should probably" is a rule
+//     the next session argues with, which is the failure this section exists to remove.
+// ==================================================================================================
+
+// The subject of an obligation is ONE thing, not a population: "Every method …", never "methods here …".
+// `unitOf` (core.mjs) is the plural half of the same table; nothing here renames a kind.
+const UNIT_ONE = { method: 'method', type: 'type', file: 'file', module: 'directory', catch: 'catch block', finally: 'finally block', case: 'named callback' };
+export const unitOne = kind => UNIT_ONE[kind] || kind || 'file';
+const A_OR_AN = w => (/^[aeiou]/i.test(String(w).replace(/^`/, '')) ? 'an' : 'a');
+
+// `are X` is the only verb form `verbalize` emits that is not already an infinitive; `do not X` folds to
+// `not X` so a sentence reads "must not X" and never "must do not X".
+const infinitive = pred => pred.replace(/^are /, 'be ').replace(/^do not /, 'not ');
+// A rule whose expected value is `false` is a PROHIBITION, and a prohibition reads as one — "No file under
+// `src/**` may import `x`" — not as a doubled negative. This lifts the negation out of the mined phrase.
+// Where the phrase carries no negation this renderer recognises, it returns null and the affirmative template
+// is used unchanged rather than guessed at.
+const affirmativeOf = pred => {
+  if (pred.startsWith('are not ')) return 'be ' + pred.slice(8);
+  if (pred.startsWith('take no ')) return 'take a ' + pred.slice(8);
+  if (pred.startsWith('never ')) return pred.slice(6);
+  if (pred.startsWith('do not ')) return pred.slice(7);
+  return null;
+};
+
+// WHO must do WHAT, WHERE — one sentence, with the scope inside it. The scope is the aspect's own `scope:`
+// glob, written into the sentence rather than left in a yaml field three lines below: an agent that reads
+// "methods here" has no way at all to know where "here" is, and that is the single most common thing 101's
+// judge said about the rows it refused.
+export function obligationSentence({ unit, phrase, prohibited, where, which }) {
+  const place = where ? `under \`${where}\`` : 'anywhere in this repository';
+  const clause = which ? (unit === 'file' ? ` ${which}` : `, in a file ${which},`) : '';
+  const subject = `${unit} ${place}${clause}`;
+  return prohibited ? `No ${subject} may ${phrase}.` : `Every ${subject} must ${phrase}.`;
+}
+// The certified branch hands over a mined predicate that already carries its own sign in its own words.
+export const obligationOfStatement = statement => {
+  const i = statement.indexOf(' here ');
+  if (i < 0) return null; // a `mod*` fallback phrase with no subject — worded exactly as mined, below
+  const pred = statement.slice(i + ' here '.length);
+  const pos = affirmativeOf(pred);
+  return pos ? { phrase: pos, prohibited: true } : { phrase: infinitive(pred), prohibited: false };
+};
+
+// The mined predicate of a LATTICE ROW, in words. A wording table and nothing else: the row, its id, its
+// counts and the `check.mjs` rendered beside it are untouched by every line of it.
+//
+// THE CATEGORICAL FAMILIES CARRY THEIR VALUE IN THE ROW, NOT IN THE PID (ticket 109). `auto.nameshape` has no
+// argument at all, and `auto.lex:quote` names the SURFACE (`quote`), never the value (`single`). The value
+// grain measured — and the value the rendered check compiles, since every template in `renderCheck` reads
+// `expected` and none reads `argument` for these classes — is the row's own `exp`. Reading the pid alone
+// produced "methods in `Slim/Interfaces` follow the name shape ``" (a rule with an empty identifier) and
+// "files in `themes` have auto.lex:quote" (an internal pid printed at a maintainer). Measured on the 109
+// corpus: 25 of the first 250 rendered aspects, six of them already promoted to `advisory` by a real drill of
+// a check that was correct — the check knew the value the sentence did not say.
+export const describeRow = (pid, exp) => {
+  const [, fam, arg] = /^auto\.([a-z0-9]+):?(.*)$/.exec(String(pid)) || [];
+  const v = String(exp ?? '');
+  const shaped = s => shapeWords(s) || `in the shape \`${s}\``;
+  switch (fam) {
+    case 'imp': return `import \`${arg}\``;
+    case 'call': return `call \`${arg}\``;
+    // the argument may already carry the sigil grain read it with — `@@Override` was rendered at a maintainer
+    case 'deco': return `carry \`${String(arg).startsWith('@') ? arg : '@' + arg}\``;
+    case 'extends': return `extend \`${arg}\``;
+    case 'has': return `contain ${A_OR_AN(arg)} \`${arg}\``;
+    case 'returns': return `declare a return type of \`${arg}\``;
+    case 'stshape': return `use the structure \`${arg}\``;
+    case 'ptype': return `take a parameter of type \`${arg}\``;
+    case 'nameshape': return `be named ${shaped(v)}`;
+    case 'filenameshape': return `have a file name ${shaped(v)}`;
+    case 'lex': return lexWords(arg, v);
+    case 'mods': return v === 'none' ? 'carry no modifiers' : `carry the modifiers \`${v}\``;
+    case 'memberorder': return `declare their members in the order \`${v}\``;
+    case 'namesuffix': return `be named ending in \`${v}\``;
+    case 'modexport': return `be exported through \`${v}\``;
+    case 'arity': return `take exactly ${v} parameter${v === '1' ? '' : 's'}`;
+    case 'first1': return `open with ${A_OR_AN(v)} \`${v}\``;
+    case 'ret': return `return ${A_OR_AN(v)} \`${v}\``;
+    case 'varshape': return `name local variables ${shaped(v)}`;
+    case 'ctorshape': return `declare their constructor as \`${v}\``;
+    default: return /^dir\d*$/.test(String(fam)) ? `live under \`${v}/\`` : `satisfy \`${pid}\` = \`${v}\``;
+  }
+};
+
+// The scope predicate, as a reader reads it rather than as a matcher matches it. `where` is the path glob the
+// sentence binds to; `which` is the relative clause a `content:` predicate becomes ("that mentions `counter`");
+// `plain` is the same thing as one noun phrase, for the evidence line.
+const scopeInWords = (glob, which) => `files under \`${glob}\`${which ? ` ${which}` : ''}`;
+
+// How many sites hold the rule and how many break it — the two numbers that decide whether a reader believes
+// the sentence, put where a reader meets them first. Same counts as before, read in the other direction:
+// "9 deviating" is the same fact as "9 break it today", and only the second one says what to do about it.
+const holdsPhrase = (holds, breaks, unitPlural) => {
+  const total = holds + breaks;
+  return breaks === 0
+    ? `holds for all ${total} ${unitPlural} in scope — the repository has no exception to it today`
+    : `holds for ${holds} of ${total} ${unitPlural} in scope; ${breaks} break it today`;
+};
+
 const NOT_A_RULE = new Set(['filebirth']);
 
 export function buildAspects(exp, active, sub, opts = {}) {
@@ -1530,10 +1667,10 @@ export function buildAspects(exp, active, sub, opts = {}) {
       const g = (partOf(c.partition)?.groups || []).find(x => x.id === c.context.group);
       const cr = g ? contentRegexFor(g) : null;
       if (!cr) return null;
-      return { pred: { per: 'file', files: { all_of: [{ path: `${host.dir}/**` }, { content: cr.regex }] } }, why: `scoped by the group's own evidence (${cr.why})` };
+      return { pred: { per: 'file', files: { all_of: [{ path: `${host.dir}/**` }, { content: cr.regex }] } }, why: `scoped by the group's own evidence (${cr.why})`, glob: `${host.dir}/**`, which: cr.sel };
     }
-    if (c.context?.type === 'directory' && c.context.dir) return { pred: { per: 'file', files: { path: `${c.context.dir}/**` } }, why: `scoped to directory \`${c.context.dir}\`` };
-    return { pred: { per: 'file', files: { path: `${host.dir}/**` } }, why: `scoped to partition \`${c.partition}\`` };
+    if (c.context?.type === 'directory' && c.context.dir) return { pred: { per: 'file', files: { path: `${c.context.dir}/**` } }, why: `scoped to directory \`${c.context.dir}\``, glob: `${c.context.dir}/**` };
+    return { pred: { per: 'file', files: { path: `${host.dir}/**` } }, why: `scoped to partition \`${c.partition}\``, glob: `${host.dir}/**` };
   };
 
   // (i) the certified set
@@ -1548,7 +1685,15 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const adoption = n / Math.max(1, n + dev);
     const ctxLabel = c.context?.type === 'group' ? `role group \`${c.context.label || c.context.group}\`` : c.context?.type === 'directory' ? `directory \`${c.context.dir}\`` : `partition \`${c.partition}\``;
     const provenance = `share ${(c.share ?? 0).toFixed(3)} · n ${n} conforming, ${dev} deviating (adoption ${pct(adoption)}) · ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance · ${ctxLabel} of \`${c.partition}\` · asOf ${asOf}`;
-    const evidenceLine = `certified convention: ${provenance}; ${scope.why}; exemplars ${(c.exemplars || []).slice(0, 2).map(e => `${e.rel}:${e.line}`).join(', ') || '(none)'}`;
+    // THE EVIDENCE LINE LEADS WITH THE NUMBER THAT DECIDES WHETHER TO BELIEVE THE SENTENCE (ticket 109), then
+    // where the rule applies, then what to copy, and only then how grain came to propose it. The counts are
+    // the same counts `provenance` carries — read in the direction a reader needs them ("9 deviating" and "9
+    // break it today" are one fact, and only the second says what to do next). `provenance` itself is
+    // unchanged and still goes verbatim into `provenance.json` and into every check's own header.
+    const exemplarPhrase = (c.exemplars || []).length
+      ? `copy ${(c.exemplars || []).slice(0, 2).map(e => `${e.rel}:${e.line}`).join(' or ')}`
+      : 'no exemplar recorded to copy';
+    const evidenceLine = `${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)} · applies to ${scopeInWords(scope.glob, scope.which)} · ${exemplarPhrase} · grain certified this from ${ctxLabel} of \`${c.partition}\`: share ${(c.share ?? 0).toFixed(3)} (adoption ${pct(adoption)}), ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance, measured at ${asOf}`;
     const id = `grain/${slug(c.partition)}/${slug(c.context?.type === 'group' ? (c.context.label || c.context.group) : c.context?.type || 'partition')}-${slug(c.feature.enumerator)}${c.feature.argument ? '-' + slug(c.feature.argument).slice(0, 40) : ''}`;
     if (out.some(o => o.id === id)) continue;
     const check = renderableDirection(c.feature.enumerator, c.expected, c.kind, c.context?.type)
@@ -1557,14 +1702,26 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const proseReason = check ? null : (BOOLEAN_CLASS.has(c.feature.enumerator) || c.feature.enumerator === 'nameshape' ? WHY_PROSE._scopeMismatch : (WHY_PROSE[c.feature.enumerator] || `no template renders the \`${c.feature.enumerator}\` class`));
     if (!check) { skipped.prose++; skipped.byClass[c.feature.enumerator] = (skipped.byClass[c.feature.enumerator] || 0) + 1; }
     const profile = c.context?.type === 'group' ? (partOf(c.partition)?.groups || []).find(g => g.id === c.context.group)?.profile : null;
+    // The rule, as an obligation with its scope inside it (§7-bis). Where the mined phrase has no subject to
+    // rewrite (`mod*` fallbacks), the statement is worded exactly as mined and bound to its scope — never
+    // guessed into a shape it does not have.
+    const ob = obligationOfStatement(c.statement);
+    const name = ob
+      ? obligationSentence({ unit: unitOne(c.kind), ...ob, where: scope.glob, which: scope.which })
+      : `Under \`${scope.glob}\`: ${c.statement}.`;
     out.push({
       id, origin: 'certified-convention', host: host?.id || null, evidenceLine, provenance, reviewBy,
       // The whole statement, not a truncated prefix (ticket 106: `slice(0, 70)` used to cut mid-word — `yg
       // schemas read aspect` sets no length limit on `name`, so there is no honest reason to cut it at all).
-      name: c.statement, description: `${c.statement}. Proposed by grain from evidence — ${provenance}.`,
+      name, holds: holdsPhrase(n, dev, `${unitOne(c.kind)}s`),
+      // The description carries the RULE, how far it already holds, and what its status does — and stops
+      // there. The counts, the scope, the exemplar and the certification live on the `#e` line two lines above
+      // it in the same file; repeating the whole of it here (as this renderer used to repeat `provenance`)
+      // makes a reader read the same sentence twice and trust it no more the second time.
+      description: `${name} It already ${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)}.`,
       scope: scope.pred, check,
       whyProse: proseReason,
-      content: check ? null : contentMd(c, profile, evidenceLine, proseReason),
+      content: check ? null : contentMd(c, profile, evidenceLine, proseReason, name),
       drills: { satisfies: (c.conformingSites || []).slice(), violates: (c.deviatingSites || []).slice() },
       enumerator: c.feature.enumerator, argument: c.feature.argument, expected: c.expected, kind: c.kind,
       // structured fields for provenance.json (ticket 100) — parallel to the prose already in `provenance`,
@@ -1594,9 +1751,15 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const id = `grain/${slug(r.partition)}/candidate-${slug(r.pid)}`.slice(0, 120);
     if (out.some(o => o.id === id)) continue;
     seen.push(id);
-    const statement = `${r.kind}s in \`${r.partition}\`${r.role !== null ? ` (role group r${r.role})` : ''} ${r.exp === 'false' ? 'do not ' : ''}${describePid(r.pid, r.exp)}`.replace(/\s+/g, ' ');
+    // THE ROLE GROUP LEAVES THE SENTENCE AND STAYS IN THE EVIDENCE (ticket 109). The old statement said
+    // "methods in `Slim/Routing` (role group r5) …" while the scope predicate written three lines below it is
+    // `Slim/Routing/**` — the WHOLE directory. A sentence that names a narrower subject than the check
+    // enforces is a sentence a future session is right to argue with. The cluster is where grain MEASURED the
+    // row and it says so in the evidence; the rule speaks about the scope it is actually judged over.
+    const glob = `${host.dir}/**`;
+    const statement = obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
     const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.n} ${r.kind}s · ${r.deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
-    const evidenceLine = `sub-gate candidate: ${provenance}`;
+    const evidenceLine = `${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}`;
     const check = renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
       ? renderCheck({ enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind, provenance: `${statement}\n${provenance}` })
       : null;
@@ -1605,8 +1768,9 @@ export function buildAspects(exp, active, sub, opts = {}) {
     out.push({
       id, origin: 'sub-gate-lattice', host: host.id, evidenceLine, provenance, reviewBy,
       // See the certified-convention branch above (ticket 106) — same fix, same reason.
-      name: statement, description: `${statement}. Proposed by grain from evidence — ${provenance}.`,
-      scope: { per: 'file', files: { path: `${host.dir}/**` } }, check,
+      name: statement, holds: holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`),
+      description: `${statement} It already ${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)}.`,
+      scope: { per: 'file', files: { path: glob } }, check,
       whyProse: proseReason2,
       content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2),
       drills: { satisfies: [], violates: r.deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
@@ -1674,11 +1838,22 @@ export function provenanceFor(a, { asOf, repo }) {
   };
 }
 
+// WHAT THE STATUS DOES, IN ONE SENTENCE, BESIDE THE RULE (ticket 109). `status: advisory` is a word whose
+// consequence lives in a knowledge topic (`yg knowledge read aspect-status`) that a session reading one aspect
+// file has not opened. The three sentences below are that topic's own table, said in the place the decision is
+// made — so an agent asked to obey a rule knows what happens if it does not, and a maintainer deciding whether
+// to keep the rule knows what turning it on costs. Nothing else in the file changes by status.
+const STATUS_MEANING = {
+  enforced: 'This rule is in force: `yg check` reports a file that breaks it as an error and fails.',
+  advisory: 'This rule is advisory: `yg check` reports a file that breaks it as a warning and does not fail.',
+  draft: 'This rule is not in force yet: `yg check` skips it entirely until someone promotes it out of `draft`.',
+};
+
 // The `yg-aspect.yaml` document, shared by the provisional (`draft`, before verification) and final write.
 function aspectYamlDoc(a, status) {
   return {
     '#e': a.evidenceLine,
-    name: a.name, description: a.description, status,
+    name: a.name, description: `${a.description} ${STATUS_MEANING[status] || ''}`.trim(), status,
     ...(a.check ? { errs: 'under' } : {}),
     review_by: a.reviewBy,
     scope: a.scope,
@@ -1957,28 +2132,39 @@ export function nodeCochangePairs(exp, nodeOfFile, top = 5) {
 
 export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf, repo }) {
   const L = [`# Charter — \`${n.id}\``, '', ...PREAMBLE.map(l => (l ? `> ${l}` : '>')), ''];
+  // THE CHARTER OPENS WITH WHAT THE NODE OBLIGES, NOT WITH HOW IT WAS CUT (ticket 109). `n.why` is the
+  // miner's reason for the grouping; it is still here, one line down, under "grouped because". What a session
+  // opening this file needs first is which files it is responsible for and what it may reach.
   L.push(n.organizational
-    ? `Organizational node — no mapping of its own; every file is owned by a child under \`model/${n.id}/\`.`
-    : n.why, '');
+    ? `Organizational node — it owns no file of its own. Every file under \`model/${n.id}/\` belongs to one of its children; attach a rule to the child that owns the file, never here.`
+    // A ROOT-GLOB NODE HAS NO DIRECTORY (ticket 109 round 2). `n.dir` is `null` for the type cut from a
+    // partition whose files all sit at the repository root, and interpolating it printed "Everything under
+    // `null/`" at a maintainer.
+    : `${n.dir ? `Everything under \`${n.dir}/\`` : 'Every file that sits at the repository root itself'} is this node's: ${n.files.size} tracked file${n.files.size === 1 ? '' : 's'}${n.ownFiles.size === n.files.size ? ', all of them owned here' : `, ${n.ownFiles.size} owned here and ${n.files.size - n.ownFiles.size} by a nested node below it`}. A rule attached to this node applies to every file it owns.`, '');
 
   if (!n.organizational) {
-    L.push('## What lives here', '', `- ${n.files.size} tracked files mapped to \`${n.dir}/\` (${n.ownFiles.size} owned directly; the rest belong to a nested node)`);
+    L.push('## What lives here', '', `- ${n.files.size} tracked files mapped to ${n.dir ? `\`${n.dir}/\`` : 'the repository root'}${n.ownFiles.size === n.files.size ? '' : ` (${n.ownFiles.size} owned directly; the other ${n.files.size - n.ownFiles.size} belong to a nested node)`}`);
     const extCounts = new Map();
     for (const f of n.ownFiles) { const m = /\.([A-Za-z0-9]+)$/.exec(f); const ext = m ? m[1] : '(no extension)'; extCounts.set(ext, (extCounts.get(ext) || 0) + 1); }
     const topExts = [...extCounts].sort((a, b) => b[1] - a[1]).slice(0, 6);
     if (topExts.length) L.push(`- file types: ${topExts.map(([e, c]) => `\`.${e}\` ×${c}`).join(' · ')}`);
     if (n.contains?.length) L.push(`- groups: ${n.contains.map(id => `\`${id}\``).join(' · ')}`);
+    L.push(`- grouped because: ${n.why}`);
     L.push('');
   }
 
-  L.push('## Depends on / used by', '');
+  L.push('## What this node may depend on', '');
   const dep = n.relations || [];
   const used = nodes
     .filter(x => x !== n)
     .flatMap(x => (x.relations || []).filter(r => r.target === n.id).map(r => ({ from: x.id, n: r.n })))
     .sort((a, b) => b.n - a.n);
-  L.push(`- depends on: ${dep.length ? dep.map(r => `\`${r.target}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ') : '(no resolved outgoing import)'}`);
-  L.push(`- used by: ${used.length ? used.map(r => `\`${r.from}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ') : '(no resolved incoming import)'}`, '');
+  L.push(dep.length
+    ? `- may depend on: ${dep.map(r => `\`${r.target}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ')}. A dependency on any other node is refused by \`yg check\` until it is declared here.`
+    : '- may depend on: nothing is declared yet. `yg check` refuses a dependency on another node until it is declared here, so declare the relation before the first import.');
+  L.push(used.length
+    ? `- depended on by: ${used.map(r => `\`${r.from}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ')}. Changing what this node exposes breaks them.`
+    : '- depended on by: no other node imports this one.', '');
 
   // An aspect's `host` is the TYPE that carries it in `yg-architecture.yaml`; a node's own `id` is a PATH
   // (`src/main/java`) and `n.type` is that type id (`src-main-java`). Matching the host against the id is
@@ -2073,39 +2259,13 @@ export function cutDrills(repo, aspect, holdout, cap = 5) {
 }
 
 
-// The sentence a rule states about ITSELF — it becomes the aspect's `name:` and `description:`, and so the
-// line an agent reads back from `yg context --file`, `yg aspects` and every `yg check` warning. Two things it
-// must never do, both measured on a real repository (ticket 112): decorate an identifier that already carries
-// its own marker (a `deco` argument arrives as `@SpringBootTest`, so prefixing another `@` said
-// `@@SpringBootTest`), and fall through to printing grain's internal pid at a human. The classes whose subject
-// is a SHAPE rather than a name — `nameshape`, `filenameshape`, `mods` — carry nothing after the colon; their
-// content is the row's `expected`, which is why it is a parameter here.
-export const describePid = (pid, expected) => {
-  const m = /^auto\.([a-z0-9]+):?(.*)$/.exec(pid) || [];
-  const [, fam, arg] = m;
-  const marked = String(arg).startsWith('@') ? arg : `@${arg}`;
-  const byFamily = {
-    imp: `import \`${arg}\``,
-    call: `call \`${arg}\``,
-    deco: `carry \`${marked}\``,
-    extends: `extend \`${arg}\``,
-    has: `contain a \`${arg}\``,
-    returns: `declare a return type of \`${arg}\``,
-    stshape: `use the structure \`${arg}\``,
-    ptype: `take a parameter of type \`${arg}\``,
-    nameshape: `follow the name shape \`${expected}\``,
-    filenameshape: `are named with the shape \`${expected}\``,
-    mods: `are declared \`${expected}\``,
-  };
-  // A class with no sentence of its own still says what it is about in words — never the raw pid, which is
-  // grain's own vocabulary and means nothing to the reader of a rule.
-  return byFamily[fam] || (arg ? `carry \`${arg}\` (${fam})` : `match this repository's \`${fam}\` convention`);
-};
-
-function contentMd(c, profile, evidenceLine, whyProse) {
+function contentMd(c, profile, evidenceLine, whyProse, name) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
-  L.push('', `# ${c.statement}`, '', '## The rule', '', c.statement + '.', '', '## Evidence', '', evidenceLine, '',
+  // The heading and "## The rule" are the aspect's OWN `name` — the obligation the reviewer is asked to judge
+  // against — not the indicative sentence grain mined it from (ticket 109). A `content.md` whose first line
+  // disagrees with the `name:` in the yaml beside it gives the reviewer two rules and no way to pick.
+  L.push('', `# ${name}`, '', '## The rule', '', name, '', '## Evidence', '', evidenceLine, '',
     '## Why this is prose and not a check', '',
     `Grain renders a deterministic \`check.mjs\` wherever the convention's class has a shape a syntax tree can`,
     `be asked about. This one does not: ${whyProse || 'no template renders this class'}`,
@@ -2131,7 +2291,7 @@ function contentMd(c, profile, evidenceLine, whyProse) {
 function subGateMd(r, statement, evidenceLine, whyProse) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
-  L.push('', `# ${statement}`, '', '## The rule', '', statement + '.', '', '## Evidence', '', evidenceLine, '',
+  L.push('', `# ${statement}`, '', '## The rule', '', statement, '', '## Evidence', '', evidenceLine, '',
     '## Why this is a DRAFT and not a certified convention', '',
     `This row is below grain's own gate. It is practised by ${pct(r.share)} of the population, which clears the`,
     "repository's two-thirds supermajority but not the certification bound — so grain refuses to state it as a",
@@ -2239,7 +2399,7 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
     'Practised by a supermajority but not yet by enough of the code for grain to state it as a fact. This is the',
     'sub-gate lattice — the surface `grain explain` shows one file at a time, aggregated per partition.', '',
     mdTable(['adoption', 'n', 'partition', 'scope', 'candidate rule', 'sites to fix'],
-      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describePid(r.pid, r.exp)}`, r.deviants.length])), '');
+      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describeRow(r.pid, r.exp)}`, r.deviants.length])), '');
 
   const twins = (exp.twins || []).filter(t => t.namedDifferently);
   L.push(`## 3. Structural twins — one shape under two names (${twins.length} of ${(exp.twins || []).length} twin pairs are named differently)`, '',
@@ -2305,7 +2465,9 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   const c = r.counts;
   const sha = (r.exp?.asOf || '').slice(0, 7);
   const edges = r.nodes.reduce((a, n) => a + n.relations.length, 0);
-  const evidenceOf = a => `${a.share == null ? 'share n/a' : pct(a.share)} of ${a.n ?? 0} site(s), ${a.deviating ?? 0} deviating`;
+  // The report says how far a rule already holds in the same words the rule's own file says it (§7-bis), so
+  // a maintainer reading the report and then opening the aspect meets one sentence, not two.
+  const evidenceOf = a => a.holds || `${a.share == null ? 'share n/a' : pct(a.share)} of ${a.n ?? 0} site(s), ${a.deviating ?? 0} deviating`;
   const aspectPath = a => `${ygg}/aspects/${a.id}/`;
   const caught = a => (a.drill ? a.drill.catches : 0);
   const byStrength = (a, b) => caught(b) - caught(a) || (b.share ?? 0) - (a.share ?? 0) || (b.n ?? 0) - (a.n ?? 0);
@@ -2366,12 +2528,12 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     if (r.verify.timedOut) L.push(`  ${r.verify.timedOut} drill(s) were given up on after ${r.verify.drillTimeoutMs / 1000}s each and their aspects are unverified, not judged — re-run, or drill them by hand with \`yg drill --aspect <id>\``);
     for (const a of enforced) {
       L.push(`  ${a.id} — ${a.name}`);
-      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · practised in ${evidenceOf(a)} — ${aspectPath(a)}`);
+      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · it already ${evidenceOf(a)} — ${aspectPath(a)}`);
     }
     L.push(`candidates: ${candidates.length} of ${c.aspects} — ${advisory.length} advisory (sub-gate origin, same drill bar as enforced but below grain's own certification bound) + ${legacyCandidates.length} draft(s) a drill still caught a violation with, strongest evidence first within each`);
     for (const a of candidates) {
       L.push(`  ${a.id} — ${a.name}`);
-      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s) · ${evidenceOf(a)} · yg status \`${a.finalStatus}\`${a.finalStatus === 'draft' ? ` (${a.draftReason || 'unverified'})` : ''} — ${aspectPath(a)}`);
+      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s) · it already ${evidenceOf(a)} · yg status \`${a.finalStatus}\`${a.finalStatus === 'draft' ? ` (${a.draftReason || 'unverified'})` : ''} — ${aspectPath(a)}`);
     }
   }
   const byReason = Object.entries(restByReason).sort().map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
@@ -2381,7 +2543,7 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     for (const reason of [...new Set(rest.map(a => a.draftReason || 'unverified'))].sort()) {
       const group = rest.filter(a => (a.draftReason || 'unverified') === reason);
       L.push(`  ${reason}: ${group.length}`);
-      for (const a of group) L.push(`    ${a.id} — ${a.name} · ${evidenceOf(a)} — ${aspectPath(a)}`);
+      for (const a of group) L.push(`    ${a.id} — ${a.name} · it already ${evidenceOf(a)} — ${aspectPath(a)}`);
     }
     L.push(`== ${c.alternatives} finer type alternative(s), not cut as types — ${out}/alternatives.md ==`);
     for (const alt of r.alternatives) L.push(`  ${alt.id} — ${alt.why}`);
