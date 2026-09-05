@@ -10,7 +10,6 @@
 //   --repos a,b,c               measure only these repo ids (default: every subdirectory of --clones)
 //   --only corpus|hostile       run one leg only
 //   --hostile-work <dir>        the work directory `tests/stress/edge-cases.mjs` was pointed at
-//   --min-type-files <n>        override propose.mjs's MIN_TYPE_FILES (the floor 094 asks to measure)
 //   --subgate-per-partition <n> override propose.mjs's reading cap on sub-gate candidates per partition
 //   --no-history                pass --no-history through to `grain export`
 //   --keep-stages               do not delete each stage after measuring it (they are large)
@@ -59,9 +58,12 @@
 //           reached it.
 //
 // FLOORS (ruling `instrument-floors-allowed-if-stated-and-measured`). This script adds none of its own. It
-// EXPOSES propose.mjs's, so their cost can be measured rather than defended: `--min-type-files` (094's
-// MIN_TYPE_FILES, default 2 — the ticket asks for 2-vs-1 on at least three repositories) and
-// `--subgate-per-partition` (the READING cap, lifted for measurement exactly as 097 lifted it).
+// EXPOSES propose.mjs's, so their cost can be measured rather than defended: `--subgate-per-partition` (the
+// READING cap, lifted for measurement exactly as 097 lifted it). `--min-type-files` (094's MIN_TYPE_FILES) was
+// the other one — §5 of ticket 101's own report ran 2 against 1 on three repositories and found it not
+// load-bearing (aspects, pairs, refusals, drill outcomes and FALSE-ALARMs were byte-identical between the two
+// runs), so ruling `root-fix-accepted-min-type-files-goes` retired it and ticket 102 removed the flag from
+// `propose.mjs` entirely. This script has nothing left to expose for it.
 //
 // Yggdrasil is READ-ONLY here: the only thing this script runs of Yggdrasil's is its built `bin.js`, always
 // with the stage as cwd.
@@ -387,7 +389,6 @@ export async function measureRepo(id, clone, opts) {
   // ---- 1. propose -------------------------------------------------------------------------------
   const proposeArgs = [PROPOSE, clone, propDir, '--quiet'];
   if (opts.subgate != null) proposeArgs.push('--subgate-per-partition', String(opts.subgate));
-  if (opts.minTypeFiles != null) proposeArgs.push('--min-type-files', String(opts.minTypeFiles));
   if (opts.noHistory) proposeArgs.push('--no-history');
   const prop = await runMeasured('node', proposeArgs, { cwd: opts.out, timeoutMs: opts.proposeTimeoutMs });
   row.steps.propose = { code: prop.code, wallSeconds: prop.wallSeconds, peakRssMb: prop.peakRssMb, timedOut: prop.timedOut };
@@ -724,7 +725,7 @@ export function renderHostile(rows) {
 function parseArgs(argv) {
   const o = {
     clones: null, out: null, repos: null, yg: process.env.YG_BIN || YG_DEFAULT, json: null, md: null,
-    subgate: null, minTypeFiles: null, noHistory: false, keepStages: false, hostileWork: null, only: null,
+    subgate: null, noHistory: false, keepStages: false, hostileWork: null, only: null,
     proposeTimeoutMs: 25 * 60_000, ygTimeoutMs: 25 * 60_000, drillTimeoutMs: 5 * 60_000, hostileTimeoutMs: 10 * 60_000,
   };
   for (let i = 0; i < argv.length; i++) {
@@ -736,7 +737,6 @@ function parseArgs(argv) {
     else if (a === '--json') o.json = resolve(argv[++i]);
     else if (a === '--md') o.md = resolve(argv[++i]);
     else if (a === '--subgate-per-partition') o.subgate = Number(argv[++i]);
-    else if (a === '--min-type-files') o.minTypeFiles = Number(argv[++i]);
     else if (a === '--no-history') o.noHistory = true;
     else if (a === '--keep-stages') o.keepStages = true;
     else if (a === '--hostile-work') o.hostileWork = resolve(argv[++i]);
@@ -745,7 +745,7 @@ function parseArgs(argv) {
     else if (a === '--yg-timeout') o.ygTimeoutMs = Number(argv[++i]) * 1000;
     else throw new Error(`unknown flag ${a}`);
   }
-  if (!o.out) throw new Error('usage: node integration-stress.mjs --clones <dir> --out <dir> [--repos a,b] [--hostile-work <dir>] [--only corpus|hostile] [--min-type-files N] [--subgate-per-partition N] [--yg <bin.js>] [--json <path>] [--md <path>]');
+  if (!o.out) throw new Error('usage: node integration-stress.mjs --clones <dir> --out <dir> [--repos a,b] [--hostile-work <dir>] [--only corpus|hostile] [--subgate-per-partition N] [--yg <bin.js>] [--json <path>] [--md <path>]');
   return o;
 }
 
@@ -753,7 +753,7 @@ const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(fileURLTo
 if (isMain) {
   const opts = parseArgs(process.argv.slice(2));
   mkdirSync(opts.out, { recursive: true });
-  const out = { instrument: 'integration-stress/1', ticket: '101', startedAt: new Date().toISOString(), yg: opts.yg, floors: { minTypeFiles: opts.minTypeFiles, subGatePerPartition: opts.subgate }, repos: [], hostile: [] };
+  const out = { instrument: 'integration-stress/1', ticket: '101', startedAt: new Date().toISOString(), yg: opts.yg, floors: { subGatePerPartition: opts.subgate }, repos: [], hostile: [] };
   const flush = () => { if (opts.json) writeFileSync(opts.json, JSON.stringify(out, null, 1)); };
 
   if (opts.only !== 'hostile' && opts.clones) {
@@ -804,7 +804,7 @@ if (isMain) {
   // The same matrix as markdown on disk, beside the JSON — the ticket asks for both.
   if (opts.md) {
     const md = [`# integration-stress — ${out.startedAt}`, '', `yg: \`${out.yg}\``,
-      `floors: MIN_TYPE_FILES=${opts.minTypeFiles ?? '2 (default)'}, SUBGATE_PER_PARTITION=${opts.subgate ?? '6 (default)'}`, ''];
+      `floors: SUBGATE_PER_PARTITION=${opts.subgate ?? '6 (default)'}`, ''];
     if (scored.length) {
       md.push('## Corpus', '', renderMatrix(out.repos), '', '## Pooled sense rate (rendered -> loads -> pairs -> catches -> no-FA)', '',
         '| kind | rendered | loads | pairs | catches | no-FA | rate |', '|---|---|---|---|---|---|---|',

@@ -356,14 +356,73 @@ from the export it was rendered from. `instrument: "propose/1"`, `repo` and `asO
 unchanged. `evidence[]` is the full audit trail: one row per emitted element (`kind`: `type` | `relations` |
 `deny` | `node` | `charter` | `aspect`), `id` naming the element, `evidence` the exact prose a human reads on
 the file itself, plus `kind`-specific structured detail (an `aspect` row carries `enumerator`/`identifier`/
-`expected`/`host`). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there for
-the exact, current wording.
+`expected`/`host`, plus — ticket 102 — `status` and `draftReason`, see below). `schemaNotes` explains each field
+the way `grain-export/1`'s own does — read it there for the exact, current wording.
+
+### What "enforced" means in a proposal (ticket 102)
+
+Every element this renderer writes starts as a candidate, never a claim: no type carries `enforce: strict`
+(Yggdrasil's bidirectional-coverage flag — a `yg-architecture.yaml` node-type field, unrelated to the aspect
+`status` below despite the name), and every aspect starts `status: draft`. What changes is which aspects EARN
+their way out of draft, and how a consumer is told why one has not:
+
+- **Prose never leaves draft.** An aspect that ships `content.md` (no template renders its convention's class as
+  a syntax-tree check) needs a configured LLM reviewer to produce a verdict at all, and this renderer never
+  assumes one exists. Ticket 101 measured prose's sense rate under a keyless gate at 0% (1305 of 1671 proposed
+  aspects on a 17-repository corpus) — a judgment call is a candidate for a human decision, never a rule this
+  renderer ships as enforceable. `draftReason: "prose-unenforceable-keyless"`.
+- **A deterministic check (`check.mjs`) is judged by a REAL `yg drill`.** When `YG_BIN` resolves to a built
+  Yggdrasil CLI, this renderer stages the `.yggdrasil/` tree it JUST wrote into a throwaway copy and runs
+  `yg drill --aspect <id>` for every check that shipped a corpus — the same measurement a maintainer would run
+  by hand, not a claim this script computes on its own. A check that comes back with zero FALSE-ALARMs and at
+  least one caught `violates-*` case is promoted: its `yg-aspect.yaml` is rewritten `status: enforced`, and a
+  plain `yg check` on the delivered proposal enforces it immediately, no further review needed to turn it on.
+  Everything else stays draft, with one of two reasons:
+  - `draftReason: "file-scope-approximation-fa"` — the drill found at least one FALSE-ALARM. Ticket 101 §8.1
+    traced every remaining FALSE-ALARM in its whole corpus to one shape: the convention's own subject is a
+    SYMBOL inside a file (a method, a type) while Yggdrasil reviews the check per FILE, and a drill corpus cut
+    from a sample of sites mislabels the file. Ruling `drill-fa-labelling-is-acceptance-not-defect`: this is
+    accepted as a corpus-labelling artifact, not chased as a defect — the fix is to demote the rule, not
+    relabel the corpus, and 0 FALSE-ALARMs is not a matter of taste; it is the only value at which a keyless CI
+    never blocks a legitimately clean change.
+  - `draftReason: "no-catch"` — zero FALSE-ALARMs, but also zero caught `violates-*` cases. Ruling
+    `no-catch-rules-stay-draft`: a rule nothing can ever be shown to violate does not enforce architecture,
+    whatever else is true of it — 125 of 366 deterministic aspects in ticket 101's corpus were exactly this.
+  - `draftReason: null` with no verdict at all means the aspect was never verified this run — no `YG_BIN`
+    resolvable, or the check shipped no drill corpus to run. This is not one of the three reasons above: it says
+    nothing about the check's quality, only that nobody has looked yet. This was every deterministic aspect's
+    fate before ticket 102 — the only regression-proof default when Yggdrasil is not available to ask.
+
+`counts.aspectsActive` / `counts.aspectsDraft` / `counts.aspectsByDraftReason` (a count per reason above) and
+`counts.aspectsVerified` / `counts.aspectsVerifiedAgainst` (how many deterministic aspects a real drill actually
+judged, and against which Yggdrasil binary — `null` when `YG_BIN` did not resolve) summarize this split for the
+whole run; `evidence[]`'s own `aspect` rows and each aspect's `provenance.json` (below) carry it per element.
+
+**What an adopter actually gets, in plain terms**: `status: enforced` means a deterministic rule that survived a
+real drill on this repository's own code with zero false alarms and at least one caught violation — nothing
+between the maintainer and turning this rule on today. Everything else — every prose aspect, every check that
+false-alarmed or caught nothing, every check nobody has verified yet — is a candidate: worth reading, not worth
+trusting sight unseen. Adopting a proposal means reviewing the drafts, not merely running `yg check --approve` on
+the enforced set and calling the rest done.
 
 **Per-aspect `provenance.json`** — `.yggdrasil/aspects/<id>/provenance.json`, one per rendered aspect, same
 field set as the law-loop measurement's own (ticket 097): `aspectId, conventionId, origin, enumeratorClass,
 identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note`. A live
 `propose` run has no hold-out cut of its own, so `cutSha` is `asOf` (HEAD) and `cutDate` is `null` — the two
 differ only in provenance, never in the fields carried.
+
+**Three fields ADDED here (ticket 102), additive per the rule above — not shared with law-loop.mjs's own replay
+provenance, which describes a held-out cut rather than a live run with a real `.yggdrasil/` tree on disk**:
+`status` (`"active"` | `"draft"` — Grain's own two-value vocabulary, distinct from the three Yggdrasil-schema
+values the aspect's `yg-aspect.yaml` itself carries; `"active"` there is written as `status: enforced`),
+`draftReason` (one of `"prose-unenforceable-keyless"` | `"file-scope-approximation-fa"` | `"no-catch"`, or `null`
+when `status` is `"active"` or the aspect was never verified this run), and `scopeApproximation`
+(`"file-from-symbol"` when the convention's own subject — `a.kind`, grain's `unitOf` domain: `method` | `type` |
+`catch` | `finally` | `case` — is a symbol living inside a file rather than the file itself, `null` for a
+file/module-level convention where the check's unit and the convention's subject are the same thing). This flag
+is set independently of drill results — a symbol-scoped check can still earn `enforced` if its own drill comes
+back clean; the flag explains WHY a FALSE-ALARM would happen here if one ever does, it does not by itself demote
+anything.
 
 **Per-node `charter.md`** — `.yggdrasil/model/<node>/charter.md`, beside `yg-node.yaml`, one per proposed node
 (including organizational ones). Rendered the way a `where` card reads a directory to a human: what lives here
