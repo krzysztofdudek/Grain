@@ -749,9 +749,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/109-sense",
-      "state": "running",
-      "note": "po klonach korpusu",
-      "updated": "2026-09-05 19:56"
+      "state": "landed",
+      "note": "measured: hold-out sense 0.000→0.493 by wording alone (rule-form 0→0.928); enforced sense 0→0 (blocks existing files); judge = one model ×3, kappa undefined at baseline; 2 wording rounds + 1 defect fix",
+      "updated": "2026-09-05 21:35"
     },
     {
       "id": 70,
