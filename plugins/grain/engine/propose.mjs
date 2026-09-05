@@ -420,11 +420,11 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
       // type already models (`when: { path: '*' }`); anything else has no path expression and is disclosed as
       // an alternative rather than guessed at.
       if ([...p.files].every(f => !f.includes('/'))) {
-        put({ dir: null, id: slug(p.name), rootGlob: true, files: p.files, src: 'partition', why: `${p.part.files === 1 ? 'this 1 file groups' : `these ${p.part.files} files group`} together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind}) — but no directory of this name exists: every one of them sits at the repository root, so the type is drafted as the root glob rather than as a path prefix` });
+        put({ dir: null, id: slug(p.name), rootGlob: true, files: p.files, src: 'partition', why: `${p.part.files} of them group together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind}) — and no directory of that name exists: every one of them sits at the repository root, so the type is drafted as the root glob rather than as a path prefix` });
       }
       continue;
     }
-    put({ dir: p.name, files: p.files, src: 'partition', why: `${p.part.files === 1 ? 'this 1 file groups' : `these ${p.part.files} files group`} together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind})` });
+    put({ dir: p.name, files: p.files, src: 'partition', why: `${p.part.files} of them group together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind})` });
   }
   const partRoots = new Set([...cands.keys()]);
   // grain's OTHER cut of the same tree: the refined module graph. It is coarser than the partition set in some
@@ -432,7 +432,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
   for (const m of exp.moduleGraph?.nodes || []) {
     const s = underDir(files, m.id);
     if (s.size < GROUP_MIN) continue;
-    put({ dir: m.id, files: s, src: 'module', why: `${m.files === 1 ? 'this 1 file forms' : `these ${m.files} files form`} one unit of the dependency graph, at layer ${m.layer} above its leaves` });
+    put({ dir: m.id, files: s, src: 'module', why: `${m.files} of them ${m.files === 1 ? 'is code grain parsed and grouped' : 'are code grain parsed and grouped'} as one unit of the dependency graph, at layer ${m.layer} above its leaves` });
   }
   // directory cards ONE LEVEL below a partition root. Grain publishes a card only for a directory that carries
   // scopes, so a published card is evidence of its own; one level is where a hand architecture actually splits
@@ -442,7 +442,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
     const owner = [...partRoots].filter(r => d.name.startsWith(r + '/')).sort((a, b) => b.length - a.length)[0];
     const depth = owner ? d.name.slice(owner.length + 1).split('/').length : null;
     if (depth !== 1) continue;
-    put({ dir: d.name, files: d.files, src: 'directory', why: `\`${d.name}\` carries code of its own — ${d.card.files} file${d.card.files === 1 ? '' : 's'}, ${d.card.scopes} declarations — one level below \`${owner}\`` });
+    put({ dir: d.name, files: d.files, src: 'directory', why: `${d.card.files} of them ${d.card.files === 1 ? 'is code grain parsed' : 'are code grain parsed'} (${d.card.scopes} declarations) in a directory one level below \`${owner}\`` });
   }
   for (const c of [...cands.values()].sort((a, b) => (String(a.dir) < String(b.dir) ? -1 : 1))) {
     if (c.files.size < GROUP_MIN) continue;
@@ -1257,7 +1257,7 @@ export async function propose(repo, outDir, opts = {}) {
       : deny ? ' This type declares no outgoing dependency, and none is allowed — `yg check` refuses the first one until the architecture declares it.' : '';
     nodeTypes[a.id] = {
       '#e': ev('type', a.id, line, { level: a.source, dir: a.dir, evidenceFiles: a.files.size, selects: a.selected.size, fidelity: +a.fidelity.toFixed(3) }),
-      description: `${a.dir ? `Every file under \`${a.dir}/\`` : 'Every file that sits at the repository root itself'} is of this type; a file added there joins it with no further step, and every rule attached to this type applies to it.${mayUse}`,
+      description: `${a.dir ? `Put a file under \`${a.dir}/\`` : 'Put a file at the repository root itself'} only if it belongs to this type: a file placed there is classified here with no further step, and every rule attached to this type applies to it from that moment.${mayUse || (a.aspectIds?.length ? '' : ' No rule and no relation are attached to this type yet, so today it constrains nothing — it is where they will attach.')}`,
       when: a.when,
       // a nested type's node sits under its ancestors' nodes, and Yggdrasil rejects a parent whose type is not
       // listed here (`parent-type-forbidden`) — so every ancestor type is an allowed parent, by construction
@@ -2011,10 +2011,13 @@ export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByN
   // opening this file needs first is which files it is responsible for and what it may reach.
   L.push(n.organizational
     ? `Organizational node — it owns no file of its own. Every file under \`model/${n.id}/\` belongs to one of its children; attach a rule to the child that owns the file, never here.`
-    : `Everything under \`${n.dir}/\` is this node's: ${n.files.size} tracked file${n.files.size === 1 ? '' : 's'}${n.ownFiles.size === n.files.size ? ', all of them owned here' : `, ${n.ownFiles.size} owned here and ${n.files.size - n.ownFiles.size} by a nested node below it`}. A rule attached to this node applies to every file it owns.`, '');
+    // A ROOT-GLOB NODE HAS NO DIRECTORY (ticket 109 round 2). `n.dir` is `null` for the type cut from a
+    // partition whose files all sit at the repository root, and interpolating it printed "Everything under
+    // `null/`" at a maintainer.
+    : `${n.dir ? `Everything under \`${n.dir}/\`` : 'Every file that sits at the repository root itself'} is this node's: ${n.files.size} tracked file${n.files.size === 1 ? '' : 's'}${n.ownFiles.size === n.files.size ? ', all of them owned here' : `, ${n.ownFiles.size} owned here and ${n.files.size - n.ownFiles.size} by a nested node below it`}. A rule attached to this node applies to every file it owns.`, '');
 
   if (!n.organizational) {
-    L.push('## What lives here', '', `- ${n.files.size} tracked files mapped to \`${n.dir}/\`${n.ownFiles.size === n.files.size ? '' : ` (${n.ownFiles.size} owned directly; the other ${n.files.size - n.ownFiles.size} belong to a nested node)`}`);
+    L.push('## What lives here', '', `- ${n.files.size} tracked files mapped to ${n.dir ? `\`${n.dir}/\`` : 'the repository root'}${n.ownFiles.size === n.files.size ? '' : ` (${n.ownFiles.size} owned directly; the other ${n.files.size - n.ownFiles.size} belong to a nested node)`}`);
     const extCounts = new Map();
     for (const f of n.ownFiles) { const m = /\.([A-Za-z0-9]+)$/.exec(f); const ext = m ? m[1] : '(no extension)'; extCounts.set(ext, (extCounts.get(ext) || 0) + 1); }
     const topExts = [...extCounts].sort((a, b) => b[1] - a[1]).slice(0, 6);
