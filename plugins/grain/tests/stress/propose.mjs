@@ -41,7 +41,7 @@ import {
   slug, yq, yamlEmit, localities, contentRegexFor, caseTolerant, buildTypes, buildRelations, buildNodes,
   nestedProjectRoots, nodePathFor, partitionLattice, subGate, identifierOf, shapeToRegex, renderCheck,
   renderableDirection, computeSizing, buildAspects, provenanceFor, buildFamilyCandidates, nodeCochangePairs,
-  renderNodeCharter, cutDrills, resolveYg, proposeReport,
+  renderNodeCharter, cutDrills, resolveYg, proposeReport, describeRow,
 } from '../../engine/propose.mjs';
 export {
   PREAMBLE, RENDERABLE, WHY_PROSE, SUPERMAJORITY, LAMBDA_BOUND, MIN_SUPPORT, MIN_PROMOTE_FILES,
@@ -49,7 +49,7 @@ export {
   slug, yq, yamlEmit, localities, contentRegexFor, caseTolerant, buildTypes, buildRelations, buildNodes,
   nestedProjectRoots, nodePathFor, partitionLattice, subGate, identifierOf, shapeToRegex, renderCheck,
   renderableDirection, computeSizing, buildAspects, provenanceFor, buildFamilyCandidates, nodeCochangePairs,
-  renderNodeCharter, cutDrills, resolveYg, proposeReport,
+  renderNodeCharter, cutDrills, resolveYg, proposeReport, describeRow,
 };
 
 // Where the built Yggdrasil CLI lives for a MEASUREMENT run on this machine — the same path

@@ -14,8 +14,10 @@
 // THREE RULES THIS MODULE OBEYS.
 //
 //   1. NEVER write into the repository's own `.yggdrasil/`. Everything lands under `<out-dir>/.yggdrasil/`, a
-//      directory the maintainer reads, edits and moves in by hand. The repo is read-only here, exactly as it is
-//      in `reconstruct.mjs`.
+//      directory the maintainer reads, edits and moves in by hand. The repository is untouched but for one
+//      thing, named here rather than glossed over: the export this module spawns for itself is written to
+//      `.grain/cache/`, the disposable half of grain's own store, which `.grain/.gitignore` already ignores —
+//      so a run leaves the working tree clean, and nothing it wrote can be committed by accident.
 //   2. EVERY proposed element carries an evidence line — counts, paths, shares — naming what in the repository
 //      made grain propose it. A proposal without evidence is a guess with a YAML syntax, and the whole point of
 //      the north star is that the graph comes from the code rather than from imagination. The evidence is both a
@@ -40,14 +42,20 @@
 // lattice is actually computed. Verifying against Yggdrasil (`yg drill`) runs the built CLI as a subprocess over
 // a throwaway copy of this renderer's own output, exactly as `tests/propose.test.mjs` already does.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './yggdrasil-graph.mjs';
 // Read-only: two version constants, the same ones `grain export`'s own `proposal.json`-equivalent
 // (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
 // without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
 import { ENGINE_VERSION, EXTR_V } from './config.mjs';
+// Read-only, and only these two: the vocabulary grain ALREADY uses to put a measured value into words — a name
+// shape (`(Ua)+` -> "PascalCase") and a lexical surface (`quote`,`single` -> "quote strings with single
+// quotes"). §7-bis below words a lattice row with them rather than with a private copy, so a proposal and
+// grain's own report can never drift into two names for one thing. Everything else this renderer needs from
+// `core.mjs` still comes through the dynamic import in `partitionLattice`, which is where the model is read.
+import { shapeWords, lexWords } from './core.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '..', 'bin', 'grain.mjs');
@@ -147,6 +155,14 @@ function walkWorktree(root, rel = '', out = []) {
   return out;
 }
 function gitFiles(repo) {
+  // THE FALLBACK IS A DEGRADATION, SO IT HAS TO SAY IT HAPPENED. Two very different things used to arrive at
+  // the same silent `walkWorktree`: a directory with no git at all (the documented, expected case — `grain
+  // export` handles it too and stamps its answer `no-git`), and a repository where git IS there and the call
+  // FAILED — a corrupt index, a permission the process does not have, an `ls-files` output past `maxBuffer`
+  // on a very large repository. The second one silently mines a WEAKER file set: with no git there is no
+  // `.gitignore` resolution, so build output a git repo would have hidden is proposed on as if it were source.
+  // The reason is returned and disclosed; the answer is still produced, because a degraded proposal an adopter
+  // can see the caveat on beats a crash.
   try {
     // `-s` so the mode is visible: a SUBMODULE is listed by `git ls-files` as a single entry with mode 160000
     // (a gitlink), and it is a directory on disk, not a file. Rendered as a file it becomes a node mapping that
@@ -160,11 +176,21 @@ function gitFiles(repo) {
       const m = /^(\d{6}) [0-9a-f]+ \d+\t(.*)$/s.exec(rec);
       if (!m) continue;
       if (m[1] === '160000') continue; // gitlink: a nested checkout, not a file of this repository
-      files.push(m[2].split('\\').join('/'));
+      // The path is taken VERBATIM. `-z` output is never quoted and git stores `/` as the separator on every
+      // platform, Windows included, so there is no separator here to normalise — and a `\` in the record is a
+      // filename character, legal on POSIX. Folding it to `/` could only corrupt such a path, and did:
+      // `src/we\ird.ts` became `src/we/ird.ts`, a file mapped into a directory that does not exist, sized at
+      // zero bytes because nothing on disk answers to it, and named by a node mapping `yg check` cannot resolve.
+      files.push(m[2]);
     }
-    return files;
-  } catch {
-    return walkWorktree(repo).sort();
+    return { files, degraded: null };
+  } catch (e) {
+    return {
+      files: walkWorktree(repo).sort(),
+      degraded: existsSync(join(repo, '.git'))
+        ? `\`git ls-files\` failed in a repository that HAS git (${String(e.message || e).split('\n')[0].slice(0, 200)}), so the file set below comes from walking the worktree instead: build output and anything else \`.gitignore\` would have hidden is in it`
+        : null,
+    };
   }
 }
 
@@ -179,13 +205,36 @@ export function slug(s) {
 
 // ---- a minimal YAML emitter (block style only; the shapes this renderer writes and nothing else) ----
 const NEEDS_QUOTE = /^(\s|$)|[:#\-?*&!|>'"%@`{}[\],]|\s$|^(true|false|null|yes|no|on|off|~)$|^-?\d/i;
+// YAML's printable set (1.2 §5.1) admits tab, line feed and carriage return and NOTHING else below U+0020, and
+// excludes DEL, the C1 range and unpaired surrogates. A repository path may hold any of them, and emitted bare
+// they are not YAML: a conforming parser rejects the WHOLE document, not just the scalar — measured, a path
+// containing U+0001 makes `yg-architecture.yaml` unreadable end to end. Such a scalar is therefore always
+// quoted — and, below, escaped, since the double-quoted form admits these characters only as `\uXXXX`.
+const NOT_PRINTABLE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
+// QUOTING ALONE IS NOT ENOUGH. `JSON.stringify` escapes U+0000-U+001F and unpaired surrogates but leaves DEL
+// and the C1 range raw, and a conforming parser rejects those inside double quotes exactly as it does outside
+// them — measured. Everything the plain form may not carry is therefore escaped as `\uXXXX`, which YAML's
+// double-quoted form admits for every one of them.
+const NOT_PRINTABLE_G = new RegExp(NOT_PRINTABLE.source, 'g');
+const escapeNonPrintable = json => json.replace(/[\u007f-\u009f]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 export function yq(v) {
   if (v === null || v === undefined) return 'null';
   if (typeof v === 'boolean' || typeof v === 'number') return String(v);
   const s = String(v);
-  if (!s.length || NEEDS_QUOTE.test(s) || s.includes('\n')) return JSON.stringify(s);
+  if (!s.length || NEEDS_QUOTE.test(s) || s.includes('\n') || NOT_PRINTABLE.test(s)) return escapeNonPrintable(JSON.stringify(s));
   return s;
 }
+// A COMMENT VALUE IS THE REPOSITORY'S OWN PROSE, AND A REPOSITORY PATH MAY CONTAIN A LINE BREAK. Every emitted
+// element carries its evidence as a `#` comment naming the directories, identifiers and shares behind it.
+// Written as a single `# <text>` line, everything after a line break in that text LEFT the comment and landed
+// in the document as YAML: a directory named `ev<LF>injected: true` put a real `injected: true` key inside its
+// own node type in `yg-architecture.yaml` — confirmed both by this repository's own parser and by a conforming
+// one. Each line of the value now gets its own `#`, so a comment stays a comment however the value is spelled.
+// A COMMENT CANNOT ESCAPE ANYTHING — it is literal to the end of the line — so the characters YAML does not
+// admit at all (see NOT_PRINTABLE above) are replaced by U+FFFD here rather than escaped. One of them raw in a
+// comment is rejected by a conforming parser exactly as one in a scalar is, and takes the whole document with
+// it; the replacement character is the honest rendering of 'a character that cannot be written here'.
+const yamlComment = (v, pad) => String(v).split(/\r\n|\r|\n/).map(l => `${pad}# ${l.replace(NOT_PRINTABLE_G, '\ufffd')}\n`).join('');
 export function yamlEmit(value, indent = 0) {
   const pad = ' '.repeat(indent);
   if (Array.isArray(value)) {
@@ -203,7 +252,7 @@ export function yamlEmit(value, indent = 0) {
     let out = '';
     for (const [k, v] of Object.entries(value)) {
       if (v === undefined) continue;
-      if (k.startsWith('#')) { out += `${pad}# ${v}\n`; continue; } // comment pseudo-key
+      if (k.startsWith('#')) { out += yamlComment(v, pad); continue; } // comment pseudo-key
       if (Array.isArray(v)) {
         if (!v.length) out += `${pad}${k}: []\n`;
         else out += `${pad}${k}:\n${yamlEmit(v, indent + 2)}`;
@@ -324,8 +373,8 @@ export function contentRegexFor(group) {
   for (const mk of group.markers || []) {
     const nm = mk.name || mk.marker;
     if (!nm || !/^[A-Za-z_][A-Za-z0-9_.]*$/.test(nm)) continue;
-    if (mk.type === 'decorator') return { regex: `@${esc(nm)}\\b`, why: `marker \`@${nm}\` (${(mk.carriers || []).length} carriers)` };
-    if (mk.type === 'supertype') return { regex: `\\b(extends|implements)\\s+${esc(nm)}\\b`, why: `marker \`extends ${nm}\` (${(mk.carriers || []).length} carriers)` };
+    if (mk.type === 'decorator') return { regex: `@${esc(nm)}\\b`, why: `marker \`@${nm}\` (${(mk.carriers || []).length} carriers)`, sel: `carrying \`@${nm}\`` };
+    if (mk.type === 'supertype') return { regex: `\\b(extends|implements)\\s+${esc(nm)}\\b`, why: `marker \`extends ${nm}\` (${(mk.carriers || []).length} carriers)`, sel: `extending \`${nm}\`` };
   }
   // (2) the members' own name shape — the longest common prefix and suffix over the member names. This is what
   //     a hand-written type does: `command` vs `command-support` in the pattern repo is literally "does this
@@ -333,13 +382,13 @@ export function contentRegexFor(group) {
   if (names.length >= MIN_GROUP_MEMBERS) {
     const pre = commonAffix(names, 'prefix'), suf = commonAffix(names, 'suffix');
     if (pre.length >= 3 && suf.length >= 3 && pre.length + suf.length < Math.min(...names.map(n => n.length)))
-      return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the prefix \`${pre}\` and the suffix \`${suf}\` (${names.length} names)` };
-    if (pre.length >= 5) return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*\\b`, why: `member names share the prefix \`${pre}\` (${names.length} names)` };
-    if (suf.length >= 5) return { regex: `\\b[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the suffix \`${suf}\` (${names.length} names)` };
+      return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the prefix \`${pre}\` and the suffix \`${suf}\` (${names.length} names)`, sel: `declaring a name that starts with \`${pre}\` and ends in \`${suf}\`` };
+    if (pre.length >= 5) return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*\\b`, why: `member names share the prefix \`${pre}\` (${names.length} names)`, sel: `declaring a name that starts with \`${pre}\`` };
+    if (suf.length >= 5) return { regex: `\\b[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the suffix \`${suf}\` (${names.length} names)`, sel: `declaring a name that ends in \`${suf}\`` };
   }
   // (3) a shared import — weaker (an import is a dependency, not an identity) but real, and anchored.
   const imps = (group.imports || []).filter(i => i && i.length >= 4);
-  if (imps.length === 1) return { regex: esc(imps[0]), why: `every member's file imports \`${imps[0]}\`` };
+  if (imps.length === 1) return { regex: esc(imps[0]), why: `every member's file imports \`${imps[0]}\``, sel: `importing \`${imps[0]}\`` };
   // (4) a defining name token, when the group named itself one word.
   //
   // CASE. A `nameTokens` entry is a CASE-FOLDED subword out of grain's own vocabulary (`core.mjs`'s `tokenize`
@@ -351,7 +400,7 @@ export function contentRegexFor(group) {
   // capital F) and 0 of 6 on `family-planted-polyglot`, while selecting all 5 snake_case Python members
   // (`find_first`) — i.e. the predicate silently worked in one casing convention and was vacuous in the other.
   const toks = (group.nameTokens || []).filter(t => t && t.length >= 5);
-  if (toks.length) return { regex: `\\b[A-Za-z0-9_]*${caseTolerant(toks[0])}[A-Za-z0-9_]*\\b`, why: `group's defining name token \`${toks[0]}\`` };
+  if (toks.length) return { regex: `\\b[A-Za-z0-9_]*${caseTolerant(toks[0])}[A-Za-z0-9_]*\\b`, why: `group's defining name token \`${toks[0]}\``, sel: `mentioning \`${toks[0]}\`` };
   return null;
 }
 
@@ -374,7 +423,7 @@ function commonAffix(names, which) {
   return which === 'prefix' ? out : [...out].reverse().join('');
 }
 
-export function buildTypes(exp, loc, files, ctx, opts = {}) {
+export function buildTypes(exp, loc, files, ctx) {
   // The 2-files-up admission floor for a directory-derived type used to be MIN_TYPE_FILES, a named, overridable
   // constant (`--min-type-files`) — ruling `granularity-bounded-by-evidence-not-taste` asked for exactly that: it
   // to be MEASURED as a floor to remove, not defended. Ticket 101 §5 ran 2 against 1 on three repositories and
@@ -414,11 +463,11 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
       // type already models (`when: { path: '*' }`); anything else has no path expression and is disclosed as
       // an alternative rather than guessed at.
       if ([...p.files].every(f => !f.includes('/'))) {
-        put({ dir: null, id: slug(p.name), rootGlob: true, files: p.files, src: 'partition', why: `grain partition \`${p.name}\` (kind ${p.part.kind}, ${p.part.files} files, ${p.part.scopes} scopes, ${p.part.groups.length} role groups) — a synthetic bucket, not a directory: every file in it sits at the repository root, so it is drafted as the root glob rather than as a path prefix` });
+        put({ dir: null, id: slug(p.name), rootGlob: true, files: p.files, src: 'partition', why: `${p.part.files} of them group together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind}) — and no directory of that name exists: every one of them sits at the repository root, so the type is drafted as the root glob rather than as a path prefix` });
       }
       continue;
     }
-    put({ dir: p.name, files: p.files, src: 'partition', why: `grain partition (kind ${p.part.kind}, ${p.part.files} files, ${p.part.scopes} scopes, ${p.part.groups.length} role groups)` });
+    put({ dir: p.name, files: p.files, src: 'partition', why: `${p.part.files} of them group together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind})` });
   }
   const partRoots = new Set([...cands.keys()]);
   // grain's OTHER cut of the same tree: the refined module graph. It is coarser than the partition set in some
@@ -426,7 +475,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
   for (const m of exp.moduleGraph?.nodes || []) {
     const s = underDir(files, m.id);
     if (s.size < GROUP_MIN) continue;
-    put({ dir: m.id, files: s, src: 'module', why: `grain module \`${m.id}\` (${m.files} files, dependency layer ${m.layer})` });
+    put({ dir: m.id, files: s, src: 'module', why: `${m.files} of them ${m.files === 1 ? 'is code grain parsed and grouped' : 'are code grain parsed and grouped'} as one unit of the dependency graph, at layer ${m.layer} above its leaves` });
   }
   // directory cards ONE LEVEL below a partition root. Grain publishes a card only for a directory that carries
   // scopes, so a published card is evidence of its own; one level is where a hand architecture actually splits
@@ -436,7 +485,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
     const owner = [...partRoots].filter(r => d.name.startsWith(r + '/')).sort((a, b) => b.length - a.length)[0];
     const depth = owner ? d.name.slice(owner.length + 1).split('/').length : null;
     if (depth !== 1) continue;
-    put({ dir: d.name, files: d.files, src: 'directory', why: `grain directory card \`${d.name}\` (${d.card.files} files, ${d.card.scopes} scopes), one level below the partition \`${owner}\`` });
+    put({ dir: d.name, files: d.files, src: 'directory', why: `${d.card.files} of them ${d.card.files === 1 ? 'is code grain parsed' : 'are code grain parsed'} (${d.card.scopes} declarations) in a directory one level below \`${owner}\`` });
   }
   for (const c of [...cands.values()].sort((a, b) => (String(a.dir) < String(b.dir) ? -1 : 1))) {
     if (c.files.size < GROUP_MIN) continue;
@@ -454,10 +503,10 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
   }
   for (const [top, set] of [...rest].sort((a, b) => b[1].size - a[1].size)) {
     if (set.size < GROUP_MIN || top === '.' || cands.has(top)) continue;
-    active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'uncovered', why: `directory \`${top}\` holds ${set.size} tracked files no grain partition, module or directory card claims — a grouping from the layout alone, with no mining behind it` });
+    active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'uncovered', why: `\`${top}\` holds ${set.size} tracked files nothing else in this proposal claims — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
   }
   const rootFiles = rest.get('.');
-  if (rootFiles && rootFiles.size >= GROUP_MIN && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and no grain partition, module or directory card claims them — a grouping from the layout alone, with no mining behind it` });
+  if (rootFiles && rootFiles.size >= GROUP_MIN && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and nothing else in this proposal claims them — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
 
   for (const a of active) {
     a.when = a.rootGlob ? { path: '*' } : { path: `${a.dir}/**` };
@@ -588,7 +637,7 @@ export const nestedProjectRoots = files => {
   return [...roots];
 };
 
-export function buildNodes(active, typeOfFile, exp, nestedRoots = []) {
+export function buildNodes(active, exp, nestedRoots = []) {
   const live = f => !nestedRoots.some(r => f.startsWith(r + '/'));
   const nodes = active.map(a => ({
     id: nodePathFor(a.dir),
@@ -671,7 +720,6 @@ export function buildNodes(active, typeOfFile, exp, nestedRoots = []) {
     dropped.push({ from: weakest.from.id, to: weakest.edge.target, n: weakest.edge.n, cycle: loop });
   }
   for (const n of nodes) n.relations = n.relations.map(r => { const { _masked, ...rest } = r; void _masked; return rest; });
-  void typeOfFile;
   return { nodes, cycles: dropped, nodeOfFile };
 }
 
@@ -697,7 +745,7 @@ export function buildNodes(active, typeOfFile, exp, nestedRoots = []) {
 
 const CELL_SEP = '\u0001'; // the same cell-key separator `core.mjs` uses; a pid can contain spaces, so ' ' would truncate it
 
-export async function partitionLattice(repo, opts = {}) {
+export async function partitionLattice(repo) {
   const modelPath = join(repo, '.grain', 'cache', 'model.json');
   const treePath = join(repo, '.grain', 'cache', 'tree.json');
   if (!existsSync(modelPath) || !existsSync(treePath)) return { rows: [], reason: 'no grain cache (.grain/cache/{model,tree}.json) — run `grain export` on this repo first' };
@@ -763,7 +811,6 @@ export async function partitionLattice(repo, opts = {}) {
       });
     }
   }
-  void opts;
   return { rows, reason: null };
 }
 
@@ -828,11 +875,28 @@ const NT = {
   funcDecl: '/^(function_declaration|function_definition|function_item|function_signature|method_definition|method_declaration|method_signature)$/',
 };
 
+// The header's second paragraph states the aspect's STATUS, and every check is written before its status is
+// known — a drill has not run yet. `promoteEnforceableAspects` rewrites this paragraph in place when a drill
+// earns `enforced` or `advisory`, so the sentence a maintainer reads at the top of the file is never the
+// opposite of what Yggdrasil is doing with it. The third sentence (the `errs: under` contract) is the same
+// in all three and is kept out of the swapped text.
+export const DRAFT_NOTE = `// DRAFT: this aspect is \`status: draft\`, so the runner never executes this check. Read it, decide whether the
+// rule is real, then promote it.`;
+
+export const statusNote = status => (status === 'enforced'
+  ? `// ENFORCED: a real \`yg drill\` on this repository's own code caught a violation with this check and raised no
+// false alarm, and its convention cleared grain's certification bound, so \`yg check\` runs it and a refusal blocks.`
+  : status === 'advisory'
+    ? `// ADVISORY: a real \`yg drill\` on this repository's own code caught a violation with this check and raised no
+// false alarm, but its convention sits BELOW grain's certification bound, so \`yg check\` runs it and a refusal
+// warns without blocking. Whether it should become law is the maintainer's refactor decision.`
+    : DRAFT_NOTE);
+
 const PROVENANCE = p => `// PROVENANCE — grain measured this, it did not decide it.
 //   ${p.replace(/\n/g, '\n//   ')}
 //
-// DRAFT: this aspect is \`status: draft\`, so the runner never executes this check. Read it, decide whether the
-// rule is real, then promote it. \`errs: under\` is the contract this template keeps: it reports only where the
+${DRAFT_NOTE}
+// \`errs: under\` is the contract this template keeps: it reports only where the
 // syntax tree proves the negation, and stays silent where the language gives it nothing to read.`;
 
 // Every template shares one skeleton so the contract (sync, Violation[], guard on file.ast) is identical.
@@ -1129,7 +1193,7 @@ function scopeCountsFromTreeCache(repo) {
   return byFile;
 }
 
-export function computeSizing(repo, active, nodes, handGraph, handFiles) {
+export function computeSizing(repo, nodes, handGraph, handFiles) {
   const scopesByFile = scopeCountsFromTreeCache(repo);
   const bytesOf = rel => { try { return statSync(join(repo, rel)).size; } catch { return 0; } };
   const linesOf = rel => { try { return readFileSync(join(repo, rel), 'utf8').split('\n').length; } catch { return 0; } };
@@ -1143,7 +1207,6 @@ export function computeSizing(repo, active, nodes, handGraph, handFiles) {
     }
     return { files, bytes, codelengthLines, scopes: scopesByFile ? scopes : null };
   };
-  void active; // the proposed rows are read off `nodes` (post deepest-node-precedence `ownFiles`), not `active`
   const proposedNodes = nodes.filter(n => !n.organizational).map(n => ({ id: n.id, dir: n.dir, ...sizeOf(n.ownFiles) }));
   let handNodes = null;
   if (handGraph) {
@@ -1165,13 +1228,29 @@ export function computeSizing(repo, active, nodes, handGraph, handFiles) {
 // 8. The renderer.
 // ==================================================================================================
 
-export async function propose(repo, outDir, opts = {}) {
-  const files = gitFiles(repo);
+// ---- the four file sets `propose` writes, each in its own function ----
+//
+// `propose` below reads its inputs, builds the model, and then writes four things: the architecture, the
+// nodes, the aspects with their drill corpora, and the charters. Those four are what the section comments
+// have always called them; they are functions here so the pipeline reads as the five steps it is rather than
+// as one page of interleaved writes. Every body is unchanged, and `ev` — the one shared piece of state, the
+// evidence recorder — is passed in rather than closed over, so each function's whole effect is in its
+// signature: the directory it writes into, what it needs, and the counts it hands back.
+
+// The inputs: the tracked files, the export (reused when the caller already has one, spawned otherwise), the
+// model cache when there is one, and the predicate-expansion context every `when` is measured against.
+function loadInputs(repo, opts) {
+  const { files, degraded } = gitFiles(repo);
   let exp;
   if (opts.exportPath) exp = JSON.parse(readFileSync(opts.exportPath, 'utf8'));
   else {
     say(opts, 'running grain export ...');
-    const out = join(repo, '.grain', 'propose-export.json');
+    // UNDER `cache/`, WHICH IS THE DISPOSABLE HALF. `.grain/.gitignore` ignores `cache/` and nothing else —
+    // "everything else in .grain/ is meant to be committed" — so an export written to `.grain/` directly left a
+    // multi-megabyte generated file sitting in the committable half of a repository this module promises to
+    // treat as read-only, never cleaned up and showing as an untracked change in any repo that already commits
+    // its `.grain/`. It is rebuildable state, so it belongs where the rest of the rebuildable state is.
+    const out = join(repo, '.grain', 'cache', 'propose-export.json');
     const args = ['export', '--repo', repo, '--out', out, '--compact', '--no-anchors'];
     if (opts.noHistory) args.push('--no-history');
     execFileSync('node', [BIN, ...args], { encoding: 'utf8', maxBuffer: 1 << 29, timeout: 120 * 60_000, stdio: ['ignore', 'pipe', opts.quiet ? 'ignore' : 'inherit'] });
@@ -1180,34 +1259,11 @@ export async function propose(repo, outDir, opts = {}) {
   const cachePath = join(repo, '.grain', 'cache', 'model.json');
   const cache = existsSync(cachePath) ? JSON.parse(readFileSync(cachePath, 'utf8')) : null;
   const ctx = { root: repo, pathCache: new Map(), contentCache: new Map(), headCache: new Map(), unknownWhenKeys: new Set(), parsed: new Set(cache?.filesAll || []) };
+  return { files, exp, cache, ctx, degraded };
+}
 
-  say(opts, `${repo}: ${files.length} tracked files · ${(exp.partitions || []).length} partitions · ${(exp.conventions || []).length} conventions`);
-  const loc = localities(exp, cache, files);
-  const { active, alternatives } = buildTypes(exp, loc, files, ctx);
-  // deepest wins, matching Yggdrasil's own child precedence (a child node claiming a file inside a directory
-  // its parent globs owns that file)
-  const byDepth = [...active].sort((a, b) => (a.dir || '').split('/').length - (b.dir || '').split('/').length);
-  const typeOfFile = new Map();
-  for (const a of byDepth) for (const f of a.files) typeOfFile.set(f, a.id);
-  const rels = buildRelations(exp, typeOfFile, active);
-  const nestedRoots = nestedProjectRoots(files);
-  const { nodes, cycles: nodeCycles, nodeOfFile } = buildNodes(active, typeOfFile, exp, nestedRoots);
-  say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycles in the proposed node graph (declared, not hidden — the proposal is red until they are broken)`);
-
-  const lat = await partitionLattice(repo, opts);
-  const sub = subGate(lat.rows);
-  say(opts, `lattice: ${lat.rows.length} rows${lat.reason ? ` (${lat.reason})` : ''} · ${sub.length} in the sub-gate band`);
-
-  const { aspects, skipped } = buildAspects(exp, active, sub, opts);
-  say(opts, `aspect drafts: ${aspects.length} (${aspects.filter(a => a.check).length} rendered as check.mjs, ${aspects.filter(a => !a.check).length} prose) · skipped: ${skipped.unrenderableGroupScoped} unrenderable group-scoped, ${skipped.notARule} not a rule`);
-
-  // ---------------- write ----------------
-  const ygg = join(outDir, '.yggdrasil');
-  rmSync(ygg, { recursive: true, force: true });
-  mkdirSync(ygg, { recursive: true });
-  const evidence = [];
-  const ev = (kind, id, line, extra = {}) => { evidence.push({ kind, id, evidence: line, ...extra }); return line; };
-
+// `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
+function writeArchitecture(ygg, { active, nodes, rels, files, ev }) {
   // yg-config.yaml — require nothing. A proposal that turns every unmapped file into a blocking error on day one
   // is a proposal nobody runs twice; `getting-started` §4 says require-nothing is the brownfield default.
   write(join(ygg, 'yg-config.yaml'), preambleComment() + yamlEmit({
@@ -1231,13 +1287,27 @@ export async function propose(repo, outDir, opts = {}) {
   for (const a of active) {
     const targets = uniq([...(rels.uses.get(a.id) || new Map()).keys()]).sort();
     const deny = rels.denies.find(d => d.fromType === a.id);
-    const line = `${a.why}; the drafted \`when\` selects ${a.selected.size} of ${files.length} tracked files, ${intersectSize(a.files, a.selected)} of them the ones the evidence names (J=${a.fidelity.toFixed(2)})`;
+    // WHAT THE PREDICATE ACTUALLY SELECTS, said as a match and a miss rather than as a coefficient (ticket
+    // 109). The same three numbers as before — selected, overlap, total — plus the Jaccard the earlier line
+    // led with, kept at the tail and named, because `J=0.62` is not a fact a maintainer can act on and
+    // "selects 31 files, 12 of which the evidence never named" is.
+    const hit = intersectSize(a.files, a.selected);
+    const line = `\`${a.rootGlob ? '*' : `${a.dir}/**`}\` selects ${a.selected.size} of ${files.length} tracked files; ${hit === a.files.size && hit === a.selected.size ? `exactly the ${hit} the evidence names` : `${hit} of them are among the ${a.files.size} the evidence names, ${a.selected.size - hit} are not`} (Jaccard ${a.fidelity.toFixed(2)}) · ${a.why}`;
     const relBlock = {};
     if (targets.length) relBlock.uses = targets;
     if (deny) relBlock.default = 'deny';
+    // A TYPE IS A CLASSIFIER, AND ITS `relations:` ARE THE ONE OBLIGATION IT CARRIES. Yggdrasil constrains a
+    // relation type the moment a list is given for it ("the validator then rejects any target not in that
+    // list" — `yg knowledge read ports-and-relations`), and refuses a node that depends on a node it has not
+    // declared a relation to (`relation-undeclared-dependency`, always an error). So where this renderer
+    // writes a `uses:` list, the description says what the list MEANS for an agent about to add an import,
+    // instead of naming the miner's cut it came from.
+    const mayUse = targets.length
+      ? ` Code of this type may depend on ${targets.map(t => `\`${t}\``).join(', ')}${deny ? ' and on nothing else' : ''} — \`yg check\` refuses a dependency on any other node until the architecture declares it.`
+      : deny ? ' This type declares no outgoing dependency, and none is allowed — `yg check` refuses the first one until the architecture declares it.' : '';
     nodeTypes[a.id] = {
       '#e': ev('type', a.id, line, { level: a.source, dir: a.dir, evidenceFiles: a.files.size, selects: a.selected.size, fidelity: +a.fidelity.toFixed(3) }),
-      description: `Files under \`${a.dir || 'the repository root'}\` — proposed from ${a.source === 'partition' ? "grain's own partition of the directory tree" : a.source === 'module' ? "grain's refined module graph" : a.source === 'directory' ? 'a grain directory card' : 'the repository layout alone'}.`,
+      description: `${a.dir ? `Put a file under \`${a.dir}/\`` : 'Put a file at the repository root itself'} only if it belongs to this type: a file placed there is classified here with no further step, and every rule attached to this type applies to it from that moment.${mayUse || (a.aspectIds?.length ? '' : ' No rule and no relation are attached to this type yet, so today it constrains nothing — it is where they will attach.')}`,
       when: a.when,
       // a nested type's node sits under its ancestors' nodes, and Yggdrasil rejects a parent whose type is not
       // listed here (`parent-type-forbidden`) — so every ancestor type is an allowed parent, by construction
@@ -1258,8 +1328,10 @@ export async function propose(repo, outDir, opts = {}) {
     if (deny) ev('deny', a.id, `established negative: \`${deny.from}\` does not reach \`${deny.to}\` (share ${deny.share.toFixed(3)}, ${deny.ne}/${deny.neff} scopes, ${deny.bits.toFixed(1)} bits) AND this type has no resolved outgoing import at all, so the deny contradicts nothing observed`);
   }
   write(join(ygg, 'yg-architecture.yaml'), preambleComment() + yamlEmit({ node_types: nodeTypes }));
+}
 
-  // model/**/yg-node.yaml
+// `model/<node>/yg-node.yaml`: one per node, mapping and relations.
+function writeNodeFiles(ygg, nodes, ev) {
   for (const n of nodes) {
     const relEntries = n.relations.map(r => ({ target: r.target, type: 'uses' }));
     const line = n.organizational ? n.why : `${n.why}; maps ${n.files.size} tracked files; ${n.relations.length} outgoing dependencies from ${n.relations.reduce((a, r) => a + r.n, 0)} resolved imports`;
@@ -1278,13 +1350,15 @@ export async function propose(repo, outDir, opts = {}) {
       relations: relEntries,
     }));
   }
+}
 
-  // aspects/<id>/ — yg-aspect.yaml, the rule source (check.mjs or content.md), and a drill corpus.
-  //
-  // `status` is written TWICE. Every aspect ships `draft` here, first — `yg drill` is not gated by status
-  // (`yg knowledge read aspect-status`: "draft dormancy applies to `yg check`/`--approve` only"), so `draft` is
-  // the one value guaranteed valid before this renderer knows a check's own verdict. `promoteEnforceableAspects`
-  // below rewrites `yg-aspect.yaml` a second time for whatever a REAL drill just confirmed — see the header.
+// aspects/<id>/ — yg-aspect.yaml, the rule source (check.mjs or content.md), and a drill corpus.
+//
+// `status` is written TWICE. Every aspect ships `draft` here, first — `yg drill` is not gated by status
+// (`yg knowledge read aspect-status`: "draft dormancy applies to `yg check`/`--approve` only"), so `draft` is
+// the one value guaranteed valid before this renderer knows a check's own verdict. `promoteEnforceableAspects`
+// below rewrites `yg-aspect.yaml` a second time for whatever a REAL drill just confirmed — see the header.
+function writeAspectFiles(ygg, repo, aspects, opts, ev) {
   let drillCases = 0, drillDropped = 0;
   for (const a of aspects) {
     ev('aspect', a.id, a.evidenceLine, { reviewer: a.check ? 'deterministic' : 'llm', origin: a.origin, enumerator: a.enumerator, identifier: a.argument ?? null, expected: a.expected ?? null, host: a.host });
@@ -1318,26 +1392,12 @@ export async function propose(repo, outDir, opts = {}) {
       '```', `yg drill --aspect ${a.id} --dir .yggdrasil/aspects/${a.id}/drills --corpus grain-proposal`, '```', '',
     ].join('\n'));
   }
-  say(opts, `drills: ${drillCases} cases${opts.holdout ? ` (hold-out ${opts.holdout}; ${drillDropped} sites dropped as pre-cut)` : ' (NO hold-out — labelled as such in every CORPUS.md)'}`);
+  return { drillCases, drillDropped };
+}
 
-  // Aspect status, earned or not — rulings `prose-aspects-draft-by-default`, `drill-fa-labelling-is-acceptance-
-  // not-defect`, `no-catch-rules-stay-draft` (ticket 101/102). Rewrites `yg-aspect.yaml` for whatever a real
-  // drill just confirmed, writes every `provenance.json` (deferred until now so it can carry the verdict), and
-  // annotates the matching `evidence[]` rows in place. See the header comment for the full rule.
-  const verify = promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf: exp.asOf, repo, ygBin: opts.ygBin });
-  say(opts, verify.haveYg
-    ? `verification: ${verify.verified} deterministic aspect(s) drilled against a real Yggdrasil (${verify.ygBin}) — ${aspects.filter(a => a.finalStatus === 'enforced').length} promoted to \`status: enforced\`, ${aspects.filter(a => a.finalStatus === 'advisory').length} to \`status: advisory\` (sub-gate origin, below grain's own certification bound)`
-    : 'verification: skipped — no Yggdrasil CLI found (set YG_BIN to a built bin.js, or put `yg` on PATH); every deterministic aspect ships `status: draft`, unverified');
-
-  // sizing.json — files/bytes/scopes/codelength per proposed node, and per HAND node when the source repo
-  // already carries its own `.yggdrasil/` (see §7.5 above for what is derived vs. an external constant)
-  const hasHandGraph = existsSync(join(repo, '.yggdrasil'));
-  const handGraphForSizing = hasHandGraph ? readGraph(repo) : null;
-  const sizing = computeSizing(repo, active, nodes, handGraphForSizing, files);
-  write(join(outDir, 'sizing.json'), JSON.stringify({ instrument: sizing.instrument, repo, asOf: exp.asOf, ...sizing }, null, 1) + '\n');
-
-  // charter.md — one per proposed node, beside its yg-node.yaml (ticket 100, §7c above). Written here, AFTER
-  // sizing.json, so every charter can quote its own node's sizing row instead of recomputing it.
+// charter.md — one per proposed node, beside its yg-node.yaml (ticket 100, §7c above). Written here, AFTER
+// sizing.json, so every charter can quote its own node's sizing row instead of recomputing it.
+function writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev }) {
   const sizingByNode = new Map((sizing.proposedNodes || []).map(s => [s.id, s]));
   const cochangeByNode = nodeCochangePairs(exp, nodeOfFile);
   let chartersWritten = 0, charterLines = 0;
@@ -1347,6 +1407,64 @@ export async function propose(repo, outDir, opts = {}) {
     ev('charter', n.id, `charter.md rendered for \`${n.id}\` — ${n.organizational ? 'organizational node' : `${n.files.size} files`}, ${aspects.filter(a => a.host === n.id).length} hosted aspect drafts, ${(cochangeByNode.get(n.id) || []).length} co-change partners`);
     chartersWritten++; charterLines += md.split('\n').length;
   }
+  return { chartersWritten, charterLines };
+}
+
+export async function propose(repo, outDir, opts = {}) {
+  const { files, exp, cache, ctx, degraded } = loadInputs(repo, opts);
+  if (degraded) say(opts, `WARNING: ${degraded}`);
+
+  say(opts, `${repo}: ${files.length} tracked files · ${(exp.partitions || []).length} partitions · ${(exp.conventions || []).length} conventions`);
+  const loc = localities(exp, cache, files);
+  const { active, alternatives } = buildTypes(exp, loc, files, ctx);
+  // deepest wins, matching Yggdrasil's own child precedence (a child node claiming a file inside a directory
+  // its parent globs owns that file)
+  const byDepth = [...active].sort((a, b) => (a.dir || '').split('/').length - (b.dir || '').split('/').length);
+  const typeOfFile = new Map();
+  for (const a of byDepth) for (const f of a.files) typeOfFile.set(f, a.id);
+  const rels = buildRelations(exp, typeOfFile, active);
+  const nestedRoots = nestedProjectRoots(files);
+  const { nodes, cycles: nodeCycles, nodeOfFile } = buildNodes(active, exp, nestedRoots);
+  say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycles in the proposed node graph (declared, not hidden — the proposal is red until they are broken)`);
+
+  const lat = await partitionLattice(repo);
+  const sub = subGate(lat.rows);
+  say(opts, `lattice: ${lat.rows.length} rows${lat.reason ? ` (${lat.reason})` : ''} · ${sub.length} in the sub-gate band`);
+
+  const { aspects, skipped } = buildAspects(exp, active, sub, opts);
+  say(opts, `aspect drafts: ${aspects.length} (${aspects.filter(a => a.check).length} rendered as check.mjs, ${aspects.filter(a => !a.check).length} prose) · skipped: ${skipped.unrenderableGroupScoped} unrenderable group-scoped, ${skipped.notARule} not a rule`);
+
+  // ---------------- write ----------------
+  const ygg = join(outDir, '.yggdrasil');
+  rmSync(ygg, { recursive: true, force: true });
+  mkdirSync(ygg, { recursive: true });
+  const evidence = [];
+  const ev = (kind, id, line, extra = {}) => { evidence.push({ kind, id, evidence: line, ...extra }); return line; };
+
+  writeArchitecture(ygg, { active, nodes, rels, files, ev });
+
+  writeNodeFiles(ygg, nodes, ev);
+
+  const { drillCases, drillDropped } = writeAspectFiles(ygg, repo, aspects, opts, ev);
+  say(opts, `drills: ${drillCases} cases${opts.holdout ? ` (hold-out ${opts.holdout}; ${drillDropped} sites dropped as pre-cut)` : ' (NO hold-out — labelled as such in every CORPUS.md)'}`);
+
+  // Aspect status, earned or not — rulings `prose-aspects-draft-by-default`, `drill-fa-labelling-is-acceptance-
+  // not-defect`, `no-catch-rules-stay-draft` (ticket 101/102). Rewrites `yg-aspect.yaml` for whatever a real
+  // drill just confirmed, writes every `provenance.json` (deferred until now so it can carry the verdict), and
+  // annotates the matching `evidence[]` rows in place. See the header comment for the full rule.
+  const verify = promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf: exp.asOf, repo, ygBin: opts.ygBin });
+  say(opts, verify.haveYg
+    ? `verification: ${verify.verified} deterministic aspect(s) drilled against a real Yggdrasil (${verify.ygBin}) — ${aspects.filter(a => a.finalStatus === 'enforced').length} promoted to \`status: enforced\`, ${aspects.filter(a => a.finalStatus === 'advisory').length} to \`status: advisory\` (sub-gate origin, below grain's own certification bound)${verify.timedOut ? `; ${verify.timedOut} drill(s) gave up after ${verify.drillTimeoutMs / 1000}s and left their aspect unverified` : ''}`
+    : 'verification: skipped — no Yggdrasil CLI found (set YG_BIN to a built bin.js, or put `yg` on PATH); every deterministic aspect ships `status: draft`, unverified');
+
+  // sizing.json — files/bytes/scopes/codelength per proposed node, and per HAND node when the source repo
+  // already carries its own `.yggdrasil/` (see §7.5 above for what is derived vs. an external constant)
+  const hasHandGraph = existsSync(join(repo, '.yggdrasil'));
+  const handGraphForSizing = hasHandGraph ? readGraph(repo) : null;
+  const sizing = computeSizing(repo, nodes, handGraphForSizing, files);
+  write(join(outDir, 'sizing.json'), JSON.stringify({ instrument: sizing.instrument, repo, asOf: exp.asOf, ...sizing }, null, 1) + '\n');
+
+  const { chartersWritten, charterLines } = writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev });
   say(opts, `charters: ${chartersWritten} written, avg ${(charterLines / Math.max(1, chartersWritten)).toFixed(1)} lines`);
 
   // the documents a human actually reads
@@ -1373,7 +1491,7 @@ export async function propose(repo, outDir, opts = {}) {
   };
   write(join(outDir, 'PROPOSAL.md'), renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts }));
   write(join(outDir, 'REFACTOR-BACKLOG.md'), renderBacklogMd({ exp, sub, rels, nodeCycles }));
-  write(join(outDir, 'alternatives.md'), renderAlternativesMd({ alternatives, active }));
+  write(join(outDir, 'alternatives.md'), renderAlternativesMd({ alternatives }));
   // proposal.json — the published, versioned interface (ticket 100, "the proposal contract" in docs/reference.md).
   // `schema`/`engine`/`extractor`/`schemaNotes` are ADDED here, alongside the `instrument`/`repo`/`asOf`/`files`/
   // `counts`/`evidence` fields 094/097/098 already read — nothing existing is renamed or removed, so a reader of
@@ -1401,7 +1519,7 @@ export async function propose(repo, outDir, opts = {}) {
     evidence,
   }, null, 1) + '\n');
 
-  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify };
+  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded };
 }
 
 // ---- aspect drafting ----
@@ -1413,6 +1531,123 @@ export async function propose(repo, outDir, opts = {}) {
 //
 // `filebirth` is excluded from drafting entirely. "Types here are new" is a statement about the repository's
 // history, not about how a file should be written; making it an aspect would be a category error.
+// ==================================================================================================
+// 7-bis. THE OBLIGATION FORM — the one thing this renderer does to a mined sentence (ticket 109).
+//
+// `verbalize` (engine/core.mjs) writes a mined fact in the INDICATIVE, because grain's own query surface
+// REPORTS what the code does: "methods here are annotated with `[Then]`". An aspect is not a report. It is the
+// sentence a future agent session is held to, read cold, months later, with no access to the run that mined it
+// and no way to ask what "here" meant. Ticket 101's independent judge read 14 of 20 such rows as "not a rule,
+// an observation"; ticket 109 measures whether the WORDING is what costs that, by changing the wording and
+// nothing else.
+//
+// Three things this section deliberately does NOT do:
+//   - It re-measures nothing. `share`, `n`, `deviating`, the `check.mjs` body, the id, the scope predicate and
+//     the status are the same bytes before and after — 109 diffs every rendered tree round to round to prove
+//     it, and a difference outside a prose field fails the round.
+//   - It does not touch `verbalize`. Those sentences are grain's OWN report surface (`grain where`, `grain
+//     what`, `grain explain`, and the README's examples), read by an agent mid-edit who asked what the code
+//     does. One vocabulary, two moods: the miner reports, the aspect obliges.
+//   - It adds no hedge. "must" and "may not" are the whole point. A rule that says "should probably" is a rule
+//     the next session argues with, which is the failure this section exists to remove.
+// ==================================================================================================
+
+// The subject of an obligation is ONE thing, not a population: "Every method …", never "methods here …".
+// `unitOf` (core.mjs) is the plural half of the same table; nothing here renames a kind.
+const UNIT_ONE = { method: 'method', type: 'type', file: 'file', module: 'directory', catch: 'catch block', finally: 'finally block', case: 'named callback' };
+export const unitOne = kind => UNIT_ONE[kind] || kind || 'file';
+const A_OR_AN = w => (/^[aeiou]/i.test(String(w).replace(/^`/, '')) ? 'an' : 'a');
+
+// `are X` is the only verb form `verbalize` emits that is not already an infinitive; `do not X` folds to
+// `not X` so a sentence reads "must not X" and never "must do not X".
+const infinitive = pred => pred.replace(/^are /, 'be ').replace(/^do not /, 'not ');
+// A rule whose expected value is `false` is a PROHIBITION, and a prohibition reads as one — "No file under
+// `src/**` may import `x`" — not as a doubled negative. This lifts the negation out of the mined phrase.
+// Where the phrase carries no negation this renderer recognises, it returns null and the affirmative template
+// is used unchanged rather than guessed at.
+const affirmativeOf = pred => {
+  if (pred.startsWith('are not ')) return 'be ' + pred.slice(8);
+  if (pred.startsWith('take no ')) return 'take a ' + pred.slice(8);
+  if (pred.startsWith('never ')) return pred.slice(6);
+  if (pred.startsWith('do not ')) return pred.slice(7);
+  return null;
+};
+
+// WHO must do WHAT, WHERE — one sentence, with the scope inside it. The scope is the aspect's own `scope:`
+// glob, written into the sentence rather than left in a yaml field three lines below: an agent that reads
+// "methods here" has no way at all to know where "here" is, and that is the single most common thing 101's
+// judge said about the rows it refused.
+export function obligationSentence({ unit, phrase, prohibited, where, which }) {
+  const place = where ? `under \`${where}\`` : 'anywhere in this repository';
+  const clause = which ? (unit === 'file' ? ` ${which}` : `, in a file ${which},`) : '';
+  const subject = `${unit} ${place}${clause}`;
+  return prohibited ? `No ${subject} may ${phrase}.` : `Every ${subject} must ${phrase}.`;
+}
+// The certified branch hands over a mined predicate that already carries its own sign in its own words.
+export const obligationOfStatement = statement => {
+  const i = statement.indexOf(' here ');
+  if (i < 0) return null; // a `mod*` fallback phrase with no subject — worded exactly as mined, below
+  const pred = statement.slice(i + ' here '.length);
+  const pos = affirmativeOf(pred);
+  return pos ? { phrase: pos, prohibited: true } : { phrase: infinitive(pred), prohibited: false };
+};
+
+// The mined predicate of a LATTICE ROW, in words. A wording table and nothing else: the row, its id, its
+// counts and the `check.mjs` rendered beside it are untouched by every line of it.
+//
+// THE CATEGORICAL FAMILIES CARRY THEIR VALUE IN THE ROW, NOT IN THE PID (ticket 109). `auto.nameshape` has no
+// argument at all, and `auto.lex:quote` names the SURFACE (`quote`), never the value (`single`). The value
+// grain measured — and the value the rendered check compiles, since every template in `renderCheck` reads
+// `expected` and none reads `argument` for these classes — is the row's own `exp`. Reading the pid alone
+// produced "methods in `Slim/Interfaces` follow the name shape ``" (a rule with an empty identifier) and
+// "files in `themes` have auto.lex:quote" (an internal pid printed at a maintainer). Measured on the 109
+// corpus: 25 of the first 250 rendered aspects, six of them already promoted to `advisory` by a real drill of
+// a check that was correct — the check knew the value the sentence did not say.
+export const describeRow = (pid, exp) => {
+  const [, fam, arg] = /^auto\.([a-z0-9]+):?(.*)$/.exec(String(pid)) || [];
+  const v = String(exp ?? '');
+  const shaped = s => shapeWords(s) || `in the shape \`${s}\``;
+  switch (fam) {
+    case 'imp': return `import \`${arg}\``;
+    case 'call': return `call \`${arg}\``;
+    // the argument may already carry the sigil grain read it with — `@@Override` was rendered at a maintainer
+    case 'deco': return `carry \`${String(arg).startsWith('@') ? arg : '@' + arg}\``;
+    case 'extends': return `extend \`${arg}\``;
+    case 'has': return `contain ${A_OR_AN(arg)} \`${arg}\``;
+    case 'returns': return `declare a return type of \`${arg}\``;
+    case 'stshape': return `use the structure \`${arg}\``;
+    case 'ptype': return `take a parameter of type \`${arg}\``;
+    case 'nameshape': return `be named ${shaped(v)}`;
+    case 'filenameshape': return `have a file name ${shaped(v)}`;
+    case 'lex': return lexWords(arg, v);
+    case 'mods': return v === 'none' ? 'carry no modifiers' : `carry the modifiers \`${v}\``;
+    case 'memberorder': return `declare their members in the order \`${v}\``;
+    case 'namesuffix': return `be named ending in \`${v}\``;
+    case 'modexport': return `be exported through \`${v}\``;
+    case 'arity': return `take exactly ${v} parameter${v === '1' ? '' : 's'}`;
+    case 'first1': return `open with ${A_OR_AN(v)} \`${v}\``;
+    case 'ret': return `return ${A_OR_AN(v)} \`${v}\``;
+    case 'varshape': return `name local variables ${shaped(v)}`;
+    case 'ctorshape': return `declare their constructor as \`${v}\``;
+    default: return /^dir\d*$/.test(String(fam)) ? `live under \`${v}/\`` : `satisfy \`${pid}\` = \`${v}\``;
+  }
+};
+
+// The scope predicate, as a reader reads it rather than as a matcher matches it. `where` is the path glob the
+// sentence binds to; `which` is the relative clause a `content:` predicate becomes ("that mentions `counter`");
+// `plain` is the same thing as one noun phrase, for the evidence line.
+const scopeInWords = (glob, which) => `files under \`${glob}\`${which ? ` ${which}` : ''}`;
+
+// How many sites hold the rule and how many break it — the two numbers that decide whether a reader believes
+// the sentence, put where a reader meets them first. Same counts as before, read in the other direction:
+// "9 deviating" is the same fact as "9 break it today", and only the second one says what to do about it.
+const holdsPhrase = (holds, breaks, unitPlural) => {
+  const total = holds + breaks;
+  return breaks === 0
+    ? `holds for all ${total} ${unitPlural} in scope — the repository has no exception to it today`
+    : `holds for ${holds} of ${total} ${unitPlural} in scope; ${breaks} break it today`;
+};
+
 const NOT_A_RULE = new Set(['filebirth']);
 
 export function buildAspects(exp, active, sub, opts = {}) {
@@ -1432,10 +1667,10 @@ export function buildAspects(exp, active, sub, opts = {}) {
       const g = (partOf(c.partition)?.groups || []).find(x => x.id === c.context.group);
       const cr = g ? contentRegexFor(g) : null;
       if (!cr) return null;
-      return { pred: { per: 'file', files: { all_of: [{ path: `${host.dir}/**` }, { content: cr.regex }] } }, why: `scoped by the group's own evidence (${cr.why})` };
+      return { pred: { per: 'file', files: { all_of: [{ path: `${host.dir}/**` }, { content: cr.regex }] } }, why: `scoped by the group's own evidence (${cr.why})`, glob: `${host.dir}/**`, which: cr.sel };
     }
-    if (c.context?.type === 'directory' && c.context.dir) return { pred: { per: 'file', files: { path: `${c.context.dir}/**` } }, why: `scoped to directory \`${c.context.dir}\`` };
-    return { pred: { per: 'file', files: { path: `${host.dir}/**` } }, why: `scoped to partition \`${c.partition}\`` };
+    if (c.context?.type === 'directory' && c.context.dir) return { pred: { per: 'file', files: { path: `${c.context.dir}/**` } }, why: `scoped to directory \`${c.context.dir}\``, glob: `${c.context.dir}/**` };
+    return { pred: { per: 'file', files: { path: `${host.dir}/**` } }, why: `scoped to partition \`${c.partition}\``, glob: `${host.dir}/**` };
   };
 
   // (i) the certified set
@@ -1450,7 +1685,15 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const adoption = n / Math.max(1, n + dev);
     const ctxLabel = c.context?.type === 'group' ? `role group \`${c.context.label || c.context.group}\`` : c.context?.type === 'directory' ? `directory \`${c.context.dir}\`` : `partition \`${c.partition}\``;
     const provenance = `share ${(c.share ?? 0).toFixed(3)} · n ${n} conforming, ${dev} deviating (adoption ${pct(adoption)}) · ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance · ${ctxLabel} of \`${c.partition}\` · asOf ${asOf}`;
-    const evidenceLine = `certified convention: ${provenance}; ${scope.why}; exemplars ${(c.exemplars || []).slice(0, 2).map(e => `${e.rel}:${e.line}`).join(', ') || '(none)'}`;
+    // THE EVIDENCE LINE LEADS WITH THE NUMBER THAT DECIDES WHETHER TO BELIEVE THE SENTENCE (ticket 109), then
+    // where the rule applies, then what to copy, and only then how grain came to propose it. The counts are
+    // the same counts `provenance` carries — read in the direction a reader needs them ("9 deviating" and "9
+    // break it today" are one fact, and only the second says what to do next). `provenance` itself is
+    // unchanged and still goes verbatim into `provenance.json` and into every check's own header.
+    const exemplarPhrase = (c.exemplars || []).length
+      ? `copy ${(c.exemplars || []).slice(0, 2).map(e => `${e.rel}:${e.line}`).join(' or ')}`
+      : 'no exemplar recorded to copy';
+    const evidenceLine = `${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)} · applies to ${scopeInWords(scope.glob, scope.which)} · ${exemplarPhrase} · grain certified this from ${ctxLabel} of \`${c.partition}\`: share ${(c.share ?? 0).toFixed(3)} (adoption ${pct(adoption)}), ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance, measured at ${asOf}`;
     const id = `grain/${slug(c.partition)}/${slug(c.context?.type === 'group' ? (c.context.label || c.context.group) : c.context?.type || 'partition')}-${slug(c.feature.enumerator)}${c.feature.argument ? '-' + slug(c.feature.argument).slice(0, 40) : ''}`;
     if (out.some(o => o.id === id)) continue;
     const check = renderableDirection(c.feature.enumerator, c.expected, c.kind, c.context?.type)
@@ -1459,14 +1702,26 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const proseReason = check ? null : (BOOLEAN_CLASS.has(c.feature.enumerator) || c.feature.enumerator === 'nameshape' ? WHY_PROSE._scopeMismatch : (WHY_PROSE[c.feature.enumerator] || `no template renders the \`${c.feature.enumerator}\` class`));
     if (!check) { skipped.prose++; skipped.byClass[c.feature.enumerator] = (skipped.byClass[c.feature.enumerator] || 0) + 1; }
     const profile = c.context?.type === 'group' ? (partOf(c.partition)?.groups || []).find(g => g.id === c.context.group)?.profile : null;
+    // The rule, as an obligation with its scope inside it (§7-bis). Where the mined phrase has no subject to
+    // rewrite (`mod*` fallbacks), the statement is worded exactly as mined and bound to its scope — never
+    // guessed into a shape it does not have.
+    const ob = obligationOfStatement(c.statement);
+    const name = ob
+      ? obligationSentence({ unit: unitOne(c.kind), ...ob, where: scope.glob, which: scope.which })
+      : `Under \`${scope.glob}\`: ${c.statement}.`;
     out.push({
       id, origin: 'certified-convention', host: host?.id || null, evidenceLine, provenance, reviewBy,
       // The whole statement, not a truncated prefix (ticket 106: `slice(0, 70)` used to cut mid-word — `yg
       // schemas read aspect` sets no length limit on `name`, so there is no honest reason to cut it at all).
-      name: c.statement, description: `${c.statement}. Proposed by grain from evidence — ${provenance}.`,
+      name, holds: holdsPhrase(n, dev, `${unitOne(c.kind)}s`),
+      // The description carries the RULE, how far it already holds, and what its status does — and stops
+      // there. The counts, the scope, the exemplar and the certification live on the `#e` line two lines above
+      // it in the same file; repeating the whole of it here (as this renderer used to repeat `provenance`)
+      // makes a reader read the same sentence twice and trust it no more the second time.
+      description: `${name} It already ${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)}.`,
       scope: scope.pred, check,
       whyProse: proseReason,
-      content: check ? null : contentMd(c, profile, evidenceLine, proseReason),
+      content: check ? null : contentMd(c, profile, evidenceLine, proseReason, name),
       drills: { satisfies: (c.conformingSites || []).slice(), violates: (c.deviatingSites || []).slice() },
       enumerator: c.feature.enumerator, argument: c.feature.argument, expected: c.expected, kind: c.kind,
       // structured fields for provenance.json (ticket 100) — parallel to the prose already in `provenance`,
@@ -1496,9 +1751,15 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const id = `grain/${slug(r.partition)}/candidate-${slug(r.pid)}`.slice(0, 120);
     if (out.some(o => o.id === id)) continue;
     seen.push(id);
-    const statement = `${r.kind}s in \`${r.partition}\`${r.role !== null ? ` (role group r${r.role})` : ''} ${r.exp === 'false' ? 'do not ' : ''}${describePid(r.pid)}`.replace(/\s+/g, ' ');
+    // THE ROLE GROUP LEAVES THE SENTENCE AND STAYS IN THE EVIDENCE (ticket 109). The old statement said
+    // "methods in `Slim/Routing` (role group r5) …" while the scope predicate written three lines below it is
+    // `Slim/Routing/**` — the WHOLE directory. A sentence that names a narrower subject than the check
+    // enforces is a sentence a future session is right to argue with. The cluster is where grain MEASURED the
+    // row and it says so in the evidence; the rule speaks about the scope it is actually judged over.
+    const glob = `${host.dir}/**`;
+    const statement = obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
     const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.n} ${r.kind}s · ${r.deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
-    const evidenceLine = `sub-gate candidate: ${provenance}`;
+    const evidenceLine = `${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}`;
     const check = renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
       ? renderCheck({ enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind, provenance: `${statement}\n${provenance}` })
       : null;
@@ -1507,8 +1768,9 @@ export function buildAspects(exp, active, sub, opts = {}) {
     out.push({
       id, origin: 'sub-gate-lattice', host: host.id, evidenceLine, provenance, reviewBy,
       // See the certified-convention branch above (ticket 106) — same fix, same reason.
-      name: statement, description: `${statement}. Proposed by grain from evidence — ${provenance}.`,
-      scope: { per: 'file', files: { path: `${host.dir}/**` } }, check,
+      name: statement, holds: holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`),
+      description: `${statement} It already ${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)}.`,
+      scope: { per: 'file', files: { path: glob } }, check,
       whyProse: proseReason2,
       content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2),
       drills: { satisfies: [], violates: r.deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
@@ -1576,11 +1838,22 @@ export function provenanceFor(a, { asOf, repo }) {
   };
 }
 
+// WHAT THE STATUS DOES, IN ONE SENTENCE, BESIDE THE RULE (ticket 109). `status: advisory` is a word whose
+// consequence lives in a knowledge topic (`yg knowledge read aspect-status`) that a session reading one aspect
+// file has not opened. The three sentences below are that topic's own table, said in the place the decision is
+// made — so an agent asked to obey a rule knows what happens if it does not, and a maintainer deciding whether
+// to keep the rule knows what turning it on costs. Nothing else in the file changes by status.
+const STATUS_MEANING = {
+  enforced: 'This rule is in force: `yg check` reports a file that breaks it as an error and fails.',
+  advisory: 'This rule is advisory: `yg check` reports a file that breaks it as a warning and does not fail.',
+  draft: 'This rule is not in force yet: `yg check` skips it entirely until someone promotes it out of `draft`.',
+};
+
 // The `yg-aspect.yaml` document, shared by the provisional (`draft`, before verification) and final write.
 function aspectYamlDoc(a, status) {
   return {
     '#e': a.evidenceLine,
-    name: a.name, description: a.description, status,
+    name: a.name, description: `${a.description} ${STATUS_MEANING[status] || ''}`.trim(), status,
     ...(a.check ? { errs: 'under' } : {}),
     review_by: a.reviewBy,
     scope: a.scope,
@@ -1628,7 +1901,27 @@ function aspectYamlDoc(a, status) {
 //     Exactly what this renderer shipped before ticket 102 — the absence of a verdict is not one of the three
 //     named reasons above, because none of them fired; nothing here says the check is bad, only that no drill
 //     was run to say either way.
-export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf, repo, ygBin: explicitYgBin }) {
+// HOW LONG ONE `yg drill` MAY TAKE BEFORE IT IS ABANDONED, AND WHERE THE NUMBER COMES FROM.
+//
+// `spawnSync` with no `timeout` waits forever. A drill that does not return — a wedged CLI, a filesystem that
+// stops answering, a pathological regex in a rendered check — therefore hung `grain propose` itself, silently,
+// with no output and nothing to interrupt but the process. A product command may not have that failure mode.
+//
+// The bound is DERIVED, not chosen. A drill's whole input is bounded by construction: `cutDrills` writes at
+// most 5 `satisfies-` and 5 `violates-` cases and skips any source file over 200 KiB, so the work does not grow
+// with the size of the repository being proposed on — only the machine and the grammar load vary. Measured on
+// the largest proposal this project renders (Yggdrasil's own, 33 deterministic aspects carrying a drill
+// corpus): slowest single drill 2148 ms, median 1420 ms. The ceiling is that slowest observed drill x100, so it
+// is reached only by a machine two orders of magnitude slower than the one measured on, or by a drill that is
+// not progressing at all. A drill that hits it is reported as unverified — the same outcome as any other drill
+// that returned no verdict — and the count is disclosed in the report rather than folded in silently.
+export const SLOWEST_OBSERVED_DRILL_MS = 2148;
+export const DRILL_TIMEOUT_MS = SLOWEST_OBSERVED_DRILL_MS * 100;
+
+//
+// `drillTimeoutMs` exists so a test can prove the bound is actually enforced without waiting out the real one;
+// nothing in the product passes it, and the default IS `DRILL_TIMEOUT_MS`.
+export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf, repo, ygBin: explicitYgBin, drillTimeoutMs = DRILL_TIMEOUT_MS }) {
   const yg = resolveYg(explicitYgBin);
   const ygBin = yg.label;
   const haveYg = yg.have;
@@ -1643,16 +1936,17 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
     cpSync(ygg, join(stage, '.yggdrasil'), { recursive: true });
   }
 
-  let verified = 0;
+  let verified = 0, timedOut = 0;
   try {
     for (const a of aspects) {
       a.scopeApproximation = (a.check && a.kind && SYMBOL_LEVEL_KIND.has(a.kind)) ? 'file-from-symbol' : null;
       if (!a.check) { a.finalStatus = 'draft'; a.draftReason = 'prose-unenforceable-keyless'; continue; }
       const violates = a.drillViolatesWritten || 0, satisfies = a.drillSatisfiesWritten || 0;
       if (!haveYg || (!violates && !satisfies)) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
-      const r = spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
+      const r = spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26, timeout: drillTimeoutMs, killSignal: 'SIGKILL' });
+      if (r.error?.code === 'ETIMEDOUT') timedOut++;
       const m = /(\d+) pass\s*·\s*(\d+) MISS\s*·\s*(\d+) FALSE-ALARM/.exec(`${r.stdout || ''}${r.stderr || ''}`);
-      if (!m) { a.finalStatus = 'draft'; a.draftReason = null; continue; } // could not verify this run (e.g. a spawn failure) — unverified, not blamed
+      if (!m) { a.finalStatus = 'draft'; a.draftReason = null; continue; } // could not verify this run (a spawn failure, or the timeout above) — unverified, not blamed
       verified++;
       const miss = Number(m[2]), falseAlarm = Number(m[3]);
       const catches = violates - miss;
@@ -1677,12 +1971,19 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
   for (const a of aspects) {
     // `enforced` and `advisory` both leave `draft` and both need `yg-aspect.yaml` rewritten with the earned
     // status; `draft` aspects keep the file this renderer already wrote above (§7).
-    if (a.finalStatus === 'enforced' || a.finalStatus === 'advisory') write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(aspectYamlDoc(a, a.finalStatus)));
+    if (a.finalStatus === 'enforced' || a.finalStatus === 'advisory') {
+      write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(aspectYamlDoc(a, a.finalStatus)));
+      const checkPath = join(ygg, 'aspects', a.id, 'check.mjs');
+      if (existsSync(checkPath)) {
+        const text = readFileSync(checkPath, 'utf8');
+        if (text.includes(DRAFT_NOTE)) write(checkPath, text.replace(DRAFT_NOTE, statusNote(a.finalStatus)));
+      }
+    }
     write(join(ygg, 'aspects', a.id, 'provenance.json'), JSON.stringify(provenanceFor(a, { asOf, repo }), null, 2) + '\n');
     const row = evidence.find(e => e.kind === 'aspect' && e.id === a.id);
     if (row) { row.status = a.finalStatus; row.draftReason = a.draftReason || null; }
   }
-  return { haveYg, ygBin, verified };
+  return { haveYg, ygBin, verified, timedOut, drillTimeoutMs };
 }
 
 // ==================================================================================================
@@ -1831,30 +2132,45 @@ export function nodeCochangePairs(exp, nodeOfFile, top = 5) {
 
 export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf, repo }) {
   const L = [`# Charter — \`${n.id}\``, '', ...PREAMBLE.map(l => (l ? `> ${l}` : '>')), ''];
+  // THE CHARTER OPENS WITH WHAT THE NODE OBLIGES, NOT WITH HOW IT WAS CUT (ticket 109). `n.why` is the
+  // miner's reason for the grouping; it is still here, one line down, under "grouped because". What a session
+  // opening this file needs first is which files it is responsible for and what it may reach.
   L.push(n.organizational
-    ? `Organizational node — no mapping of its own; every file is owned by a child under \`model/${n.id}/\`.`
-    : n.why, '');
+    ? `Organizational node — it owns no file of its own. Every file under \`model/${n.id}/\` belongs to one of its children; attach a rule to the child that owns the file, never here.`
+    // A ROOT-GLOB NODE HAS NO DIRECTORY (ticket 109 round 2). `n.dir` is `null` for the type cut from a
+    // partition whose files all sit at the repository root, and interpolating it printed "Everything under
+    // `null/`" at a maintainer.
+    : `${n.dir ? `Everything under \`${n.dir}/\`` : 'Every file that sits at the repository root itself'} is this node's: ${n.files.size} tracked file${n.files.size === 1 ? '' : 's'}${n.ownFiles.size === n.files.size ? ', all of them owned here' : `, ${n.ownFiles.size} owned here and ${n.files.size - n.ownFiles.size} by a nested node below it`}. A rule attached to this node applies to every file it owns.`, '');
 
   if (!n.organizational) {
-    L.push('## What lives here', '', `- ${n.files.size} tracked files mapped to \`${n.dir}/\` (${n.ownFiles.size} owned directly; the rest belong to a nested node)`);
+    L.push('## What lives here', '', `- ${n.files.size} tracked files mapped to ${n.dir ? `\`${n.dir}/\`` : 'the repository root'}${n.ownFiles.size === n.files.size ? '' : ` (${n.ownFiles.size} owned directly; the other ${n.files.size - n.ownFiles.size} belong to a nested node)`}`);
     const extCounts = new Map();
     for (const f of n.ownFiles) { const m = /\.([A-Za-z0-9]+)$/.exec(f); const ext = m ? m[1] : '(no extension)'; extCounts.set(ext, (extCounts.get(ext) || 0) + 1); }
     const topExts = [...extCounts].sort((a, b) => b[1] - a[1]).slice(0, 6);
     if (topExts.length) L.push(`- file types: ${topExts.map(([e, c]) => `\`.${e}\` ×${c}`).join(' · ')}`);
     if (n.contains?.length) L.push(`- groups: ${n.contains.map(id => `\`${id}\``).join(' · ')}`);
+    L.push(`- grouped because: ${n.why}`);
     L.push('');
   }
 
-  L.push('## Depends on / used by', '');
+  L.push('## What this node may depend on', '');
   const dep = n.relations || [];
   const used = nodes
     .filter(x => x !== n)
     .flatMap(x => (x.relations || []).filter(r => r.target === n.id).map(r => ({ from: x.id, n: r.n })))
     .sort((a, b) => b.n - a.n);
-  L.push(`- depends on: ${dep.length ? dep.map(r => `\`${r.target}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ') : '(no resolved outgoing import)'}`);
-  L.push(`- used by: ${used.length ? used.map(r => `\`${r.from}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ') : '(no resolved incoming import)'}`, '');
+  L.push(dep.length
+    ? `- may depend on: ${dep.map(r => `\`${r.target}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ')}. A dependency on any other node is refused by \`yg check\` until it is declared here.`
+    : '- may depend on: nothing is declared yet. `yg check` refuses a dependency on another node until it is declared here, so declare the relation before the first import.');
+  L.push(used.length
+    ? `- depended on by: ${used.map(r => `\`${r.from}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ')}. Changing what this node exposes breaks them.`
+    : '- depended on by: no other node imports this one.', '');
 
-  const hosted = aspects.filter(a => a.host === n.id);
+  // An aspect's `host` is the TYPE that carries it in `yg-architecture.yaml`; a node's own `id` is a PATH
+  // (`src/main/java`) and `n.type` is that type id (`src-main-java`). Matching the host against the id is
+  // a category error that empties every charter the moment a directory name is not already its own slug —
+  // and the charter is the one file the layer above the graph reads.
+  const hosted = aspects.filter(a => a.host === n.type);
   const certified = hosted.filter(a => a.origin === 'certified-convention');
   const subgate = hosted.filter(a => a.origin === 'sub-gate-lattice');
   L.push('## Certified conventions', '');
@@ -1902,6 +2218,7 @@ export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByN
 // CORPUS.md, that the rule and the drill are the same data — which is the honest label, not a footnote.
 export function cutDrills(repo, aspect, holdout, cap = 5) {
   const kept = { satisfies: [], violates: [] }, dropped = { satisfies: 0, violates: 0 };
+  const repoRoot = resolve(repo);
   // A DRILL CASE IS A FILE; A CONVENTION'S SITE IS OFTEN A SCOPE INSIDE ONE. A file holding one conforming
   // method and one deviating method is NOT a `satisfies-` case — the check runs over the whole file and is
   // right to refuse it. Cutting it as `satisfies-` blames the check for the corpus's own mislabelling, and did:
@@ -1918,7 +2235,21 @@ export function cutDrills(repo, aspect, holdout, cap = 5) {
         if (!born || born <= holdout) { dropped[side]++; continue; }
       }
       let content;
-      try { const st = statSync(join(repo, s.rel)); if (st.size > 200 * 1024) continue; content = readFileSync(join(repo, s.rel), 'utf8'); } catch { continue; }
+      // A DRILL CASE IS COPIED OUT OF THE REPOSITORY AND INTO A TREE THE MAINTAINER IS INVITED TO MOVE IN AND
+      // COMMIT, so the only thing that may become one is a REGULAR FILE INSIDE the repository. Two refusals,
+      // both about the same rule:
+      //   - CONTAINMENT. A site path that resolves outside the repository is not this repository's evidence,
+      //     whatever produced it. This is the one place a repository-derived string becomes several path
+      //     components of a write, so it is the one place the check has to be.
+      //   - NO LINKS. `readFileSync` follows a symlink, and git tracks a symlink as an ordinary entry — so a
+      //     hostile repository shipping `src/handler.ts -> ../../../.ssh/id_rsa` could hand the proposal the
+      //     content of a file it does not contain, in a directory the adopter is being asked to commit.
+      //     `lstatSync` does not follow, so a link is simply not a case.
+      // Both are silent for the same reason every other unreadable site is: there is no case to cut, so there
+      // is nothing to report about one.
+      const abs = resolve(repo, s.rel);
+      if (abs !== repoRoot && !abs.startsWith(repoRoot + sep)) continue;
+      try { const st = lstatSync(abs); if (!st.isFile() || st.size > 200 * 1024) continue; content = readFileSync(abs, 'utf8'); } catch { continue; }
       seen.add(s.rel);
       kept[side].push({ rel: s.rel, content, name: s.name || null, born: s.lifecycle?.firstSeen || null });
       if (kept[side].length >= cap) break;
@@ -1928,16 +2259,13 @@ export function cutDrills(repo, aspect, holdout, cap = 5) {
 }
 
 
-const describePid = pid => {
-  const m = /^auto\.([a-z0-9]+):?(.*)$/.exec(pid) || [];
-  const [, fam, arg] = m;
-  return ({ imp: `import \`${arg}\``, call: `call \`${arg}\``, deco: `carry \`@${arg}\``, extends: `extend \`${arg}\``, has: `contain a \`${arg}\``, returns: `declare a return type of \`${arg}\``, stshape: `use the structure \`${arg}\``, nameshape: `follow the name shape \`${arg}\``, ptype: `take a parameter of type \`${arg}\`` }[fam]) || `have ${pid}`;
-};
-
-function contentMd(c, profile, evidenceLine, whyProse) {
+function contentMd(c, profile, evidenceLine, whyProse, name) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
-  L.push('', `# ${c.statement}`, '', '## The rule', '', c.statement + '.', '', '## Evidence', '', evidenceLine, '',
+  // The heading and "## The rule" are the aspect's OWN `name` — the obligation the reviewer is asked to judge
+  // against — not the indicative sentence grain mined it from (ticket 109). A `content.md` whose first line
+  // disagrees with the `name:` in the yaml beside it gives the reviewer two rules and no way to pick.
+  L.push('', `# ${name}`, '', '## The rule', '', name, '', '## Evidence', '', evidenceLine, '',
     '## Why this is prose and not a check', '',
     `Grain renders a deterministic \`check.mjs\` wherever the convention's class has a shape a syntax tree can`,
     `be asked about. This one does not: ${whyProse || 'no template renders this class'}`,
@@ -1963,7 +2291,7 @@ function contentMd(c, profile, evidenceLine, whyProse) {
 function subGateMd(r, statement, evidenceLine, whyProse) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
-  L.push('', `# ${statement}`, '', '## The rule', '', statement + '.', '', '## Evidence', '', evidenceLine, '',
+  L.push('', `# ${statement}`, '', '## The rule', '', statement, '', '## Evidence', '', evidenceLine, '',
     '## Why this is a DRAFT and not a certified convention', '',
     `This row is below grain's own gate. It is practised by ${pct(r.share)} of the population, which clears the`,
     "repository's two-thirds supermajority but not the certification bound — so grain refuses to state it as a",
@@ -2033,7 +2361,7 @@ function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspec
   return L.join('\n') + '\n';
 }
 
-function renderAlternativesMd({ alternatives, active }) {
+function renderAlternativesMd({ alternatives }) {
   const L = ['# Finer type candidates — your choice, not grain\'s', '', ...PREAMBLE, '', '---', '',
     'Each row is a role group grain found INSIDE one of the proposed types whose members are not simply "the',
     'files of a directory". A hand-written architecture very often splits a directory-shaped type exactly here,',
@@ -2045,7 +2373,6 @@ function renderAlternativesMd({ alternatives, active }) {
     alternatives.map(a => [`\`${a.id}\``, `\`${a.of}\``, a.groupFiles, a.selected, a.fidelity.toFixed(2), a.viable ? 'yes' : 'no', a.why])));
   L.push('', '## The drafted predicates', '');
   for (const a of alternatives) L.push(`### \`${a.id}\``, '', '```yaml', yamlEmit({ when: a.when }).trimEnd(), '```', '', a.why, '');
-  void active;
   return L.join('\n') + '\n';
 }
 
@@ -2072,7 +2399,7 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
     'Practised by a supermajority but not yet by enough of the code for grain to state it as a fact. This is the',
     'sub-gate lattice — the surface `grain explain` shows one file at a time, aggregated per partition.', '',
     mdTable(['adoption', 'n', 'partition', 'scope', 'candidate rule', 'sites to fix'],
-      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describePid(r.pid)}`, r.deviants.length])), '');
+      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describeRow(r.pid, r.exp)}`, r.deviants.length])), '');
 
   const twins = (exp.twins || []).filter(t => t.namedDifferently);
   L.push(`## 3. Structural twins — one shape under two names (${twins.length} of ${(exp.twins || []).length} twin pairs are named differently)`, '',
@@ -2138,7 +2465,9 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   const c = r.counts;
   const sha = (r.exp?.asOf || '').slice(0, 7);
   const edges = r.nodes.reduce((a, n) => a + n.relations.length, 0);
-  const evidenceOf = a => `${a.share == null ? 'share n/a' : pct(a.share)} of ${a.n ?? 0} site(s), ${a.deviating ?? 0} deviating`;
+  // The report says how far a rule already holds in the same words the rule's own file says it (§7-bis), so
+  // a maintainer reading the report and then opening the aspect meets one sentence, not two.
+  const evidenceOf = a => a.holds || `${a.share == null ? 'share n/a' : pct(a.share)} of ${a.n ?? 0} site(s), ${a.deviating ?? 0} deviating`;
   const aspectPath = a => `${ygg}/aspects/${a.id}/`;
   const caught = a => (a.drill ? a.drill.catches : 0);
   const byStrength = (a, b) => caught(b) - caught(a) || (b.share ?? 0) - (a.share ?? 0) || (b.n ?? 0) - (a.n ?? 0);
@@ -2167,9 +2496,11 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
 
   const json = {
     schema: 'grain-propose/1',
-    outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length,
+    outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length, degraded: r.degraded || null,
     architecture: { nodeTypes: c.types, nodes: c.nodes, relations: edges, cycles: c.nodeCycles, path: `${ygg}/yg-architecture.yaml` },
-    yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0 },
+    // `timedOut` (additive) counts drills abandoned at `DRILL_TIMEOUT_MS`; their aspects are unverified, so
+    // they are already inside the draft counts below — this names WHY they are, rather than leaving it silent.
+    yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0, timedOut: r.verify?.timedOut || 0 },
     // `advisory` (ticket 107, additive) is also the count of `candidates` rows that carry `status: advisory` —
     // both numbers are given so a reader does not have to filter `candidates` to get the split.
     aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason },
@@ -2184,20 +2515,25 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
 
   const L = [];
   L.push(`proposed a graph for ${r.files.length} tracked files, as of ${sha} — ${ygg}/`);
+  // Only when it happened, and above everything else: every count below is measured over that weaker set.
+  if (r.degraded) L.push(`  WARNING: ${r.degraded}`);
   L.push(`architecture: ${c.types} node types · ${c.nodes} nodes · ${edges} relations · ${c.nodeCycles} dependency cycle(s) — ${ygg}/yg-architecture.yaml`);
   if (!r.verify?.haveYg) {
     L.push(`enforced: 0 of ${c.aspects} aspects — no Yggdrasil CLI was found, so no rule was drilled and NOTHING here is enforced (set YG_BIN to a built bin.js, or put \`yg\` on PATH, then run this again)`);
     L.push(`candidates: 0 of ${c.aspects} — a candidate is an advisory or draft aspect a real drill caught a violation with, and no drill ran`);
   } else {
     L.push(`enforced: ${enforced.length} of ${c.aspects} aspects earned \`status: enforced\` from a real drill of ${r.verify.verified} deterministic check(s) — a certified-convention origin required, not just a passing drill (${r.verify.ygBin})`);
+    // A line only when it happened: a drill that never returned would otherwise leave its aspect in the draft
+    // pile with no reason given, which reads as "the check is bad" rather than "nothing judged it".
+    if (r.verify.timedOut) L.push(`  ${r.verify.timedOut} drill(s) were given up on after ${r.verify.drillTimeoutMs / 1000}s each and their aspects are unverified, not judged — re-run, or drill them by hand with \`yg drill --aspect <id>\``);
     for (const a of enforced) {
       L.push(`  ${a.id} — ${a.name}`);
-      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · practised in ${evidenceOf(a)} — ${aspectPath(a)}`);
+      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · it already ${evidenceOf(a)} — ${aspectPath(a)}`);
     }
     L.push(`candidates: ${candidates.length} of ${c.aspects} — ${advisory.length} advisory (sub-gate origin, same drill bar as enforced but below grain's own certification bound) + ${legacyCandidates.length} draft(s) a drill still caught a violation with, strongest evidence first within each`);
     for (const a of candidates) {
       L.push(`  ${a.id} — ${a.name}`);
-      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s) · ${evidenceOf(a)} · yg status \`${a.finalStatus}\`${a.finalStatus === 'draft' ? ` (${a.draftReason || 'unverified'})` : ''} — ${aspectPath(a)}`);
+      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s) · it already ${evidenceOf(a)} · yg status \`${a.finalStatus}\`${a.finalStatus === 'draft' ? ` (${a.draftReason || 'unverified'})` : ''} — ${aspectPath(a)}`);
     }
   }
   const byReason = Object.entries(restByReason).sort().map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
@@ -2207,7 +2543,7 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     for (const reason of [...new Set(rest.map(a => a.draftReason || 'unverified'))].sort()) {
       const group = rest.filter(a => (a.draftReason || 'unverified') === reason);
       L.push(`  ${reason}: ${group.length}`);
-      for (const a of group) L.push(`    ${a.id} — ${a.name} · ${evidenceOf(a)} — ${aspectPath(a)}`);
+      for (const a of group) L.push(`    ${a.id} — ${a.name} · it already ${evidenceOf(a)} — ${aspectPath(a)}`);
     }
     L.push(`== ${c.alternatives} finer type alternative(s), not cut as types — ${out}/alternatives.md ==`);
     for (const alt of r.alternatives) L.push(`  ${alt.id} — ${alt.why}`);

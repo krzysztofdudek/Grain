@@ -378,7 +378,14 @@ rule) is written to disk exactly as before and summarised in one counted line na
 `--full` prints all of it. `--json <path>` writes the same report as a
 `schema: "grain-propose/1"` document built in the same pass, so the two cannot disagree. When no Yggdrasil CLI
 resolves (`YG_BIN`, or `yg` on PATH) nothing is drilled, nothing is enforced, and the report says so in place of
-the enforced list. **The schema is a published,
+the enforced list. A drill that does not return within its own bound is abandoned, and its aspect stays a
+draft that no verdict was reached on rather than one that was judged and found wanting — the report says how
+many were given up on and after how long, and `--json`'s `yggdrasil.timedOut` carries the same count. The bound
+is derived from the slowest drill actually measured (see `DRILL_TIMEOUT_MS`), not chosen. Where a repository
+HAS git but `git ls-files` fails — an unreadable index, a permission the process lacks — the proposal is still
+produced from a worktree walk, but that set is weaker (with no git there is no `.gitignore` resolution, so
+build output is in it): the report opens with a warning naming git's own failure, and `--json` carries the same
+text as `degraded`. A directory with no git at all is the documented case and carries no warning. **The schema is a published,
 versioned interface exactly like `grain-export/1` above**: Yggdrasil's own `yg check`/`yg drill`/`yg advise`
 read the `.yggdrasil/` tree this renderer writes, and Horde's `node.mjs show` reads `charter.md` from it — a
 shape change here is a breaking change for both neighbours, made deliberately and versioned, never as a side
@@ -396,6 +403,36 @@ the file itself, plus `kind`-specific structured detail (an `aspect` row carries
 `expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`) and
 `draftReason`, see below). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there
 for the exact, current wording.
+
+### How a proposed rule is worded (ticket 109)
+
+Every aspect this renderer writes is an OBLIGATION with its scope inside the sentence, not a report of what the
+code does:
+
+```
+name: "Every method under `tests/**`, in a file carrying `@Then`, must be annotated with `[Then]`."
+name: "No file under `src/Application/**` may import `lodash`."
+```
+
+Three rules produce that sentence, and they are the whole of it:
+
+- **The subject is one thing and it names where it lives.** `Every <method|type|file|directory|catch block|…>
+  under <the aspect's own `scope:` glob>`, plus the `content:` half of the scope as a participial clause
+  (`carrying \`@Handler\``, `mentioning \`counter\``) when the scope has one. Grain's own query surface says
+  "methods here …"; an aspect read cold, months later, has no way to know where "here" is.
+- **The mood is deontic.** `must` for a rule whose expected value is true, `No … may` for one whose expected
+  value is false — a prohibition, never a doubled negative. The PREDICATE keeps every word grain mined; only
+  the verb form changes (`are annotated with` → `be annotated with`).
+- **A lattice row is worded from the value it was measured at.** The categorical families carry their value in
+  the row, not in the predicate id: `auto.nameshape` has no argument and `auto.lex:quote` names the surface
+  rather than `single`. The sentence reads the same field the rendered `check.mjs` compiles.
+
+The `#e` evidence line leads with the two numbers that decide whether to believe the sentence — how many sites
+in scope hold the rule and how many break it today — then where it applies, then what to copy, then how grain
+came to propose it. `description` carries the rule, how far it already holds, and one sentence saying what the
+`status:` beside it actually does to `yg check`. None of this changes anything measured: ticket 109 diffs the
+whole rendered tree round to round, and every id, status, count, `check.mjs` body, drill corpus and
+`provenance.json` number is byte-identical across the change.
 
 ### What "enforced" means in a proposal (ticket 102, sharpened by 107)
 
@@ -483,8 +520,10 @@ anything.
 
 **Per-node `charter.md`** — `.yggdrasil/model/<node>/charter.md`, beside `yg-node.yaml`, one per proposed node
 (including organizational ones). Rendered the way a `where` card reads a directory to a human: what lives here
-(files, extensions, nested groups), depends on / used by (module edges with resolved-import counts in both
-directions), certified conventions (share, n conforming/deviating, exemplars to copy — `path:line`), sub-gate
+(files, extensions, nested groups, and why they were grouped), what this node may depend on (its declared
+relations with resolved-import counts, and what `yg check` does about an undeclared one — the built-in
+relation-conformance check refuses a node that depends on a node it has not declared a relation to), certified
+conventions (share, n conforming/deviating, exemplars to copy — `path:line`), sub-gate
 candidates (evidence below the certification bound, not yet law), co-change partners (aggregated from `.grain`'s
 own file-level co-change up to node granularity), sizing (the node's own row from `sizing.json`), and the `asOf`
 sha. Every line carries a number or a path; a section with nothing to report says so rather than being omitted.
