@@ -306,3 +306,46 @@ test('a character YAML does not admit never reaches a comment raw either', () =>
     assert.deepEqual(Object.keys(parseYaml(text)), ['name']);
   }
 });
+
+// ---------- 7. a weaker file set may not be mined silently ----------
+//
+// Two very different things arrived at the same fallback: a directory with no git at all (documented,
+// expected — `grain export` handles it too) and a repository where git IS there and `ls-files` FAILED. The
+// second one mines a weaker file set, because with no git there is no `.gitignore` resolution and build output
+// a git repo would have hidden is proposed on as if it were source. It said nothing about either.
+test('a repository whose git is present but broken still gets a proposal, and the report says the file set is weaker', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'propose-git-broken-'));
+  try {
+    const repo = join(tmp, 'repo');
+    w(repo, 'src/a.ts', 'export const a = 1;' + NL);
+    w(repo, 'src/b.ts', 'export const b = 2;' + NL);
+    commit(repo);
+    // a real repository whose index git cannot read — `git ls-files` fails, everything else about it is intact
+    writeFileSync(join(repo, '.git', 'index'), 'not an index' + NL);
+    const broken = spawnSync('git', ['-C', repo, 'ls-files'], { encoding: 'utf8' });
+    assert.notEqual(broken.status, 0, 'git still reads this index, so the test is not measuring what it claims');
+
+    const r = grainIn(repo, ['propose', join(tmp, 'out'), '--json', join(tmp, 'report.json')]);
+    assert.equal(r.code, 0, `a broken index must degrade, not crash:${NL}${r.out}${r.err}`);
+    // the proposal is still there, built from the worktree walk
+    assert.ok(existsSync(join(tmp, 'out', '.yggdrasil', 'yg-architecture.yaml')));
+    // and the caveat is where the adopter reads their result, not only on stderr
+    assert.match(r.out, /WARNING: .*git ls-files.* failed/, `the report does not disclose the degradation:${NL}${r.out}`);
+    const json = JSON.parse(readFileSync(join(tmp, 'report.json'), 'utf8'));
+    assert.match(String(json.degraded), /git ls-files/);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('a directory with no git at all is the documented case and carries no warning', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'propose-no-git-'));
+  try {
+    const repo = join(tmp, 'repo');
+    w(repo, 'src/a.ts', 'export const a = 1;' + NL);
+    w(repo, 'src/b.ts', 'export const b = 2;' + NL);
+    const r = grainIn(repo, ['propose', join(tmp, 'out'), '--json', join(tmp, 'report.json')]);
+    assert.equal(r.code, 0, `${r.out}${r.err}`);
+    assert.doesNotMatch(r.out, /WARNING/, `a repository with no git is not a degradation to warn about:${NL}${r.out}`);
+    const json = JSON.parse(readFileSync(join(tmp, 'report.json'), 'utf8'));
+    assert.equal(json.degraded, null);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});

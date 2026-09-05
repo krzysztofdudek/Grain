@@ -149,6 +149,14 @@ function walkWorktree(root, rel = '', out = []) {
   return out;
 }
 function gitFiles(repo) {
+  // THE FALLBACK IS A DEGRADATION, SO IT HAS TO SAY IT HAPPENED. Two very different things used to arrive at
+  // the same silent `walkWorktree`: a directory with no git at all (the documented, expected case — `grain
+  // export` handles it too and stamps its answer `no-git`), and a repository where git IS there and the call
+  // FAILED — a corrupt index, a permission the process does not have, an `ls-files` output past `maxBuffer`
+  // on a very large repository. The second one silently mines a WEAKER file set: with no git there is no
+  // `.gitignore` resolution, so build output a git repo would have hidden is proposed on as if it were source.
+  // The reason is returned and disclosed; the answer is still produced, because a degraded proposal an adopter
+  // can see the caveat on beats a crash.
   try {
     // `-s` so the mode is visible: a SUBMODULE is listed by `git ls-files` as a single entry with mode 160000
     // (a gitlink), and it is a directory on disk, not a file. Rendered as a file it becomes a node mapping that
@@ -169,9 +177,14 @@ function gitFiles(repo) {
       // zero bytes because nothing on disk answers to it, and named by a node mapping `yg check` cannot resolve.
       files.push(m[2]);
     }
-    return files;
-  } catch {
-    return walkWorktree(repo).sort();
+    return { files, degraded: null };
+  } catch (e) {
+    return {
+      files: walkWorktree(repo).sort(),
+      degraded: existsSync(join(repo, '.git'))
+        ? `\`git ls-files\` failed in a repository that HAS git (${String(e.message || e).split('\n')[0].slice(0, 200)}), so the file set below comes from walking the worktree instead: build output and anything else \`.gitignore\` would have hidden is in it`
+        : null,
+    };
   }
 }
 
@@ -1204,7 +1217,7 @@ export function computeSizing(repo, nodes, handGraph, handFiles) {
 // The inputs: the tracked files, the export (reused when the caller already has one, spawned otherwise), the
 // model cache when there is one, and the predicate-expansion context every `when` is measured against.
 function loadInputs(repo, opts) {
-  const files = gitFiles(repo);
+  const { files, degraded } = gitFiles(repo);
   let exp;
   if (opts.exportPath) exp = JSON.parse(readFileSync(opts.exportPath, 'utf8'));
   else {
@@ -1223,7 +1236,7 @@ function loadInputs(repo, opts) {
   const cachePath = join(repo, '.grain', 'cache', 'model.json');
   const cache = existsSync(cachePath) ? JSON.parse(readFileSync(cachePath, 'utf8')) : null;
   const ctx = { root: repo, pathCache: new Map(), contentCache: new Map(), headCache: new Map(), unknownWhenKeys: new Set(), parsed: new Set(cache?.filesAll || []) };
-  return { files, exp, cache, ctx };
+  return { files, exp, cache, ctx, degraded };
 }
 
 // `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
@@ -1361,7 +1374,8 @@ function writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev 
 }
 
 export async function propose(repo, outDir, opts = {}) {
-  const { files, exp, cache, ctx } = loadInputs(repo, opts);
+  const { files, exp, cache, ctx, degraded } = loadInputs(repo, opts);
+  if (degraded) say(opts, `WARNING: ${degraded}`);
 
   say(opts, `${repo}: ${files.length} tracked files · ${(exp.partitions || []).length} partitions · ${(exp.conventions || []).length} conventions`);
   const loc = localities(exp, cache, files);
@@ -1468,7 +1482,7 @@ export async function propose(repo, outDir, opts = {}) {
     evidence,
   }, null, 1) + '\n');
 
-  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify };
+  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded };
 }
 
 // ---- aspect drafting ----
@@ -2269,7 +2283,7 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
 
   const json = {
     schema: 'grain-propose/1',
-    outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length,
+    outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length, degraded: r.degraded || null,
     architecture: { nodeTypes: c.types, nodes: c.nodes, relations: edges, cycles: c.nodeCycles, path: `${ygg}/yg-architecture.yaml` },
     // `timedOut` (additive) counts drills abandoned at `DRILL_TIMEOUT_MS`; their aspects are unverified, so
     // they are already inside the draft counts below — this names WHY they are, rather than leaving it silent.
@@ -2288,6 +2302,8 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
 
   const L = [];
   L.push(`proposed a graph for ${r.files.length} tracked files, as of ${sha} — ${ygg}/`);
+  // Only when it happened, and above everything else: every count below is measured over that weaker set.
+  if (r.degraded) L.push(`  WARNING: ${r.degraded}`);
   L.push(`architecture: ${c.types} node types · ${c.nodes} nodes · ${edges} relations · ${c.nodeCycles} dependency cycle(s) — ${ygg}/yg-architecture.yaml`);
   if (!r.verify?.haveYg) {
     L.push(`enforced: 0 of ${c.aspects} aspects — no Yggdrasil CLI was found, so no rule was drilled and NOTHING here is enforced (set YG_BIN to a built bin.js, or put \`yg\` on PATH, then run this again)`);
