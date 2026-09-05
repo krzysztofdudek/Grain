@@ -26,6 +26,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
 const BUILDER = join(here, '..', '..', '..', 'tests', 'fixtures', 'build-fixture.mjs');
 const YG_BIN = process.env.YG_BIN || '/home/user/Yggdrasil/source/cli/dist/bin.js';
+const HAVE_YG = existsSync(YG_BIN);
 
 let tmp, repo, text, json;
 
@@ -96,4 +97,55 @@ test('what stayed on disk is counted identically in both, and the two partitions
     'enforced + candidates + rest must be every aspect the run drafted — no aspect may be invisible in both renderings');
   const sidecar = JSON.parse(readFileSync(join(repo, json.paths.evidence), 'utf8'));
   assert.equal(json.aspects.total, sidecar.counts.aspects, 'the report and the proposal it describes must count the same aspects');
+});
+
+// ---------- ticket 107: a real fixture that actually GROWS a sub-gate lattice ----------
+//
+// Every test above runs against the small deterministic fixture (`build-fixture.mjs`), which is far too small to
+// clear `MIN_SUPPORT` sites per lattice cell — its `latticeRows` is always 0, so `enforced-requires-certified-
+// origin` never has anything to gate on there and a passing assertion would be vacuous. Grain's OWN repository is
+// large enough to grow real sub-gate rows (measured: 22 of 22 lattice-origin checks that cleared a real drill,
+// ticket 107's own repro) and is always present in this environment, so it stands in for "a real fixture with
+// lattice rows" per the ticket's own fallback. This costs real wall-clock time (a real `grain export` over ~1500
+// tracked files) — accepted deliberately, once, for the one assertion no synthetic fixture can make honestly.
+test('on a real repository that grows a sub-gate lattice (Grain\'s own), no enforced aspect has origin sub-gate-lattice, and every advisory candidate appears identically in text and JSON', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)`, timeout: 180_000 }, () => {
+  const grainRepo = join(here, '..', '..', '..'); // plugins/grain/tests -> repository root
+  const tmp2 = mkdtempSync(join(tmpdir(), 'propose-lattice-'));
+  const outDir2 = join(tmp2, 'proposal');
+  const jsonPath = join(tmp2, 'report.json');
+  try {
+    const r = spawnSync('node', [BIN, 'propose', outDir2, '--json', jsonPath], {
+      cwd: grainRepo, encoding: 'utf8', maxBuffer: 1 << 28, env: { ...process.env, YG_BIN },
+    });
+    assert.equal(r.status, 0, r.stderr);
+    const text2 = r.stdout;
+    const j2 = JSON.parse(readFileSync(jsonPath, 'utf8'));
+    assert.ok(j2.aspects.advisory > 0, `fixture sanity: expected Grain's own repository to grow at least one advisory (sub-gate-lattice) aspect, got ${j2.aspects.advisory}`);
+
+    // the invariant ticket 107 exists for: origin, not drill result, gates `enforced` — cross-checked against
+    // each aspect's own provenance.json, the one place `origin` is recorded (the report JSON does not carry it).
+    for (const a of j2.enforced) {
+      const prov = JSON.parse(readFileSync(join(a.path, 'provenance.json'), 'utf8'));
+      assert.notEqual(prov.origin, 'sub-gate-lattice', `${a.id} earned \`enforced\` from a sub-gate-lattice origin`);
+      assert.equal(a.status, 'enforced');
+    }
+
+    // every advisory aspect is a candidate, identically in both renderings — text names it with the same
+    // statement, drill numbers and yg status word the JSON carries for it (same parity contract as the small
+    // fixture above, just against rows the small fixture can never produce).
+    const advisoryIds = j2.candidates.filter(a => a.status === 'advisory').map(a => a.id);
+    assert.ok(advisoryIds.length > 0, 'fixture sanity: expected at least one advisory candidate to compare');
+    for (const a of j2.candidates.filter(x => x.status === 'advisory')) {
+      const idx = text2.split('\n').findIndex(l => l === `  ${a.id} — ${a.statement}`);
+      assert.ok(idx >= 0, `the text does not name advisory candidate ${a.id} with the JSON's own statement`);
+      const detail = text2.split('\n')[idx + 1];
+      assert.match(detail, new RegExp(`caught ${a.drill.caught} of ${a.drill.planted}`), detail);
+      assert.match(detail, /yg status `advisory`/, `candidate ${a.id} must show its yg status word in the text: ${detail}`);
+      const prov = JSON.parse(readFileSync(join(a.path, 'provenance.json'), 'utf8'));
+      assert.equal(prov.origin, 'sub-gate-lattice', `${a.id} is advisory but did not come from a sub-gate-lattice origin`);
+      assert.equal(prov.status, 'advisory');
+    }
+    // no advisory aspect is ever also counted enforced — the two are exclusive by construction
+    assert.deepEqual(j2.enforced.map(a => a.id).filter(id => advisoryIds.includes(id)), []);
+  } finally { rmSync(tmp2, { recursive: true, force: true }); }
 });

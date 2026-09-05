@@ -365,12 +365,17 @@ which adds `--score <repo>` (compare against a hand-written graph, both directio
 **What the command prints** is deliberately short (ruling `propose-default-is-quiet`), and every line of it
 carries a number or a path: the architecture (node types, nodes, relations, dependency cycles), the aspects that
 EARNED `status: enforced` from a real drill with what each one checks and its drill numbers, and the
-CANDIDATES — drafts that the same real drill caught at least one violation with, strongest evidence first. A
-candidate is a definition, not a cut-off: it is exactly the bar `no-catch-rules-stay-draft` sets for a rule to
-be doing anything at all, so with no drill there are no candidates and the report says that instead of ranking
-drafts nobody has judged. Everything else (prose aspects, no-catch drafts, finer type alternatives, conventions
-skipped as not a rule) is written to disk exactly as before and summarised in one counted line naming the file
-that holds it; `--full` prints all of it. `--json <path>` writes the same report as a
+CANDIDATES. Ticket 107, ruling `enforced-requires-certified-origin`: earning `status: enforced` needs the drill
+AND a `certified-convention` origin — a rule cleared grain's own MDL/λ certification bound. A `sub-gate-lattice`
+origin (a rule below that bound — grain itself declined to certify it; ruling `sub-gate-rows-are-the-product`, a
+lattice row is a refactor plan, not law) that clears the SAME drill earns `status: advisory` instead: real, but
+not yet a maintainer's decision to switch on. The candidates section lists these advisory aspects first,
+strongest evidence first, then — folded into the same list, below them — the older definition: a draft (any
+origin) the same real drill still caught at least one violation with. A candidate is a definition, not a
+cut-off: with no drill there are no candidates and the report says that instead of ranking drafts nobody has
+judged. Everything else (prose aspects, no-catch drafts, finer type alternatives, conventions skipped as not a
+rule) is written to disk exactly as before and summarised in one counted line naming the file that holds it;
+`--full` prints all of it. `--json <path>` writes the same report as a
 `schema: "grain-propose/1"` document built in the same pass, so the two cannot disagree. When no Yggdrasil CLI
 resolves (`YG_BIN`, or `yg` on PATH) nothing is drilled, nothing is enforced, and the report says so in place of
 the enforced list. **The schema is a published,
@@ -388,10 +393,11 @@ from the export it was rendered from. `instrument: "propose/1"`, `repo` and `asO
 unchanged. `evidence[]` is the full audit trail: one row per emitted element (`kind`: `type` | `relations` |
 `deny` | `node` | `charter` | `aspect`), `id` naming the element, `evidence` the exact prose a human reads on
 the file itself, plus `kind`-specific structured detail (an `aspect` row carries `enumerator`/`identifier`/
-`expected`/`host`, plus — ticket 102 — `status` and `draftReason`, see below). `schemaNotes` explains each field
-the way `grain-export/1`'s own does — read it there for the exact, current wording.
+`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`) and
+`draftReason`, see below). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there
+for the exact, current wording.
 
-### What "enforced" means in a proposal (ticket 102)
+### What "enforced" means in a proposal (ticket 102, sharpened by 107)
 
 Every element this renderer writes starts as a candidate, never a claim: no type carries `enforce: strict`
 (Yggdrasil's bidirectional-coverage flag — a `yg-architecture.yaml` node-type field, unrelated to the aspect
@@ -407,8 +413,20 @@ their way out of draft, and how a consumer is told why one has not:
   Yggdrasil CLI, this renderer stages the `.yggdrasil/` tree it JUST wrote into a throwaway copy and runs
   `yg drill --aspect <id>` for every check that shipped a corpus — the same measurement a maintainer would run
   by hand, not a claim this script computes on its own. A check that comes back with zero FALSE-ALARMs and at
-  least one caught `violates-*` case is promoted: its `yg-aspect.yaml` is rewritten `status: enforced`, and a
-  plain `yg check` on the delivered proposal enforces it immediately, no further review needed to turn it on.
+  least one caught `violates-*` case has PROVEN `check.mjs` correct — but the drill only ever measures whether
+  the check is right, never whether the rule is ADOPTED (ticket 107). What happens next turns on the
+  convention's ORIGIN:
+  - `origin: certified-convention` (cleared grain's own certification bound) → promoted: its `yg-aspect.yaml` is
+    rewritten `status: enforced`, and a plain `yg check` on the delivered proposal enforces it immediately, no
+    further review needed to turn it on.
+  - `origin: sub-gate-lattice` (a row BELOW that bound — grain itself declined to certify it) → promoted only to
+    `status: advisory` instead: Yggdrasil runs the same reviewer and records the same baseline, but a refusal
+    warns rather than blocks. Measured on Grain's own young, uncertified repository: EVERY sub-gate row that
+    cleared this exact drill (22 of 22) would otherwise have gone straight to `enforced`, including rules
+    practised in as little as 67% of sites with a third deviating — `enforced-requires-certified-origin` exists
+    because turning `yg check` red on a third of the existing code for a rule grain itself would not certify is
+    not what "enforced" is supposed to mean.
+
   Everything else stays draft, with one of two reasons:
   - `draftReason: "file-scope-approximation-fa"` — the drill found at least one FALSE-ALARM. Ticket 101 §8.1
     traced every remaining FALSE-ALARM in its whole corpus to one shape: the convention's own subject is a
@@ -425,17 +443,22 @@ their way out of draft, and how a consumer is told why one has not:
     nothing about the check's quality, only that nobody has looked yet. This was every deterministic aspect's
     fate before ticket 102 — the only regression-proof default when Yggdrasil is not available to ask.
 
-`counts.aspectsActive` / `counts.aspectsDraft` / `counts.aspectsByDraftReason` (a count per reason above) and
-`counts.aspectsVerified` / `counts.aspectsVerifiedAgainst` (how many deterministic aspects a real drill actually
-judged, and against which Yggdrasil binary — `null` when `YG_BIN` did not resolve) summarize this split for the
-whole run; `evidence[]`'s own `aspect` rows and each aspect's `provenance.json` (below) carry it per element.
+`counts.aspectsActive` (kept named for schema stability; counts `status: enforced`) / `counts.aspectsAdvisory`
+(ticket 107, additive — counts `status: advisory`) / `counts.aspectsDraft` / `counts.aspectsByDraftReason` (a
+count per reason above) and `counts.aspectsVerified` / `counts.aspectsVerifiedAgainst` (how many deterministic
+aspects a real drill actually judged, and against which Yggdrasil binary — `null` when `YG_BIN` did not resolve)
+summarize this split for the whole run; `evidence[]`'s own `aspect` rows and each aspect's `provenance.json`
+(below) carry it per element.
 
 **What an adopter actually gets, in plain terms**: `status: enforced` means a deterministic rule that survived a
-real drill on this repository's own code with zero false alarms and at least one caught violation — nothing
-between the maintainer and turning this rule on today. Everything else — every prose aspect, every check that
-false-alarmed or caught nothing, every check nobody has verified yet — is a candidate: worth reading, not worth
-trusting sight unseen. Adopting a proposal means reviewing the drafts, not merely running `yg check --approve` on
-the enforced set and calling the rest done.
+real drill on this repository's own code with zero false alarms and at least one caught violation, AND whose
+convention cleared grain's own certification bound — nothing between the maintainer and turning this rule on
+today. `status: advisory` means the identical drill result but a rule grain itself declined to certify: real
+evidence, worth reading, but a refactor decision rather than a rule to switch on unread — Yggdrasil records its
+baseline and warns on a refusal without blocking `yg check`. Everything else — every prose aspect, every check
+that false-alarmed or caught nothing, every check nobody has verified yet — is a candidate too: worth reading,
+not worth trusting sight unseen. Adopting a proposal means reviewing the drafts (and the advisory rules), not
+merely running `yg check --approve` on the enforced set and calling the rest done.
 
 **Per-aspect `provenance.json`** — `.yggdrasil/aspects/<id>/provenance.json`, one per rendered aspect, same
 field set as the law-loop measurement's own (ticket 097): `aspectId, conventionId, origin, enumeratorClass,
@@ -445,10 +468,12 @@ differ only in provenance, never in the fields carried.
 
 **Three fields ADDED here (ticket 102), additive per the rule above — not shared with law-loop.mjs's own replay
 provenance, which describes a held-out cut rather than a live run with a real `.yggdrasil/` tree on disk**:
-`status` (`"active"` | `"draft"` — Grain's own two-value vocabulary, distinct from the three Yggdrasil-schema
-values the aspect's `yg-aspect.yaml` itself carries; `"active"` there is written as `status: enforced`),
+`status` (`"enforced"` | `"advisory"` | `"draft"` — ticket 107 adds `"advisory"` to what shipped as a two-value
+`"active"` | `"draft"` pair; adding a value to an existing field is additive, not a shape change, so this needed
+no `grain-proposal/2` — the SAME three values Yggdrasil's own `yg-aspect.yaml` `status:` field takes, written
+here verbatim rather than through a separate Grain-internal word translated at write time),
 `draftReason` (one of `"prose-unenforceable-keyless"` | `"file-scope-approximation-fa"` | `"no-catch"`, or `null`
-when `status` is `"active"` or the aspect was never verified this run), and `scopeApproximation`
+when `status` is `"enforced"`/`"advisory"` or the aspect was never verified this run), and `scopeApproximation`
 (`"file-from-symbol"` when the convention's own subject — `a.kind`, grain's `unitOf` domain: `method` | `type` |
 `catch` | `finally` | `case` — is a symbol living inside a file rather than the file itself, `null` for a
 file/module-level convention where the check's unit and the convention's subject are the same thing). This flag
