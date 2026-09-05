@@ -749,9 +749,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/109-sense",
-      "state": "landed",
-      "note": "measured: hold-out sense 0.000→0.493 by wording alone (rule-form 0→0.928); enforced sense 0→0 (blocks existing files); judge = one model ×3, kappa undefined at baseline; 2 wording rounds + 1 defect fix",
-      "updated": "2026-09-05 21:35"
+      "state": "merged",
+      "note": "premerge READY after refresh + director-resolved conflict with 112 (describeRow supersedes describePid); 2317/2317; hold-out sense 0→0.493, rule-form 0→0.928",
+      "updated": "2026-09-05 22:04",
+      "sha": "993e819"
     },
     {
       "id": 70,
