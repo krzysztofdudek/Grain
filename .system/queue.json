@@ -618,9 +618,10 @@
       "kind": "research",
       "agent": "opus",
       "branch": "research/094-propose",
-      "state": "running",
-      "note": "Opus spawned, worktree, research/094-propose",
-      "updated": "2026-09-05 05:20"
+      "state": "merged",
+      "note": "premerge READY after base refresh (2217/2217); staged yg check loads the proposal; drill sweep 208/29/0 FA",
+      "updated": "2026-09-05 06:37",
+      "sha": "8d65a2c"
     },
     {
       "id": 58,
