@@ -930,6 +930,84 @@ export const WHY_PROSE = {
 
 
 // ==================================================================================================
+// 7.5 Sizing — `sizing.json` (ticket 098 / ecosystem-design-2026-09-05.md §2.4).
+//
+// Horde's only cutting rule (skills/horde/reference/model.md, "The node"): "a node is cut correctly when its
+// charter, its contracts and its code fit one Sonnet context with room to work". `node.mjs map` needs a NUMBER
+// to print that ratio against; this is where it comes from. Per proposed node — and per HAND node, when the
+// source repository already carries its own `.yggdrasil/` (as this one does on Yggdrasil itself) — four counts:
+//
+//   - `files`    the node's own file count (deepest-node precedence, same as `buildNodes`'s `ownFiles`)
+//   - `bytes`    total file size on disk (`fs.statSync`)
+//   - `codelengthLines` total source lines (`fs.readFileSync`, newline count) — named deliberately NOT
+//                "codelength" alone: the export's OWN codelength quantity (`bitsPerInstance` on a convention,
+//                `engine/core.mjs`'s description-length statistic over scope populations) is a measure of how
+//                SURPRISING a value is against its population, not a measure of SIZE, and nothing in the export
+//                aggregates it per module or per partition despite the ecosystem-design memo's §2.4 phrasing
+//                ("Grain's export already has bytes, scopes and codelength per module and per partition") — that
+//                claim does not hold for `bytes` or a size-flavoured "codelength" either; both are computed here,
+//                from the files themselves, not read out of any existing export field.
+//   - `scopes`   the file's total scope count, summed from `.grain/cache/tree.json` (the same per-file scope
+//                array `partitionLattice` above reads) when that cache exists; `null` — not zero — when it does
+//                not, so an absent cache is never misread as a repo with no scopes.
+//
+// WHAT IS DERIVED AND WHAT IS A FACT OF THE MODEL. `files`/`bytes`/`codelengthLines`/`scopes` are ALL derived —
+// counted from the files themselves or from grain's own scope cache, nothing tuned, nothing tunable. The ONE
+// number here that is not derived at all is `contextBudgetTokens: 200000` — Anthropic's published context
+// window for the models this family runs on (claude-api skill), a fact about the tool the ecosystem happens to
+// run on, not a Grain measurement and not a Grain constant. `sizing.json` carries it so a consumer (`node.mjs
+// map`) can compute a ratio without hardcoding the number itself; this renderer computes no ratio and makes no
+// claim about what ratio predicts owner success — that is the bet ecosystem-design-2026-09-05.md §6 names, and
+// sizing.json is deliberately just the two numbers a ratio needs, not the ratio's verdict.
+// ==================================================================================================
+
+function scopeCountsFromTreeCache(repo) {
+  const treePath = join(repo, '.grain', 'cache', 'tree.json');
+  if (!existsSync(treePath)) return null;
+  let tree;
+  try { tree = JSON.parse(readFileSync(treePath, 'utf8')); } catch { return null; }
+  const byFile = new Map();
+  for (const [k, v] of Object.entries(tree)) {
+    const rel = k.slice(k.indexOf('|') + 1);
+    const n = (Array.isArray(v) ? v : v.s || []).length;
+    byFile.set(rel, (byFile.get(rel) || 0) + n);
+  }
+  return byFile;
+}
+
+export function computeSizing(repo, active, nodes, handGraph, handFiles) {
+  const scopesByFile = scopeCountsFromTreeCache(repo);
+  const bytesOf = rel => { try { return statSync(join(repo, rel)).size; } catch { return 0; } };
+  const linesOf = rel => { try { return readFileSync(join(repo, rel), 'utf8').split('\n').length; } catch { return 0; } };
+  const sizeOf = fileSet => {
+    let bytes = 0, codelengthLines = 0, scopes = 0, files = 0;
+    for (const rel of fileSet) {
+      files++;
+      bytes += bytesOf(rel);
+      codelengthLines += linesOf(rel);
+      if (scopesByFile?.has(rel)) scopes += scopesByFile.get(rel);
+    }
+    return { files, bytes, codelengthLines, scopes: scopesByFile ? scopes : null };
+  };
+  void active; // the proposed rows are read off `nodes` (post deepest-node-precedence `ownFiles`), not `active`
+  const proposedNodes = nodes.filter(n => !n.organizational).map(n => ({ id: n.id, dir: n.dir, ...sizeOf(n.ownFiles) }));
+  let handNodes = null;
+  if (handGraph) {
+    handNodes = handGraph.nodes.filter(n => Array.isArray(n.mapping) && n.mapping.length).map(n => {
+      const set = expandMapping(n.mapping, handFiles, { root: repo, pathCache: new Map(), contentCache: new Map(), headCache: new Map() });
+      return { id: n.id, ...sizeOf(set) };
+    });
+  }
+  return {
+    instrument: 'sizing/1',
+    contextBudgetTokens: 200000,
+    contextBudgetSource: 'external constant (Anthropic\'s published context window for Sonnet/Opus) — not measured, not tuned, not a Grain number',
+    scopesAvailable: !!scopesByFile,
+    proposedNodes, handNodes,
+  };
+}
+
+// ==================================================================================================
 // 8. The renderer.
 // ==================================================================================================
 
@@ -1071,6 +1149,13 @@ export async function propose(repo, outDir, opts = {}) {
   }
   say(opts, `drills: ${drillCases} cases${opts.holdout ? ` (hold-out ${opts.holdout}; ${drillDropped} sites dropped as pre-cut)` : ' (NO hold-out — labelled as such in every CORPUS.md)'}`);
 
+  // sizing.json — files/bytes/scopes/codelength per proposed node, and per HAND node when the source repo
+  // already carries its own `.yggdrasil/` (see §7.5 above for what is derived vs. an external constant)
+  const hasHandGraph = existsSync(join(repo, '.yggdrasil'));
+  const handGraphForSizing = hasHandGraph ? readGraph(repo) : null;
+  const sizing = computeSizing(repo, active, nodes, handGraphForSizing, files);
+  write(join(outDir, 'sizing.json'), JSON.stringify({ instrument: sizing.instrument, repo, asOf: exp.asOf, ...sizing }, null, 1) + '\n');
+
   // the documents a human actually reads
   const counts = {
     types: active.length, alternatives: alternatives.length, nodes: nodes.length,
@@ -1078,6 +1163,7 @@ export async function propose(repo, outDir, opts = {}) {
     aspectsSkippedUnrenderableGroupScoped: skipped.unrenderableGroupScoped, aspectsSkippedNotARule: skipped.notARule, proseByClass: skipped.byClass,
     drillCases, drillHoldout: opts.holdout || null, drillDropped, nodeCycles: nodeCycles.length,
     latticeRows: lat.rows.length, subGate: sub.length, denies: rels.denies.length, denyBacklog: rels.backlog.length,
+    sizingHandNodes: sizing.handNodes ? sizing.handNodes.length : null,
   };
   write(join(outDir, 'PROPOSAL.md'), renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts }));
   write(join(outDir, 'REFACTOR-BACKLOG.md'), renderBacklogMd({ exp, sub, rels, nodeCycles }));
@@ -1086,7 +1172,7 @@ export async function propose(repo, outDir, opts = {}) {
     instrument: 'propose/1', repo, asOf: exp.asOf, files: files.length, counts, evidence,
   }, null, 1) + '\n');
 
-  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles };
+  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing };
 }
 
 // ---- aspect drafting ----
