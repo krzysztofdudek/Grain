@@ -695,9 +695,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/102-propose-rulings",
-      "state": "running",
-      "note": "skutki orzeczeń 101 w propose.mjs + docs + test NUL",
-      "updated": "2026-09-05 11:00"
+      "state": "merged",
+      "note": "premerge READY from main checkout after base refresh (2272/2272); status earned from real yg drill: Yggdrasil self-proposal 11/13 det. enforced, 2 no-catch, 89 prose draft; director named GROUP_MIN at merge",
+      "updated": "2026-09-05 12:19",
+      "sha": "26acdf0"
     }
   ]
 }
