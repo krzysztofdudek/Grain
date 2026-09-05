@@ -40,8 +40,8 @@
 // lattice is actually computed. Verifying against Yggdrasil (`yg drill`) runs the built CLI as a subprocess over
 // a throwaway copy of this renderer's own output, exactly as `tests/propose.test.mjs` already does.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve } from 'node:path';
+import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './yggdrasil-graph.mjs';
 // Read-only: two version constants, the same ones `grain export`'s own `proposal.json`-equivalent
@@ -1951,6 +1951,7 @@ export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByN
 // CORPUS.md, that the rule and the drill are the same data — which is the honest label, not a footnote.
 export function cutDrills(repo, aspect, holdout, cap = 5) {
   const kept = { satisfies: [], violates: [] }, dropped = { satisfies: 0, violates: 0 };
+  const repoRoot = resolve(repo);
   // A DRILL CASE IS A FILE; A CONVENTION'S SITE IS OFTEN A SCOPE INSIDE ONE. A file holding one conforming
   // method and one deviating method is NOT a `satisfies-` case — the check runs over the whole file and is
   // right to refuse it. Cutting it as `satisfies-` blames the check for the corpus's own mislabelling, and did:
@@ -1967,7 +1968,21 @@ export function cutDrills(repo, aspect, holdout, cap = 5) {
         if (!born || born <= holdout) { dropped[side]++; continue; }
       }
       let content;
-      try { const st = statSync(join(repo, s.rel)); if (st.size > 200 * 1024) continue; content = readFileSync(join(repo, s.rel), 'utf8'); } catch { continue; }
+      // A DRILL CASE IS COPIED OUT OF THE REPOSITORY AND INTO A TREE THE MAINTAINER IS INVITED TO MOVE IN AND
+      // COMMIT, so the only thing that may become one is a REGULAR FILE INSIDE the repository. Two refusals,
+      // both about the same rule:
+      //   - CONTAINMENT. A site path that resolves outside the repository is not this repository's evidence,
+      //     whatever produced it. This is the one place a repository-derived string becomes several path
+      //     components of a write, so it is the one place the check has to be.
+      //   - NO LINKS. `readFileSync` follows a symlink, and git tracks a symlink as an ordinary entry — so a
+      //     hostile repository shipping `src/handler.ts -> ../../../.ssh/id_rsa` could hand the proposal the
+      //     content of a file it does not contain, in a directory the adopter is being asked to commit.
+      //     `lstatSync` does not follow, so a link is simply not a case.
+      // Both are silent for the same reason every other unreadable site is: there is no case to cut, so there
+      // is nothing to report about one.
+      const abs = resolve(repo, s.rel);
+      if (abs !== repoRoot && !abs.startsWith(repoRoot + sep)) continue;
+      try { const st = lstatSync(abs); if (!st.isFile() || st.size > 200 * 1024) continue; content = readFileSync(abs, 'utf8'); } catch { continue; }
       seen.add(s.rel);
       kept[side].push({ rel: s.rel, content, name: s.name || null, born: s.lifecycle?.firstSeen || null });
       if (kept[side].length >= cap) break;
