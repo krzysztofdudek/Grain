@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter, describePid } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -517,4 +517,22 @@ test('promotion rewrites the check.mjs header, so a promoted check never says th
   }
 
   rmSync(t3, { recursive: true, force: true });
+});
+
+// ---------- 15. the sentence a rule states about itself (dry run 112) ----------
+//
+// `describePid` writes the statement that becomes the aspect's `name:` and `description:`, and so the
+// line an agent reads in `yg context --file`, `yg aspects` and every `yg check` warning. Three of its
+// classes were wrong on a real repository: a decorator identifier already carries its `@`, so the
+// statement doubled it; a name-shape rule keeps its shape in `expected`, not in the pid, so the
+// statement named an empty shape; and `filenameshape` had no entry at all, so the fallback printed
+// grain's internal pid to the user.
+test('a rule states itself in words, with no doubled marker, no empty shape and no internal pid', () => {
+  assert.equal(describePid('auto.deco:@SpringBootTest', 'true'), 'carry `@SpringBootTest`');
+  assert.equal(describePid('auto.deco:pytest.fixture', 'true'), 'carry `@pytest.fixture`');
+  assert.equal(describePid('auto.nameshape', 'a(Ua)+'), 'follow the name shape `a(Ua)+`');
+  assert.equal(describePid('auto.filenameshape', '(Ua)+'), 'are named with the shape `(Ua)+`');
+  assert.equal(describePid('auto.imp:jakarta.persistence.Entity', 'true'), 'import `jakarta.persistence.Entity`');
+  // an unknown class still says something, and still never prints the raw pid to a human
+  assert.doesNotMatch(describePid('auto.mods', 'true'), /auto\./);
 });

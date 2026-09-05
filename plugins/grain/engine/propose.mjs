@@ -1513,7 +1513,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const id = `grain/${slug(r.partition)}/candidate-${slug(r.pid)}`.slice(0, 120);
     if (out.some(o => o.id === id)) continue;
     seen.push(id);
-    const statement = `${r.kind}s in \`${r.partition}\`${r.role !== null ? ` (role group r${r.role})` : ''} ${r.exp === 'false' ? 'do not ' : ''}${describePid(r.pid)}`.replace(/\s+/g, ' ');
+    const statement = `${r.kind}s in \`${r.partition}\`${r.role !== null ? ` (role group r${r.role})` : ''} ${r.exp === 'false' ? 'do not ' : ''}${describePid(r.pid, r.exp)}`.replace(/\s+/g, ' ');
     const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.n} ${r.kind}s · ${r.deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
     const evidenceLine = `sub-gate candidate: ${provenance}`;
     const check = renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
@@ -1956,10 +1956,33 @@ export function cutDrills(repo, aspect, holdout, cap = 5) {
 }
 
 
-const describePid = pid => {
+// The sentence a rule states about ITSELF — it becomes the aspect's `name:` and `description:`, and so the
+// line an agent reads back from `yg context --file`, `yg aspects` and every `yg check` warning. Two things it
+// must never do, both measured on a real repository (ticket 112): decorate an identifier that already carries
+// its own marker (a `deco` argument arrives as `@SpringBootTest`, so prefixing another `@` said
+// `@@SpringBootTest`), and fall through to printing grain's internal pid at a human. The classes whose subject
+// is a SHAPE rather than a name — `nameshape`, `filenameshape`, `mods` — carry nothing after the colon; their
+// content is the row's `expected`, which is why it is a parameter here.
+export const describePid = (pid, expected) => {
   const m = /^auto\.([a-z0-9]+):?(.*)$/.exec(pid) || [];
   const [, fam, arg] = m;
-  return ({ imp: `import \`${arg}\``, call: `call \`${arg}\``, deco: `carry \`@${arg}\``, extends: `extend \`${arg}\``, has: `contain a \`${arg}\``, returns: `declare a return type of \`${arg}\``, stshape: `use the structure \`${arg}\``, nameshape: `follow the name shape \`${arg}\``, ptype: `take a parameter of type \`${arg}\`` }[fam]) || `have ${pid}`;
+  const marked = String(arg).startsWith('@') ? arg : `@${arg}`;
+  const byFamily = {
+    imp: `import \`${arg}\``,
+    call: `call \`${arg}\``,
+    deco: `carry \`${marked}\``,
+    extends: `extend \`${arg}\``,
+    has: `contain a \`${arg}\``,
+    returns: `declare a return type of \`${arg}\``,
+    stshape: `use the structure \`${arg}\``,
+    ptype: `take a parameter of type \`${arg}\``,
+    nameshape: `follow the name shape \`${expected}\``,
+    filenameshape: `are named with the shape \`${expected}\``,
+    mods: `are declared \`${expected}\``,
+  };
+  // A class with no sentence of its own still says what it is about in words — never the raw pid, which is
+  // grain's own vocabulary and means nothing to the reader of a rule.
+  return byFamily[fam] || (arg ? `carry \`${arg}\` (${fam})` : `match this repository's \`${fam}\` convention`);
 };
 
 function contentMd(c, profile, evidenceLine, whyProse) {
@@ -2100,7 +2123,7 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
     'Practised by a supermajority but not yet by enough of the code for grain to state it as a fact. This is the',
     'sub-gate lattice — the surface `grain explain` shows one file at a time, aggregated per partition.', '',
     mdTable(['adoption', 'n', 'partition', 'scope', 'candidate rule', 'sites to fix'],
-      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describePid(r.pid)}`, r.deviants.length])), '');
+      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describePid(r.pid, r.exp)}`, r.deviants.length])), '');
 
   const twins = (exp.twins || []).filter(t => t.namedDifferently);
   L.push(`## 3. Structural twins — one shape under two names (${twins.length} of ${(exp.twins || []).length} twin pairs are named differently)`, '',
