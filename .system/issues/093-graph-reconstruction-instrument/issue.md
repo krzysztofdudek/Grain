@@ -1,6 +1,6 @@
 # 093 · Instrument G': rekonstrukcja grafu — grain export vs istniejące .yggdrasil/ (precision/recall typów, mapowań, relacji, granic)
 
-**Status:** QUEUED — spec zapisana, do Opusa
+**Status:** MEASURED — Instrument + guard test + report landed on instr/093-reconstruct. Suite 2194 green.
 **Found by:** director, 2026-09-05
 **Severity:** high
 **Class:** G
