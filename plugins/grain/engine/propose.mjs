@@ -191,6 +191,13 @@ export function yq(v) {
   if (!s.length || NEEDS_QUOTE.test(s) || s.includes('\n')) return JSON.stringify(s);
   return s;
 }
+// A COMMENT VALUE IS THE REPOSITORY'S OWN PROSE, AND A REPOSITORY PATH MAY CONTAIN A LINE BREAK. Every emitted
+// element carries its evidence as a `#` comment naming the directories, identifiers and shares behind it.
+// Written as a single `# <text>` line, everything after a line break in that text LEFT the comment and landed
+// in the document as YAML: a directory named `ev<LF>injected: true` put a real `injected: true` key inside its
+// own node type in `yg-architecture.yaml` — confirmed both by this repository's own parser and by a conforming
+// one. Each line of the value now gets its own `#`, so a comment stays a comment however the value is spelled.
+const yamlComment = (v, pad) => String(v).split(/\r\n|\r|\n/).map(l => `${pad}# ${l}\n`).join('');
 export function yamlEmit(value, indent = 0) {
   const pad = ' '.repeat(indent);
   if (Array.isArray(value)) {
@@ -208,7 +215,7 @@ export function yamlEmit(value, indent = 0) {
     let out = '';
     for (const [k, v] of Object.entries(value)) {
       if (v === undefined) continue;
-      if (k.startsWith('#')) { out += `${pad}# ${v}\n`; continue; } // comment pseudo-key
+      if (k.startsWith('#')) { out += yamlComment(v, pad); continue; } // comment pseudo-key
       if (Array.isArray(v)) {
         if (!v.length) out += `${pad}${k}: []\n`;
         else out += `${pad}${k}:\n${yamlEmit(v, indent + 2)}`;
