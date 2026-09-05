@@ -30,6 +30,27 @@ assumption fails wherever the practiced norm was never legible. One tool enforce
 Grain surfaces the architecture the repository practices. You cannot legislate well over a codebase you cannot read,
 and this is the instrument that reads it.
 
+## From clone to graph
+
+For a repository that has no architecture graph yet, one command mines a proposed one:
+
+```
+grain propose
+```
+
+It writes a whole staging tree to `.yggdrasil-proposal/` — node types, nodes, relations, cycles, and mined rules
+with the evidence that produced each one — and never touches the repository's own graph. What it prints back is
+short on purpose, and every line of it carries a number or a path:
+
+- the **architecture**: node types, nodes, relations, dependency cycles;
+- the rules that **earned enforcement** — each one drilled against this repository's own code, kept only on zero
+  false alarms and at least one caught violation, with those numbers beside the practice it was mined from;
+- the **candidates**: drafts the same drill caught a violation with, strongest evidence first.
+
+Everything else it drafted — the judgement calls, the rules nothing can be shown to violate, the finer cuts it
+did not take — stays on disk and is summarised in one counted line. `--full` prints all of it. The proposal is a
+proposal: a human reads it and moves it in.
+
 ## Install
 
 Requires Node 22 or newer and git. The plugin is self-contained: the parser runtime and every grammar ship inside it,

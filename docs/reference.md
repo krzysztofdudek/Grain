@@ -27,6 +27,7 @@ worktree.
 | `report` | `--top N`, `--json` | top conventions with trends and ages, templates of the unclustered residue, drift, the module graph with cycles, boundaries, and a `== health ==` section of conventions worth a decision |
 | `rules` | `--out <file>`, `--top N` | a generated Markdown document of established conventions over the same data `report` prints, stamped with the commit; no `--out` prints it to stdout (so `grain rules > CONVENTIONS.md` works) — for a reader with no terminal and no grain plugin |
 | `export` | `--out <file>`, `--max-sites N`, `--compact`, `--no-anchors` | the whole model as data; see the schema contract below |
+| `propose [<out-dir>]` | `--full`, `--json <path>`, `--holdout <YYYY-MM-DD>` | a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository, written to `<out-dir>` (default `.yggdrasil-proposal/`); the report names the architecture, the rules a real `yg drill` proved, and the candidates, with `--full` for every draft it kept back; see the proposal contract below |
 | `decide steer <path>#<name>` | `--surfaces <pid,…>`, `--instead-of <pid,…>`, `--note`, `--topic`, `--weight`, `--author` | record a maintainer decision; without `--surfaces` it refuses and lists the exemplar's properties (alias `seed add`) |
 | `decide boundary <from>` | `--never-imports <to>`, `--note`, `--author` | an architecture decision; new imports crossing it are flagged at edit time (alias `seed add-boundary`) |
 | `decide waive <path>#<name>` | `--on <pid>`, `--note`, `--author` | excuse one named scope from one convention; `check` reports the departure as deliberate, the counts still count it non-conforming |
@@ -339,9 +340,34 @@ that file, even when `review`'s own text collapses several such files into one a
 
 ## The proposal contract
 
-`node tests/stress/propose.mjs <repo> <out-dir>` (the proposal renderer, G'') writes a proposed `.yggdrasil/`
-graph to `<out-dir>` — `PROPOSAL.md`, `REFACTOR-BACKLOG.md`, `alternatives.md`, `sizing.json` and the `.yggdrasil/`
-tree itself. `<out-dir>/proposal.json` prints `schema: "grain-proposal/1"`. **The schema is a published,
+`grain propose [<out-dir>]` writes a proposed `.yggdrasil/` graph to `<out-dir>` — `PROPOSAL.md`,
+`REFACTOR-BACKLOG.md`, `alternatives.md`, `sizing.json` and the `.yggdrasil/` tree itself.
+`<out-dir>/proposal.json` prints `schema: "grain-proposal/1"`.
+
+**The out-dir defaults to `.yggdrasil-proposal/` at the repository root and is never the repository's own
+`.yggdrasil/`** — the command refuses that path outright. A proposal is a staging tree a human reads, edits and
+moves in; nothing installs it. The directory is written with its own ignore file (`*`, the same self-ignoring
+form `.grain/`'s own uses for the cache) the first time it appears, so a proposal under review never shows up as
+an untracked change and can never be committed by accident. Naming `.yggdrasil-proposal/` in the repository's
+top-level ignore list as well is fine; nothing in grain requires it.
+
+The same renderer is also driven by the measurement instrument `node tests/stress/propose.mjs <repo> <out-dir>`,
+which adds `--score <repo>` (compare against a hand-written graph, both directions) and `--family-candidates
+<out.json>`. The instrument and the command write byte-identical trees — the renderer lives in
+`plugins/grain/engine/propose.mjs` and neither surface has a rendering path of its own.
+
+**What the command prints** is deliberately short (ruling `propose-default-is-quiet`), and every line of it
+carries a number or a path: the architecture (node types, nodes, relations, dependency cycles), the aspects that
+EARNED `status: enforced` from a real drill with what each one checks and its drill numbers, and the
+CANDIDATES — drafts that the same real drill caught at least one violation with, strongest evidence first. A
+candidate is a definition, not a cut-off: it is exactly the bar `no-catch-rules-stay-draft` sets for a rule to
+be doing anything at all, so with no drill there are no candidates and the report says that instead of ranking
+drafts nobody has judged. Everything else (prose aspects, no-catch drafts, finer type alternatives, conventions
+skipped as not a rule) is written to disk exactly as before and summarised in one counted line naming the file
+that holds it; `--full` prints all of it. `--json <path>` writes the same report as a
+`schema: "grain-propose/1"` document built in the same pass, so the two cannot disagree. When no Yggdrasil CLI
+resolves (`YG_BIN`, or `yg` on PATH) nothing is drilled, nothing is enforced, and the report says so in place of
+the enforced list. **The schema is a published,
 versioned interface exactly like `grain-export/1` above**: Yggdrasil's own `yg check`/`yg drill`/`yg advise`
 read the `.yggdrasil/` tree this renderer writes, and Horde's `node.mjs show` reads `charter.md` from it — a
 shape change here is a breaking change for both neighbours, made deliberately and versioned, never as a side
@@ -435,17 +461,17 @@ Horde's `node.mjs show <node>` reads this file verbatim — no schema of its own
 path".
 
 **`sizing.json`** (ticket 098) is unchanged by this contract — see its own header comment in
-`tests/stress/propose.mjs` for the field-by-field explanation; every `charter.md` quotes its own node's row from
+`plugins/grain/engine/propose.mjs` for the field-by-field explanation; every `charter.md` quotes its own node's row from
 it rather than duplicating the numbers.
 
-**The `.family-candidates.json` adapter** — `propose.mjs --family-candidates <out.json>` writes a SEPARATE file
+**The `.family-candidates.json` adapter** — the instrument's `--family-candidates <out.json>` writes a SEPARATE file
 (not part of `proposal.json`) in the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
 `advise-nominations.ts`): `{v: 1, ts, families: [{id, language, members, fittedPredicate: {kind, value},
 scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `ts` MUST be a parseable calendar instant (Yggdrasil's
 freshness gate runs `Date.parse` on it and silently drops the whole file otherwise) — grain's own `asOf` is a git
 sha, so this adapter uses the export's `indexedAt` instead. A "family without a law" in grain's own terms is a
 role group (093/094's structural cluster within a partition) that clears the same size floor Yggdrasil's own
-offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `tests/stress/propose.mjs`) and carries no certified
+offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `plugins/grain/engine/propose.mjs`) and carries no certified
 convention of its own — whether that group ended up as a finer `-content` alternative (a subset of its host
 type) or, when the group coincides with its whole host type, was cut directly as an active type with no
 alternative offered. Dropping the file into an existing `.yggdrasil/` at `.family-candidates.json` and running

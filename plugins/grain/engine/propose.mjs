@@ -2071,3 +2071,106 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
     mdTable(['from', 'to', 'share', 'why it is not a deny'], rels.backlog.map(d => [`\`${d.from}\``, `\`${d.to}\``, d.share.toFixed(3), d.whyNot])), '');
   return L.join('\n') + '\n';
 }
+
+// ==================================================================================================
+// 11. The report — what `grain propose` prints, and what `--json` writes.
+//
+// ONE builder for both surfaces (ticket 104). The text lines and the JSON document are produced from the same
+// pass over the same objects, so a fact cannot appear in one and not the other; `tests/cross-check-propose.
+// test.mjs` pins that.
+//
+// THE DEFAULT REPORT IS QUIET (ruling `propose-default-is-quiet`). On Yggdrasil's own proposal 124 aspects are
+// drafted and 10 of them earned enforcement — a report in which 92% of the rows are things nobody should act on
+// discourages the adopter and undermines the 8% that is true. So the default carries exactly three things, and
+// every line of it carries a number or a path:
+//
+//   1. THE ARCHITECTURE — node types, nodes, relations, dependency cycles. This is the part that loads.
+//   2. WHAT EARNED ENFORCEMENT — aspects a REAL `yg drill` promoted, each with what it checks and the drill's
+//      own numbers (caught / false alarms / corpus size) beside the practice it was mined from (share, n).
+//   3. THE CANDIDATES — and a candidate is DEFINED, not thresholded: a draft that the same real drill caught at
+//      least one violation with. That is the exact bar `no-catch-rules-stay-draft` sets for a rule to be doing
+//      anything at all; a draft that meets it and is still not enforced is the one thing a maintainer can act
+//      on immediately. It follows that with no drill there are no candidates to rank — which the report says,
+//      rather than ranking drafts nobody has judged. No display cap is applied and none is needed: the
+//      definition does the cutting (1 candidate on Yggdrasil's own proposal, out of 114 drafts).
+//
+// Everything else — prose drafts, no-catch drafts, finer type alternatives, the conventions skipped as not a
+// rule — is written to disk exactly as before and summarised here in ONE counted line naming the file that
+// holds it. `--full` prints it all.
+export function proposeReport(r, { outDir, root, full = false } = {}) {
+  const rel = p => (root && p.startsWith(root + '/') ? p.slice(root.length + 1) : p);
+  const out = rel(outDir);
+  const ygg = `${out}/.yggdrasil`;
+  const c = r.counts;
+  const sha = (r.exp?.asOf || '').slice(0, 7);
+  const edges = r.nodes.reduce((a, n) => a + n.relations.length, 0);
+  const evidenceOf = a => `${a.share == null ? 'share n/a' : pct(a.share)} of ${a.n ?? 0} site(s), ${a.deviating ?? 0} deviating`;
+  const aspectPath = a => `${ygg}/aspects/${a.id}/`;
+  const caught = a => (a.drill ? a.drill.catches : 0);
+  const byStrength = (a, b) => caught(b) - caught(a) || (b.share ?? 0) - (a.share ?? 0) || (b.n ?? 0) - (a.n ?? 0);
+
+  const enforced = r.aspects.filter(a => a.finalStatus === 'active').sort(byStrength);
+  // a candidate: drilled, caught at least one planted violation, still not enforced (see the header)
+  const candidates = r.aspects.filter(a => a.finalStatus !== 'active' && caught(a) > 0).sort(byStrength);
+  const rest = r.aspects.filter(a => a.finalStatus !== 'active' && caught(a) <= 0);
+  // counted over `rest` alone, not over every draft: a candidate above is also a draft, and a summary line that
+  // re-counted it would make the report's own numbers add up to more than the aspects that exist
+  const restByReason = {};
+  for (const a of rest) { const k = a.draftReason || 'unverified'; restByReason[k] = (restByReason[k] || 0) + 1; }
+
+  const aspectJson = a => ({
+    id: a.id, statement: a.name, status: a.finalStatus === 'active' ? 'enforced' : 'draft',
+    draftReason: a.draftReason || null, reviewer: a.check ? 'deterministic' : 'llm',
+    share: a.share ?? null, n: a.n ?? null, deviating: a.deviating ?? null, node: a.host || null,
+    drill: a.drill ? { caught: a.drill.catches, planted: a.drill.violates, falseAlarms: a.drill.falseAlarm } : null,
+    path: aspectPath(a),
+  });
+
+  const json = {
+    schema: 'grain-propose/1',
+    outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length,
+    architecture: { nodeTypes: c.types, nodes: c.nodes, relations: edges, cycles: c.nodeCycles, path: `${ygg}/yg-architecture.yaml` },
+    yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0 },
+    aspects: { total: c.aspects, enforced: enforced.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason },
+    enforced: enforced.map(aspectJson),
+    candidates: candidates.map(aspectJson),
+    alternatives: c.alternatives,
+    skippedNotARule: c.aspectsSkippedNotARule,
+    skippedUnrenderableGroupScoped: c.aspectsSkippedUnrenderableGroupScoped,
+    paths: { proposal: `${out}/PROPOSAL.md`, evidence: `${out}/proposal.json`, backlog: `${out}/REFACTOR-BACKLOG.md`, alternatives: `${out}/alternatives.md`, sizing: `${out}/sizing.json`, graph: `${ygg}/` },
+    ...(full ? { restAspects: rest.map(aspectJson) } : {}),
+  };
+
+  const L = [];
+  L.push(`proposed a graph for ${r.files.length} tracked files, as of ${sha} — ${ygg}/`);
+  L.push(`architecture: ${c.types} node types · ${c.nodes} nodes · ${edges} relations · ${c.nodeCycles} dependency cycle(s) — ${ygg}/yg-architecture.yaml`);
+  if (!r.verify?.haveYg) {
+    L.push(`enforced: 0 of ${c.aspects} aspects — no Yggdrasil CLI was found, so no rule was drilled and NOTHING here is enforced (set YG_BIN to a built bin.js, or put \`yg\` on PATH, then run this again)`);
+    L.push(`candidates: 0 of ${c.aspects} — a candidate is a draft a real drill caught a violation with, and no drill ran`);
+  } else {
+    L.push(`enforced: ${enforced.length} of ${c.aspects} aspects earned \`status: enforced\` from a real drill of ${r.verify.verified} deterministic check(s) — ${r.verify.ygBin}`);
+    for (const a of enforced) {
+      L.push(`  ${a.id} — ${a.name}`);
+      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · practised in ${evidenceOf(a)} — ${aspectPath(a)}`);
+    }
+    L.push(`candidates: ${candidates.length} of ${c.aspects} — drafts a real drill caught a violation with, strongest evidence first`);
+    for (const a of candidates) {
+      L.push(`  ${a.id} — ${a.name}`);
+      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s) · ${evidenceOf(a)} · held as draft: ${a.draftReason || 'unverified'} — ${aspectPath(a)}`);
+    }
+  }
+  const byReason = Object.entries(restByReason).sort().map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
+  L.push(`on disk, not above: ${rest.length} more draft(s) (${byReason}) · ${c.alternatives} finer type alternative(s) · ${c.aspectsSkippedNotARule} convention(s) skipped as not a rule — ${out}/PROPOSAL.md`);
+  if (full) {
+    L.push(`== the remaining ${rest.length} draft(s), by why each is one ==`);
+    for (const reason of [...new Set(rest.map(a => a.draftReason || 'unverified'))].sort()) {
+      const group = rest.filter(a => (a.draftReason || 'unverified') === reason);
+      L.push(`  ${reason}: ${group.length}`);
+      for (const a of group) L.push(`    ${a.id} — ${a.name} · ${evidenceOf(a)} — ${aspectPath(a)}`);
+    }
+    L.push(`== ${c.alternatives} finer type alternative(s), not cut as types — ${out}/alternatives.md ==`);
+    for (const alt of r.alternatives) L.push(`  ${alt.id} — ${alt.why}`);
+  }
+  L.push(`next: read ${out}/PROPOSAL.md (per-element evidence: ${out}/proposal.json), then move ${ygg}/ to the repository root as .yggdrasil/ and run \`yg check\``);
+  return { lines: L, json };
+}
