@@ -32,6 +32,7 @@ import {
   dirname,
   extname,
   basename,
+  sep,
   dirname as pdirname,
 } from 'node:path';
 import { dirname as posixDirname } from 'node:path/posix'; // matches placementHit's own dirname(rel) in core.mjs — `rel` is toPosix'd, so this is the correct dirname, not node:path's platform-dependent one
@@ -1896,9 +1897,15 @@ async function cmdPropose({ root, args, opts, stamp }) {
   const outDir = args[0]
     ? isAbsolute(args[0]) ? args[0] : resolve(process.cwd(), args[0])
     : join(root, '.yggdrasil-proposal');
-  if (resolve(outDir) === resolve(root) || resolve(outDir) === resolve(root, '.yggdrasil') || resolve(outDir).startsWith(resolve(root, '.yggdrasil') + '/'))
+  // CANONICAL PATHS, NOT RESOLVED STRINGS. `resolve()` folds `.` and `..` and never touches the filesystem, so
+  // an out-dir that is a SYMLINK to the repository compares unequal to it, walks past this guard, and the
+  // renderer's `rmSync(<out-dir>/.yggdrasil)` then deletes the hand-written graph the guard exists to protect —
+  // measured, exit code 0, no warning. `canonicalize` (above) resolves symlinks through the deepest existing
+  // ancestor, so it works on an out-dir that does not exist yet, which is the ordinary case.
+  const outReal = canonicalize(outDir), rootReal = canonicalize(root), yggReal = canonicalize(join(root, '.yggdrasil'));
+  if (outReal === rootReal || outReal === yggReal || outReal.startsWith(yggReal + sep))
     throw new Error(
-      `refusing to write a proposal into ${resolve(outDir)}: that is the repository itself or its own .yggdrasil/.\n` +
+      `refusing to write a proposal into ${outReal}: that is the repository itself or its own .yggdrasil/.\n` +
         'A proposal is a staging tree a human reads, edits and moves in — writing it over a live graph destroys the graph already there.\n' +
         `Run \`grain propose\` with no argument (it writes ${join(root, '.yggdrasil-proposal')}), or name a directory outside .yggdrasil/.`
     );
