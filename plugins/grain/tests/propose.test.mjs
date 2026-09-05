@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -143,14 +143,17 @@ test('every written YAML carries the honest preamble and an inline `# evidence:`
   assert.ok(comments >= Object.keys(arch.node_types).length, `${comments} evidence comments for ${Object.keys(arch.node_types).length} types`);
 });
 
-test('every aspect ships either draft or enforced status, and exactly one rule source', () => {
+test('every aspect ships draft, enforced or advisory status, and exactly one rule source', () => {
   const dir = join(out, '.yggdrasil', 'aspects');
   if (!existsSync(dir)) return; // a fixture this small may certify nothing — that is an honest outcome
   for (const p of walkFiles(dir, x => x.endsWith('yg-aspect.yaml'))) {
     const doc = parseYaml(readFileSync(p, 'utf8'));
     // ticket 102: prose NEVER leaves draft; a deterministic check earns `enforced` only from a real `yg drill`
-    // (0 FALSE-ALARM, >= 1 catch) — `advisory` is never written by this renderer at all.
-    assert.ok(doc.status === 'draft' || doc.status === 'enforced', `${p} carries an unexpected status ${doc.status}`);
+    // (0 FALSE-ALARM, >= 1 catch) AND a certified-convention origin (ticket 107) — the identical drill result
+    // on a sub-gate-lattice origin earns `advisory` instead. This fixture is too small to grow a sub-gate
+    // lattice (`MIN_SUPPORT` sites per cell) so it will not exercise `advisory` in practice, but the assertion
+    // states the real three-way contract rather than a fixture-specific accident.
+    assert.ok(doc.status === 'draft' || doc.status === 'enforced' || doc.status === 'advisory', `${p} carries an unexpected status ${doc.status}`);
     assert.ok(doc.name && doc.description, `${p} is missing name/description`);
     const d = dirname(p);
     const hasCheck = existsSync(join(d, 'check.mjs')), hasContent = existsSync(join(d, 'content.md'));
@@ -160,17 +163,19 @@ test('every aspect ships either draft or enforced status, and exactly one rule s
   }
 });
 
-// ---------- 2a. status is EARNED, not declared (ticket 102) ----------
+// ---------- 2a. status is EARNED, not declared (ticket 102, sharpened by 107) ----------
 //
 // `promoteEnforceableAspects` is the only place anything leaves `draft`, and it does so from a REAL `yg drill`
-// run, never a claim this renderer computes on its own. This drives it directly against three hand-authored
+// run, never a claim this renderer computes on its own. This drives it directly against hand-authored
 // deterministic aspects (a real check.mjs, a real drill corpus, no mining involved — the mining pipeline itself
-// is covered above) so the three outcomes are each exercised against the real Yggdrasil binary: a clean catch
-// promotes to `enforced`, a FALSE-ALARM demotes with a named reason, and a rule that never catches its own
-// planted violation stays draft with the other named reason. Skipped, like the staged-check test above, where
-// `YG_BIN` is not resolvable — `promoteEnforceableAspects` itself then leaves everything draft, unverified,
-// which is covered by the assertion right after it runs.
-test('promoteEnforceableAspects earns `enforced` only from a real yg drill: FALSE-ALARM and no-catch both stay draft, named', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+// is covered above) so every outcome is exercised against the real Yggdrasil binary: a clean catch from a
+// CERTIFIED-CONVENTION origin promotes to `enforced`, the IDENTICAL clean catch from a SUB-GATE-LATTICE origin
+// promotes only to `advisory` (ruling `enforced-requires-certified-origin` — origin, not drill result, decides
+// which of the two a passing drill earns), a FALSE-ALARM demotes with a named reason regardless of origin, and a
+// rule that never catches its own planted violation stays draft with the other named reason. Skipped, like the
+// staged-check test above, where `YG_BIN` is not resolvable — `promoteEnforceableAspects` itself then leaves
+// everything draft, unverified, which is covered by the assertion right after it runs.
+test('promoteEnforceableAspects earns `enforced` only for a certified-convention origin; the identical drill on a sub-gate-lattice origin earns `advisory` instead; FALSE-ALARM and no-catch both stay draft, named, regardless of origin', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
   const t2 = mkdtempSync(join(tmpdir(), 'promote-'));
   const outDir2 = join(t2, 'proposal');
   const ygg = join(outDir2, '.yggdrasil');
@@ -181,7 +186,7 @@ test('promoteEnforceableAspects earns `enforced` only from a real yg drill: FALS
   writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '5.2.0' }));
   writeFileSync(join(ygg, 'yg-architecture.yaml'), yamlEmit({ node_types: { project: { description: 'root' } } }));
   const flagsBad = 'import { walk } from \'@chrisdudek/yg/ast\';\nexport function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.content.includes(\'BAD\')) v.push({ file: file.path, line: 1, column: 0, message: \'hit\' });\n  return v;\n}\n';
-  const writeAspect = (id, { violatesHasBad, satisfiesHasBad, kind }) => {
+  const writeAspect = (id, { violatesHasBad, satisfiesHasBad, kind, origin }) => {
     const dir = join(ygg, 'aspects', id);
     mkdirSync(dir, { recursive: true });
     writeFileSync(join(dir, 'yg-aspect.yaml'), yamlEmit({ name: id, description: `test aspect ${id}`, status: 'draft', errs: 'under', scope: { per: 'file' } }));
@@ -192,13 +197,16 @@ test('promoteEnforceableAspects earns `enforced` only from a real yg drill: FALS
       mkdirSync(join(dir, 'drills', 'satisfies-case'), { recursive: true });
       writeFileSync(join(dir, 'drills', 'satisfies-case', 'case.txt'), satisfiesHasBad ? 'this one is secretly BAD\n' : 'this one is clean\n');
     }
-    return { id, check: flagsBad, kind: kind || null, drillViolatesWritten: 1, drillSatisfiesWritten: satisfiesHasBad != null ? 1 : 0 };
+    return { id, check: flagsBad, kind: kind || null, origin: origin || null, drillViolatesWritten: 1, drillSatisfiesWritten: satisfiesHasBad != null ? 1 : 0 };
   };
   const aspects = [
-    writeAspect('catches-clean', { violatesHasBad: true }), // 1 violates case, correctly flagged -> catches, no FA -> enforced
-    writeAspect('never-catches', { violatesHasBad: false }), // 1 violates case the check does NOT flag -> MISS -> no-catch
-    writeAspect('false-alarms', { violatesHasBad: true, satisfiesHasBad: true, kind: 'method' }), // satisfies case mislabelled -> FALSE-ALARM
-    { id: 'a-prose-aspect', check: null, kind: null, drillViolatesWritten: 0, drillSatisfiesWritten: 0 }, // no check.mjs at all — never drilled
+    // identical drill (1 violates case, correctly flagged, no satisfies case -> catches, no FA) on the two
+    // origins ticket 107 tells apart — only the origin should decide `enforced` vs. `advisory`.
+    writeAspect('catches-clean-certified', { violatesHasBad: true, origin: 'certified-convention' }),
+    writeAspect('catches-clean-subgate', { violatesHasBad: true, origin: 'sub-gate-lattice' }),
+    writeAspect('never-catches', { violatesHasBad: false, origin: 'certified-convention' }), // 1 violates case the check does NOT flag -> MISS -> no-catch
+    writeAspect('false-alarms', { violatesHasBad: true, satisfiesHasBad: true, kind: 'method', origin: 'sub-gate-lattice' }), // satisfies case mislabelled -> FALSE-ALARM, whatever the origin
+    { id: 'a-prose-aspect', check: null, kind: null, origin: 'certified-convention', drillViolatesWritten: 0, drillSatisfiesWritten: 0 }, // no check.mjs at all — never drilled
   ];
   mkdirSync(join(ygg, 'aspects', 'a-prose-aspect'), { recursive: true });
   writeFileSync(join(ygg, 'aspects', 'a-prose-aspect', 'yg-aspect.yaml'), yamlEmit({ name: 'a-prose-aspect', description: 'prose', status: 'draft', scope: { per: 'file' } }));
@@ -207,45 +215,75 @@ test('promoteEnforceableAspects earns `enforced` only from a real yg drill: FALS
   const evidence = aspects.map(a => ({ kind: 'aspect', id: a.id }));
   const result = promoteEnforceableAspects(aspects, { ygg, outDir: outDir2, evidence, asOf: '2026-01-01', repo: t2 });
   assert.equal(result.haveYg, true);
-  assert.equal(result.verified, 3, 'exactly the three deterministic aspects should have run a real drill');
+  assert.equal(result.verified, 4, 'exactly the four deterministic aspects should have run a real drill');
 
   const byId = Object.fromEntries(aspects.map(a => [a.id, a]));
-  assert.equal(byId['catches-clean'].finalStatus, 'active');
-  assert.equal(byId['catches-clean'].draftReason, null);
+  assert.equal(byId['catches-clean-certified'].finalStatus, 'enforced', 'a certified-convention origin that clears the drill earns full enforcement');
+  assert.equal(byId['catches-clean-certified'].draftReason, null);
+  assert.equal(byId['catches-clean-subgate'].finalStatus, 'advisory', 'the IDENTICAL drill result on a sub-gate-lattice origin earns advisory, never enforced');
+  assert.equal(byId['catches-clean-subgate'].draftReason, null);
   assert.equal(byId['never-catches'].finalStatus, 'draft');
   assert.equal(byId['never-catches'].draftReason, 'no-catch');
   assert.equal(byId['false-alarms'].finalStatus, 'draft');
   assert.equal(byId['false-alarms'].draftReason, 'file-scope-approximation-fa');
   assert.equal(byId['false-alarms'].scopeApproximation, 'file-from-symbol', 'a `method`-kind check is a symbol-level convention approximated at file scope');
-  assert.equal(byId['catches-clean'].scopeApproximation, null, 'no `kind` was recorded for this one — nothing to approximate');
+  assert.equal(byId['catches-clean-certified'].scopeApproximation, null, 'no `kind` was recorded for this one — nothing to approximate');
   assert.equal(byId['a-prose-aspect'].finalStatus, 'draft');
   assert.equal(byId['a-prose-aspect'].draftReason, 'prose-unenforceable-keyless');
 
-  // yg-aspect.yaml was rewritten `enforced` for the one that earned it, and only that one
-  const enforcedDoc = parseYaml(readFileSync(join(ygg, 'aspects', 'catches-clean', 'yg-aspect.yaml'), 'utf8'));
+  // yg-aspect.yaml was rewritten with the earned status for the two that left draft, and only those two
+  const enforcedDoc = parseYaml(readFileSync(join(ygg, 'aspects', 'catches-clean-certified', 'yg-aspect.yaml'), 'utf8'));
   assert.equal(enforcedDoc.status, 'enforced');
+  const advisoryDoc = parseYaml(readFileSync(join(ygg, 'aspects', 'catches-clean-subgate', 'yg-aspect.yaml'), 'utf8'));
+  assert.equal(advisoryDoc.status, 'advisory');
   for (const id of ['never-catches', 'false-alarms', 'a-prose-aspect']) {
     const doc = parseYaml(readFileSync(join(ygg, 'aspects', id, 'yg-aspect.yaml'), 'utf8'));
     assert.equal(doc.status, 'draft', `${id} must stay draft in its own yg-aspect.yaml`);
   }
 
-  // provenance.json carries all three new fields (ticket 102), and the evidence row was annotated in place
+  // provenance.json carries all three ticket-102 fields, in Yggdrasil's own status vocabulary (ticket 107 —
+  // `enforced`/`advisory`/`draft`, not a separate Grain-internal word), and the evidence row was annotated in place
   const prov = JSON.parse(readFileSync(join(ygg, 'aspects', 'false-alarms', 'provenance.json'), 'utf8'));
   assert.equal(prov.status, 'draft');
   assert.equal(prov.draftReason, 'file-scope-approximation-fa');
   assert.equal(prov.scopeApproximation, 'file-from-symbol');
-  const evRow = evidence.find(e => e.id === 'catches-clean');
-  assert.equal(evRow.status, 'active');
+  const advisoryProv = JSON.parse(readFileSync(join(ygg, 'aspects', 'catches-clean-subgate', 'provenance.json'), 'utf8'));
+  assert.equal(advisoryProv.status, 'advisory');
+  assert.equal(advisoryProv.origin, 'sub-gate-lattice');
+  const evRow = evidence.find(e => e.id === 'catches-clean-certified');
+  assert.equal(evRow.status, 'enforced');
   assert.equal(evRow.draftReason, null);
+  const evRowAdvisory = evidence.find(e => e.id === 'catches-clean-subgate');
+  assert.equal(evRowAdvisory.status, 'advisory');
 
   rmSync(t2, { recursive: true, force: true });
 });
 
+// ---------- ticket 106: an aspect's `name` is the whole statement, never a prefix cut mid-word ----------
+test('buildAspects never truncates `name` (ticket 106 — `.slice(0, 70)` used to cut mid-word)', () => {
+  const longStatement = 'this convention has a genuinely long statement that runs well past seventy characters on purpose (`WordBoundary`)';
+  assert.ok(longStatement.length > 70, 'the fixture statement must actually exceed the old cutoff to be a real regression check');
+  const active = [{ id: 'src', dir: 'src' }];
+  const exp = {
+    conventions: [{
+      established: 6, statement: longStatement, partition: 'src', feature: { enumerator: 'has', argument: null },
+      share: 1, bitsPerInstance: 4, expected: 'true', kind: 'file', exemplars: [], deviatingSites: [], conformingSites: [],
+    }],
+  };
+  const { aspects } = buildAspects(exp, active, []);
+  assert.equal(aspects.length, 1);
+  assert.equal(aspects[0].name, longStatement, 'name must be the whole statement, not a 70-char prefix');
+  assert.ok(!aspects[0].name.endsWith('Bo'), 'a mid-word cut like the old `.slice(0, 70)` must not reappear');
+  assert.ok(aspects[0].description.startsWith(longStatement), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
+});
+
 test('provenanceFor carries status/draftReason/scopeApproximation, additive over the law-loop.mjs field set', () => {
-  const p = provenanceFor({ id: 'x', origin: 'certified-convention', check: 'body', finalStatus: 'active', draftReason: null, scopeApproximation: null }, { asOf: '2026-01-01', repo: '/r' });
-  assert.equal(p.status, 'active');
+  const p = provenanceFor({ id: 'x', origin: 'certified-convention', check: 'body', finalStatus: 'enforced', draftReason: null, scopeApproximation: null }, { asOf: '2026-01-01', repo: '/r' });
+  assert.equal(p.status, 'enforced');
   assert.equal(p.draftReason, null);
   assert.equal(p.scopeApproximation, null);
+  const pAdvisory = provenanceFor({ id: 'y2', origin: 'sub-gate-lattice', check: 'body', finalStatus: 'advisory', draftReason: null, scopeApproximation: null }, { asOf: '2026-01-01', repo: '/r' });
+  assert.equal(pAdvisory.status, 'advisory');
   const p2 = provenanceFor({ id: 'y', origin: 'sub-gate-lattice', check: null }, { asOf: '2026-01-01', repo: '/r' });
   // no classification ran yet on this synthetic object — defaults to draft, unexplained, never a crash on a missing field
   assert.equal(p2.status, 'draft');

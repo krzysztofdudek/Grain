@@ -112,14 +112,24 @@ test('the default report leaves the prose and no-catch drafts on disk, and --ful
 test('with a real Yggdrasil, the enforced count is the one a real drill earned', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
   const sidecar = JSON.parse(readFileSync(join(outDir(), 'proposal.json'), 'utf8'));
   assert.equal(json.aspects.enforced, sidecar.counts.aspectsActive);
+  assert.equal(json.aspects.advisory, sidecar.counts.aspectsAdvisory, 'ticket 107: the report and the sidecar must agree on the advisory count too');
   assert.equal(json.yggdrasil.found, true);
   assert.equal(json.yggdrasil.drilled, sidecar.counts.aspectsVerified);
   for (const a of json.enforced) {
     assert.ok(a.drill, `an enforced aspect must carry its drill numbers: ${a.id}`);
     assert.equal(a.drill.falseAlarms, 0, `${a.id} earned enforcement with a false alarm`);
     assert.ok(a.drill.caught >= 1, `${a.id} earned enforcement catching nothing`);
+    assert.equal(a.status, 'enforced');
+    // ticket 107, ruling `enforced-requires-certified-origin`: a sub-gate-lattice origin never reaches
+    // `enforced`, whatever its drill result — cross-checked against the per-aspect provenance.json, the one
+    // place `origin` is recorded (the command's own report JSON does not carry it).
+    const prov = JSON.parse(readFileSync(join(repo, a.path, 'provenance.json'), 'utf8'));
+    assert.notEqual(prov.origin, 'sub-gate-lattice', `${a.id} earned \`enforced\` from a sub-gate-lattice origin`);
   }
-  for (const a of json.candidates) assert.ok(a.drill.caught >= 1, `a candidate must have caught something: ${a.id}`);
+  for (const a of json.candidates) {
+    assert.ok(a.drill.caught >= 1, `a candidate must have caught something: ${a.id}`);
+    assert.ok(a.status === 'advisory' || a.status === 'draft', `a candidate must be advisory or draft, got ${a.status}: ${a.id}`);
+  }
 });
 
 // ---------- 3. the honest negative ----------

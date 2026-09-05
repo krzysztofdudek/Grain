@@ -1326,7 +1326,7 @@ export async function propose(repo, outDir, opts = {}) {
   // annotates the matching `evidence[]` rows in place. See the header comment for the full rule.
   const verify = promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf: exp.asOf, repo, ygBin: opts.ygBin });
   say(opts, verify.haveYg
-    ? `verification: ${verify.verified} deterministic aspect(s) drilled against a real Yggdrasil (${verify.ygBin}) — ${aspects.filter(a => a.finalStatus === 'active').length} promoted to \`status: enforced\``
+    ? `verification: ${verify.verified} deterministic aspect(s) drilled against a real Yggdrasil (${verify.ygBin}) — ${aspects.filter(a => a.finalStatus === 'enforced').length} promoted to \`status: enforced\`, ${aspects.filter(a => a.finalStatus === 'advisory').length} to \`status: advisory\` (sub-gate origin, below grain's own certification bound)`
     : 'verification: skipped — no Yggdrasil CLI found (set YG_BIN to a built bin.js, or put `yg` on PATH); every deterministic aspect ships `status: draft`, unverified');
 
   // sizing.json — files/bytes/scopes/codelength per proposed node, and per HAND node when the source repo
@@ -1355,10 +1355,14 @@ export async function propose(repo, outDir, opts = {}) {
   const counts = {
     types: active.length, alternatives: alternatives.length, nodes: nodes.length,
     aspects: aspects.length, aspectsRenderedAsCheck: aspects.filter(a => a.check).length, aspectsProse: aspects.filter(a => !a.check).length,
-    // status split (ticket 102) — `active` is what a plain `yg check` on this proposal enforces; the rest is a
-    // candidate for a human decision, split by WHY (`aspectsByDraftReason`, see `promoteEnforceableAspects`).
-    aspectsActive: aspects.filter(a => a.finalStatus === 'active').length,
-    aspectsDraft: aspects.filter(a => a.finalStatus !== 'active').length,
+    // status split (ticket 102, three-way since ticket 107) — `aspectsActive` (kept named for schema stability;
+    // it counts `status: enforced`) is what a plain `yg check` on this proposal BLOCKS on. `aspectsAdvisory`
+    // (ticket 107) is the same drilled bar cleared by a sub-gate-lattice origin instead — `yg check` runs the
+    // reviewer and records a baseline, but a refusal warns rather than blocks. `aspectsDraft` is everything
+    // that never left `draft`, split by WHY (`aspectsByDraftReason`, see `promoteEnforceableAspects`).
+    aspectsActive: aspects.filter(a => a.finalStatus === 'enforced').length,
+    aspectsAdvisory: aspects.filter(a => a.finalStatus === 'advisory').length,
+    aspectsDraft: aspects.filter(a => a.finalStatus === 'draft').length,
     aspectsByDraftReason,
     aspectsVerified: verify.verified, aspectsVerifiedAgainst: verify.haveYg ? verify.ygBin : null,
     aspectsSkippedUnrenderableGroupScoped: skipped.unrenderableGroupScoped, aspectsSkippedNotARule: skipped.notARule, proseByClass: skipped.byClass,
@@ -1382,9 +1386,9 @@ export async function propose(repo, outDir, opts = {}) {
     instrument: 'propose/1', repo, asOf: exp.asOf, files: files.length, counts,
     schemaNotes: {
       evidence:
-        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102 — `status` (`active` | `draft`) and `draftReason` (`prose-unenforceable-keyless` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
+        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`, the same values Yggdrasil\'s own `yg-aspect.yaml` takes) and `draftReason` (`prose-unenforceable-keyless` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
       counts:
-        'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (ticket 102 — see `provenance.json`\'s own `status`/`draftReason`), `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified), `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
+        'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsAdvisory`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (ticket 102, three-way since 107 — see `provenance.json`\'s own `status`/`draftReason`): `aspectsActive` counts `status: enforced` (a certified-convention origin that cleared a real drill — nothing stands between the maintainer and turning it on), `aspectsAdvisory` counts `status: advisory` (a sub-gate-lattice origin that cleared the SAME drill but sits below grain\'s own certification bound — a refactor decision, not law; these are the report\'s `candidates`), `aspectsDraft` is everything that never cleared the drill at all. `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified), `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
       provenance:
         'NOT inlined here — each `.yggdrasil/aspects/<id>/provenance.json` (same field set as ticket 097\'s law-loop.mjs: aspectId, conventionId, origin, enumeratorClass, identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note — PLUS, ticket 102, `status`/`draftReason`/`scopeApproximation`, additive fields law-loop.mjs\'s own replay provenance does not carry) is the per-aspect record; this file\'s `evidence` rows are the prose summary, provenance.json is the structured one a machine reads.',
       sizing:
@@ -1457,7 +1461,9 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const profile = c.context?.type === 'group' ? (partOf(c.partition)?.groups || []).find(g => g.id === c.context.group)?.profile : null;
     out.push({
       id, origin: 'certified-convention', host: host?.id || null, evidenceLine, provenance, reviewBy,
-      name: c.statement.slice(0, 70), description: `${c.statement}. Proposed by grain from evidence — ${provenance}.`,
+      // The whole statement, not a truncated prefix (ticket 106: `slice(0, 70)` used to cut mid-word — `yg
+      // schemas read aspect` sets no length limit on `name`, so there is no honest reason to cut it at all).
+      name: c.statement, description: `${c.statement}. Proposed by grain from evidence — ${provenance}.`,
       scope: scope.pred, check,
       whyProse: proseReason,
       content: check ? null : contentMd(c, profile, evidenceLine, proseReason),
@@ -1500,7 +1506,8 @@ export function buildAspects(exp, active, sub, opts = {}) {
     if (!check) { skipped.prose++; skipped.byClass[fam] = (skipped.byClass[fam] || 0) + 1; }
     out.push({
       id, origin: 'sub-gate-lattice', host: host.id, evidenceLine, provenance, reviewBy,
-      name: statement.slice(0, 70), description: `${statement}. Proposed by grain from evidence — ${provenance}.`,
+      // See the certified-convention branch above (ticket 106) — same fix, same reason.
+      name: statement, description: `${statement}. Proposed by grain from evidence — ${provenance}.`,
       scope: { per: 'file', files: { path: `${host.dir}/**` } }, check,
       whyProse: proseReason2,
       content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2),
@@ -1554,12 +1561,13 @@ export function provenanceFor(a, { asOf, repo }) {
     note: a.check
       ? 'Generated by grain from measured practice at `asOf`; rendered as a deterministic check.mjs.'
       : 'Generated by grain from measured practice at `asOf`; no template renders this class as a deterministic check, so it ships as prose (content.md) for an LLM reviewer.',
-    // 'active' | 'draft' — Grain's own vocabulary (see `promoteEnforceableAspects`), not to be confused with the
-    // three Yggdrasil-schema values (`draft`/`advisory`/`enforced`) the aspect's own `yg-aspect.yaml` carries;
-    // 'active' there is written as `status: enforced`. Absent only if this ran before classification ran at all.
+    // 'enforced' | 'advisory' | 'draft' (ticket 107) — the SAME three values Yggdrasil's own `yg-aspect.yaml`
+    // `status:` field takes (`yg schemas read aspect`), written here verbatim, not a separate Grain-internal
+    // word translated at write time. Absent only if this ran before classification ran at all.
     status: a.finalStatus ?? 'draft',
     // one of 'prose-unenforceable-keyless' | 'file-scope-approximation-fa' | 'no-catch', or null when `status`
-    // is 'active' (nothing to explain) or the aspect was never verified this run (no `YG_BIN`, no drill corpus).
+    // is 'enforced'/'advisory' (nothing to explain) or the aspect was never verified this run (no `YG_BIN`, no
+    // drill corpus).
     draftReason: a.draftReason ?? null,
     // 'file-from-symbol' when the CONVENTION's own subject (`a.kind`) is a symbol inside a file — a method, a
     // type, a catch/finally block — but Yggdrasil reviews this check per FILE; null for a file/module-level
@@ -1580,11 +1588,14 @@ function aspectYamlDoc(a, status) {
 }
 
 // ==================================================================================================
-// 7a-continued. Aspect status, earned rather than declared (ticket 102, rulings from 101's integration-stress
-// report). Sits right after `provenanceFor` (§7a) rather than claiming its own top-level number — §7b/§7c below
-// (the family-candidates adapter, `charter.md`) are ticket 100's, unrenumbered.
+// 7a-continued. Aspect status, earned rather than declared (ticket 102, sharpened by ticket 107's ruling
+// `enforced-requires-certified-origin`). Sits right after `provenanceFor` (§7a) rather than claiming its own
+// top-level number — §7b/§7c below (the family-candidates adapter, `charter.md`) are ticket 100's, unrenumbered.
 //
-// `status: draft` is where every aspect starts (§ above). This function is the only place anything leaves it:
+// `status: draft` is where every aspect starts (§ above). `a.finalStatus` below is written directly in
+// Yggdrasil's own vocabulary (`enforced` | `advisory` | `draft` — `yg schemas read aspect`), not a separate
+// Grain-internal word translated at write time: `provenanceFor` and every evidence row read it verbatim. This
+// function is the only place anything leaves `draft`:
 //
 //   - PROSE (`content.md`) never leaves. Ticket 101 measured its sense rate under a keyless gate at 0% (1305 of
 //     1671 proposed aspects on a 17-repo corpus) — a judgment call needs a configured reviewer this renderer
@@ -1602,7 +1613,17 @@ function aspectYamlDoc(a, status) {
 //     - Else, `catches (violates-case refusals) <= 0` → stays draft, `no-catch`. Ruling `no-catch-rules-stay-
 //       draft`: a rule nothing can ever be shown to violate does not enforce architecture — it is noise for a
 //       future agent session, whatever else is true about it.
-//     - Else (0 FALSE-ALARM, >= 1 catch) → `active` (written as `status: enforced` in `yg-aspect.yaml`).
+//     - Else (0 FALSE-ALARM, >= 1 catch): the drill has proved `check.mjs` CORRECT — but `no-catch-rules-stay-
+//       draft` and this drill only ever measure whether the check is right, never whether the rule is ADOPTED.
+//       `origin: certified-convention` (the row cleared grain's own MDL/λ certification bound) → `enforced`:
+//       nothing stands between the maintainer and turning it on. `origin: sub-gate-lattice` (the row sits
+//       BELOW that bound — grain itself refused to certify it; ruling `sub-gate-rows-are-the-product`, a
+//       lattice row is a refactor plan, not law) → `advisory` instead: Yggdrasil runs the same reviewer and
+//       records the same baseline, but a refusal warns rather than blocks (`yg schemas read aspect`). Ruling
+//       `enforced-requires-certified-origin`: on Grain's own young, uncertified repo EVERY sub-gate row that
+//       passed this exact drill (22 of 22) would otherwise have gone straight to `enforced`, including rules
+//       practised in as little as 67% of sites with a third of sites deviating — turning `yg check` red on a
+//       third of the existing code for a rule grain itself would not certify.
 //   - No `YG_BIN`, or a check with no drill corpus at all (nothing to run) → stays draft, unverified, no reason.
 //     Exactly what this renderer shipped before ticket 102 — the absence of a verdict is not one of the three
 //     named reasons above, because none of them fired; nothing here says the check is bad, only that no drill
@@ -1641,7 +1662,11 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
       a.drill = { pass: Number(m[1]), miss, falseAlarm, catches, violates, satisfies };
       if (falseAlarm > 0) { a.finalStatus = 'draft'; a.draftReason = 'file-scope-approximation-fa'; }
       else if (catches <= 0) { a.finalStatus = 'draft'; a.draftReason = 'no-catch'; }
-      else { a.finalStatus = 'active'; a.draftReason = null; }
+      // The drill passed — 0 FALSE-ALARM, >= 1 caught. Whether that earns `enforced` or only `advisory` turns
+      // on ORIGIN, not on anything the drill measured (ruling `enforced-requires-certified-origin`): a
+      // certified convention cleared grain's own certification bound and is law; a sub-gate-lattice row sat
+      // BELOW it — grain itself declined to certify it — and stays a maintainer's refactor decision.
+      else { a.finalStatus = a.origin === 'certified-convention' ? 'enforced' : 'advisory'; a.draftReason = null; }
     }
   } finally {
     // Always — a thrown drill invocation must not leave a throwaway copy of the whole proposal sitting in the
@@ -1650,7 +1675,9 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
   }
 
   for (const a of aspects) {
-    if (a.finalStatus === 'active') write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(aspectYamlDoc(a, 'enforced')));
+    // `enforced` and `advisory` both leave `draft` and both need `yg-aspect.yaml` rewritten with the earned
+    // status; `draft` aspects keep the file this renderer already wrote above (§7).
+    if (a.finalStatus === 'enforced' || a.finalStatus === 'advisory') write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(aspectYamlDoc(a, a.finalStatus)));
     write(join(ygg, 'aspects', a.id, 'provenance.json'), JSON.stringify(provenanceFor(a, { asOf, repo }), null, 2) + '\n');
     const row = evidence.find(e => e.kind === 'aspect' && e.id === a.id);
     if (row) { row.status = a.finalStatus; row.draftReason = a.draftReason || null; }
@@ -2085,14 +2112,21 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
 // every line of it carries a number or a path:
 //
 //   1. THE ARCHITECTURE — node types, nodes, relations, dependency cycles. This is the part that loads.
-//   2. WHAT EARNED ENFORCEMENT — aspects a REAL `yg drill` promoted, each with what it checks and the drill's
-//      own numbers (caught / false alarms / corpus size) beside the practice it was mined from (share, n).
-//   3. THE CANDIDATES — and a candidate is DEFINED, not thresholded: a draft that the same real drill caught at
-//      least one violation with. That is the exact bar `no-catch-rules-stay-draft` sets for a rule to be doing
-//      anything at all; a draft that meets it and is still not enforced is the one thing a maintainer can act
-//      on immediately. It follows that with no drill there are no candidates to rank — which the report says,
-//      rather than ranking drafts nobody has judged. No display cap is applied and none is needed: the
-//      definition does the cutting (1 candidate on Yggdrasil's own proposal, out of 114 drafts).
+//   2. WHAT EARNED ENFORCEMENT — aspects a REAL `yg drill` promoted to `status: enforced`, each with what it
+//      checks and the drill's own numbers (caught / false alarms / corpus size) beside the practice it was
+//      mined from (share, n). Ticket 107, ruling `enforced-requires-certified-origin`: earning this section
+//      needs the drill AND a `certified-convention` origin — a rule grain's own certification bound cleared.
+//      A `sub-gate-lattice` origin that clears the identical drill is real, but not yet law; it lands in (3).
+//   3. THE CANDIDATES — first the ADVISORY aspects (ticket 107): a sub-gate-lattice row a real drill proved
+//      correct (0 false alarms, >= 1 caught) but that grain itself declined to certify — `sub-gate-rows-are-
+//      the-product` calls this a refactor plan, not a rule to switch on unread. Then, folded into the SAME
+//      list below them, today's older definition: a DRAFT (any origin, but in practice a false-alarming
+//      certified convention) the same real drill still caught at least one violation with — the exact bar
+//      `no-catch-rules-stay-draft` sets for a rule to be doing anything at all. Either way a maintainer can
+//      act on the line immediately; each one names its origin's yg status word so turning it on reads as the
+//      refactor decision it is. It follows that with no drill there are no candidates to rank — which the
+//      report says, rather than ranking drafts nobody has judged. No display cap is applied and none is
+//      needed: the definition does the cutting.
 //
 // Everything else — prose drafts, no-catch drafts, finer type alternatives, the conventions skipped as not a
 // rule — is written to disk exactly as before and summarised here in ONE counted line naming the file that
@@ -2109,17 +2143,22 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   const caught = a => (a.drill ? a.drill.catches : 0);
   const byStrength = (a, b) => caught(b) - caught(a) || (b.share ?? 0) - (a.share ?? 0) || (b.n ?? 0) - (a.n ?? 0);
 
-  const enforced = r.aspects.filter(a => a.finalStatus === 'active').sort(byStrength);
-  // a candidate: drilled, caught at least one planted violation, still not enforced (see the header)
-  const candidates = r.aspects.filter(a => a.finalStatus !== 'active' && caught(a) > 0).sort(byStrength);
-  const rest = r.aspects.filter(a => a.finalStatus !== 'active' && caught(a) <= 0);
+  const enforced = r.aspects.filter(a => a.finalStatus === 'enforced').sort(byStrength);
+  // candidates (ticket 107): advisory aspects first (sub-gate origin, same drill bar as enforced — a refactor
+  // decision, not law), then the older definition folded in below them — a DRAFT the same real drill still
+  // caught at least one violation with. Both groups sort strongest-evidence-first WITHIN themselves; advisory
+  // sits above legacy because it cleared a strictly higher bar (0 false alarms, not merely >=1 catch).
+  const advisory = r.aspects.filter(a => a.finalStatus === 'advisory').sort(byStrength);
+  const legacyCandidates = r.aspects.filter(a => a.finalStatus === 'draft' && caught(a) > 0).sort(byStrength);
+  const candidates = [...advisory, ...legacyCandidates];
+  const rest = r.aspects.filter(a => a.finalStatus === 'draft' && caught(a) <= 0);
   // counted over `rest` alone, not over every draft: a candidate above is also a draft, and a summary line that
   // re-counted it would make the report's own numbers add up to more than the aspects that exist
   const restByReason = {};
   for (const a of rest) { const k = a.draftReason || 'unverified'; restByReason[k] = (restByReason[k] || 0) + 1; }
 
   const aspectJson = a => ({
-    id: a.id, statement: a.name, status: a.finalStatus === 'active' ? 'enforced' : 'draft',
+    id: a.id, statement: a.name, status: a.finalStatus,
     draftReason: a.draftReason || null, reviewer: a.check ? 'deterministic' : 'llm',
     share: a.share ?? null, n: a.n ?? null, deviating: a.deviating ?? null, node: a.host || null,
     drill: a.drill ? { caught: a.drill.catches, planted: a.drill.violates, falseAlarms: a.drill.falseAlarm } : null,
@@ -2131,7 +2170,9 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length,
     architecture: { nodeTypes: c.types, nodes: c.nodes, relations: edges, cycles: c.nodeCycles, path: `${ygg}/yg-architecture.yaml` },
     yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0 },
-    aspects: { total: c.aspects, enforced: enforced.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason },
+    // `advisory` (ticket 107, additive) is also the count of `candidates` rows that carry `status: advisory` —
+    // both numbers are given so a reader does not have to filter `candidates` to get the split.
+    aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason },
     enforced: enforced.map(aspectJson),
     candidates: candidates.map(aspectJson),
     alternatives: c.alternatives,
@@ -2146,17 +2187,17 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   L.push(`architecture: ${c.types} node types · ${c.nodes} nodes · ${edges} relations · ${c.nodeCycles} dependency cycle(s) — ${ygg}/yg-architecture.yaml`);
   if (!r.verify?.haveYg) {
     L.push(`enforced: 0 of ${c.aspects} aspects — no Yggdrasil CLI was found, so no rule was drilled and NOTHING here is enforced (set YG_BIN to a built bin.js, or put \`yg\` on PATH, then run this again)`);
-    L.push(`candidates: 0 of ${c.aspects} — a candidate is a draft a real drill caught a violation with, and no drill ran`);
+    L.push(`candidates: 0 of ${c.aspects} — a candidate is an advisory or draft aspect a real drill caught a violation with, and no drill ran`);
   } else {
-    L.push(`enforced: ${enforced.length} of ${c.aspects} aspects earned \`status: enforced\` from a real drill of ${r.verify.verified} deterministic check(s) — ${r.verify.ygBin}`);
+    L.push(`enforced: ${enforced.length} of ${c.aspects} aspects earned \`status: enforced\` from a real drill of ${r.verify.verified} deterministic check(s) — a certified-convention origin required, not just a passing drill (${r.verify.ygBin})`);
     for (const a of enforced) {
       L.push(`  ${a.id} — ${a.name}`);
       L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · practised in ${evidenceOf(a)} — ${aspectPath(a)}`);
     }
-    L.push(`candidates: ${candidates.length} of ${c.aspects} — drafts a real drill caught a violation with, strongest evidence first`);
+    L.push(`candidates: ${candidates.length} of ${c.aspects} — ${advisory.length} advisory (sub-gate origin, same drill bar as enforced but below grain's own certification bound) + ${legacyCandidates.length} draft(s) a drill still caught a violation with, strongest evidence first within each`);
     for (const a of candidates) {
       L.push(`  ${a.id} — ${a.name}`);
-      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s) · ${evidenceOf(a)} · held as draft: ${a.draftReason || 'unverified'} — ${aspectPath(a)}`);
+      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s) · ${evidenceOf(a)} · yg status \`${a.finalStatus}\`${a.finalStatus === 'draft' ? ` (${a.draftReason || 'unverified'})` : ''} — ${aspectPath(a)}`);
     }
   }
   const byReason = Object.entries(restByReason).sort().map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
