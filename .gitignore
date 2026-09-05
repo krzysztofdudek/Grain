@@ -9,3 +9,6 @@ node_modules/
 # instrument F (scale ladder): per-run result dumps are machine-specific noise; one checked-in baseline stays as a reference point.
 plugins/grain/tests/stress/results/*
 !plugins/grain/tests/stress/results/baseline-*.json
+
+# agent worktrees created by the harness during isolated subagent work — live state, never committed
+.claude/worktrees/
