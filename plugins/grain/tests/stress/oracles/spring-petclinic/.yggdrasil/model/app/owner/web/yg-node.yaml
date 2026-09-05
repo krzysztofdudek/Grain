@@ -1,0 +1,16 @@
+name: OwnerWeb
+type: controller
+description: "The three Thymeleaf controllers of the owner area: finding, creating and editing an owner; adding and editing that owner's pets; and booking a visit for a pet. All three write through the owner aggregate rather than saving a pet or a visit directly."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/owner/OwnerController.java
+  - src/main/java/org/springframework/samples/petclinic/owner/PetController.java
+  - src/main/java/org/springframework/samples/petclinic/owner/VisitController.java
+relations:
+  - target: app/owner/repositories
+    type: calls
+  - target: app/owner/entities
+    type: uses
+  - target: app/owner/web-support
+    type: calls
+  - target: ui/templates
+    type: uses

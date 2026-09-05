@@ -1,0 +1,9 @@
+name: TestClassNameEndsWithTests
+description: "A test class is named *Tests, plural. The convention is not decoration: build tooling and IDE run configurations select test classes by name pattern, so a class that ends in Test rather than Tests can silently drop out of a run. ADVISORY, not enforced: one class in the repository breaks it today, and renaming a class is a change worth making deliberately rather than as the price of an unrelated commit."
+reviewer:
+  type: deterministic
+status: advisory
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

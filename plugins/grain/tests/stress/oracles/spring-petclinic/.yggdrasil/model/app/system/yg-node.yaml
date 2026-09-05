@@ -1,0 +1,4 @@
+name: SystemArea
+type: feature-area
+description: "Cross-cutting application plumbing that belongs to no feature: cache and locale configuration, the welcome page, and the endpoint that throws on purpose so the error page can be seen. Nothing here knows about owners, pets or vets, and it must stay that way — a dependency from system into a feature would make the plumbing un-reusable."
+relations: []

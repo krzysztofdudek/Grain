@@ -1,0 +1,7 @@
+name: DialectSchemasDeclareTheSameTables
+description: "The H2, MySQL and PostgreSQL schemas must create the same set of tables. Which one runs is decided at startup by a profile, and CI exercises all three, but a developer usually exercises one — so a table added to a single dialect looks fine locally and breaks whichever database the next person runs. Column types and index syntax legitimately differ between the three; the set of tables does not."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01

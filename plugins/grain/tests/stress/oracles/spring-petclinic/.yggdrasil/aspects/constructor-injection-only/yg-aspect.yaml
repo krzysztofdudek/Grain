@@ -1,0 +1,11 @@
+name: ConstructorInjectionOnly
+description: "Production beans take their collaborators through the constructor. No @Autowired on a field, no @Autowired on a setter, no @Inject. A constructor-injected dependency can be final, cannot be missing at construction time, and can be handed in by a plain unit test without a container — which is why the two collaborators in this codebase that are unit-tested at all are the two that take a constructor argument. Test sources are exempt: field injection is how a Spring test receives MockMvc and mocked beans."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "src/main/java/**/*.java"

@@ -1,0 +1,9 @@
+name: EntityExtendsSharedBase
+description: "Every @Entity extends one of the three mapped superclasses in model/ — the identity base, the named base, or the person base. That inheritance is what gives every row the same generated id, the same is-new test and the same validated name column. An entity that declares its own @Id starts a second identity convention, and code that works for the other six rows quietly stops working for that one."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file

@@ -1,0 +1,6 @@
+name: PetNameUniquePerOwnerInEveryDialect
+description: "One owner cannot have two pets with the same name, case-insensitively, and the database must be what guarantees it — on all three dialects. Each dialect expresses this differently, so no single pattern can be matched for; the question is whether the guarantee holds, which is a reading task."
+reviewer:
+  type: llm
+status: enforced
+review_by: 2027-03-01

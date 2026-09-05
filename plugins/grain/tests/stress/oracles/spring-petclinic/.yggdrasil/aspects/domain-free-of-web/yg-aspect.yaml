@@ -1,0 +1,9 @@
+name: DomainFreeOfWeb
+description: "Entities and the mapped superclasses they inherit must not import the web. No servlet types, no Spring MVC, no UI model, no controller stereotype. The domain is the layer everything else depends on — the JPA slice test, the native-image hints and the JSON representation all reach it — and it stays reusable only while it knows nothing about how a request arrives. The formatting annotation an entity carries for date binding is not web: it is a format hint, and it is deliberately not on this list."
+reviewer:
+  type: deterministic
+status: enforced
+errs: under
+review_by: 2027-03-01
+scope:
+  per: file

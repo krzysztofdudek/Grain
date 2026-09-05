@@ -1,0 +1,9 @@
+name: VetEntities
+type: entity
+description: "Veterinarians and the specialties they hold, joined many-to-many. A vet exposes its specialties sorted by name so the list page and the JSON representation are stable."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/vet/Vet.java
+  - src/main/java/org/springframework/samples/petclinic/vet/Specialty.java
+relations:
+  - target: app/model
+    type: extends

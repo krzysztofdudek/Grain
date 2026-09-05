@@ -1,0 +1,11 @@
+name: NoRestController
+description: "Production code does not use @RestController. This application renders server-side Thymeleaf pages; the one endpoint that returns JSON does it with @ResponseBody on a single method, so the class still belongs to the view-rendering layer. A @RestController would quietly turn a page controller into an API and make every string it returns a response body instead of a view name."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "src/main/java/**/*.java"
