@@ -177,17 +177,19 @@ test('(c1) session-context folds layer count into the existing Architecture (mea
   assert.match(archLines[0], new RegExp(`${layers} layer\\(s\\)`), `Architecture line must fold in the layer count (${layers}), got: ${archLines[0]}`);
 });
 
-test('(c2) session-context adds concepts:/changes: lines only when populated, and stays within the corrected <= 9 line budget', () => {
+test('(c2) session-context adds concepts:/changes: lines only when populated, and stays within the line budget', () => {
   const m = modelIn(layered);
   const r = grain(['session-context'], layered);
   const text = JSON.parse(r.out).hookSpecificOutput.additionalContext;
   const lines = text.split('\n');
   // 5 unconditional lines (intro, where, check, status|report, Index:) + Architecture (edges exist here) +
-  // concepts: + changes: = 8 observed for this fixture (no steers recorded, so the "Maintainer decisions in
-  // force" line does not fire) — within the ticket's corrected <= 9 budget (raised from an arithmetically
-  // impossible "<= 6 total" to make room for these two new conditional lines; see plan.md J4.3's Opus corrections)
-  assert.equal(lines.length, 8, `expected exactly 8 lines for this fixture, got ${lines.length}:\n${text}`);
-  assert.ok(lines.length <= 9, `session-context must stay within the <= 9 line budget, got ${lines.length}`);
+  // the `propose` line (ticket 104: this fixture has an index and no .yggdrasil/ of its own) + concepts: +
+  // changes: = 9 observed for this fixture (no steers recorded, so the "Maintainer decisions in force" line
+  // does not fire). The budget is ARITHMETIC, not taste: 5 unconditional lines plus the 5 conditional ones the
+  // renderer can emit (Architecture, propose, concepts, changes, decisions) = 10, raised from 9 by ticket 104's
+  // single new conditional line, which a repository that already carries a `.yggdrasil/` never sees at all.
+  assert.equal(lines.length, 9, `expected exactly 9 lines for this fixture, got ${lines.length}:\n${text}`);
+  assert.ok(lines.length <= 10, `session-context must stay within the <= 10 line budget, got ${lines.length}`);
   const conceptsLine = lines.find(l => l.startsWith('map: concepts: '));
   const changesLine = lines.find(l => l.startsWith('changes: '));
   assert.ok(conceptsLine, `expected a concepts: line since model.concepts.length=${m.concepts.length}`);

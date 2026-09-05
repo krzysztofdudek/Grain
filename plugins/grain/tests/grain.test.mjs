@@ -315,7 +315,7 @@ test('§081: the SessionStart advertisement names exactly the roster it was meas
     .flatMap(l => l.split('—')[0].split('|').map(seg => seg.trim().replace(/^grain\s+/, '').split(/\s+/)[0]));
   assert.deepEqual(advertised, ['where', 'check', 'status', 'report'], `roster changed: ${ctx}`);
   // the conditional lines may name more, but never a command absent from the dispatcher
-  const known = new Set(['where', 'how', 'what', 'map', 'obligation', 'check', 'review', 'spectrum', 'explain', 'status', 'report', 'rules', 'export', 'decide', 'seed', 'refresh', 'completeness', 'selftest']);
+  const known = new Set(['where', 'how', 'what', 'map', 'obligation', 'check', 'review', 'spectrum', 'explain', 'status', 'report', 'rules', 'export', 'propose', 'decide', 'seed', 'refresh', 'completeness', 'selftest']);
   for (const c of advertised) assert.ok(known.has(c), `advertises a command the dispatcher does not have: ${c}`);
 });
 
