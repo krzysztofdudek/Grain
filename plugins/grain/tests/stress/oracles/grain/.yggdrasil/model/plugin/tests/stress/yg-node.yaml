@@ -1,0 +1,23 @@
+name: Measurement Instruments
+type: stress-instrument
+description: >-
+  Eight instruments, one per class of defect the project decided to measure rather than argue about: the
+  claim auditor that re-verifies every verifiable statement an answer makes against the source, the
+  scale ladder with a mandatory per-command timeout so a hang becomes a row instead of an anecdote, and
+  the graph, proposal, reconstruction, law-loop and integration instruments. An instrument measures a
+  class over a fixed corpus and IS the retest; it is deliberately outside the gate, because a
+  multi-minute corpus run is not something a push should wait for.
+relations:
+  - target: plugin/engine/core
+    type: calls
+  - target: plugin/engine/yggdrasil-graph
+    type: calls
+  - target: plugin/engine/propose
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+  - target: plugin/entry
+    type: uses
+mapping:
+  - plugins/grain/tests/stress/*.mjs

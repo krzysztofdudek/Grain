@@ -1,0 +1,17 @@
+name: OnePluginDescription
+description: >-
+  One description of what this plugin is, byte-identical across all seven places a host reads it: the
+  three per-host plugin manifests and the four repository-root marketplace catalogues.
+
+  The description is not marketing copy in this product — it is functional. A host shows it in the
+  install listing, and for an agent-facing plugin it is also part of what tells a model that these
+  commands exist and when they are worth reaching for. Seven copies edited by hand drift into seven
+  slightly different products: a user installing from one catalogue reads a promise a user installing
+  from another does not, and the version that lists four capabilities when the tool has six is the one
+  a model was given.
+
+  Byte-identical, not "equivalent". Any weakening of that is a rule that cannot be checked, and this
+  one's whole value is that it can.
+errs: exact
+status: enforced
+review_by: 2027-06-01

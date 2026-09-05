@@ -1,0 +1,9 @@
+name: Relation Conformance
+type: area
+description: >-
+  The relation layer's own suite, ported case by case from the sibling project the machinery was
+  vendored from. Unlike the flat conformance suite it IS split by kind — unit, end-to-end, and
+  end-to-end at the command line — and the split is load-bearing: the two end-to-end suites reach the
+  product only by spawning the built binary through the shared harness, so a refactor of internals
+  cannot quietly break them or, worse, be masked by them.
+relations: []

@@ -1,0 +1,10 @@
+name: NoLanguageNameLists
+description: >-
+  Nothing in the engine may recognise a language, a framework, a role or a kind of file BY NAME. Every
+  per-language fact is derived from that grammar's own metadata; the one declared exception is the
+  extension map in the constant table, and it is declared there deliberately. Prose, because "this is a
+  name list" is a judgement about intent that no pattern can make.
+reviewer:
+  type: llm
+status: enforced
+review_by: 2027-06-01

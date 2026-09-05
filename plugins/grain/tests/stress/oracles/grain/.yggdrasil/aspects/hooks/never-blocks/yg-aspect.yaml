@@ -1,0 +1,20 @@
+name: HooksNeverBlock
+description: >-
+  A hook verb's branch in the dispatcher must never return a non-zero code and must never call the
+  process exit with one. Silence, exit zero, always.
+
+  This is the FIRST of the four promises the product makes, and the one that decides whether a user
+  leaves the plugin installed: "it never blocks — no gate, no failing build, no policy file". A hook
+  runs on every edit, every write and every prompt, in the middle of somebody else's work. A non-zero
+  exit there is not a diagnostic, it is an interruption of a task that has nothing to do with this tool;
+  a tool that occasionally halts an unrelated edit gets uninstalled long before anybody debugs why. That
+  is why the branches swallow their own failures, and why the only unguarded diagnostic in any of them
+  is on the once-per-session hook where a silent failure would cost a whole session's context.
+
+  ADVISORY, and honestly so. The check reads only the branch's own body: a helper called from inside it
+  could still exit, so the rule under-constrains what it claims to guarantee. It holds today on every
+  branch, and it catches the change that would most plausibly break it — someone adding a "real" error
+  path to a hook — but it is not a proof.
+errs: over
+status: advisory
+review_by: 2027-01-15

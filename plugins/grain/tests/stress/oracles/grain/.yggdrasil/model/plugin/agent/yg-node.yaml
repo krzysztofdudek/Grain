@@ -1,0 +1,7 @@
+name: Agent Surface
+type: area
+description: >-
+  Everything a coding agent or a human at a keyboard actually touches: the skill that teaches when to
+  ask, the slash commands, and the host hooks that speak unbidden. All of it reaches the product through
+  the CLI entry point and nothing else.
+relations: []

@@ -1,0 +1,22 @@
+name: NoRuntimeDependencies
+description: >-
+  No module that ships inside the plugin may import a package. Only platform builtins (the `node:`
+  prefix) and relative paths are allowed. The plugin's manifest carries devDependencies ONLY — every one
+  of them a grammar package needed to regenerate committed assets — and there is no dependency
+  directory under the plugin at all. That is not tidiness: it is what makes "install the plugin and it
+  works", "nothing is downloaded at runtime" and "nothing leaves your machine" simultaneously true, and
+  it is why a YAML subset parser was written by hand rather than a package added when one file needed to
+  read YAML. One package import turns an install into a build and a promise into a caveat.
+
+  Detection is on the syntax tree — static imports, re-exports, dynamic imports and require calls — so a
+  package specifier appearing inside a STRING (both the proposal writer and the mining core emit code as
+  text that itself contains imports) is not a violation and never fires.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

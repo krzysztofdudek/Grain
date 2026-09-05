@@ -1,0 +1,8 @@
+name: Skill
+type: agent-skill
+description: >-
+  What teaches the agent WHEN to ask, which matters more than the commands do: agents do not ask
+  questions they do not know they should ask. It reduces the whole surface to four questions and names
+  the moment each one is asked, including the three the hooks already ask on the agent's behalf.
+mapping:
+  - plugins/grain/skills/

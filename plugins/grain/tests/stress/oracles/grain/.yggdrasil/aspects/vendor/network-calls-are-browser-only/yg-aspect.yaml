@@ -1,0 +1,31 @@
+name: VendoredNetworkCallsAreBrowserOnly
+description: >-
+  Vendored third-party code is taken as shipped and is not reshaped to satisfy this project's source
+  rules — but the one promise it cannot be allowed to break is that nothing leaves the user's machine.
+  This rule surfaces every network call site in vendored code so that each one is a reviewed fact rather
+  than an assumption.
+
+  Measured today: the parser runtime contains five such sites — three fetch calls and two
+  synchronous-request constructions — and every one of them sits in a branch the platform this ships on
+  never takes. The branch immediately above the first of them tests for the platform and reads the
+  parser from the file system instead; the other two are guarded by a worker-environment test. The
+  runtime is loaded from inside the package, never from an address, so no call site here is reachable in
+  the product's own path.
+
+  ADVISORY and `errs: over` for exactly that reason: the check finds call SITES, not reachable ones, so
+  every finding needs a human to say which branch it is in. Enforcing it would demand editing vendored
+  code, which this project deliberately does not do. What it buys instead is that the count is known: if
+  it ever moves, someone looks, rather than a new egress path arriving inside a routine re-vendoring.
+
+  This is the vendored counterpart to the first-party rule, which stays enforced and absolute. The two
+  are separate aspects because the guarantees genuinely differ, not because one repository was
+  inconvenient.
+errs: over
+status: advisory
+review_by: 2027-01-15
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

@@ -1,0 +1,7 @@
+name: Plugin Tests
+type: area
+description: >-
+  The plugin's own conformance material. No test framework and no fixture library: the suite runs under
+  the platform's own test runner over a deterministic fixture repository whose git history is pinned, so
+  two builds are byte-identical and every printed answer is reproducible. Children own all the mappings.
+relations: []

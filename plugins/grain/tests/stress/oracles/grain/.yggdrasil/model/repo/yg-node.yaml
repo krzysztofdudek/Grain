@@ -1,0 +1,7 @@
+name: Repository
+type: area
+description: >-
+  Everything that is about this repository rather than shipped by it: the front door and the four
+  documents behind it, the repository-level instruments, the gate, the marketplace catalogues, and the
+  project's own working model with its committed state. None of it may be imported by the plugin.
+relations: []

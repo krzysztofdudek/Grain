@@ -1,0 +1,7 @@
+name: Engine
+type: area
+description: >-
+  The analysis layer. Parses, mines, resolves and serializes; it never prints, never decides an exit
+  code, and never reaches back up to the dispatcher. Its dependency graph is a clean acyclic one with
+  the constant table as its sink.
+relations: []
