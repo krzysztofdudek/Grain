@@ -49,7 +49,7 @@ import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './
 // Read-only: two version constants, the same ones `grain export`'s own `proposal.json`-equivalent
 // (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
 // without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
-import { ENGINE_VERSION, EXTR_V, HARD_EXCL } from './config.mjs';
+import { ENGINE_VERSION, EXTR_V, HARD_EXCL, MARKER_STEMS_BY_EXT, isLanguageMarkerFile } from './config.mjs';
 // Read-only, and only these two: the vocabulary grain ALREADY uses to put a measured value into words — a name
 // shape (`(Ua)+` -> "PascalCase") and a lexical surface (`quote`,`single` -> "quote strings with single
 // quotes"). §7-bis below words a lattice row with them rather than with a private copy, so a proposal and
@@ -1064,11 +1064,17 @@ const SHAPE = ${new RegExp(re).toString()};
 
 // grain measured this shape on the file name with its last extension removed; match what it measured.
 const stemOf = b => { const i = b.lastIndexOf('.'); return i > 0 ? b.slice(0, i) : b; };
+// A NAME THE LANGUAGE ITSELF FIXES IS NOT A NAME A CONVENTION CAN GOVERN. package-info.java has no other
+// spelling, so refusing it for not being PascalCase is a rule at odds with Java. Same table the proposal used
+// to leave these files out of the rule's population, carried here so the check agrees with the count beside it.
+const MARKER_STEMS_BY_EXT = ${JSON.stringify(MARKER_STEMS_BY_EXT)};
+const isMarker = b => { const i = b.lastIndexOf('.'); return i > 0 && (MARKER_STEMS_BY_EXT[b.slice(i).toLowerCase()] || []).includes(b.slice(0, i)); };
 
 export function check(ctx) {
   const violations = [];
   for (const file of ctx.files) {
     const base = file.path.split('/').pop();
+    if (isMarker(base)) continue;
     if (!SHAPE.test(stemOf(base))) violations.push({ file: file.path, line: 1, column: 0, message: 'file name ' + base + ' does not follow the shape this rule proposes (' + ${JSON.stringify(String(expected))} + ') (proposed rule, not yet reviewed)' });
   }
   return violations;
@@ -1703,6 +1709,31 @@ const holdsPhrase = (holds, breaks, unitPlural) => {
 
 const NOT_A_RULE = new Set(['filebirth']);
 
+// EXEMPTING THE NAMES A LANGUAGE FIXES FROM A FILE-NAME RULE (ticket 116). `auto.filenameshape` is the one
+// enumerator whose subject is the file NAME, and a handful of names in most languages are not the project's to
+// choose: `package-info.java`, `__init__.py`, `index.ts`, `mod.rs`. Measured on spring-petclinic, five of the
+// forty-four standing advisory refusals were `package-info.java` — a rule refuted by the language on the day it
+// was proposed. Such a file leaves the population, leaves the drill corpus, and is skipped by the rendered
+// check (`renderCheck`, `case 'filenameshape'`); what left is stated, never silently dropped.
+//
+// ONLY `filenameshape`. Every other enumerator is about what a file CONTAINS, and a marker file's contents are
+// as governable as any other file's — `__init__.py` re-exporting a module is ordinary Python.
+const exemptMarkers = (enumerator, sites) => {
+  if (enumerator !== 'filenameshape') return { kept: sites, names: [] };
+  const kept = [], names = new Set();
+  for (const s of sites) {
+    const rel = typeof s === 'string' ? s.split('#')[0] : s?.rel;
+    if (rel && isLanguageMarkerFile(rel)) names.add(rel.split('/').pop());
+    else kept.push(s);
+  }
+  return { kept, names: [...names].sort() };
+};
+const markerNote = (...groups) => {
+  const names = [...new Set(groups.flatMap(g => g.names))].sort();
+  const n = groups.reduce((a, g) => a + g.exempted, 0);
+  return n ? ` · ${n} language marker file${n === 1 ? '' : 's'} exempted (${names.map(x => `\`${x}\``).join(', ')}) — the language fixes ${names.length === 1 ? 'that name' : 'those names'}, so no naming convention of this repository can apply to ${n === 1 ? 'it' : 'them'}` : '';
+};
+
 export function buildAspects(exp, active, sub, opts = {}) {
   const out = [];
   const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, absence: 0, byClass: {} };
@@ -1743,13 +1774,19 @@ export function buildAspects(exp, active, sub, opts = {}) {
 
   // (i) the certified set
   for (const c of exp.conventions || []) {
-    const n = c.established || 0;
-    if (n < MIN_CONVENTION_SITES) continue;
     if (NOT_A_RULE.has(c.feature.enumerator)) { skipped.notARule++; continue; }
+    // The names the language fixes leave the population BEFORE the floor is applied, so a convention that only
+    // clears `MIN_CONVENTION_SITES` on the strength of files it may not govern does not clear it at all.
+    const conf = exemptMarkers(c.feature.enumerator, c.conformingSites || []);
+    const devi = exemptMarkers(c.feature.enumerator, c.deviatingSites || []);
+    const exemptedConf = (c.conformingSites || []).length - conf.kept.length;
+    const n = Math.max(0, (c.established || 0) - exemptedConf);
+    if (n < MIN_CONVENTION_SITES) continue;
     const host = typeForPartition(c.partition);
     const scope = scopeFor(c, host);
     if (!scope) { skipped.unrenderableGroupScoped++; continue; }
-    const dev = (c.deviatingSites || []).length;
+    const dev = devi.kept.length;
+    const markers = markerNote({ names: conf.names, exempted: exemptedConf }, { names: devi.names, exempted: (c.deviatingSites || []).length - dev });
     const adoption = n / Math.max(1, n + dev);
     const ctxLabel = c.context?.type === 'group' ? `role group \`${c.context.label || c.context.group}\`` : c.context?.type === 'directory' ? `directory \`${c.context.dir}\`` : `partition \`${c.partition}\``;
     const provenance = `share ${(c.share ?? 0).toFixed(3)} · n ${n} conforming, ${dev} deviating (adoption ${pct(adoption)}) · ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance · ${ctxLabel} of \`${c.partition}\` · asOf ${asOf}`;
@@ -1761,7 +1798,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const exemplarPhrase = (c.exemplars || []).length
       ? `copy ${(c.exemplars || []).slice(0, 2).map(e => `${e.rel}:${e.line}`).join(' or ')}`
       : 'no exemplar recorded to copy';
-    const evidenceLine = `${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)} · applies to ${scopeInWords(scope.glob, scope.which)} · ${exemplarPhrase} · grain certified this from ${ctxLabel} of \`${c.partition}\`: share ${(c.share ?? 0).toFixed(3)} (adoption ${pct(adoption)}), ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance, measured at ${asOf}${labelHostingNote(host, c.partition)}`;
+    const evidenceLine = `${holdsPhrase(n, dev, `${unitOne(c.kind)}s`)} · applies to ${scopeInWords(scope.glob, scope.which)} · ${exemplarPhrase} · grain certified this from ${ctxLabel} of \`${c.partition}\`: share ${(c.share ?? 0).toFixed(3)} (adoption ${pct(adoption)}), ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance, measured at ${asOf}${labelHostingNote(host, c.partition)}${markers}`;
     const id = `grain/${slug(c.partition)}/${slug(c.context?.type === 'group' ? (c.context.label || c.context.group) : c.context?.type || 'partition')}-${slug(c.feature.enumerator)}${c.feature.argument ? '-' + slug(c.feature.argument).slice(0, 40) : ''}`;
     if (out.some(o => o.id === id)) continue;
     const check = renderableDirection(c.feature.enumerator, c.expected, c.kind, c.context?.type)
@@ -1790,7 +1827,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
       scope: scope.pred, check,
       whyProse: proseReason,
       content: check ? null : contentMd(c, profile, evidenceLine, proseReason, name),
-      drills: { satisfies: (c.conformingSites || []).slice(), violates: (c.deviatingSites || []).slice() },
+      drills: { satisfies: conf.kept.slice(), violates: devi.kept.slice() },
       enumerator: c.feature.enumerator, argument: c.feature.argument, expected: c.expected, kind: c.kind,
       // structured fields for provenance.json (ticket 100) — parallel to the prose already in `provenance`,
       // never re-derived from it by regex the way a POST-HOC reader of a written proposal has to (097's
@@ -1830,6 +1867,9 @@ export function buildAspects(exp, active, sub, opts = {}) {
     // enforces is a sentence a future session is right to argue with. The cluster is where grain MEASURED the
     // row and it says so in the evidence; the rule speaks about the scope it is actually judged over.
     const glob = typeGlob(host);
+    const devi = exemptMarkers(fam, r.deviants);
+    const deviants = devi.kept;
+    const markers = markerNote({ names: devi.names, exempted: r.deviants.length - deviants.length });
     // AN ABSENCE IS NOT A FORBIDDANCE (ticket 115). ORIGIN decides, not a number: a sub-gate row sits below
     // grain's own certification bound by construction, so a `false` majority in a class that spells "does not
     // use X" says only that most things here happen not to use it today — and the minority that does is
@@ -1839,10 +1879,10 @@ export function buildAspects(exp, active, sub, opts = {}) {
     // X"), are untouched.
     const absence = ABSENCE_CLASS.has(fam) && String(r.exp) === 'false';
     const statement = absence
-      ? `${r.ne} of ${r.n} ${unitOne(r.kind)}s under \`${glob}\` do not ${describeRow(r.pid, r.exp)} — an absence, not a rule.`
+      ? `${r.ne} of ${r.ne + deviants.length} ${unitOne(r.kind)}s under \`${glob}\` do not ${describeRow(r.pid, r.exp)} — an absence, not a rule.`
       : obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
-    const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.n} ${r.kind}s · ${r.deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
-    const evidenceLine = `${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}${labelHostingNote(host, r.partition)}`;
+    const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.ne + deviants.length} ${r.kind}s · ${deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
+    const evidenceLine = `${holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}${labelHostingNote(host, r.partition)}${markers}`;
     const check = !absence && renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
       ? renderCheck({ enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind, provenance: `${statement}\n${provenance}` })
       : null;
@@ -1854,17 +1894,17 @@ export function buildAspects(exp, active, sub, opts = {}) {
     out.push({
       id, origin: 'sub-gate-lattice', host: host.id, evidenceLine, provenance, reviewBy,
       // See the certified-convention branch above (ticket 106) — same fix, same reason.
-      name: statement, holds: holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`),
-      description: `${statement} It already ${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)}.`,
+      name: statement, holds: holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`),
+      description: `${statement} It already ${holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`)}.`,
       scope: { per: 'file', files: { path: glob } }, check,
       whyProse: proseReason2,
-      content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2, absence),
-      drills: { satisfies: [], violates: r.deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
+      content: check ? null : subGateMd({ ...r, deviants }, statement, evidenceLine, proseReason2, absence),
+      drills: { satisfies: [], violates: deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
       enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind,
       // sub-gate rows have no CONFORMING exemplar of their own — only `deviants` (sites that do NOT follow the
       // candidate) — so `exemplars` (a "copy this" list, never a "avoid this" one) stays empty here, unlike a
       // certified convention above; the charter renderer reads absence as "not yet a copy-worthy pattern".
-      partition: r.partition, share: r.share ?? null, n: r.ne ?? null, deviating: r.deviants.length,
+      partition: r.partition, share: r.share ?? null, n: r.ne ?? null, deviating: deviants.length,
       exemplars: [],
       // Pre-set, and `promoteEnforceableAspects` keeps whatever reason an aspect already carries: verification
       // is where a status is EARNED, and this row is not eligible to earn one at all.

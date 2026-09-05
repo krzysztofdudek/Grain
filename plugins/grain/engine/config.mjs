@@ -66,6 +66,53 @@ export const EXT2GRAMMAR = Object.fromEntries(
 );
 export const GRAMMARS = [...new Set(Object.values(EXT2GRAMMAR))].sort();
 
+// LANGUAGE MARKER FILES — the file names a language's own specification fixes, so that no naming convention a
+// repository has can apply to them. Keyed by GRAMMAR, beside the extension map, because that is the per-language
+// datum this product already carries (§6.1); the extension→names view below is derived from that map, so adding
+// a language's markers is the same one-line edit as adding its extension, and a name can never be exempt in a
+// language that does not fix it (`index.java` is an ordinary Java file; `doc.py` is an ordinary Python one).
+//
+// The entry is the file's STEM — its name with the last extension removed — because that is exactly what
+// `auto.filenameshape` measures. Each name below is fixed by the language, not chosen by a project:
+//
+//   java        `package-info` (JLS §7.4.1, package declarations: "in a source file named package-info.java")
+//               `module-info`  (JLS §7.7, module declarations: "in a source file named module-info.java")
+//   python      `__init__`     (the language reference's regular-package initialisation file)
+//               `__main__`     (the "__main__ — top-level code environment" file a package is run with `-m`)
+//   go          `doc`          (the package-comment file; the go tooling's own package documentation convention)
+//   javascript  `index`        (the directory-index module name Node's CommonJS resolver looks for; the same
+//   typescript                  name TypeScript resolves for a directory import — hence every JS/TS extension)
+//   tsx
+//   rust        `mod`          (the Rust reference's module source file for a directory module)
+//               `lib`          (the crate root of a library crate)
+//               `main`         (the crate root of a binary crate)
+//
+// Nothing here is a threshold and nothing here is tunable: a language either fixes a name or it does not.
+const LANG_MARKER_STEMS = {
+  java: ['package-info', 'module-info'],
+  python: ['__init__', '__main__'],
+  go: ['doc'],
+  javascript: ['index'],
+  typescript: ['index'],
+  tsx: ['index'],
+  rust: ['mod', 'lib', 'main'],
+};
+// Derived from the FULL extension map, not the shipped-grammar one: whether a file's name is fixed by its
+// language has nothing to do with whether this installation happens to carry that language's grammar.
+export const MARKER_STEMS_BY_EXT = Object.fromEntries(
+  Object.entries(ALL_EXT2GRAMMAR)
+    .filter(([, g]) => LANG_MARKER_STEMS[g])
+    .map(([ext, g]) => [ext, LANG_MARKER_STEMS[g]])
+);
+// A dotfile has no stem to shape (`.gitignore`'s last dot is at index 0), so it is never a marker.
+export const isLanguageMarkerFile = rel => {
+  const base = String(rel).split('/').pop();
+  const i = base.lastIndexOf('.');
+  if (i <= 0) return false;
+  const stems = MARKER_STEMS_BY_EXT[base.slice(i).toLowerCase()];
+  return !!stems && stems.includes(base.slice(0, i));
+};
+
 // AMBIGUOUS EXTENSIONS (§040). An extension names one language above, and for all but one of them that is simply
 // true. `.h` is the exception: the same name means a C header in a C project and a C++ header in a C++ project,
 // and nothing in the path says which. leveldb keeps its entire public API in `.h`, where the C grammar has no
