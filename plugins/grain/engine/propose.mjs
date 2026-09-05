@@ -1457,7 +1457,9 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const profile = c.context?.type === 'group' ? (partOf(c.partition)?.groups || []).find(g => g.id === c.context.group)?.profile : null;
     out.push({
       id, origin: 'certified-convention', host: host?.id || null, evidenceLine, provenance, reviewBy,
-      name: c.statement.slice(0, 70), description: `${c.statement}. Proposed by grain from evidence — ${provenance}.`,
+      // The whole statement, not a truncated prefix (ticket 106: `slice(0, 70)` used to cut mid-word — `yg
+      // schemas read aspect` sets no length limit on `name`, so there is no honest reason to cut it at all).
+      name: c.statement, description: `${c.statement}. Proposed by grain from evidence — ${provenance}.`,
       scope: scope.pred, check,
       whyProse: proseReason,
       content: check ? null : contentMd(c, profile, evidenceLine, proseReason),
@@ -1500,7 +1502,8 @@ export function buildAspects(exp, active, sub, opts = {}) {
     if (!check) { skipped.prose++; skipped.byClass[fam] = (skipped.byClass[fam] || 0) + 1; }
     out.push({
       id, origin: 'sub-gate-lattice', host: host.id, evidenceLine, provenance, reviewBy,
-      name: statement.slice(0, 70), description: `${statement}. Proposed by grain from evidence — ${provenance}.`,
+      // See the certified-convention branch above (ticket 106) — same fix, same reason.
+      name: statement, description: `${statement}. Proposed by grain from evidence — ${provenance}.`,
       scope: { per: 'file', files: { path: `${host.dir}/**` } }, check,
       whyProse: proseReason2,
       content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2),
