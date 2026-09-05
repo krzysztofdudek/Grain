@@ -113,23 +113,42 @@ function javaSamePackageRefs(tree, decls) {
       const c = tp.namedChild(i);
       if (c && c.type === 'type_identifier') { own.add(c.text); break; }
     }
+  // a bare name declared in this file as a variable, parameter, field or catch/for binding SHADOWS the package
+  // type of that name (JLS §6.5.6.1), so it is never the receiver of a static call on a sibling class
+  const bound = new Set();
+  for (const t of ['variable_declarator', 'formal_parameter', 'catch_formal_parameter', 'enhanced_for_statement'])
+    for (const n of tree.rootNode.descendantsOfType(t)) {
+      const nm = n.childForFieldName('name');
+      if (nm) bound.add(nm.text);
+    }
   const out = [];
   const seen = new Set();
+  const emit = (name, node, kind) => {
+    if (name === '' || imported.has(name) || own.has(name)) return;
+    const line = node.startPosition.row + 1;
+    const key = name + ' ' + line;
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push({ candidates: [{ kind: 'symbol', symbolKey: pkg + '.' + name }], kind, line });
+  };
+  // a utility class of the same package is often named ONLY as the receiver of a static call or field read
+  // (`EntityUtils.getById(...)`, `Consts.NAME`) — no import, no type position, nothing an import-driven or
+  // type-position walk can see, and yet a dependency the code cannot compile without
+  for (const t of ['method_invocation', 'field_access'])
+    for (const n of tree.rootNode.descendantsOfType(t)) {
+      const o = n.childForFieldName('object');
+      if (!o || o.type !== 'identifier' || bound.has(o.text)) continue;
+      emit(o.text, o, t === 'method_invocation' ? 'call' : 'type-ref');
+    }
   for (const n of tree.rootNode.descendantsOfType('type_identifier')) {
     const parent = n.parent;
     if (parent?.type === 'scoped_type_identifier') continue; // a qualified name's tail — already a candidate
     if (parent?.type === 'type_parameter') continue; // `<T extends …>` DECLARES T; it does not reference a type
-    const name = n.text;
-    if (name === '' || imported.has(name) || own.has(name)) continue;
-    const line = n.startPosition.row + 1;
-    const key = name + ' ' + line;
-    if (seen.has(key)) continue;
-    seen.add(key);
     const kind =
       JAVA_REF_KIND[parent?.type] ||
       (parent?.type === 'type_list' ? JAVA_REF_KIND[parent.parent?.type] : undefined) ||
       'type-ref';
-    out.push({ candidates: [{ kind: 'symbol', symbolKey: pkg + '.' + name }], kind, line });
+    emit(n.text, n, kind);
   }
   return out;
 }
