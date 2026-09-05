@@ -14,7 +14,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, cpSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -30,8 +30,8 @@ const RECON = join(here, 'stress', 'reconstruct.mjs');
 // Two identical copies: `repo` is where a real `grain export` runs (and leaves a .grain/ cache behind), while
 // `repoPinned` never sees grain at all — the arithmetic tests drive it with a synthetic export, and a real cache
 // there would silently override the pinned candidate sets and make the assertions meaningless.
-let tmp, repo, repoPinned;
-function buildFixture(root, env) {
+let tmp, repo, repoPinned, repoBare, oracleDir;
+function buildFixture(root, env, { withGraph = true } = {}) {
   mkdirSync(root, { recursive: true });
   const w = (rel, content) => {
     const p = join(root, rel);
@@ -46,6 +46,14 @@ function buildFixture(root, env) {
   }
   for (const n of ['alpha', 'beta', 'gamma']) {
     w(`src/util/${n}-helper.ts`, `export function normalise(value: string): string {\n  return value.trim();\n}\n`);
+  }
+
+  // A brownfield target has no graph of its own — that is the whole point of an oracle held OUT of tree.
+  if (!withGraph) {
+    execFileSync('git', ['-C', root, 'init', '-q', '-b', 'main'], { env });
+    execFileSync('git', ['-C', root, 'add', '-A'], { env });
+    execFileSync('git', ['-C', root, 'commit', '-q', '-m', 'fixture'], { env });
+    return;
   }
 
   w('.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
@@ -108,6 +116,13 @@ before(() => {
   };
   buildFixture(repo, env);
   buildFixture(repoPinned, env);
+  // the same 6 sources with NO `.yggdrasil/` of their own, plus the hand graph held beside the repository —
+  // the shape every oracle under tests/stress/oracles/ has: the graph is in THIS repo, the code is a clone
+  repoBare = join(tmp, 'repo-bare');
+  buildFixture(repoBare, env, { withGraph: false });
+  oracleDir = join(tmp, 'oracle');
+  mkdirSync(oracleDir, { recursive: true });
+  cpSync(join(repoPinned, '.yggdrasil'), join(oracleDir, '.yggdrasil'), { recursive: true });
 });
 after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
 
@@ -138,6 +153,36 @@ test('runs end to end over a real repo and sees exactly the two classifying type
   assert.equal(o.types.ge50, o.types.rows.filter(r => r.best && r.best.j >= 0.5).length);
   assert.ok(o.types.ge80 <= o.types.ge50);
   assert.equal(o.unknownWhenKeys.length, 0);
+});
+
+// ---------- 1b. the graph and the code it describes need not be the same directory ----------
+// Every oracle under `tests/stress/oracles/<name>/.yggdrasil/` describes a repository that lives somewhere else
+// (a clone). Without `--graph` the instrument can only ever score a repo against a graph committed INSIDE it,
+// which is the one layout the Yggdrasil measurement happened to have.
+test('--graph reads the hand graph from beside the repository, not from inside it', () => {
+  const exp = join(tmp, 'exp-split-bare.json');
+  writeFileSync(exp, JSON.stringify(syntheticExport([{ id: 'src/api', files: 3 }, { id: 'src/util', files: 3 }])));
+  const o = runRecon(repoBare, ['--export', exp, '--graph', oracleDir]);
+  assert.equal(o.graphRoot, oracleDir);
+  assert.equal(o.files, 6, 'the target carries only its own 6 sources — no graph files of its own');
+  assert.equal(o.graph.nodeTypes, 2);
+  assert.equal(o.graph.nodes, 2);
+  assert.equal(o.types.classifyingTypes, 2);
+  assert.equal(o.types.ge50, 2);
+  assert.equal(o.types.meanJaccard, 1);
+  // the deterministic aspect ships beside the graph, so its check is still read from the oracle directory
+  assert.equal(o.aspects.deterministicAspects, 1);
+});
+
+test('--graph over a copy of an in-tree graph reproduces the in-place numbers exactly', () => {
+  const exp = join(tmp, 'exp-split-same.json');
+  writeFileSync(exp, JSON.stringify(syntheticExport([{ id: 'src/api', files: 3 }, { id: 'src/util', files: 3 }])));
+  const inPlace = runRecon(repoPinned, ['--export', exp]);
+  const beside = runRecon(repoPinned, ['--export', exp, '--graph', oracleDir]);
+  assert.deepEqual(beside.types.rows.map(r => [r.type, r.best.j]), inPlace.types.rows.map(r => [r.type, r.best.j]));
+  assert.deepEqual(beside.nodes.rows.map(r => [r.node, r.best.j]), inPlace.nodes.rows.map(r => [r.node, r.best.j]));
+  assert.equal(beside.relations.declaredPairs, inPlace.relations.declaredPairs);
+  assert.equal(beside.aspects.deterministicAspects, inPlace.aspects.deterministicAspects);
 });
 
 // ---------- 2. the type-recall arithmetic, against a pinned synthetic export ----------
