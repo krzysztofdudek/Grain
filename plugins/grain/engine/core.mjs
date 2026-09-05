@@ -2626,7 +2626,7 @@ function foldObligationFootprint(fp, { currentOf, refinedM, classes, fileCommits
 }
 export function buildObligationTable(fps, { refinedM, live }) {
   const currentOf = currentPathOf(fps, live);
-  const classes = new Map(); // "modulesuffix" -> { m, suf, n, co: Map(file -> count) }
+  const classes = new Map(); // "module\x01suffix" -> { m, suf, n, co: Map(file -> count) }
   const fileCommits = new Map();
   for (const fp of fps) foldObligationFootprint(fp, { currentOf, refinedM, classes, fileCommits });
   const nonMegaCommits = fps.length; // the exact population `fileCommits` above was drawn from — self-consistent by construction, never H's own (possibly fpsCap-truncated) count
