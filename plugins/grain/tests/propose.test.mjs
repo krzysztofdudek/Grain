@@ -373,7 +373,7 @@ test('computeSizing reports scopes as null, not zero, when the tree cache is abs
   const bareDir = join(tmp, 'no-cache-repo');
   mkdirSync(join(bareDir, 'src', 'api'), { recursive: true });
   writeFileSync(join(bareDir, 'src', 'api', 'alpha-handler.ts'), 'export function h() { return 1; }\n');
-  const s = computeSizing(bareDir, [], [{ id: 'x', dir: 'src/api', ownFiles: new Set(['src/api/alpha-handler.ts']), organizational: false }], null, []);
+  const s = computeSizing(bareDir, [{ id: 'x', dir: 'src/api', ownFiles: new Set(['src/api/alpha-handler.ts']), organizational: false }], null, []);
   assert.equal(s.scopesAvailable, false);
   assert.equal(s.proposedNodes[0].scopes, null, 'an absent scope cache must never be misread as zero scopes');
 });
