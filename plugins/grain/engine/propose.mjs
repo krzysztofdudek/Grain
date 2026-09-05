@@ -1404,7 +1404,12 @@ function writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev 
   for (const n of nodes) {
     const md = renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf: exp.asOf, repo });
     write(join(ygg, 'model', n.id, 'charter.md'), md);
-    ev('charter', n.id, `charter.md rendered for \`${n.id}\` — ${n.organizational ? 'organizational node' : `${n.files.size} files`}, ${aspects.filter(a => a.host === n.id).length} hosted aspect drafts, ${(cochangeByNode.get(n.id) || []).length} co-change partners`);
+    // The audit row counts what the charter NAMES, through the same cascade the charter renders (ticket 114).
+    // It used to compare an aspect's `host` — a TYPE id — against the node's `id`, a PATH: the category error
+    // ticket 112 fixed inside the charter, left behind in the row that reports on it, so every charter row on
+    // every repository read "0 hosted aspect drafts" including the ones whose charter names eight.
+    const eff = effectiveAspectsForNode(n, nodes, aspects);
+    ev('charter', n.id, `charter.md rendered for \`${n.id}\` — ${n.organizational ? 'organizational node' : `${n.files.size} files`}, ${eff.own.length + eff.inherited.length} rules in force here (${eff.own.length} attached at this node's own type, ${eff.inherited.length} inherited from an ancestor), ${(cochangeByNode.get(n.id) || []).length} co-change partners`);
     chartersWritten++; charterLines += md.split('\n').length;
   }
   return { chartersWritten, charterLines };

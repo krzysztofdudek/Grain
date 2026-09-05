@@ -703,3 +703,24 @@ test('the charter and `yg context --file` name the same rules for the same file'
 
   rmSync(t, { recursive: true, force: true });
 });
+
+// ---------- 18. the charter's own audit row counted nothing (bug, found while doing ticket 114) ----------
+//
+// `proposal.json`'s `evidence[]` is the full audit trail — "every element this renderer wrote has exactly one
+// row here" — and a charter's row claimed how many rules the charter names. It compared the aspect's `host`
+// (a TYPE id) against the node's `id` (a PATH): the same category error ticket 112 fixed inside the charter
+// body, left behind in the row that reports on it. Every charter row on every repository read "0 hosted
+// aspect drafts", including the ones whose charter names eight.
+test('a charter\'s evidence row counts the rules the charter actually names', () => {
+  const j = JSON.parse(readFileSync(join(out, 'proposal.json'), 'utf8'));
+  const rows = j.evidence.filter(e => e.kind === 'charter');
+  assert.ok(rows.length, 'no charter evidence rows at all');
+  const model = join(out, '.yggdrasil', 'model');
+  for (const row of rows) {
+    const md = readFileSync(join(model, row.id, 'charter.md'), 'utf8');
+    const named = new Set([...md.matchAll(/\(`(grain\/[^`]+)`\)/g)].map(m => m[1]));
+    const claimed = /(\d+) rules? in force here/.exec(row.evidence);
+    assert.ok(claimed, `charter row for ${row.id} does not say how many rules its charter names: ${row.evidence}`);
+    assert.equal(Number(claimed[1]), named.size, `charter row for ${row.id} claims ${claimed[1]} rules, the charter names ${named.size}`);
+  }
+});
