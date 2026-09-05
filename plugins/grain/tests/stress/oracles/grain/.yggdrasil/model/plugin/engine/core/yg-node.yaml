@@ -1,0 +1,20 @@
+name: Mining Core
+type: mining-core
+description: >-
+  The convention engine. It derives every language binding from each grammar's own node-type metadata,
+  extracts scopes and features generically from syntax trees and paths, induces groups of similar code
+  rather than reading them off a list, weights every instance by how long it survived in history and who
+  wrote it, and accepts a claim only when stating it compresses the repository. One loss constant
+  decides whether it speaks at all. It also holds the query implementations the dispatcher calls, the
+  placement and check verdicts, and the mutation harness the suite uses to measure its own detection
+  rate. It is a single 572 KB module, which is the largest standing structural debt in the product.
+relations:
+  - target: plugin/engine/relations
+    type: calls
+  - target: plugin/engine/vendor-runtime
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/core.mjs

@@ -1,0 +1,11 @@
+name: NoDebugOutputInTests
+description: >-
+  A test reports through its assertions, not by printing. Left-over
+  `console.log`/`console.error` calls from debugging do not ship.
+status: advisory
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "**/*.js"

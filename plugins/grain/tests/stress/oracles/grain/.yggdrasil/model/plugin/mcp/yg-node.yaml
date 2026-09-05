@@ -1,0 +1,16 @@
+name: MCP Server
+type: entry-mcp
+description: >-
+  A newline-delimited JSON-RPC server over stdio exposing six read-only tools, each a direct
+  pass-through to the same command function the CLI calls, with JSON output forced on. It exists so a
+  tool that is not the primary host can ask the same questions; it adds no answer of its own, and it
+  keeps the optimizing compiler because a server answers many calls over its lifetime while a query
+  answers one.
+relations:
+  - target: plugin/dispatch
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/bin/grain-mcp.mjs

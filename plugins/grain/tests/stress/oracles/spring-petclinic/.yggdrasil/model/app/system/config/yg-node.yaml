@@ -1,0 +1,7 @@
+name: SystemConfiguration
+type: configuration
+description: "Two container customisations: the JCache setup that creates the `vets` cache with statistics enabled, and the MVC configuration that resolves the user's locale from the session and lets a ?lang= parameter change it."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/system/CacheConfiguration.java
+  - src/main/java/org/springframework/samples/petclinic/system/WebConfiguration.java
+relations: []

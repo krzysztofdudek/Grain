@@ -1,0 +1,13 @@
+name: ClaimsCarryTheirMeasurement
+description: >-
+  Every quantitative claim in a user-facing document names what produced it and what it was measured on,
+  reports the negative beside the positive, and describes the product as it is today.
+
+  ADVISORY, because the documentation is drifting from the code in at least two visible places: the
+  front door describes the protocol server as exposing four tools where six ship, and its list of slash
+  commands names eleven of the nineteen that exist. Neither is a false measurement; both are the class
+  of drift this rule exists to catch. Promote once the surface descriptions are brought back into line.
+reviewer:
+  type: llm
+status: advisory
+review_by: 2026-12-01

@@ -1,0 +1,6 @@
+name: MessageBundles
+type: message-bundle
+description: "The localisation bundles. messages.properties is the source of truth and holds every key; ten translated bundles must each carry all of them, because a missing key surfaces to the user as a raw key name rather than as English. messages_en.properties is intentionally empty: English falls back to the base bundle."
+mapping:
+  - src/main/resources/messages/
+relations: []

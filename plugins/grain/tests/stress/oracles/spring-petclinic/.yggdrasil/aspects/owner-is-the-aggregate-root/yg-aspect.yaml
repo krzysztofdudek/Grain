@@ -1,0 +1,10 @@
+name: OwnerIsTheAggregateRoot
+description: "Pets and visits are reached and written through their owner. Judgment is needed here rather than a script, because the rule is about what a piece of code is doing, not about which symbols it names."
+reviewer:
+  type: llm
+status: enforced
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "src/main/java/**/*.java"

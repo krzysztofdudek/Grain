@@ -1,0 +1,9 @@
+name: DegradeNeverCrash
+description: >-
+  Every path that can be reached from outside degrades rather than failing: it answers what it can, says
+  what it could not do, and never takes the caller's process down with it. Prose, because "degrades
+  honestly" is a judgement about what an answer says, not a shape a script can measure.
+reviewer:
+  type: llm
+status: enforced
+review_by: 2027-06-01

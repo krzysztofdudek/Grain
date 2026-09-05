@@ -1,0 +1,14 @@
+name: Repository Configuration
+type: repo-config
+description: >-
+  Editor, formatter, attribute and ignore rules, the environment example for the optional trial
+  overrides, and the licence the vendored engine carries forward. The ignore rules are load-bearing in
+  one place: the index the product writes, and the per-run instrument dumps, are never committed.
+mapping:
+  - .editorconfig
+  - .env.example
+  - .gitattributes
+  - .gitignore
+  - .prettierignore
+  - .prettierrc
+  - LICENSE

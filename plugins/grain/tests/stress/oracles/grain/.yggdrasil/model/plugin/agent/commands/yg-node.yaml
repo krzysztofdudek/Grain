@@ -1,0 +1,14 @@
+name: Slash Commands
+type: agent-command
+description: >-
+  Nineteen command documents, each a thin shell: frontmatter, exactly one line that runs the entry point
+  with one verb, and instructions for relaying the answer faithfully rather than summarising it away.
+  Two dispatched verbs have no document of their own on purpose — a dev-only harness, and one whose
+  canonical document is filed under its original name.
+relations:
+  # No code dependency: a document invokes the entry point as a shell command. Declared so the
+  # verb-parity rule may read the dispatcher whose verbs these documents have to match.
+  - target: plugin/dispatch
+    type: uses
+mapping:
+  - plugins/grain/commands/

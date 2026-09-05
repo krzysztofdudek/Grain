@@ -1,0 +1,2 @@
+## [2026-09-05T20:26:24.248Z]
+This is the one place in the application that is read from a cache instead of the database on every request. The veterinarian list changes about once a year and is displayed on a page every visitor lands on, so the query is cached and the repository exposes only reads - it extends the minimal repository contract rather than the full one precisely so that no write method exists to be called by accident and quietly invalidate nothing. Both read methods are marked read-only so the transaction manager can take the cheaper path.

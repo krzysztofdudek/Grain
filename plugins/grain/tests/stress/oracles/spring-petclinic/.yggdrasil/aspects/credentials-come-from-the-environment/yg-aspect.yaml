@@ -1,0 +1,11 @@
+name: CredentialsComeFromTheEnvironment
+description: "A datasource url, username or password in a properties file is read from the environment, with the local development value as the placeholder default. Written as a bare literal it becomes a committed credential that follows the repository everywhere, and there is then no way to point a deployment at a different database without editing the artifact. The Compose file and the Kubernetes manifests are a separate matter — those are development fixtures and a bound secret respectively, and neither is covered here."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "src/main/resources/*.properties"

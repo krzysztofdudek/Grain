@@ -1,0 +1,11 @@
+name: AppAccessThroughThis
+description: >-
+  A prototype mixed onto a node HTTP object reaches the application through the
+  object it was called on, never by requiring the application module.
+errs: under
+review_by: 2027-03-01
+when:
+  node:
+    type: library-prototype
+scope:
+  per: file

@@ -1,0 +1,25 @@
+name: ConstantsOnlyInConfig
+description: >-
+  A consumer of the constant table takes its values by import and never declares one of its own under
+  the same name. The table is the single home of every path, acceptance constant, vocabulary floor,
+  exclusion pattern, the extension-to-grammar map and the three cache-version keys, and its own first
+  line says so.
+
+  Two different failures this prevents. A restated THRESHOLD is a second source of truth: the two copies
+  agree on the day they are written and diverge silently afterwards, and this project's whole position
+  is that a number must have a derivation, which a copy does not. A restated CACHE-VERSION KEY is worse:
+  those keys are the contract that says a stored index is stale, so a second definition means a store
+  that is out of date without ever saying so — and every answer the tool gives carries the claim that it
+  was computed from a particular commit.
+
+  This rule reaches the consumers through the constant table's own port, so it lands exactly on the
+  modules that import it and nowhere else.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

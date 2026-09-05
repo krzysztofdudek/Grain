@@ -352,3 +352,6 @@ Status 'enforced' w propozycji wymaga DWÓCH rzeczy: pochodzenia z certyfikowane
 
 ## 2026-09-05 · examples-are-not-oracles · class G
 examples/* w Yggdrasil (7 katalogów z własnym .yggdrasil/) NIE nadają się na wyrocznie rekonstrukcji: 14–24 pliki, 1–4 węzły, 0–3 aspekty, brak własnej historii gita (żyją w historii monorepo jako fixtures). Grain bez historii nie certyfikuje nic, a przy 2 węzłach nie ma czego odzyskiwać — pomiar dałby 100% albo 0% z szumu. Jedyną pełną wyrocznią pozostaje graf główny Yggdrasil; drugą będą prywatne repo użytkownika, gdy dostępne. Kandydat (b) z handoffu zamknięty bez pracownika.
+
+## 2026-09-05 · pct-two-functions-stay · ticket 111 · class D
+core.mjs 'pct' (podłoga na 99: '100%' znaczy dokładnie 1.0, §G14) i propose.mjs 'pct' (zaokrąglenie) to dwie różne funkcje pod tą samą nazwą — zostają rozdzielone, bo ujednolicenie zmieniłoby renderowane liczby w propozycji; propose.mjs ma zmienić nazwę swojej na 'pctRounded' przy najbliższej zmianie tego pliku (111 nie ruszał, bramka bajt-w-bajt). Do propozycji stosuje się ta sama zasada co do powierzchni agentowych: '100%' ma znaczyć 1.0 — czyli docelowo renderer przechodzi na podłogę z core.mjs, ale jako świadoma zmiana liczb z własnym pomiarem, nie w przelocie.

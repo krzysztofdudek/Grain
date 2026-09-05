@@ -1,0 +1,25 @@
+name: NoNetworkAtRuntime
+description: >-
+  Nothing that ships inside the plugin may reach the network. No networking builtin may be imported
+  (http, https, net, tls, dgram, dns, http2, quic, or their promise variants), and no networking global
+  may be called (fetch, XMLHttpRequest, WebSocket, EventSource).
+
+  This is the second of the four promises the product makes to a user, and the only one that is a
+  security property rather than a convenience: the tool reads every file and the whole history of a
+  private repository, so "nothing leaves your machine, no model calls, no API keys" is what makes it
+  safe to point at work you cannot share. It is also why the parser runtime and all twenty-three
+  grammars are vendored into the package instead of fetched. A single import here would make the promise
+  false without making anything visibly break, which is exactly the kind of change a rule has to catch
+  rather than a reviewer.
+
+  Detection is on the syntax tree, so a networking name inside a string, a comment, or a documentation
+  example never fires.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

@@ -1,0 +1,8 @@
+name: CommonJsExportSurface
+description: >-
+  A published module exposes its surface through CommonJS (`module.exports` or
+  `exports.<name>`) and contains no ECMAScript module syntax.
+errs: exact
+review_by: 2028-01-01
+scope:
+  per: file

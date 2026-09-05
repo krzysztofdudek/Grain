@@ -1,0 +1,11 @@
+name: OwnerWebSupport
+type: web-support
+description: "Binding-time collaborators for the owner forms: the formatter that converts a pet type between its display name and its entity, and the validator that enforces the pet-form rules Bean Validation annotations on the entity cannot express."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/owner/PetTypeFormatter.java
+  - src/main/java/org/springframework/samples/petclinic/owner/PetValidator.java
+relations:
+  - target: app/owner/repositories
+    type: calls
+  - target: app/owner/entities
+    type: uses

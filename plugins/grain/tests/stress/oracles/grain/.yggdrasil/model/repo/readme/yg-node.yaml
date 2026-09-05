@@ -1,0 +1,16 @@
+name: Product README
+type: product-readme
+description: >-
+  The front door. It carries the problem statement, the four promises the product makes to a user, the
+  measured record with its negatives in front, and the install path. Every number in it is a promise
+  about something an instrument produced, and the document that holds the complete record — negatives
+  first — is named in the first paragraph of the evidence section rather than buried.
+relations:
+  # No code dependency — declared so the link rule may probe the documents and the licence this file
+  # points its reader at.
+  - target: repo/docs
+    type: uses
+  - target: repo/config
+    type: uses
+mapping:
+  - README.md

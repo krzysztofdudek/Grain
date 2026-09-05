@@ -1,0 +1,9 @@
+name: Project State
+type: director-state
+description: >-
+  The committed record: one directory per ticket with its issue and its log, the queue, the handoff, the
+  escalation ledger, the decision register and the research reports. The register is the load-bearing
+  part — a decision that has already been paid for is not re-derived, and a decision that is overturned
+  gets a new entry referring to the old one rather than an edit to it.
+mapping:
+  - .system/

@@ -1,0 +1,10 @@
+name: Continuous Integration
+type: ci-workflow
+description: >-
+  Two jobs. The first runs the whole conformance suite on two platform majors and needs no install step,
+  because the parser runtime and every grammar are vendored. The second is the family seam job: it
+  checks out the neighbouring projects and runs this repository's proposal renderer through their REAL
+  binaries and scripts rather than a re-implementation of either — which is what makes the versioned
+  seam contracts more than a document.
+mapping:
+  - .github/workflows/

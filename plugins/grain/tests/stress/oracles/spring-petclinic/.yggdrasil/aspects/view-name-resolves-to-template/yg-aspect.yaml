@@ -1,0 +1,9 @@
+name: ViewNameResolvesToTemplate
+description: "Every view name a controller hands back must exist as a template. A view name is a string, so a typo compiles, passes review and only fails when a user reaches that page — which for a rarely-visited form can be a long time. The rule reads the literal view names out of the controller and checks a matching .html exists under the templates directory; redirects, forwards and computed names are left alone."
+reviewer:
+  type: deterministic
+status: enforced
+errs: over
+review_by: 2027-03-01
+scope:
+  per: file

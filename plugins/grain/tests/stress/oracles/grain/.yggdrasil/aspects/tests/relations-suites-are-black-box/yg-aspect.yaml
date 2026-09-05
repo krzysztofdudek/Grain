@@ -1,0 +1,23 @@
+name: RelationSuitesAreBlackBox
+description: >-
+  A relation end-to-end test may not import any module from the plugin's engine or entry directories, in
+  any form — static import, re-export, dynamic import, or require. Its only route to the product is the
+  shared harness, which builds a fixture tree, spawns the built binary and reads the answer back.
+
+  These cases are ported one for one from the project the relation machinery was vendored from, and what
+  they pin is behaviour a user can observe: given this fixture, these edges are reported and these are
+  not, including the cases whose right answer is silence. Reaching into an internal module turns that
+  black-box contract into a white-box one, with two consequences. A refactor that moves code can then
+  break the suite without changing anything a user sees. Worse, the reverse: a real regression can be
+  MASKED, because the test is inspecting the very internals it is supposed to be observing from outside.
+
+  This is the one place in the repository where the split is designed in and load-bearing — the flat
+  conformance suite is deliberately mixed — so this rule is scoped to exactly these two suites rather
+  than aspiring to cover the whole test tree.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    path: "**/*.test.mjs"

@@ -1,0 +1,27 @@
+name: FileSizeBudget
+description: >-
+  A first-party module must fit inside the DEFAULT reviewer budget of 50 000 characters.
+
+  The number is not taste and not a line count somebody liked. It is derived: a prose rule about a
+  module is verified by assembling that module into one reviewer prompt, and 50 000 characters is the
+  default ceiling that assembly is checked against. A module above it cannot be judged as a whole by
+  anything — not by a reviewer, and in practice not by a person either. The rule therefore says exactly
+  one thing: a module has to be small enough that a statement about it can be checked.
+
+  ADVISORY, because three modules are over the line today and two of them are far over: the mining core
+  at roughly 572 000 characters (eleven times the budget), the proposal writer and the dispatcher at
+  roughly 160 000 each. That is this repository's largest standing structural debt, and it is why the
+  reviewer ceiling in the configuration is set an order of magnitude above the default — the comment
+  there is a pointer back to this rule. Everything else in the product already fits.
+
+  The exit is a split along a seam the code already has (the mining core has labelled sections;
+  extraction, mining, the query implementations and the harness are separable), not a raised ceiling.
+errs: exact
+status: advisory
+review_by: 2026-12-01
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

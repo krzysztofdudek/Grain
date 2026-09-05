@@ -1,0 +1,14 @@
+name: StateThroughToolsOnly
+description: >-
+  The committed project state is written by its tools and never by hand, and every tool that writes it
+  writes through the one shared library rather than reaching the files itself.
+
+  DRAFT. The first half is a standing ruling of this project and is not in doubt; the second half — that
+  no tool bypasses the shared writer — is a shape this graph's author inferred from the directory rather
+  than confirmed by reading all ten scripts. A rule stated with less confidence than it asserts should
+  not be judging anything, so it produces no verdict until someone checks it and either sharpens it or
+  removes it.
+reviewer:
+  type: llm
+status: draft
+review_by: 2026-12-01

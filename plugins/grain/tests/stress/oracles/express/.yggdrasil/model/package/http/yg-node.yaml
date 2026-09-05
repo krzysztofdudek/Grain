@@ -1,0 +1,7 @@
+name: HttpPrototypes
+type: subsystem
+description: >-
+  The two prototypes express mixes into node's own HTTP objects. They are
+  grouped because they share one unusual property: their `this` is not an
+  instance of anything declared in this repository, and everything they know
+  about the application arrives through that `this` at call time.

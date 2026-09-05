@@ -1,0 +1,11 @@
+name: ExampleAppIsRequirable
+description: >-
+  An example's entry module exports the application it builds, so a test can
+  mount it.
+status: advisory
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "examples/*/index.js"

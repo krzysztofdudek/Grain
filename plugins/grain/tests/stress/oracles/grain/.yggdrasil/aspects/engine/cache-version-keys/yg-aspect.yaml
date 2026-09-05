@@ -1,0 +1,9 @@
+name: CacheVersionKeys
+description: >-
+  A change to what extraction, the history replay or the model produces is not complete until the
+  matching cache-version key moves and says what changed. Prose, because whether a change alters
+  extraction output is a judgement about the change, not a property of the diff's shape.
+reviewer:
+  type: llm
+status: enforced
+review_by: 2027-06-01

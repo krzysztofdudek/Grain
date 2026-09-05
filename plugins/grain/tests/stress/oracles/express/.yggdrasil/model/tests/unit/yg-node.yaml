@@ -1,0 +1,19 @@
+name: UnitTests
+type: unit-test
+description: >-
+  Seventy suites under `test/`, each named after the surface it covers -
+  one file per response method, one per request getter, one per application
+  method, plus `config`, `exports`, `regression`, `utils`, `Route` and `Router`.
+  `test/exports.js` is the package's public-shape test and `test/utils.js` the
+  only direct test of the private helpers; both are why this layer is allowed
+  to import private modules.
+mapping:
+  - test/*.js
+relations:
+  - target: package/entry
+    type: uses
+    consumes: [public-api]
+  - target: package/support/utils
+    type: uses
+  - target: tests/support
+    type: uses
