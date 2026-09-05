@@ -1185,7 +1185,18 @@ export function computeSizing(repo, nodes, handGraph, handFiles) {
 // 8. The renderer.
 // ==================================================================================================
 
-export async function propose(repo, outDir, opts = {}) {
+// ---- the four file sets `propose` writes, each in its own function ----
+//
+// `propose` below reads its inputs, builds the model, and then writes four things: the architecture, the
+// nodes, the aspects with their drill corpora, and the charters. Those four are what the section comments
+// have always called them; they are functions here so the pipeline reads as the five steps it is rather than
+// as one page of interleaved writes. Every body is unchanged, and `ev` — the one shared piece of state, the
+// evidence recorder — is passed in rather than closed over, so each function's whole effect is in its
+// signature: the directory it writes into, what it needs, and the counts it hands back.
+
+// The inputs: the tracked files, the export (reused when the caller already has one, spawned otherwise), the
+// model cache when there is one, and the predicate-expansion context every `when` is measured against.
+function loadInputs(repo, opts) {
   const files = gitFiles(repo);
   let exp;
   if (opts.exportPath) exp = JSON.parse(readFileSync(opts.exportPath, 'utf8'));
@@ -1205,34 +1216,11 @@ export async function propose(repo, outDir, opts = {}) {
   const cachePath = join(repo, '.grain', 'cache', 'model.json');
   const cache = existsSync(cachePath) ? JSON.parse(readFileSync(cachePath, 'utf8')) : null;
   const ctx = { root: repo, pathCache: new Map(), contentCache: new Map(), headCache: new Map(), unknownWhenKeys: new Set(), parsed: new Set(cache?.filesAll || []) };
+  return { files, exp, cache, ctx };
+}
 
-  say(opts, `${repo}: ${files.length} tracked files · ${(exp.partitions || []).length} partitions · ${(exp.conventions || []).length} conventions`);
-  const loc = localities(exp, cache, files);
-  const { active, alternatives } = buildTypes(exp, loc, files, ctx);
-  // deepest wins, matching Yggdrasil's own child precedence (a child node claiming a file inside a directory
-  // its parent globs owns that file)
-  const byDepth = [...active].sort((a, b) => (a.dir || '').split('/').length - (b.dir || '').split('/').length);
-  const typeOfFile = new Map();
-  for (const a of byDepth) for (const f of a.files) typeOfFile.set(f, a.id);
-  const rels = buildRelations(exp, typeOfFile, active);
-  const nestedRoots = nestedProjectRoots(files);
-  const { nodes, cycles: nodeCycles, nodeOfFile } = buildNodes(active, exp, nestedRoots);
-  say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycles in the proposed node graph (declared, not hidden — the proposal is red until they are broken)`);
-
-  const lat = await partitionLattice(repo);
-  const sub = subGate(lat.rows);
-  say(opts, `lattice: ${lat.rows.length} rows${lat.reason ? ` (${lat.reason})` : ''} · ${sub.length} in the sub-gate band`);
-
-  const { aspects, skipped } = buildAspects(exp, active, sub, opts);
-  say(opts, `aspect drafts: ${aspects.length} (${aspects.filter(a => a.check).length} rendered as check.mjs, ${aspects.filter(a => !a.check).length} prose) · skipped: ${skipped.unrenderableGroupScoped} unrenderable group-scoped, ${skipped.notARule} not a rule`);
-
-  // ---------------- write ----------------
-  const ygg = join(outDir, '.yggdrasil');
-  rmSync(ygg, { recursive: true, force: true });
-  mkdirSync(ygg, { recursive: true });
-  const evidence = [];
-  const ev = (kind, id, line, extra = {}) => { evidence.push({ kind, id, evidence: line, ...extra }); return line; };
-
+// `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
+function writeArchitecture(ygg, { active, nodes, rels, files, ev }) {
   // yg-config.yaml — require nothing. A proposal that turns every unmapped file into a blocking error on day one
   // is a proposal nobody runs twice; `getting-started` §4 says require-nothing is the brownfield default.
   write(join(ygg, 'yg-config.yaml'), preambleComment() + yamlEmit({
@@ -1283,8 +1271,10 @@ export async function propose(repo, outDir, opts = {}) {
     if (deny) ev('deny', a.id, `established negative: \`${deny.from}\` does not reach \`${deny.to}\` (share ${deny.share.toFixed(3)}, ${deny.ne}/${deny.neff} scopes, ${deny.bits.toFixed(1)} bits) AND this type has no resolved outgoing import at all, so the deny contradicts nothing observed`);
   }
   write(join(ygg, 'yg-architecture.yaml'), preambleComment() + yamlEmit({ node_types: nodeTypes }));
+}
 
-  // model/**/yg-node.yaml
+// `model/<node>/yg-node.yaml`: one per node, mapping and relations.
+function writeNodeFiles(ygg, nodes, ev) {
   for (const n of nodes) {
     const relEntries = n.relations.map(r => ({ target: r.target, type: 'uses' }));
     const line = n.organizational ? n.why : `${n.why}; maps ${n.files.size} tracked files; ${n.relations.length} outgoing dependencies from ${n.relations.reduce((a, r) => a + r.n, 0)} resolved imports`;
@@ -1303,13 +1293,15 @@ export async function propose(repo, outDir, opts = {}) {
       relations: relEntries,
     }));
   }
+}
 
-  // aspects/<id>/ — yg-aspect.yaml, the rule source (check.mjs or content.md), and a drill corpus.
-  //
-  // `status` is written TWICE. Every aspect ships `draft` here, first — `yg drill` is not gated by status
-  // (`yg knowledge read aspect-status`: "draft dormancy applies to `yg check`/`--approve` only"), so `draft` is
-  // the one value guaranteed valid before this renderer knows a check's own verdict. `promoteEnforceableAspects`
-  // below rewrites `yg-aspect.yaml` a second time for whatever a REAL drill just confirmed — see the header.
+// aspects/<id>/ — yg-aspect.yaml, the rule source (check.mjs or content.md), and a drill corpus.
+//
+// `status` is written TWICE. Every aspect ships `draft` here, first — `yg drill` is not gated by status
+// (`yg knowledge read aspect-status`: "draft dormancy applies to `yg check`/`--approve` only"), so `draft` is
+// the one value guaranteed valid before this renderer knows a check's own verdict. `promoteEnforceableAspects`
+// below rewrites `yg-aspect.yaml` a second time for whatever a REAL drill just confirmed — see the header.
+function writeAspectFiles(ygg, repo, aspects, opts, ev) {
   let drillCases = 0, drillDropped = 0;
   for (const a of aspects) {
     ev('aspect', a.id, a.evidenceLine, { reviewer: a.check ? 'deterministic' : 'llm', origin: a.origin, enumerator: a.enumerator, identifier: a.argument ?? null, expected: a.expected ?? null, host: a.host });
@@ -1343,6 +1335,59 @@ export async function propose(repo, outDir, opts = {}) {
       '```', `yg drill --aspect ${a.id} --dir .yggdrasil/aspects/${a.id}/drills --corpus grain-proposal`, '```', '',
     ].join('\n'));
   }
+  return { drillCases, drillDropped };
+}
+
+// charter.md — one per proposed node, beside its yg-node.yaml (ticket 100, §7c above). Written here, AFTER
+// sizing.json, so every charter can quote its own node's sizing row instead of recomputing it.
+function writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev }) {
+  const sizingByNode = new Map((sizing.proposedNodes || []).map(s => [s.id, s]));
+  const cochangeByNode = nodeCochangePairs(exp, nodeOfFile);
+  let chartersWritten = 0, charterLines = 0;
+  for (const n of nodes) {
+    const md = renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf: exp.asOf, repo });
+    write(join(ygg, 'model', n.id, 'charter.md'), md);
+    ev('charter', n.id, `charter.md rendered for \`${n.id}\` — ${n.organizational ? 'organizational node' : `${n.files.size} files`}, ${aspects.filter(a => a.host === n.id).length} hosted aspect drafts, ${(cochangeByNode.get(n.id) || []).length} co-change partners`);
+    chartersWritten++; charterLines += md.split('\n').length;
+  }
+  return { chartersWritten, charterLines };
+}
+
+export async function propose(repo, outDir, opts = {}) {
+  const { files, exp, cache, ctx } = loadInputs(repo, opts);
+
+  say(opts, `${repo}: ${files.length} tracked files · ${(exp.partitions || []).length} partitions · ${(exp.conventions || []).length} conventions`);
+  const loc = localities(exp, cache, files);
+  const { active, alternatives } = buildTypes(exp, loc, files, ctx);
+  // deepest wins, matching Yggdrasil's own child precedence (a child node claiming a file inside a directory
+  // its parent globs owns that file)
+  const byDepth = [...active].sort((a, b) => (a.dir || '').split('/').length - (b.dir || '').split('/').length);
+  const typeOfFile = new Map();
+  for (const a of byDepth) for (const f of a.files) typeOfFile.set(f, a.id);
+  const rels = buildRelations(exp, typeOfFile, active);
+  const nestedRoots = nestedProjectRoots(files);
+  const { nodes, cycles: nodeCycles, nodeOfFile } = buildNodes(active, exp, nestedRoots);
+  say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycles in the proposed node graph (declared, not hidden — the proposal is red until they are broken)`);
+
+  const lat = await partitionLattice(repo);
+  const sub = subGate(lat.rows);
+  say(opts, `lattice: ${lat.rows.length} rows${lat.reason ? ` (${lat.reason})` : ''} · ${sub.length} in the sub-gate band`);
+
+  const { aspects, skipped } = buildAspects(exp, active, sub, opts);
+  say(opts, `aspect drafts: ${aspects.length} (${aspects.filter(a => a.check).length} rendered as check.mjs, ${aspects.filter(a => !a.check).length} prose) · skipped: ${skipped.unrenderableGroupScoped} unrenderable group-scoped, ${skipped.notARule} not a rule`);
+
+  // ---------------- write ----------------
+  const ygg = join(outDir, '.yggdrasil');
+  rmSync(ygg, { recursive: true, force: true });
+  mkdirSync(ygg, { recursive: true });
+  const evidence = [];
+  const ev = (kind, id, line, extra = {}) => { evidence.push({ kind, id, evidence: line, ...extra }); return line; };
+
+  writeArchitecture(ygg, { active, nodes, rels, files, ev });
+
+  writeNodeFiles(ygg, nodes, ev);
+
+  const { drillCases, drillDropped } = writeAspectFiles(ygg, repo, aspects, opts, ev);
   say(opts, `drills: ${drillCases} cases${opts.holdout ? ` (hold-out ${opts.holdout}; ${drillDropped} sites dropped as pre-cut)` : ' (NO hold-out — labelled as such in every CORPUS.md)'}`);
 
   // Aspect status, earned or not — rulings `prose-aspects-draft-by-default`, `drill-fa-labelling-is-acceptance-
@@ -1361,17 +1406,7 @@ export async function propose(repo, outDir, opts = {}) {
   const sizing = computeSizing(repo, nodes, handGraphForSizing, files);
   write(join(outDir, 'sizing.json'), JSON.stringify({ instrument: sizing.instrument, repo, asOf: exp.asOf, ...sizing }, null, 1) + '\n');
 
-  // charter.md — one per proposed node, beside its yg-node.yaml (ticket 100, §7c above). Written here, AFTER
-  // sizing.json, so every charter can quote its own node's sizing row instead of recomputing it.
-  const sizingByNode = new Map((sizing.proposedNodes || []).map(s => [s.id, s]));
-  const cochangeByNode = nodeCochangePairs(exp, nodeOfFile);
-  let chartersWritten = 0, charterLines = 0;
-  for (const n of nodes) {
-    const md = renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf: exp.asOf, repo });
-    write(join(ygg, 'model', n.id, 'charter.md'), md);
-    ev('charter', n.id, `charter.md rendered for \`${n.id}\` — ${n.organizational ? 'organizational node' : `${n.files.size} files`}, ${aspects.filter(a => a.host === n.id).length} hosted aspect drafts, ${(cochangeByNode.get(n.id) || []).length} co-change partners`);
-    chartersWritten++; charterLines += md.split('\n').length;
-  }
+  const { chartersWritten, charterLines } = writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev });
   say(opts, `charters: ${chartersWritten} written, avg ${(charterLines / Math.max(1, chartersWritten)).toFixed(1)} lines`);
 
   // the documents a human actually reads
