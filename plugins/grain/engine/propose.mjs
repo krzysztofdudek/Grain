@@ -14,8 +14,10 @@
 // THREE RULES THIS MODULE OBEYS.
 //
 //   1. NEVER write into the repository's own `.yggdrasil/`. Everything lands under `<out-dir>/.yggdrasil/`, a
-//      directory the maintainer reads, edits and moves in by hand. The repo is read-only here, exactly as it is
-//      in `reconstruct.mjs`.
+//      directory the maintainer reads, edits and moves in by hand. The repository is untouched but for one
+//      thing, named here rather than glossed over: the export this module spawns for itself is written to
+//      `.grain/cache/`, the disposable half of grain's own store, which `.grain/.gitignore` already ignores —
+//      so a run leaves the working tree clean, and nothing it wrote can be committed by accident.
 //   2. EVERY proposed element carries an evidence line — counts, paths, shares — naming what in the repository
 //      made grain propose it. A proposal without evidence is a guess with a YAML syntax, and the whole point of
 //      the north star is that the graph comes from the code rather than from imagination. The evidence is both a
