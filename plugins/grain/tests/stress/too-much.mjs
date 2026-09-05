@@ -151,8 +151,11 @@ export function loadCache(repo) {
 /**
  * The exact per-file scope inventory at HEAD: `tree.json` is keyed `<blob sha>|<path>` and holds only current
  * files (a rename or delete drops out), uncapped. The model's own `part.fileScopes` is capped at 200 scopes per
- * file, which saturates precisely on the files this instrument exists to rank — so the cap is read around here,
- * and the model copy is only the fallback (a repository indexed without git writes `scopes.json` instead).
+ * file, which saturates precisely on the files this instrument exists to rank — the LIST is still read from
+ * here when tree.json is unavailable (a repository indexed without git writes `scopes.json` instead), but the
+ * per-file scope COUNT no longer needs this file at all: `part.fileScopesTotal` (§099) now carries the true
+ * count for exactly the files whose list was truncated, so `collectStatistics` reads that field first and only
+ * falls back to this tree when the field itself is absent (a model cache built before that field existed).
  * Returns Map(rel -> [{ kind, name, line, endLine }]) or null.
  */
 export function loadTree(repo) {
@@ -253,6 +256,10 @@ export function collectStatistics({ exp, cache, fps, tree = null }) {
   // ---- per-file scope inventory + role spread (model cache: fileScopes, assignments, medoids) ----
   const fileScopeCount = new Map();
   const scopeSpans = []; // { rel, part, kind, name, line, endLine, t }
+  // how each file's true scope count (§099) was actually obtained, across every partition — surfaced in
+  // `analyse`'s disclosure so a reader can tell when the number came from the model's own truncation record
+  // versus a stale cache still silently saturating at 200.
+  const scopeCountSource = { fileScopesTotal: 0, staleCapped: 0 };
   for (const p of cache?.partitions || []) {
     const groupOfKey = p.assignments || {};
     const nGroups = (p.medoids || []).length;
@@ -271,22 +278,50 @@ export function collectStatistics({ exp, cache, fps, tree = null }) {
       }
       m.set(r, (m.get(r) || 0) + 1);
     }
+    // size (file): one pass over every file of the partition, including the ones with no scope at all — merged
+    // with the scope-inventory pass below it used to be a separate loop from (a bug fixed on sight, §099: that
+    // second loop read `tree?.get(rel) || []` with NO fileScopes fallback at all, so `byKind`/`widest`/
+    // `spannedLines` silently went empty for every file whenever tree.json was unavailable, even though the
+    // very same file's `list` one loop up already had the data, capped or not).
     for (const rel of p.files || []) {
-      const list = tree?.get(rel)
-        ? tree.get(rel)
+      // tree.json is the RAW per-file extraction, which (unlike the model's own `fileScopes`, built from the
+      // same records with `kind === 'file' || kind === 'module'` explicitly dropped — core.mjs's `learn`) still
+      // carries that file's own pseudo-scope entry. Left in, every file counted through tree.json read one
+      // scope too many versus the exact same file counted through `fileScopes`/`fileScopesTotal` — a real,
+      // pre-existing off-by-one between the two paths this instrument already straddled, fixed on sight here
+      // because §099 depends on both paths agreeing on one true count for the same file.
+      const fromTree = tree?.get(rel)?.filter(s => s.kind !== 'file' && s.kind !== 'module');
+      const list = fromTree
+        ? fromTree
         : (p.fileScopes?.[rel] || []).map(([kind, name, line, endLine]) => ({ kind, name, line, endLine: endLine ?? line }));
-      if (!list.length) continue;
-      fileScopeCount.set(rel, list.length);
-      for (const s of list)
-        scopeSpans.push({ rel, part: p.name, kind: s.kind, name: s.name, line: s.line, endLine: s.endLine, t: s.endLine - s.line + 1 });
-    }
-    // size (file): every file of the partition, including the ones with no scope at all
-    for (const rel of p.files || []) {
-      const list = tree?.get(rel) || [];
+      // The true per-file scope count (§099): tree.json, when present, is already uncapped truth. Otherwise
+      // prefer the model's own `fileScopesTotal` — cheap, no extra file to read, and sparse (only present for a
+      // file actually truncated at the 200-per-file cap) — and fall back further to tree.json's own length only
+      // when that field itself is absent (a model cache built before it existed). With neither, `list.length`
+      // is the pre-fix behavior: correct for a file at or under 200 scopes, silently saturated otherwise.
+      let trueCount = list.length, countSource = 'exact';
+      if (!fromTree) {
+        if (p.fileScopesTotal && Object.prototype.hasOwnProperty.call(p.fileScopesTotal, rel)) {
+          trueCount = p.fileScopesTotal[rel];
+          countSource = 'fileScopesTotal';
+        } else if (list.length === 200) {
+          // neither tree.json nor `fileScopesTotal` can say whether this is exactly 200 or truncated — a model
+          // cache built before §099 (or, with tree.json present, a rel it happens to have no entry for, e.g. a
+          // rename tree.json's current-files-only shape drops). Silently saturated, same as pre-fix.
+          countSource = 'stale-capped';
+        }
+      }
+      if (countSource === 'fileScopesTotal') scopeCountSource.fileScopesTotal++;
+      else if (countSource === 'stale-capped') scopeCountSource.staleCapped++;
+      if (list.length) {
+        fileScopeCount.set(rel, trueCount);
+        for (const s of list)
+          scopeSpans.push({ rel, part: p.name, kind: s.kind, name: s.name, line: s.line, endLine: s.endLine, t: s.endLine - s.line + 1 });
+      }
       const byKind = new Map();
       for (const s of list) byKind.set(s.kind, (byKind.get(s.kind) || 0) + 1);
       const widest = list.reduce((a, s) => (a && a.endLine - a.line >= s.endLine - s.line ? a : s), null);
-      put('size', p.name, rel, fileScopeCount.get(rel) || 0, {
+      put('size', p.name, rel, trueCount, {
         byKind: [...byKind].sort((a, b) => b[1] - a[1]).slice(0, 4).map(([k, n]) => ({ kind: k, n })),
         widest: widest ? { name: widest.name, kind: widest.kind, lines: widest.endLine - widest.line + 1 } : null,
         spannedLines: list.length ? Math.max(...list.map(s => s.endLine)) : 0,
@@ -392,7 +427,7 @@ export function collectStatistics({ exp, cache, fps, tree = null }) {
     put('mod-fanin', '_moduleGraph', nd.id, i.size, { files: nd.files, layer: nd.layer, sources: [...i].sort((a, b) => b[1] - a[1]).slice(0, 8) });
   }
 
-  return { stats: S, partOf, partFiles, live, fileScopeCount };
+  return { stats: S, partOf, partFiles, live, fileScopeCount, scopeCountSource };
 }
 
 function topBy(list) {
@@ -461,7 +496,7 @@ export function fitSignatures(exp) {
 // ---------------------------------------------------------------------------------------------------
 
 export function analyse({ exp, cache, fps, tree = null }) {
-  const { stats, partFiles } = collectStatistics({ exp, cache, fps, tree });
+  const { stats, partFiles, scopeCountSource } = collectStatistics({ exp, cache, fps, tree });
   const sigFit = fitSignatures(exp);
 
   const dims = {};
@@ -622,6 +657,25 @@ export function analyse({ exp, cache, fps, tree = null }) {
       .sort((a, b) => b.totalExcessBits - a.totalExcessBits || (a.id < b.id ? -1 : 1));
 
   const fileUniverse = [...partFiles.values()].reduce((a, b) => a + b.length, 0);
+  const disclosure = [
+    '"Too much" is measured against THIS repository\'s own practice, one partition at a time. The modal bin printed for every dimension IS the yardstick: a repository where every file is a god-file has a god-file mode and flags nothing, correctly.',
+    'One-sided by the meaning of the word: only a statistic ABOVE its population\'s modal bin can be excessive.',
+    'The per-element total is the SUM of independent per-dimension codes and is used as a ranking key only. Size, fan-out and churn are correlated in real code, so the sum is an upper bound on a joint excess, never a claim of "N bits of debt".',
+    `A population below CFG.minRaw=${CFG.minRaw} elements is silent and listed in silentPopulations — no default distribution is ever substituted. CFG.minRaw is not an extra floor: the largest excess attainable in a population of n is log2(2n-1), so reaching ${r2(LAMBDA_BITS)} bits needs n >= (λ+1)/2 = 4.5 — exactly 5.`,
+    'A population that IS fitted but whose own concentration cannot reach the bound is listed in underpoweredPopulations. Its members are counted in `scored` and excluded from `scoredPowered`, so the fire rate can be read either way: over everything measured, or over everything that could have spoken.',
+    'Churn and co-change breadth carry an age confound: a file present since the first commit has had more chances to be touched. Age is not corrected for; it is disclosed.',
+    'The scope-size and responsibilities dimensions see only files grain has a grammar for; fan-in/fan-out see only files the relation layer resolves (export.relCoverage names the gap).',
+    'Duplication, twins and cycles are reported as ranked gains, not as fired excesses: a template is repeated by definition, so no population makes one of them excessive.',
+  ];
+  // §099 — the size dimension's true per-file scope count, disclosed by how it was obtained this run.
+  if (scopeCountSource.fileScopesTotal > 0)
+    disclosure.push(
+      `${scopeCountSource.fileScopesTotal} file(s) had a scope list truncated at the model cache's 200-per-file cap; the size dimension's count for them came from the model's own \`fileScopesTotal\` field (§099), not the capped list length.`
+    );
+  if (scopeCountSource.staleCapped > 0)
+    disclosure.push(
+      `${scopeCountSource.staleCapped} file(s) show a size count saturated at exactly 200 with no way to tell "exactly 200" from "truncated" — their model cache predates the \`fileScopesTotal\` field (§099); re-run \`grain export\`/\`grain check\` to rebuild it.`
+    );
   return {
     instrument: 'too-much/1',
     lambda: CFG.lambda, lambdaBits: r2(LAMBDA_BITS), minRaw: CFG.minRaw,
@@ -634,16 +688,7 @@ export function analyse({ exp, cache, fps, tree = null }) {
     duplication: duplication.slice(0, 40),
     twins: twins.slice(0, 20),
     cycles,
-    disclosure: [
-      '"Too much" is measured against THIS repository\'s own practice, one partition at a time. The modal bin printed for every dimension IS the yardstick: a repository where every file is a god-file has a god-file mode and flags nothing, correctly.',
-      'One-sided by the meaning of the word: only a statistic ABOVE its population\'s modal bin can be excessive.',
-      'The per-element total is the SUM of independent per-dimension codes and is used as a ranking key only. Size, fan-out and churn are correlated in real code, so the sum is an upper bound on a joint excess, never a claim of "N bits of debt".',
-      `A population below CFG.minRaw=${CFG.minRaw} elements is silent and listed in silentPopulations — no default distribution is ever substituted. CFG.minRaw is not an extra floor: the largest excess attainable in a population of n is log2(2n-1), so reaching ${r2(LAMBDA_BITS)} bits needs n >= (λ+1)/2 = 4.5 — exactly 5.`,
-      'A population that IS fitted but whose own concentration cannot reach the bound is listed in underpoweredPopulations. Its members are counted in `scored` and excluded from `scoredPowered`, so the fire rate can be read either way: over everything measured, or over everything that could have spoken.',
-      'Churn and co-change breadth carry an age confound: a file present since the first commit has had more chances to be touched. Age is not corrected for; it is disclosed.',
-      'The scope-size and responsibilities dimensions see only files grain has a grammar for; fan-in/fan-out see only files the relation layer resolves (export.relCoverage names the gap).',
-      'Duplication, twins and cycles are reported as ranked gains, not as fired excesses: a template is repeated by definition, so no population makes one of them excessive.',
-    ],
+    disclosure,
   };
 }
 
@@ -772,7 +817,7 @@ export async function run(opts) {
   if (!cache) throw new Error(`no model cache at ${join(repo, '.grain', 'cache', 'model.json')} — run \`grain export\` against this repo first`);
   const fps = opts.noHistory ? null : await loadFootprints(repo);
   const tree = loadTree(repo);
-  say(`${(cache.partitions || []).length} partitions, ${(cache.filesAll || []).length} indexed files, ${fps ? fps.length : 0} commit footprints, ${tree ? tree.size + ' files with an uncapped scope inventory' : 'no tree cache (per-file scope counts saturate at the model cache\'s 200)'}`);
+  say(`${(cache.partitions || []).length} partitions, ${(cache.filesAll || []).length} indexed files, ${fps ? fps.length : 0} commit footprints, ${tree ? tree.size + ' files with an uncapped scope inventory' : 'no tree cache (per-file scope counts above the model cache\'s 200 come from its fileScopesTotal field, §099, when present)'}`);
   const res = analyse({ exp, cache, fps, tree });
   res.wallSeconds = r2((Date.now() - t0) / 1000);
   return res;
