@@ -587,9 +587,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/091",
-      "state": "queued",
-      "note": "WAVE 5 #1 obligation floor 4 precision; constant change → escalate with numbers",
-      "updated": "2026-09-02 13:00"
+      "state": "dropped",
+      "note": "old objective; obligation floor question deferred until reconstruction instrument says obligations matter for the graph",
+      "updated": "2026-09-05 04:36"
     },
     {
       "id": 55,
@@ -597,9 +597,9 @@
       "kind": "research",
       "agent": "opus",
       "branch": "research/092",
-      "state": "running",
-      "note": "WAVE 5 #2 trial redesign: tasks selected by without-arm failure",
-      "updated": "2026-09-02 13:42"
+      "state": "dropped",
+      "note": "old objective (agent diff trials) suspended by north-star-brownfield-miner; ticket stays open, not wontfix",
+      "updated": "2026-09-05 04:36"
     },
     {
       "id": 56,
@@ -607,9 +607,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "instr/093-reconstruct",
-      "state": "queued",
-      "note": "instrument rekonstrukcji grafu; wzorzec Yggdrasil + examples",
-      "updated": "2026-09-05 04:35"
+      "state": "running",
+      "note": "Opus worker spawned 2026-09-05, worktree, branch instr/093-reconstruct",
+      "updated": "2026-09-05 04:36"
     }
   ]
 }
