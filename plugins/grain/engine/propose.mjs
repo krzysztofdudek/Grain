@@ -1194,7 +1194,12 @@ export async function propose(repo, outDir, opts = {}) {
   if (opts.exportPath) exp = JSON.parse(readFileSync(opts.exportPath, 'utf8'));
   else {
     say(opts, 'running grain export ...');
-    const out = join(repo, '.grain', 'propose-export.json');
+    // UNDER `cache/`, WHICH IS THE DISPOSABLE HALF. `.grain/.gitignore` ignores `cache/` and nothing else —
+    // "everything else in .grain/ is meant to be committed" — so an export written to `.grain/` directly left a
+    // multi-megabyte generated file sitting in the committable half of a repository this module promises to
+    // treat as read-only, never cleaned up and showing as an untracked change in any repo that already commits
+    // its `.grain/`. It is rebuildable state, so it belongs where the rest of the rebuildable state is.
+    const out = join(repo, '.grain', 'cache', 'propose-export.json');
     const args = ['export', '--repo', repo, '--out', out, '--compact', '--no-anchors'];
     if (opts.noHistory) args.push('--no-history');
     execFileSync('node', [BIN, ...args], { encoding: 'utf8', maxBuffer: 1 << 29, timeout: 120 * 60_000, stdio: ['ignore', 'pipe', opts.quiet ? 'ignore' : 'inherit'] });
