@@ -72,6 +72,67 @@ function bareImports(tree) {
   }
   return out;
 }
+// simple type names of the file's OWN package (§113). JLS §6.5.5.1 and §7.5: the types of the package a
+// compilation unit belongs to are in scope by declaration — an import declaration exists to reach OTHER packages,
+// so Java writes no import for a sibling class and there is nothing for an import-driven extractor to see. The
+// vendored extractor emits candidates for `import_declaration` and `scoped_type_identifier` only, so an entire
+// package's internal structure (entities, repositories, controllers of one domain package) was invisible: 31 real
+// file→file reference pairs on spring-petclinic, including every edge the `Vet ↔ Specialty` trap was built around.
+//
+// `type_identifier` is precisely the tree-sitter-java node for a type REFERENCE — a declaration's own name is an
+// `identifier`, so walking it cannot pick up the declaration site. Each one is emitted as a `symbol` candidate
+// keyed `<package>.<Name>`, which the symbol table binds only if that exact type is declared in this package:
+// a JDK type, a type reached by import and a type of another package all resolve to nothing and stay silent, and
+// two declarations of one key would classify as ambiguous rather than guess. Names brought in by a single-type
+// import are skipped outright — JLS §7.5.1 gives the import precedence over the package, and the import already
+// carries its own candidate.
+const JAVA_REF_KIND = { superclass: 'extends', super_interfaces: 'implements', extends_interfaces: 'implements', object_creation_expression: 'construct' };
+function javaSamePackageRefs(tree, decls) {
+  const pkgNode = tree.rootNode.descendantsOfType('package_declaration')[0];
+  if (!pkgNode) return []; // the unnamed package: no shared namespace to resolve a simple name against
+  let pkg = '';
+  for (let i = 0; i < pkgNode.namedChildCount; i++) {
+    const c = pkgNode.namedChild(i);
+    if (c && (c.type === 'scoped_identifier' || c.type === 'identifier')) { pkg = c.text; break; }
+  }
+  if (pkg === '') return [];
+  const imported = new Set(); // simple names a single-type import already binds
+  for (const imp of tree.rootNode.descendantsOfType('import_declaration')) {
+    const txt = imp.text;
+    const m = txt.match(/import\s+(?:static\s+)?([\w.$]+)\s*;/);
+    if (m && !/\*/.test(txt)) imported.add(m[1].split('.').pop());
+  }
+  // a type this file declares itself — a member type, the file's own top-level type, or a type PARAMETER —
+  // SHADOWS the package member of the same simple name (JLS §6.5.5.1 and §6.4.1), so a reference to that name is
+  // never a reference to the sibling file. Shadowing is scoped; this set is per FILE, which can only ever silence
+  // a reference, never invent one — and a type parameter is conventionally a single letter no package type carries.
+  const own = new Set();
+  for (const d of decls || []) for (const part of d.symbolKey.split('+')) own.add(part.split('.').pop());
+  for (const tp of tree.rootNode.descendantsOfType('type_parameter'))
+    for (let i = 0; i < tp.namedChildCount; i++) {
+      const c = tp.namedChild(i);
+      if (c && c.type === 'type_identifier') { own.add(c.text); break; }
+    }
+  const out = [];
+  const seen = new Set();
+  for (const n of tree.rootNode.descendantsOfType('type_identifier')) {
+    const parent = n.parent;
+    if (parent?.type === 'scoped_type_identifier') continue; // a qualified name's tail — already a candidate
+    if (parent?.type === 'type_parameter') continue; // `<T extends …>` DECLARES T; it does not reference a type
+    const name = n.text;
+    if (name === '' || imported.has(name) || own.has(name)) continue;
+    const line = n.startPosition.row + 1;
+    const key = name + ' ' + line;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    const kind =
+      JAVA_REF_KIND[parent?.type] ||
+      (parent?.type === 'type_list' ? JAVA_REF_KIND[parent.parent?.type] : undefined) ||
+      'type-ref';
+    out.push({ candidates: [{ kind: 'symbol', symbolKey: pkg + '.' + name }], kind, line });
+  }
+  return out;
+}
 export function relFactsFor(rel, content, tree, grammar) {
   const language = relLanguage(grammar);
   const ex = extractorForLanguage(language);
@@ -81,8 +142,10 @@ export function relFactsFor(rel, content, tree, grammar) {
     if (language === 'csharp')
       return { l: language, d: ex.declarations(pf), c: serCs(extractCsharpRefs(pf)) };
     const u = ex.uses(pf);
+    const d = ex.declarations(pf);
     if (/^(typescript|tsx|javascript)$/.test(language)) u.push(...bareImports(tree));
-    return { l: language, d: ex.declarations(pf), u };
+    if (language === 'java') u.push(...javaSamePackageRefs(tree, d));
+    return { l: language, d, u };
   } catch {
     return null;
   }
