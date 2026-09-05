@@ -18,6 +18,10 @@
 //                     override SUBGATE_PER_PARTITION, the READING cap on how many sub-gate candidates a
 //                     maintainer is asked to look at per partition. It bounds presentation, not measurement, so
 //                     a measurement run (097) lifts it and says so.
+//   --min-type-files <n>
+//                     override MIN_TYPE_FILES, the admission floor on how many files a directory must hold
+//                     before it is drafted as a type. Ruling `granularity-bounded-by-evidence-not-taste` asks
+//                     for this floor to be MEASURED as one to remove; ticket 101 runs 2 against 1.
 //   --score <repo>    after writing, score the proposal against that repo's HAND-WRITTEN `.yggdrasil/`, in BOTH
 //                     directions (recall: hand element -> proposed element; precision: proposed -> hand)
 //   --json <path>     write the run's numbers (and the score, with --score) as JSON
@@ -40,7 +44,7 @@
 // and imports engine modules read-only (`core.mjs` for the lattice vocabulary, `relations.mjs` through
 // reconstruct's own module assigner).
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -105,9 +109,48 @@ const say = (opts, m) => { if (!opts.quiet) process.stderr.write(`[propose] ${m}
 const uniq = a => [...new Set(a)];
 const pct = x => `${(x * 100).toFixed(0)}%`;
 
+// The tracked files. `git ls-files` where there is a git repository; a worktree walk where there is not.
+//
+// A DIRECTORY OF CODE WITH NO `.git` IS NOT AN ERROR (ticket 101). `grain export` itself handles it — it stamps
+// its answer `no-git` and reports "extracted 154 files (worktree — no git)" — and `edge-cases.mjs` has a case
+// for exactly that shape. This renderer used to call `git ls-files` unconditionally and died with
+// `fatal: not a git repository`, exit 128, on the one hostile repository whose whole point is the absence of
+// git. The fallback walks the worktree instead, skipping the state directories no proposal should ever describe.
+// It is a WEAKER file set than `git ls-files`, and knowingly so: with no git there is no `.gitignore` resolution,
+// so build output a git repo would have hidden is visible here. That is a degradation, which is the contract,
+// rather than a crash, which is not.
+const WALK_SKIP = new Set(['.git', '.grain', '.yggdrasil', 'node_modules']);
+function walkWorktree(root, rel = '', out = []) {
+  let entries;
+  try { entries = readdirSync(join(root, rel), { withFileTypes: true }); } catch { return out; }
+  for (const e of entries) {
+    if (WALK_SKIP.has(e.name)) continue;
+    const p = rel ? `${rel}/${e.name}` : e.name;
+    if (e.isDirectory()) walkWorktree(root, p, out);
+    else if (e.isFile()) out.push(p);
+  }
+  return out;
+}
 function gitFiles(repo) {
-  const out = execFileSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'utf8', maxBuffer: 1 << 28 });
-  return out.split('\0').filter(Boolean).map(p => p.split('\\').join('/'));
+  try {
+    // `-s` so the mode is visible: a SUBMODULE is listed by `git ls-files` as a single entry with mode 160000
+    // (a gitlink), and it is a directory on disk, not a file. Rendered as a file it becomes a node mapping that
+    // names a directory the type's `when` cannot satisfy — measured on leveldb, whose `third_party` gitlink
+    // produced a `type-when-mismatch` error. Yggdrasil already excludes a subtree carrying its own `.git` from
+    // coverage by default, so dropping the gitlink here agrees with what the graph loader does anyway.
+    const out = execFileSync('git', ['-C', repo, 'ls-files', '-s', '-z'], { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'] });
+    const files = [];
+    for (const rec of out.split('\0')) {
+      if (!rec) continue;
+      const m = /^(\d{6}) [0-9a-f]+ \d+\t(.*)$/s.exec(rec);
+      if (!m) continue;
+      if (m[1] === '160000') continue; // gitlink: a nested checkout, not a file of this repository
+      files.push(m[2].split('\\').join('/'));
+    }
+    return files;
+  } catch {
+    return walkWorktree(repo).sort();
+  }
 }
 
 // Repo-relative directory prefix -> the tracked files beneath it.
@@ -283,9 +326,29 @@ export function contentRegexFor(group) {
   const imps = (group.imports || []).filter(i => i && i.length >= 4);
   if (imps.length === 1) return { regex: esc(imps[0]), why: `every member's file imports \`${imps[0]}\`` };
   // (4) a defining name token, when the group named itself one word.
+  //
+  // CASE. A `nameTokens` entry is a CASE-FOLDED subword out of grain's own vocabulary (`core.mjs`'s `tokenize`
+  // lowercases; the export publishes them as `tok:` features), NOT a literal that appears in the source. Every
+  // other branch above anchors on something spelled exactly as the code spells it — a decorator name, a
+  // supertype, a member identifier, an import specifier — so only this one has to be rendered case-tolerantly.
+  // Measured (ticket 101) on Yggdrasil's own planted-family fixtures: rendered case-sensitively, the token
+  // `first` selected 0 of the 5 `*Repository.ts` members of `family-planted-mono` (their subword is `findFirst`,
+  // capital F) and 0 of 6 on `family-planted-polyglot`, while selecting all 5 snake_case Python members
+  // (`find_first`) — i.e. the predicate silently worked in one casing convention and was vacuous in the other.
   const toks = (group.nameTokens || []).filter(t => t && t.length >= 5);
-  if (toks.length) return { regex: `\\b[A-Za-z0-9_]*${esc(toks[0])}[A-Za-z0-9_]*\\b`, why: `group's defining name token \`${toks[0]}\`` };
+  if (toks.length) return { regex: `\\b[A-Za-z0-9_]*${caseTolerant(toks[0])}[A-Za-z0-9_]*\\b`, why: `group's defining name token \`${toks[0]}\`` };
   return null;
+}
+
+// Render a case-folded token so it matches the source whatever casing convention the language uses, without
+// changing the flags of the regex it is embedded in (Yggdrasil's `content:` predicate takes a pattern, not
+// flags). A letter becomes `[Aa]`; every other character is escaped literally.
+export function caseTolerant(token) {
+  return [...String(token)].map(ch => {
+    const lo = ch.toLowerCase(), up = ch.toUpperCase();
+    if (lo !== up) return `[${up}${lo}]`;
+    return ch.replace(/[.*+?^${}()|[\]\\]/, '\\$&');
+  }).join('');
 }
 
 function commonAffix(names, which) {
@@ -296,7 +359,12 @@ function commonAffix(names, which) {
   return which === 'prefix' ? out : [...out].reverse().join('');
 }
 
-export function buildTypes(exp, loc, files, ctx) {
+export function buildTypes(exp, loc, files, ctx, opts = {}) {
+  // MIN_TYPE_FILES is a stated ADMISSION FLOOR (ruling `instrument-floors-allowed-if-stated-and-measured`), and
+  // ruling `granularity-bounded-by-evidence-not-taste` asks for it to be measured as a floor to REMOVE, not to
+  // defend. It is therefore overridable per run (`--min-type-files`), so 2-vs-1 is a measurement rather than an
+  // argument. Nothing else in this renderer reads the constant.
+  const MTF = Number.isFinite(opts.minTypeFiles) ? opts.minTypeFiles : MIN_TYPE_FILES;
   const active = [];       // { id, dir, when, files, evidence, source }
   const alternatives = []; // { id, of, when, selected, evidence, why }
 
@@ -310,9 +378,27 @@ export function buildTypes(exp, loc, files, ctx) {
   // strict` types may not overlap, and this renderer sets `strict` on nothing) and it is the honest shape: grain
   // measured two cuts of the same tree and has no basis for deleting either.
   const cands = new Map(); // dir -> candidate (first source to name a directory keeps it)
-  const put = c => { if (!cands.has(c.dir)) cands.set(c.dir, c); };
+  const put = c => { const k = c.dir ?? `\0${c.id}`; if (!cands.has(k)) cands.set(k, c); };
   for (const p of loc.partitions) {
     if (p.name === '_repo' || !p.files.size) continue;
+    // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH. `_repo` is the residue bucket (excluded above
+    // by name, since it is "everything else" rather than a locality) and `_root` is the repository-root bucket:
+    // its files are real, but no directory called `_root` exists. Rendered as a directory the way every other
+    // partition is, it produces a `when` of `_root/**` that selects nothing, a node whose `mapping` names a path
+    // that is not there, and aspects scoped to `_root/**` that can never produce a pair. Measured (ticket 101):
+    // 4 of 17 corpus repositories carried such a partition, 168 drafted aspects were scoped to `_root/**`
+    // (17 of them deterministic) and every one produced ZERO pairs — which is the whole reason `leveldb` and
+    // `kotlin-datetime` scored 0% before this. The test is DERIVED, not a list of names: if no tracked file
+    // lives under the name, the name is not a directory.
+    if (!underDir(files, p.name).size) {
+      // Its files are real. When they all sit at the repository root, that is exactly the shape the root-glob
+      // type already models (`when: { path: '*' }`); anything else has no path expression and is disclosed as
+      // an alternative rather than guessed at.
+      if ([...p.files].every(f => !f.includes('/'))) {
+        put({ dir: null, id: slug(p.name), rootGlob: true, files: p.files, src: 'partition', why: `grain partition \`${p.name}\` (kind ${p.part.kind}, ${p.part.files} files, ${p.part.scopes} scopes, ${p.part.groups.length} role groups) — a synthetic bucket, not a directory: every file in it sits at the repository root, so it is drafted as the root glob rather than as a path prefix` });
+      }
+      continue;
+    }
     put({ dir: p.name, files: p.files, src: 'partition', why: `grain partition (kind ${p.part.kind}, ${p.part.files} files, ${p.part.scopes} scopes, ${p.part.groups.length} role groups)` });
   }
   const partRoots = new Set([...cands.keys()]);
@@ -320,7 +406,7 @@ export function buildTypes(exp, loc, files, ctx) {
   // places and finer in others, and both were in the candidate set the reconstruction measured against.
   for (const m of exp.moduleGraph?.nodes || []) {
     const s = underDir(files, m.id);
-    if (s.size < MIN_TYPE_FILES) continue;
+    if (s.size < MTF) continue;
     put({ dir: m.id, files: s, src: 'module', why: `grain module \`${m.id}\` (${m.files} files, dependency layer ${m.layer})` });
   }
   // directory cards ONE LEVEL below a partition root. Grain publishes a card only for a directory that carries
@@ -333,9 +419,9 @@ export function buildTypes(exp, loc, files, ctx) {
     if (depth !== 1) continue;
     put({ dir: d.name, files: d.files, src: 'directory', why: `grain directory card \`${d.name}\` (${d.card.files} files, ${d.card.scopes} scopes), one level below the partition \`${owner}\`` });
   }
-  for (const c of [...cands.values()].sort((a, b) => (a.dir < b.dir ? -1 : 1))) {
-    if (c.files.size < MIN_TYPE_FILES) continue;
-    active.push({ id: slug(c.dir), dir: c.dir, files: c.files, source: c.src, why: c.why });
+  for (const c of [...cands.values()].sort((a, b) => (String(a.dir) < String(b.dir) ? -1 : 1))) {
+    if (c.files.size < MTF) continue;
+    active.push({ id: c.id || slug(c.dir), dir: c.dir, files: c.files, source: c.src, why: c.why, ...(c.rootGlob ? { rootGlob: true } : {}) });
   }
 
   // the uncovered remainder, by top-level directory. No grain evidence — and the evidence line says so.
@@ -348,11 +434,11 @@ export function buildTypes(exp, loc, files, ctx) {
     (rest.get(top) || rest.set(top, new Set()).get(top)).add(f);
   }
   for (const [top, set] of [...rest].sort((a, b) => b[1].size - a[1].size)) {
-    if (set.size < MIN_TYPE_FILES || top === '.' || cands.has(top)) continue;
+    if (set.size < MTF || top === '.' || cands.has(top)) continue;
     active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'uncovered', why: `directory \`${top}\` holds ${set.size} tracked files no grain partition, module or directory card claims — a grouping from the layout alone, with no mining behind it` });
   }
   const rootFiles = rest.get('.');
-  if (rootFiles && rootFiles.size >= MIN_TYPE_FILES) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and no grain partition, module or directory card claims them — a grouping from the layout alone, with no mining behind it` });
+  if (rootFiles && rootFiles.size >= MTF && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and no grain partition, module or directory card claims them — a grouping from the layout alone, with no mining behind it` });
 
   for (const a of active) {
     a.when = a.rootGlob ? { path: '*' } : { path: `${a.dir}/**` };
@@ -385,7 +471,7 @@ export function buildTypes(exp, loc, files, ctx) {
     ...loc.directories.filter(d => !active.some(a => a.dir === d.name)).map(d => ({ set: d.files, label: d.name, group: null, groupId: null, partKind: d.part.kind, part: d.part.name, kind: 'directory card' })),
   ];
   for (const f of finer) {
-    if (f.set.size < MIN_TYPE_FILES) continue;
+    if (f.set.size < MTF) continue;
     const host = active.filter(a => a.dir && [...f.set].every(x => x.startsWith(a.dir + '/') || x === a.dir)).sort((a, b) => b.dir.length - a.dir.length)[0];
     if (!host) continue;
     if (jaccard(f.set, host.files) >= 0.9) continue; // the candidate IS the host — nothing finer on offer
@@ -749,15 +835,25 @@ export function renderCheck(spec) {
   const A = JSON.stringify(String(argument ?? ''));
   const wants = String(expected) === 'true';
   switch (enumerator) {
+    // MATCHING THE SPECIFIER. The first version of this template looked for the specifier only INSIDE QUOTES
+    // (`'x'`, `"x"`, `` `x` ``). That is how JavaScript, TypeScript and Go spell an import and how almost
+    // nothing else does: Java writes `import jakarta.persistence.Entity;`, Python `import os`, Rust
+    // `use serde::Serialize;`, C# `using System;`, all unquoted — so on every one of those languages the check
+    // matched nothing, refused nothing, and MISSED every `violates-` case in its own drill corpus. Measured
+    // (ticket 101, spring-petclinic): 17 of 38 rendered checks were `imp` checks, every one of them scored
+    // 0 refusals on the repository and 4-5/5 MISS on its own corpus. The specifier is now matched as a bounded
+    // token anywhere in the import statement's text, which covers the quoted spelling as well (a quote is not
+    // an identifier character) without matching a longer name that merely contains it (`os` does not match
+    // `import osmosis`, and `java.util.List` does not match `import java.util.ArrayList`).
     case 'imp':
       return wrap(provenance, `    if (!file.ast) continue;
     const SPEC = ${A};
+    const SPEC_RE = new RegExp('(^|[^A-Za-z0-9_$.])' + SPEC.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '($|[^A-Za-z0-9_$])');
     let sawAnyImport = false, sawSpec = null;
     walk(file.ast.rootNode, n => {
       if (!${NT.import}.test(n.type)) return;
       sawAnyImport = true;
-      const t = n.text;
-      if (t.includes("'" + SPEC + "'") || t.includes('"' + SPEC + '"') || t.includes('\`' + SPEC + '\`')) sawSpec = n;
+      if (SPEC_RE.test(n.text)) sawSpec = n;
     });
     if (${wants}) {
       // under: only a file that DOES import things, and not this one, is evidence against the rule.
@@ -832,14 +928,24 @@ export function renderCheck(spec) {
     case 'filenameshape': {
       const re = shapeToRegex(String(expected));
       if (!re) return null;
+      // THE SHAPE IS THE STEM'S, NOT THE BASENAME'S. grain measures `auto.filenameshape` as
+      // `nameShape(basename(rel, extname(rel)))` (`core.mjs`) — the name with its LAST extension removed — and
+      // the compiled shape is anchored (`^...$`), so testing it against the basename can never match a file
+      // that has an extension at all. Measured (ticket 101, spring-petclinic): both rendered `filenameshape`
+      // checks refused 100% of the files in their own scope, and the one whose corpus had `satisfies-` cases
+      // FALSE-ALARMED on 5 of 5 — on the very files grain had certified as conforming. The stem is computed
+      // here exactly as node's `basename(b, extname(b))` computes it, dotfiles included.
       return `${PROVENANCE(provenance)}
 const SHAPE = ${new RegExp(re).toString()};
+
+// grain measured this shape on the file name with its last extension removed; match what it measured.
+const stemOf = b => { const i = b.lastIndexOf('.'); return i > 0 ? b.slice(0, i) : b; };
 
 export function check(ctx) {
   const violations = [];
   for (const file of ctx.files) {
     const base = file.path.split('/').pop();
-    if (!SHAPE.test(base)) violations.push({ file: file.path, line: 1, column: 0, message: 'file name ' + base + ' does not follow the shape this rule proposes (' + ${JSON.stringify(String(expected))} + ') (proposed rule, not yet reviewed)' });
+    if (!SHAPE.test(stemOf(base))) violations.push({ file: file.path, line: 1, column: 0, message: 'file name ' + base + ' does not follow the shape this rule proposes (' + ${JSON.stringify(String(expected))} + ') (proposed rule, not yet reviewed)' });
   }
   return violations;
 }
@@ -1048,7 +1154,7 @@ export async function propose(repo, outDir, opts = {}) {
 
   say(opts, `${repo}: ${files.length} tracked files · ${(exp.partitions || []).length} partitions · ${(exp.conventions || []).length} conventions`);
   const loc = localities(exp, cache, files);
-  const { active, alternatives } = buildTypes(exp, loc, files, ctx);
+  const { active, alternatives } = buildTypes(exp, loc, files, ctx, { minTypeFiles: opts.minTypeFiles });
   // deepest wins, matching Yggdrasil's own child precedence (a child node claiming a file inside a directory
   // its parent globs owns that file)
   const byDepth = [...active].sort((a, b) => (a.dir || '').split('/').length - (b.dir || '').split('/').length);
@@ -1085,7 +1191,13 @@ export async function propose(repo, outDir, opts = {}) {
   // yg-architecture.yaml
   const nodeTypes = {
     project: { '#e': ev('type', 'project', 'organizational root; no `when`, classifies nothing', { level: 'organizational' }), description: 'Top-level grouping — root of the hierarchy. One per repository.', parents: [] },
-    module: { '#e': ev('type', 'module', 'organizational grouping; no `when`, classifies nothing', { level: 'organizational' }), description: 'Domain grouping — organizes children under shared domain responsibility.', parents: ['project', 'module'] },
+    // `module` is the organizational grouping the renderer inserts wherever a directory has to exist as a node
+    // but owns no files of its own. Such a node is routinely a CHILD of a classifying type's node (a `module`
+    // named `src/main` under the node for the `src` type), so every active type is an allowed parent — derived
+    // from the cut this run actually made, not chosen. Measured (ticket 101): without this, a staged `yg check`
+    // on spring-petclinic reported `parent-type-forbidden` — "Node 'src/main' (type 'module') has parent 'src'
+    // of type 'src', which is not an allowed parent type" — a blocking error in the proposal's own graph.
+    module: { '#e': ev('type', 'module', 'organizational grouping; no `when`, classifies nothing', { level: 'organizational' }), description: 'Domain grouping — organizes children under shared domain responsibility.', parents: ['project', 'module', ...active.map(a => a.id)] },
   };
   for (const a of active) {
     const targets = uniq([...(rels.uses.get(a.id) || new Map()).keys()]).sort();
@@ -1474,8 +1586,32 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
     });
   }
   for (const f of families) delete f._groupId;
-  families.sort((x, y) => (x.id < y.id ? -1 : 1));
-  return { v: 1, ts: asOf, families };
+  // PREDICATE FIT (ticket 101). A family handed to `yg advise` is a PAIR — a member list and the fitted
+  // predicate that is supposed to describe it — and `yg advise` renders the predicate as the draft scope a
+  // maintainer would adopt. A member the predicate does not actually select is therefore a claim the file
+  // itself refutes, and the adapter has the file on disk, so it can check rather than assert. Measured before
+  // this gate existed: on `family-planted-polyglot` the TS family carried 6 members (the 5 planted repositories
+  // plus the `ConfigLoader.ts` decoy the fixture's README says must never join a cluster) and its predicate
+  // selected NONE of them. Members that do not select are dropped; a family left under the size floor is
+  // dropped whole, because a family below the floor is exactly what `FAMILY_MIN_MEMBERS` says is an anecdote.
+  // Nothing is widened here — this gate can only ever remove.
+  const fitted = [];
+  const dropped = { members: 0, families: 0 };
+  for (const f of families) {
+    if (!extra.repo || !f.fittedPredicate?.value) { fitted.push(f); continue; }
+    let re;
+    try { re = new RegExp(f.fittedPredicate.value); } catch { fitted.push(f); continue; }
+    const keep = f.members.filter(rel => {
+      let text;
+      try { text = readFileSync(join(extra.repo, rel), 'utf8'); } catch { return true; } // unreadable ⇒ no evidence against it
+      return re.test(text);
+    });
+    dropped.members += f.members.length - keep.length;
+    if (keep.length < minMembers) { dropped.families++; continue; }
+    fitted.push({ ...f, members: keep, evidence: { ...f.evidence, clusterSize: keep.length } });
+  }
+  fitted.sort((x, y) => (x.id < y.id ? -1 : 1));
+  return { v: 1, ts: asOf, families: fitted, _fit: dropped };
 }
 
 // ==================================================================================================
@@ -1886,12 +2022,14 @@ function parseArgs(argv) {
     else if (a === '--json') opts.json = resolve(argv[++i]);
     else if (a === '--holdout') opts.holdout = argv[++i];
     else if (a === '--subgate-per-partition') opts.subGatePerPartition = Number(argv[++i]);
+    else if (a === '--min-type-files') opts.minTypeFiles = Number(argv[++i]);
     else if (a === '--family-candidates') opts.familyCandidates = resolve(argv[++i]);
     else if (a.startsWith('--')) throw new Error(`unknown flag ${a}`);
     else pos.push(a);
   }
   if (opts.holdout && !/^\d{4}-\d{2}-\d{2}$/.test(opts.holdout)) throw new Error('--holdout takes a YYYY-MM-DD date');
-  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--score <repo>] [--json <path>] [--family-candidates <out.json>] [--quiet]');
+  if (opts.minTypeFiles != null && (!Number.isFinite(opts.minTypeFiles) || opts.minTypeFiles < 1)) throw new Error('--min-type-files takes an integer >= 1');
+  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--min-type-files <n>] [--score <repo>] [--json <path>] [--family-candidates <out.json>] [--quiet]');
   return { repo: resolve(pos[0]), outDir: resolve(pos[1]), opts };
 }
 
@@ -1905,10 +2043,14 @@ if (isMain) {
   const r = await propose(repo, outDir, opts);
   const out = { instrument: 'propose/1', repo, outDir, wallSeconds: +((Date.now() - t0) / 1000).toFixed(1), counts: JSON.parse(readFileSync(join(outDir, 'proposal.json'), 'utf8')).counts };
   if (opts.familyCandidates) {
-    const fc = buildFamilyCandidates(r.alternatives, r.exp, {}, { active: r.active, groups: r.loc.groups });
-    writeFileSync(opts.familyCandidates, JSON.stringify(fc, null, 1) + '\n');
-    out.familyCandidates = { path: opts.familyCandidates, families: fc.families.length };
-    process.stdout.write(`[propose] family candidates: ${fc.families.length} written to ${opts.familyCandidates}\n`);
+    const fc = buildFamilyCandidates(r.alternatives, r.exp, {}, { active: r.active, groups: r.loc.groups, repo });
+    // `_fit` is this instrument's own bookkeeping, not part of the `.family-candidates.json` contract yg advise
+    // reads — it is reported here and never written to the file.
+    const { _fit, ...onDisk } = fc;
+    writeFileSync(opts.familyCandidates, JSON.stringify(onDisk, null, 1) + '\n');
+    out.familyCandidates = { path: opts.familyCandidates, families: fc.families.length, predicateFit: _fit || null };
+    process.stdout.write(`[propose] family candidates: ${fc.families.length} written to ${opts.familyCandidates}`
+      + (_fit && (_fit.members || _fit.families) ? ` (predicate-fit gate dropped ${_fit.members} member(s) and ${_fit.families} whole family/families)` : '') + '\n');
   }
   if (opts.score) {
     say(opts, 'scoring against the hand-written graph ...');
