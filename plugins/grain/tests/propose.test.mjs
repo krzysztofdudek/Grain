@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -186,6 +186,64 @@ test('Yggdrasil loads the proposed graph from a staged copy of the repository', 
   assert.equal(r.status, 0, `expected a clean check on this fixture, got:\n${text.slice(0, 4000)}`);
 });
 
+// ---------- sizing.json: files/bytes/scopes/codelength per node, and the external context-budget constant ----------
+test('sizing.json carries files/bytes/codelength per proposed node and the external context-budget constant', () => {
+  assert.ok(existsSync(join(out, 'sizing.json')));
+  const s = JSON.parse(readFileSync(join(out, 'sizing.json'), 'utf8'));
+  assert.equal(s.instrument, 'sizing/1');
+  assert.equal(s.contextBudgetTokens, 200000, 'the 200K Sonnet/Opus context window is an external constant, not tuned');
+  assert.match(s.contextBudgetSource, /external constant/);
+  assert.ok(Array.isArray(s.proposedNodes) && s.proposedNodes.length >= 1);
+  for (const n of s.proposedNodes) {
+    assert.ok(n.id, 'every sized node carries an id');
+    assert.ok(n.files >= 1, `node ${n.id} has no files`);
+    assert.ok(n.bytes > 0, `node ${n.id} has zero bytes`);
+    assert.ok(n.codelengthLines > 0, `node ${n.id} has zero codelength lines`);
+  }
+  // this fixture repo carries no `.yggdrasil/` of its own — nothing to size on the hand side
+  assert.equal(s.handNodes, null);
+  const totalFiles = s.proposedNodes.reduce((a, n) => a + n.files, 0);
+  assert.ok(totalFiles <= 7, `fixture has 7 tracked files (6 source + README), sizing over-counted: ${totalFiles}`);
+});
+
+test('sizing.json sizes HAND nodes too when the source repo already carries its own .yggdrasil/', () => {
+  const handRoot = join(tmp, 'hand-repo');
+  const w = (rel, content) => { const p = join(handRoot, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
+  for (const n of ['alpha', 'beta']) w(`src/api/${n}-handler.ts`, `export function h${n}() { return 1; }\n`);
+  for (const n of ['alpha', 'beta']) w(`src/util/${n}-helper.ts`, `export function u${n}() { return 1; }\n`);
+  w('.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w('.yggdrasil/yg-architecture.yaml', 'node_types:\n  handler:\n    description: "h"\n    when:\n      path: "src/api/*.ts"\n  helper:\n    description: "u"\n    when:\n      path: "src/util/*.ts"\n');
+  w('.yggdrasil/model/api/yg-node.yaml', 'name: Api\ntype: handler\ndescription: "d"\nmapping:\n  - src/api/\n');
+  w('.yggdrasil/model/util/yg-node.yaml', 'name: Util\ntype: helper\ndescription: "d"\nmapping:\n  - src/util/\n');
+  const env = {
+    ...process.env, HOME: tmp,
+    GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x',
+    GIT_AUTHOR_DATE: '2026-01-10T12:00:00Z', GIT_COMMITTER_DATE: '2026-01-10T12:00:00Z',
+  };
+  execFileSync('git', ['-C', handRoot, 'init', '-q', '-b', 'main'], { env });
+  execFileSync('git', ['-C', handRoot, 'add', '-A'], { env });
+  execFileSync('git', ['-C', handRoot, 'commit', '-q', '-m', 'fixture'], { env });
+  const handOut = join(tmp, 'hand-proposal');
+  const r = spawnSync('node', [PROPOSE, handRoot, handOut, '--no-history', '--quiet'], { encoding: 'utf8', maxBuffer: 1 << 28 });
+  assert.equal(r.status, 0, r.stderr);
+  const s = JSON.parse(readFileSync(join(handOut, 'sizing.json'), 'utf8'));
+  assert.ok(Array.isArray(s.handNodes) && s.handNodes.length === 2, `expected the 2 hand nodes, got ${JSON.stringify(s.handNodes)}`);
+  const byId = Object.fromEntries(s.handNodes.map(n => [n.id, n]));
+  assert.equal(byId.api.files, 2);
+  assert.equal(byId.util.files, 2);
+  assert.ok(byId.api.bytes > 0 && byId.util.bytes > 0);
+});
+
+test('computeSizing reports scopes as null, not zero, when the tree cache is absent', () => {
+  // a directory with no `.grain/cache/` at all — unlike `repo`, which the `before()` hook already ran a real
+  // `grain export` against, populating its cache and making this assertion vacuous there
+  const bareDir = join(tmp, 'no-cache-repo');
+  mkdirSync(join(bareDir, 'src', 'api'), { recursive: true });
+  writeFileSync(join(bareDir, 'src', 'api', 'alpha-handler.ts'), 'export function h() { return 1; }\n');
+  const s = computeSizing(bareDir, [], [{ id: 'x', dir: 'src/api', ownFiles: new Set(['src/api/alpha-handler.ts']), organizational: false }], null, []);
+  assert.equal(s.scopesAvailable, false);
+  assert.equal(s.proposedNodes[0].scopes, null, 'an absent scope cache must never be misread as zero scopes');
+});
 // ---------- 4. the pieces a wrong answer would come out of silently ----------
 test('the name-shape compiler turns grain shapes into anchored regexes, and refuses the ones it cannot', () => {
   assert.equal(shapeToRegex('(Ua)+'), '^(?:[A-Z]+[a-z0-9]+)+$');
