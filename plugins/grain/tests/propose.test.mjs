@@ -322,7 +322,10 @@ test('a lattice row is worded from the value it was measured at, not from its pi
     'Every method under `src/**` must be named PascalCase.',
     'Every method under `src/**` must quote strings with single quotes.',
     'Every method under `src/**` must carry the modifiers `public`.',
-    'No method under `src/**` may import `lodash`.',
+    // ticket 115: a `false`-direction row of an absence class, mined in the sub-gate band, states what it
+    // measured — it is not turned into `No method under \`src/**\` may import \`lodash\`.`, which 24-of-30
+    // majorities made the most visible wrong sentence in the whole proposal.
+    '8 of 10 methods under `src/**` do not import `lodash` — an absence, not a rule.',
   ]);
   for (const a of aspects) {
     assert.ok(!/auto\./.test(a.name), `an internal pid leaked into the rule: ${a.name}`);

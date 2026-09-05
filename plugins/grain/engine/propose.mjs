@@ -1133,6 +1133,16 @@ export const RENDERABLE = new Set(['imp', 'call', 'deco', 'extends', 'returns', 
 // import, a file name, a lexical layer, or a name shape the whole partition shares. A NEGATIVE rule ("nothing
 // here does X") renders in every class, because it fires only on evidence it can see and never on absence.
 const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
+
+// WHICH CLASSES SPELL "DOES NOT USE X" WITH `expected: false` (ticket 115) — and so cannot state a prohibition
+// from a majority. For every one of these the enumerator names a THING (an import specifier, a callee, a
+// marker, a supertype, a declared return type, a syntactic construct, a parameter type) and `false` says only
+// that the thing is not there. Nothing about a MAJORITY of absences is a rule: "files in `src/main/java` do not
+// import `jakarta.persistence.Entity`" was mined from 24 of 30 files, and the six that do are the entities — so
+// the sentence is refuted by the very code it was mined from. Measured on spring-petclinic: 12 of 44 standing
+// advisory refusals were of exactly this shape. `nameshape`/`filenameshape`/`lex`/`mods` and the rest are NOT
+// here: their `expected` is a VALUE the code carries, so there is no absence to mistake for a prohibition.
+const ABSENCE_CLASS = new Set([...BOOLEAN_CLASS, 'has', 'ptype']);
 // grain's own `unitOf` domain (engine/core.mjs): a convention's `kind` names the SUBJECT its evidence is about.
 // `file` and `module` ARE the unit Yggdrasil's `scope: { per: 'file' }` reviews; every other kind — a method, a
 // type/class, a catch or finally block — is a SYMBOL living inside a file, smaller than the unit a rendered
@@ -1160,6 +1170,7 @@ export function renderableDirection(enumerator, expected, kind, ctxType) {
   return true; // filenameshape and lex: the file itself is the subject either way
 }
 export const WHY_PROSE = {
+  _absence: 'the row reports an ABSENCE, not a prohibition. Its class spells "does not use X" with `expected: false`, and its origin is the sub-gate lattice — a band grain has by definition declined to certify — so all the row says is that most things here happen not to use the identifier today. The minority that do are usually the point (the files importing an entity annotation ARE the entities), so read this as a fact about the repository and decide for yourself whether it should become a rule.',
   stshape: 'the convention asserts a STATEMENT SHAPE — a subtree, not a name. There is no identifier to match and no way to phrase it as a tree query that holds across languages.',
   has: 'the convention asserts the PRESENCE OR ABSENCE of a syntactic construct. Rendering it would mean asserting the grammar\'s own vocabulary as a rule.',
   modexport: 'the convention asserts a MODULE-LEVEL export style, which every language spells differently.',
@@ -1518,6 +1529,7 @@ export async function propose(repo, outDir, opts = {}) {
     aspectsByDraftReason,
     aspectsVerified: verify.verified, aspectsVerifiedAgainst: verify.haveYg ? verify.ygBin : null,
     aspectsSkippedUnrenderableGroupScoped: skipped.unrenderableGroupScoped, aspectsSkippedNotARule: skipped.notARule, proseByClass: skipped.byClass,
+    aspectsAbsenceNotForbiddance: skipped.absence,
     drillCases, drillHoldout: opts.holdout || null, drillDropped, nodeCycles: nodeCycles.length,
     latticeRows: lat.rows.length, subGate: sub.length, denies: rels.denies.length, denyBacklog: rels.backlog.length,
     sizingHandNodes: sizing.handNodes ? sizing.handNodes.length : null,
@@ -1538,7 +1550,7 @@ export async function propose(repo, outDir, opts = {}) {
     instrument: 'propose/1', repo, asOf: exp.asOf, files: files.length, counts,
     schemaNotes: {
       evidence:
-        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`, the same values Yggdrasil\'s own `yg-aspect.yaml` takes) and `draftReason` (`prose-unenforceable-keyless` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
+        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`, the same values Yggdrasil\'s own `yg-aspect.yaml` takes) and `draftReason` (`prose-unenforceable-keyless` | `absence-not-forbiddance` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
       counts:
         'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsAdvisory`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (ticket 102, three-way since 107 — see `provenance.json`\'s own `status`/`draftReason`): `aspectsActive` counts `status: enforced` (a certified-convention origin that cleared a real drill — nothing stands between the maintainer and turning it on), `aspectsAdvisory` counts `status: advisory` (a sub-gate-lattice origin that cleared the SAME drill but sits below grain\'s own certification bound — a refactor decision, not law; these are the report\'s `candidates`), `aspectsDraft` is everything that never cleared the drill at all. `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified), `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
       provenance:
@@ -1686,7 +1698,7 @@ const NOT_A_RULE = new Set(['filebirth']);
 
 export function buildAspects(exp, active, sub, opts = {}) {
   const out = [];
-  const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, byClass: {} };
+  const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, absence: 0, byClass: {} };
   const asOf = (exp.asOf || '').slice(0, 8);
   const reviewBy = ((y) => `${y + 1}-01-15`)(new Date(exp.indexedAt || Date.now()).getUTCFullYear());
   // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH (ticket 119). The first two clauses are the
@@ -1778,6 +1790,11 @@ export function buildAspects(exp, active, sub, opts = {}) {
       // law-loop.mjs `provenanceFor`, which reads back a file this renderer did not annotate at write time)
       partition: c.partition, share: c.share ?? null, n, deviating: dev,
       exemplars: (c.exemplars || []).slice(0, 3).map(e => ({ rel: e.rel, line: e.line, name: e.name })),
+      // A CERTIFIED `false` direction STAYS ELIGIBLE (ticket 115). It cleared grain's own certification bound,
+      // so it is a real "this partition never uses X" and not a majority of absences — but a reader deciding
+      // whether to turn it on still needs to know it is a statement about something NOT being there, so the
+      // direction is recorded in its provenance rather than left to be inferred from `expected`.
+      ...(ABSENCE_CLASS.has(c.feature.enumerator) && String(c.expected) === 'false' ? { direction: 'absence' } : {}),
     });
   }
 
@@ -1806,14 +1823,27 @@ export function buildAspects(exp, active, sub, opts = {}) {
     // enforces is a sentence a future session is right to argue with. The cluster is where grain MEASURED the
     // row and it says so in the evidence; the rule speaks about the scope it is actually judged over.
     const glob = typeGlob(host);
-    const statement = obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
+    // AN ABSENCE IS NOT A FORBIDDANCE (ticket 115). ORIGIN decides, not a number: a sub-gate row sits below
+    // grain's own certification bound by construction, so a `false` majority in a class that spells "does not
+    // use X" says only that most things here happen not to use it today — and the minority that does is
+    // routinely the point of the code. Such a row is kept, in full, with its counts, as an OBSERVATION: worded
+    // as one, shipped as prose so no drill can promote it, and held at `draft` with its own reason. The same
+    // class in the `true` direction, and a `false` direction grain CERTIFIED (a real "this partition never uses
+    // X"), are untouched.
+    const absence = ABSENCE_CLASS.has(fam) && String(r.exp) === 'false';
+    const statement = absence
+      ? `${r.ne} of ${r.n} ${unitOne(r.kind)}s under \`${glob}\` do not ${describeRow(r.pid, r.exp)} — an absence, not a rule.`
+      : obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
     const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.n} ${r.kind}s · ${r.deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
     const evidenceLine = `${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}${labelHostingNote(host, r.partition)}`;
-    const check = renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
+    const check = !absence && renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
       ? renderCheck({ enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind, provenance: `${statement}\n${provenance}` })
       : null;
-    const proseReason2 = check ? null : (BOOLEAN_CLASS.has(fam) || fam === 'nameshape' ? WHY_PROSE._scopeMismatch : (WHY_PROSE[fam] || `no template renders the \`${fam}\` class`));
-    if (!check) { skipped.prose++; skipped.byClass[fam] = (skipped.byClass[fam] || 0) + 1; }
+    const proseReason2 = check ? null : absence ? WHY_PROSE._absence : (BOOLEAN_CLASS.has(fam) || fam === 'nameshape' ? WHY_PROSE._scopeMismatch : (WHY_PROSE[fam] || `no template renders the \`${fam}\` class`));
+    if (!check) {
+      if (absence) skipped.absence++;
+      else { skipped.prose++; skipped.byClass[fam] = (skipped.byClass[fam] || 0) + 1; }
+    }
     out.push({
       id, origin: 'sub-gate-lattice', host: host.id, evidenceLine, provenance, reviewBy,
       // See the certified-convention branch above (ticket 106) — same fix, same reason.
@@ -1821,7 +1851,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
       description: `${statement} It already ${holdsPhrase(r.ne, r.deviants.length, `${unitOne(r.kind)}s`)}.`,
       scope: { per: 'file', files: { path: glob } }, check,
       whyProse: proseReason2,
-      content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2),
+      content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2, absence),
       drills: { satisfies: [], violates: r.deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
       enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind,
       // sub-gate rows have no CONFORMING exemplar of their own — only `deviants` (sites that do NOT follow the
@@ -1829,6 +1859,9 @@ export function buildAspects(exp, active, sub, opts = {}) {
       // certified convention above; the charter renderer reads absence as "not yet a copy-worthy pattern".
       partition: r.partition, share: r.share ?? null, n: r.ne ?? null, deviating: r.deviants.length,
       exemplars: [],
+      // Pre-set, and `promoteEnforceableAspects` keeps whatever reason an aspect already carries: verification
+      // is where a status is EARNED, and this row is not eligible to earn one at all.
+      ...(absence ? { direction: 'absence', draftReason: 'absence-not-forbiddance' } : {}),
     });
   }
 
@@ -1860,6 +1893,9 @@ export function provenanceFor(a, { asOf, repo }) {
     enumeratorClass: a.enumerator ?? null,
     identifier: a.argument ?? null,
     expected: a.expected ?? null,
+    // 'absence' when this row's class spells "does not use X" and its expected value is `false` — the one
+    // direction whose sentence a reader must not read as a prohibition (ticket 115); null otherwise.
+    direction: a.direction ?? null,
     partition: a.partition ?? null,
     share: a.share ?? null,
     n: a.n ?? null,
@@ -1876,9 +1912,10 @@ export function provenanceFor(a, { asOf, repo }) {
     // `status:` field takes (`yg schemas read aspect`), written here verbatim, not a separate Grain-internal
     // word translated at write time. Absent only if this ran before classification ran at all.
     status: a.finalStatus ?? 'draft',
-    // one of 'prose-unenforceable-keyless' | 'file-scope-approximation-fa' | 'no-catch', or null when `status`
-    // is 'enforced'/'advisory' (nothing to explain) or the aspect was never verified this run (no `YG_BIN`, no
-    // drill corpus).
+    // one of 'prose-unenforceable-keyless' | 'absence-not-forbiddance' | 'file-scope-approximation-fa' |
+    // 'no-catch', or null when `status` is 'enforced'/'advisory' (nothing to explain) or the aspect was never
+    // verified this run (no `YG_BIN`, no drill corpus). 'absence-not-forbiddance' is set BEFORE verification —
+    // it is the one reason that says the row was never eligible to earn a status at all (ticket 115).
     draftReason: a.draftReason ?? null,
     // 'file-from-symbol' when the CONVENTION's own subject (`a.kind`) is a symbol inside a file — a method, a
     // type, a catch/finally block — but Yggdrasil reviews this check per FILE; null for a file/module-level
@@ -1989,7 +2026,7 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
   try {
     for (const a of aspects) {
       a.scopeApproximation = (a.check && a.kind && SYMBOL_LEVEL_KIND.has(a.kind)) ? 'file-from-symbol' : null;
-      if (!a.check) { a.finalStatus = 'draft'; a.draftReason = 'prose-unenforceable-keyless'; continue; }
+      if (!a.check) { a.finalStatus = 'draft'; a.draftReason = a.draftReason || 'prose-unenforceable-keyless'; continue; }
       const violates = a.drillViolatesWritten || 0, satisfies = a.drillSatisfiesWritten || 0;
       if (!haveYg || (!violates && !satisfies)) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
       const r = spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26, timeout: drillTimeoutMs, killSignal: 'SIGKILL' });
@@ -2337,19 +2374,27 @@ function contentMd(c, profile, evidenceLine, whyProse, name) {
   return L.join('\n');
 }
 
-function subGateMd(r, statement, evidenceLine, whyProse) {
+function subGateMd(r, statement, evidenceLine, whyProse, absence = false) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
-  L.push('', `# ${statement}`, '', '## The rule', '', statement, '', '## Evidence', '', evidenceLine, '',
-    '## Why this is a DRAFT and not a certified convention', '',
-    `This row is below grain's own gate. It is practised by ${pct(r.share)} of the population, which clears the`,
-    "repository's two-thirds supermajority but not the certification bound — so grain refuses to state it as a",
-    'fact. That refusal is right for an agent mid-edit and wrong for you: a rule that most of the code follows',
-    'and some of it does not is either a rule with a backlog, or a habit to drop. Only you can say which.', '',
+  // AN ABSENCE ROW IS NOT HEADED "The rule" (ticket 115). Its own sentence says it is not one, and a heading
+  // that contradicts the sentence under it is the whole failure this section exists to stop.
+  L.push('', `# ${statement}`, '', absence ? '## The observation' : '## The rule', '', statement, '', '## Evidence', '', evidenceLine, '',
+    absence ? '## Why this is an OBSERVATION and not a rule' : '## Why this is a DRAFT and not a certified convention', '',
+    ...(absence
+      ? [`This row reports that ${pct(r.share)} of the population does NOT use the identifier above. A count of`,
+        'what is missing is not a prohibition: the minority that DOES use it is very often exactly the code the',
+        'identifier is for. So grain refuses to word it as "no file here may ...", renders no check for it, and',
+        'holds it out of every status a check could earn — it can be read, and made into a rule by you if it is',
+        'one, without ever being enforced by accident.']
+      : [`This row is below grain's own gate. It is practised by ${pct(r.share)} of the population, which clears the`,
+        "repository's two-thirds supermajority but not the certification bound — so grain refuses to state it as a",
+        'fact. That refusal is right for an agent mid-edit and wrong for you: a rule that most of the code follows',
+        'and some of it does not is either a rule with a backlog, or a habit to drop. Only you can say which.']), '',
     '## Why this is prose and not a check', '',
     `${whyProse || 'no template renders this class'}`, '');
   if (r.deviants.length) {
-    L.push('## The sites that do not follow it', '');
+    L.push(absence ? '## The sites that DO use it' : '## The sites that do not follow it', '');
     for (const d of r.deviants.slice(0, 30)) L.push(`- \`${d}\``);
     if (r.deviants.length > 30) L.push(`- … and ${r.deviants.length - 30} more`);
     L.push('');
