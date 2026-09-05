@@ -1,0 +1,21 @@
+name: InternalLinksResolve
+description: >-
+  Every relative link in a user-facing document must point at a file that exists.
+
+  These documents are load-bearing rather than decorative. The front door does not restate the measured
+  record; it points at the document holding it, negatives first, and says to read that one first. The
+  same for the mathematics, the validation method, the corpus tables, and the reference that carries the
+  two versioned contracts a neighbouring tool reads. A broken link there does not degrade the
+  documentation gracefully — it removes the evidence for a claim the reader was just asked to accept, at
+  the exact moment they went looking for it.
+
+  Only relative links are checked. External addresses are somebody else's uptime and are deliberately
+  out of scope; a fragment is stripped before the file is looked for, because a stale heading anchor is
+  a different and much smaller problem than a missing file.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    path: "**/*.md"

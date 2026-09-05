@@ -1,0 +1,10 @@
+name: ExportSchemaIsAPublishedInterface
+description: >-
+  The export format is a published interface with a real downstream consumer. A field rename or a
+  semantic change is a breaking change, made deliberately and versioned, never as a side effect of an
+  engine refactor. Prose, because "this rename is semantically breaking" is exactly the judgement a
+  script cannot make.
+reviewer:
+  type: llm
+status: enforced
+review_by: 2027-06-01

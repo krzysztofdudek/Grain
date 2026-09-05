@@ -1,0 +1,16 @@
+name: Host Hooks
+type: hook-config
+description: >-
+  Four host configurations wiring editor events to grain verbs: session start announces what this
+  repository practises, a pre-write hook checks a path against where its name-kin already live while
+  moving is still free, a post-edit hook speaks only when it has findings on the touched lines, and the
+  rest are the read, prompt and commit moments. Hosts differ in which events they offer, so the four
+  files differ in coverage by necessity, not by drift.
+relations:
+  # No code dependency: a hook is a shell command the host runs. Declared so the verb rule may read the
+  # dispatcher and confirm every verb these files name actually exists.
+  - target: plugin/dispatch
+    type: uses
+mapping:
+  - plugins/grain/hooks.json
+  - plugins/grain/hooks/

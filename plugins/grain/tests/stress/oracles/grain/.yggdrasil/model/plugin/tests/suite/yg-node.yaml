@@ -1,0 +1,28 @@
+name: Conformance Suite
+type: test-suite
+description: >-
+  The gate: one flat directory of test files, run on two platform majors on every push. Most spawn the
+  built binary and read its real output; a large minority also import engine modules to assert on
+  internals, and the suite is deliberately mixed rather than split. It also carries the guardian tests
+  that keep each measurement instrument's contract honest, and the audit that keeps the dispatcher, the
+  slash commands and the reference documentation in agreement.
+relations:
+  - target: plugin/dispatch
+    type: calls
+  - target: plugin/engine/core
+    type: calls
+  - target: plugin/engine/history
+    type: calls
+  - target: plugin/engine/relations
+    type: calls
+  - target: plugin/engine/export
+    type: calls
+  - target: plugin/tests/stress
+    type: uses
+  - target: plugin/tests/relations/harness
+    type: uses
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/tests/*.test.mjs

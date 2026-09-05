@@ -1,0 +1,15 @@
+name: Relation Test Harness
+type: test-harness
+description: >-
+  The only place a relation test learns how to build a fixture, run the product and read an answer back.
+  For the two end-to-end suites it builds a temporary tree, spawns the built binary and parses the
+  exported edges; for the unit cases it wraps the extractor invocation. Concentrating that here is what
+  makes the black-box discipline checkable in one place instead of restated in fifty-three files.
+relations:
+  - target: plugin/engine/core
+    type: uses
+  - target: plugin/engine/vendor-relations
+    type: uses
+mapping:
+  - plugins/grain/tests/relations/harness.mjs
+  - plugins/grain/tests/relations/unit/_unit-harness.mjs

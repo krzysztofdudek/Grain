@@ -1,0 +1,10 @@
+name: Documentation
+type: doc-page
+description: >-
+  Four documents carrying the depth the front door only gestures at: the complete measured record at the
+  point development paused, the single objective and its special cases with the honest residue, every
+  measurement with its method and the known boundaries, and the reference — commands, hooks, the store,
+  environment switches, cache version keys, and the two versioned contracts (the export schema and the
+  proposal shape) that neighbouring tools read.
+mapping:
+  - docs/

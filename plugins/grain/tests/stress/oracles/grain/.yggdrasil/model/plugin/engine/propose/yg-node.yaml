@@ -1,0 +1,18 @@
+name: Proposal Writer
+type: proposal-writer
+description: >-
+  Mines a proposed architecture graph for a repository that has none, into a staging directory, and
+  never touches the repository's own graph. It is the one engine module that must spawn processes: each
+  rule it drafts is drilled against the repository's own code before it may claim enforcement, and a
+  rule nothing can be shown to violate stays a draft. What it prints back is deliberately short;
+  everything it drafted but did not certify stays on disk behind a flag.
+relations:
+  - target: plugin/engine/core
+    type: calls
+  - target: plugin/engine/yggdrasil-graph
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/propose.mjs

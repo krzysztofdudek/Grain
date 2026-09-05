@@ -1,0 +1,13 @@
+name: CLI Entry Point
+type: entry-cli
+description: >-
+  The one supported way into the product from outside. Re-execs itself under V8's baseline compiler for
+  one-shot queries (an optimizing compile of a 3-5 MB grammar costs around 500 MB of resident memory and
+  never pays for itself in a process that parses one file and exits), then imports the dispatcher and
+  drains stdout before exiting explicitly, because the parser runtime keeps handles alive and a large
+  answer written to a pipe is only partly synchronous.
+relations:
+  - target: plugin/dispatch
+    type: calls
+mapping:
+  - plugins/grain/bin/grain.mjs

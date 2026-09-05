@@ -1,0 +1,12 @@
+name: Architecture Graph Reader
+type: engine-module
+description: >-
+  Reads a hand-written architecture graph: a deliberately small YAML subset validated against a real
+  parser over a whole reference graph, the glob and predicate semantics its classification and mapping
+  entries carry, and the reader that turns a graph directory into plain objects. A construct outside the
+  subset throws rather than silently mis-parsing. It lives in the engine and not beside the instrument
+  that first needed it, because the product command that writes such a graph must expand its own drafted
+  predicates to know what they select — and a product command may never sit downstream of a test
+  instrument.
+mapping:
+  - plugins/grain/engine/yggdrasil-graph.mjs

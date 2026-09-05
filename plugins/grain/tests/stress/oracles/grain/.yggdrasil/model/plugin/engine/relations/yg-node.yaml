@@ -1,0 +1,14 @@
+name: Relation Pass
+type: engine-module
+description: >-
+  Binds cross-file references from the same parse the conventions come from: per-language extractors
+  turn a tree into declared symbols and ordered candidate groups, a language-partitioned symbol table
+  and a tri-state resolver bind them to files, and the result is file-to-file edges aggregated into a
+  module graph. The third state is the point — an unresolvable reference is silence, never a fabricated
+  edge. It also knows which extractors are include-only and therefore weaker than their mere
+  registration suggests, so language coverage can be reported honestly instead of assumed.
+relations:
+  - target: plugin/engine/vendor-relations
+    type: calls
+mapping:
+  - plugins/grain/engine/relations.mjs

@@ -1,0 +1,652 @@
+# yg-architecture.yaml — the architecture a maintainer of THIS repository would commit.
+#
+# Hand-written from the code and the design record (README.md, docs/, .system/decisions.md,
+# .claude/skills/director/reference/system.md). Nothing here was produced by, or checked against,
+# `grain propose` — see ../README.md for exactly what was read and what was refused.
+#
+# Two granularities, per the ruling `two-granularities-rules-fine-nodes-ownership-sized`:
+#   · TYPES and ASPECTS are cut as fine as the evidence in the code supports. A type exists whenever
+#     some rule is true of one set of files and false of its neighbour — `engine-history` is split off
+#     `engine-module` for exactly one reason: it is the only pure-engine module that may spawn a
+#     subprocess, and splitting it lets `engine/no-subprocess-in-analysis-layer` be a type default
+#     with no carve-out.
+#   · NODES stay ownership-sized: one owner, one charter, one context.
+#
+# `coverage.type_level` is on (see yg-config.yaml), so a `scope.per: file` rule binds to a file through
+# its TYPE without needing a node of its own. The 32 classifying types below partition all 1470 tracked
+# files: every file matches exactly one, none matches two, none matches none (verified).
+
+node_types:
+  # ── Organizational (no `when` — parent-only, own no files) ───────────────────────────────────────
+
+  project:
+    description: "The repository itself — the root of the hierarchy. Rootable: it has no parent."
+    parents: []
+    relations:
+      default: deny
+
+  area:
+    description: "Grouping node — organizes children under one responsibility. Owns no files itself."
+    parents: [project, area]
+    relations:
+      default: deny
+
+  # ── The shipped plugin: entry surfaces ───────────────────────────────────────────────────────────
+
+  entry-cli:
+    description: >-
+      The process entry point — plugins/grain/bin/grain.mjs. Singleton. It re-execs itself under V8's
+      baseline compiler for one-shot queries, imports the dispatcher, and is the ONLY supported way to
+      run the product from outside (docs, hooks, slash commands, tests and instruments all spawn this
+      file, never an engine module). Its whole job is process shape: liftoff re-exec, top-level error
+      funnel, and draining stdout before exit.
+    enforce: strict
+    when:
+      path: "plugins/grain/bin/grain.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-test-or-instrument-import
+      - answers/degrade-never-crash
+    parents: [project, area]
+    relations:
+      calls: [cli-dispatch]
+      default: deny
+
+  entry-mcp:
+    description: >-
+      The MCP server — plugins/grain/bin/grain-mcp.mjs. A thin JSON-RPC-over-stdio protocol adapter
+      that passes every tool straight through to the same cmd* functions the CLI calls, always with
+      `opts.json = true`. It adds no capability of its own; a tool that answers anything the CLI cannot
+      is a layering break. Unlike entry-cli it deliberately keeps the optimizing compiler (a server
+      answers many calls, a query answers one).
+    enforce: strict
+    when:
+      path: "plugins/grain/bin/grain-mcp.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-test-or-instrument-import
+      - answers/degrade-never-crash
+    parents: [project, area]
+    relations:
+      calls: [cli-dispatch, engine-config]
+      default: deny
+
+  cli-dispatch:
+    description: >-
+      The query surface — plugins/grain/engine/grain.mjs. argv parsing, repo/store resolution,
+      auto-refresh, the one `switch (cmd)` dispatcher, the six host hook verbs, and the freshness stamp
+      every answer ends with. It is the ONLY module that may reach git for a query, and the only one
+      that decides exit codes. It calls the engine; the engine never calls back.
+    enforce: strict
+    when:
+      path: "plugins/grain/engine/grain.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-test-or-instrument-import
+      - engine/file-size-budget
+      - answers/never-invent-authority
+      - answers/degrade-never-crash
+      - hooks/never-blocks
+    parents: [project, area]
+    relations:
+      calls: [mining-core, engine-module, engine-history, engine-config, proposal-writer]
+      default: deny
+
+  # ── The shipped plugin: the engine ───────────────────────────────────────────────────────────────
+
+  mining-core:
+    description: >-
+      The mining engine — plugins/grain/engine/core.mjs. Generic binding derived from each grammar's
+      node-types.json, extraction, the lexical layer, superposition, clustering, roles, MDL/λ mining,
+      history weighting, partitioning, learn, check, placement, spectrum, where, report, and the
+      mutation harness. Pure analysis: no subprocess, no network, no first-party dependency except the
+      relation pass, the constants and the parser runtime. Nothing about a language, a framework or a
+      role may be written down here by NAME.
+    enforce: strict
+    when:
+      path: "plugins/grain/engine/core.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-subprocess-in-analysis-layer
+      - engine/no-test-or-instrument-import
+      - engine/file-size-budget
+      - engine/no-language-name-lists
+      - engine/cache-version-keys
+      - answers/never-invent-authority
+    parents: [project, area]
+    relations:
+      calls: [engine-module, engine-config, vendored-runtime]
+      default: deny
+
+  engine-config:
+    description: >-
+      The constant table — plugins/grain/engine/config.mjs. The ONLY place where a path, an acceptance
+      constant, a vocabulary floor, an exclusion regex, the extension→grammar map or a cache-version key
+      may be declared. It imports nothing first-party, so it can be the sink of the engine's dependency
+      graph. Its three version keys (extractor, history, model) are the cache contract: a change to what
+      extraction, replay or the model produces is not landed until the matching key moves.
+    enforce: strict
+    when:
+      path: "plugins/grain/engine/config.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-subprocess-in-analysis-layer
+      - engine/no-test-or-instrument-import
+      - engine/cache-version-keys
+    parents: [project, area]
+    relations:
+      default: deny
+
+  engine-history:
+    description: >-
+      The git-history layer — plugins/grain/engine/history.mjs. Split from `engine-module` for one
+      reason and one only: it is the single pure-engine module that legitimately spawns a subprocess
+      (it walks the whole history through git), so giving it its own type lets the
+      no-subprocess rule be a type default on every OTHER engine module with no carve-out, no
+      suppression and no exception list. Everything else about it is an engine module.
+    enforce: strict
+    when:
+      path: "plugins/grain/engine/history.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-test-or-instrument-import
+      - engine/file-size-budget
+      - engine/cache-version-keys
+    parents: [project, area]
+    relations:
+      calls: [mining-core, engine-config]
+      default: deny
+
+  engine-module:
+    description: >-
+      A pure engine module — the relation pass, the export serializer, the Yggdrasil-graph reader. Same
+      envelope as the mining core: no subprocess, no network, no runtime dependency, no reach into a
+      test or an instrument. Distinguished from the core only by size and subject; distinguished from
+      `engine-history` by having no business with a child process at all.
+    enforce: strict
+    when:
+      all_of:
+        - path: "plugins/grain/engine/*.mjs"
+        - not: { path: "plugins/grain/engine/grain.mjs" }
+        - not: { path: "plugins/grain/engine/core.mjs" }
+        - not: { path: "plugins/grain/engine/config.mjs" }
+        - not: { path: "plugins/grain/engine/history.mjs" }
+        - not: { path: "plugins/grain/engine/propose.mjs" }
+    aspects:
+      - source/no-raw-control-bytes
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-subprocess-in-analysis-layer
+      - engine/no-test-or-instrument-import
+      - engine/file-size-budget
+    parents: [project, area]
+    relations:
+      calls: [mining-core, engine-config, vendored-relations]
+      default: deny
+
+  proposal-writer:
+    description: >-
+      The proposal writer — plugins/grain/engine/propose.mjs. It mines a PROPOSED architecture graph
+      into a staging directory and drills the rules it drafts, so unlike every other engine module it
+      must spawn processes. It stays a product command rather than an instrument, which is why the
+      Yggdrasil-graph reader it needs lives in `engine-module` and not under tests/: a product command
+      may never sit downstream of a test instrument.
+    enforce: strict
+    when:
+      path: "plugins/grain/engine/propose.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-test-or-instrument-import
+      - engine/file-size-budget
+    parents: [project, area]
+    relations:
+      calls: [mining-core, engine-module, engine-config]
+      default: deny
+
+  vendored-relations:
+    description: >-
+      Generated third-party-shaped source — plugins/grain/engine/vendor/relations/**. The relation
+      extractors, symbol table, tri-state resolver and path resolvers, mechanically vendored from
+      Yggdrasil (MIT, same author) by scripts/build-relations.mjs and committed. Never hand-edited:
+      every file carries the generated banner naming the command that rewrites it, and a hand fix here
+      is silently destroyed by the next regeneration.
+    enforce: strict
+    when:
+      path: "plugins/grain/engine/vendor/relations/**"
+    aspects:
+      - source/no-raw-control-bytes
+      - vendor/generated-banner
+      - engine/no-runtime-dependencies
+      - engine/no-network-at-runtime
+      - engine/no-subprocess-in-analysis-layer
+      - engine/no-test-or-instrument-import
+    parents: [project, area]
+    relations:
+      calls: [vendored-relations]
+      default: deny
+
+  vendored-runtime:
+    description: >-
+      The vendored parser runtime — plugins/grain/engine/vendor/web-tree-sitter/**. Third-party code
+      taken as shipped, with its licence and version file beside it. It is inside the package so that
+      nothing is downloaded at runtime. Deliberately exempt from the source-shape rules the first-party
+      engine carries (it is not ours to reshape), and deliberately NOT carrying the absolute first-party
+      network ban: the runtime ships a browser code path whose fetch and synchronous-request calls the
+      platform never reaches, because the branch above them reads the parser off the file system
+      instead. That exemption is safe only while it stays a reviewed fact, which is what the vendored
+      counterpart rule below is for.
+    enforce: strict
+    when:
+      path: "plugins/grain/engine/vendor/web-tree-sitter/**"
+    aspects:
+      - vendor/network-calls-are-browser-only
+    parents: [project, area]
+    relations:
+      default: deny
+
+  grammar-asset:
+    description: >-
+      A shipped grammar asset — plugins/grain/engine/grammars/**. Each language is a TRIAD: a
+      `tree-sitter-<g>.wasm`, a `tree-sitter-<g>.node-types.json` (the file every per-language binding
+      is derived from) and a manifest entry recording the package and version it was built from. The
+      extension→grammar map filters itself to grammars whose wasm AND node-types both exist, so a
+      half-shipped grammar disappears in silence rather than failing loudly — which is exactly why the
+      triad is checked here instead of at runtime.
+    enforce: strict
+    when:
+      path: "plugins/grain/engine/grammars/**"
+    aspects:
+      - grammars/asset-triad
+      - grammars/extension-map-bijection
+    parents: [project, area]
+    relations:
+      uses: [engine-config]
+      default: deny
+
+  build-script:
+    description: >-
+      A regeneration script — plugins/grain/scripts/*.mjs. Reads dev-only dependencies and rewrites
+      committed assets (the grammar set, the vendored relation machinery). Runs on a maintainer's
+      machine, never at query time, and is therefore outside the runtime bans; it imports no
+      first-party module, so it cannot drag a dev dependency into the shipped surface.
+    enforce: strict
+    when:
+      path: "plugins/grain/scripts/*.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+    parents: [project, area]
+    relations:
+      default: deny
+
+  # ── The shipped plugin: the agent-facing surface ────────────────────────────────────────────────
+
+  agent-command:
+    description: >-
+      A slash-command document — plugins/grain/commands/*.md. Frontmatter (description, argument hint,
+      allowed tools) plus exactly one execution line that runs the CLI entry point with one verb, plus
+      the relay instructions the model follows. It is a thin shell over a verb: a command doc that
+      reaches an engine module directly, or names a verb the dispatcher does not handle, is a broken
+      surface that only shows up when a user types it.
+    enforce: strict
+    when:
+      path: "plugins/grain/commands/*.md"
+    aspects:
+      - agent-command/contract
+      - agent-command/verb-parity
+    parents: [project, area]
+    relations:
+      # No code dependency — declared so the verb-parity rule may read the dispatcher it compares against.
+      uses: [cli-dispatch]
+      default: deny
+
+  agent-skill:
+    description: >-
+      The skill document — plugins/grain/skills/**/*.md. What teaches the agent WHEN to ask, which
+      matters more than the commands do. Frontmatter name + description drive triggering; the body
+      teaches the four questions and the moments each is asked.
+    enforce: strict
+    when:
+      path: "plugins/grain/skills/**/*.md"
+    parents: [project, area]
+    relations:
+      default: deny
+
+  hook-config:
+    description: >-
+      A host hook configuration — plugins/grain/hooks.json and plugins/grain/hooks/*.json. One file per
+      host (Claude Code, Codex, Cursor, Copilot); each wires host events to grain verbs. Hosts differ in
+      which events they offer, so the files legitimately differ in coverage — but every verb any of them
+      names must exist, and every command must go through the CLI entry point.
+    enforce: strict
+    when:
+      any_of:
+        - path: "plugins/grain/hooks.json"
+        - path: "plugins/grain/hooks/*.json"
+    aspects:
+      - hooks/verb-exists
+    parents: [project, area]
+    relations:
+      # No code dependency — declared so the verb rule may read the dispatcher it checks against.
+      uses: [cli-dispatch]
+      default: deny
+
+  plugin-manifest:
+    description: >-
+      A plugin manifest — the three per-host plugin.json files, the MCP server declaration, and the
+      package manifest/lockfile. They carry the plugin's identity: one name, one version, one
+      description. The package manifest additionally carries the promise the whole product rests on —
+      devDependencies only, so the shipped plugin has no runtime dependency at all.
+    enforce: strict
+    when:
+      any_of:
+        - path: "plugins/grain/.claude-plugin/plugin.json"
+        - path: "plugins/grain/.codex-plugin/plugin.json"
+        - path: "plugins/grain/.cursor-plugin/plugin.json"
+        - path: "plugins/grain/.mcp.json"
+        - path: "plugins/grain/package.json"
+        - path: "plugins/grain/package-lock.json"
+    aspects:
+      - release/single-version-of-record
+    parents: [project, area]
+    relations:
+      # No code dependency — declared so the version rule may read the engine's own version constant.
+      uses: [engine-config]
+      default: deny
+
+  marketplace-manifest:
+    description: >-
+      A marketplace manifest — the four repo-root plugin catalogues (Claude, Cursor, agents, GitHub).
+      Four files that must agree with each other and with the plugin manifests about what this plugin
+      is called and what it claims to do; they are what a stranger installs from.
+    enforce: strict
+    when:
+      any_of:
+        - path: ".claude-plugin/marketplace.json"
+        - path: ".cursor-plugin/marketplace.json"
+        - path: ".agents/plugins/marketplace.json"
+        - path: ".github/plugin/marketplace.json"
+    aspects:
+      - release/one-plugin-description
+    parents: [project, area]
+    relations:
+      # No code dependency — declared so the description rule may read the plugin manifests it compares
+      # the catalogues against. The catalogue is the outward-facing side, so it holds the comparison.
+      uses: [plugin-manifest]
+      default: deny
+
+  # ── Tests ───────────────────────────────────────────────────────────────────────────────────────
+
+  test-suite:
+    description: >-
+      The conformance suite — plugins/grain/tests/*.test.mjs. One flat directory, run by `node --test`
+      with no test framework at all. It is deliberately MIXED: most files spawn the built CLI and read
+      its real output, and a large minority also import engine modules to assert on internals. That
+      mixing is a known property of this suite, not an accident — the black-box discipline is enforced
+      only where it was designed in, under tests/relations/.
+    enforce: strict
+    when:
+      path: "plugins/grain/tests/*.test.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - tests/node-test-runner-only
+      - stress/instruments-are-not-tests
+      - stress/every-instrument-has-a-guardian-test
+    parents: [project, area]
+    relations:
+      calls: ['*']
+      uses: ['*']
+      default: deny
+
+  test-relations-unit:
+    description: >-
+      A relation-extraction unit case — plugins/grain/tests/relations/unit/**/*.test.mjs. One numbered
+      file per identification case, grouped by language, importing the extractor or resolver under test
+      directly through the shared unit harness. White-box on purpose: these assert what one extractor
+      returns for one construct, which no CLI-level output can pin down.
+    enforce: strict
+    when:
+      path: "plugins/grain/tests/relations/unit/**/*.test.mjs"
+    aspects:
+      - tests/node-test-runner-only
+    parents: [project, area]
+    relations:
+      calls: ['*']
+      uses: ['*']
+      default: deny
+
+  test-relations-e2e:
+    description: >-
+      A relation-conformance case — plugins/grain/tests/relations/e2e/*.test.mjs. Ported one-to-one from
+      Yggdrasil's relation e2e suites; each builds a minimal fixture tree, runs the REAL binary through
+      the shared harness, and asserts on the edges the tri-state resolver bound. Black box by
+      construction: no import of any engine module.
+    enforce: strict
+    when:
+      path: "plugins/grain/tests/relations/e2e/*.test.mjs"
+    aspects:
+      - tests/node-test-runner-only
+      - tests/relations-suites-are-black-box
+    parents: [project, area]
+    relations:
+      uses: ['*']
+      default: deny
+
+  test-relations-e2e-cli:
+    description: >-
+      A CLI-level relation case — plugins/grain/tests/relations/e2e-cli/*.test.mjs. The same ports, at
+      the surface a user actually touches: the fixture goes in, the binary runs, the answer is read
+      back. Black box by construction, same as its sibling suite.
+    enforce: strict
+    when:
+      path: "plugins/grain/tests/relations/e2e-cli/*.test.mjs"
+    aspects:
+      - tests/node-test-runner-only
+      - tests/relations-suites-are-black-box
+    parents: [project, area]
+    relations:
+      uses: ['*']
+      default: deny
+
+  test-harness:
+    description: >-
+      A shared test harness — tests/relations/harness.mjs and tests/relations/unit/_unit-harness.mjs.
+      The only place a relation test learns how to build a fixture, run the product and read an answer.
+      It carries the black-box discipline for the two e2e suites: they reach the product ONLY through
+      here, and here it is a spawn of the built binary.
+    enforce: strict
+    when:
+      any_of:
+        - path: "plugins/grain/tests/relations/harness.mjs"
+        - path: "plugins/grain/tests/relations/unit/_unit-harness.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+    parents: [project, area]
+    relations:
+      calls: ['*']
+      uses: ['*']
+      default: deny
+
+  stress-instrument:
+    description: >-
+      A measurement instrument — plugins/grain/tests/stress/*.mjs. An instrument measures a class over
+      a corpus and IS the retest; it is not a gate. It is deliberately outside `npm test` (naming one
+      `*.test.mjs` would sweep a multi-minute corpus run into the CI gate), it records negatives beside
+      positives, and it states its own floor and method rather than asserting a tuned threshold. Each
+      one is guarded by a small `*.test.mjs` in the conformance suite that keeps its contract honest.
+    enforce: strict
+    when:
+      path: "plugins/grain/tests/stress/*.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - instruments/measure-do-not-gate
+    parents: [project, area]
+    relations:
+      calls: ['*']
+      uses: ['*']
+      default: deny
+
+  stress-corpus:
+    description: >-
+      Instrument data — the pinned corpus manifest and the one checked-in result baseline. The corpus is
+      a MAPPING over axes (every grammar at least once, idioms hostile to the engine's assumptions, repo
+      shapes, a size ladder), not a sample; per-run dumps are machine-specific noise and stay gitignored,
+      with a single baseline kept as a reference point.
+    when:
+      any_of:
+        - path: "plugins/grain/tests/stress/corpus.json"
+        - path: "plugins/grain/tests/stress/results/**"
+    parents: [project, area]
+    relations:
+      default: deny
+
+  # ── Repository-level material ───────────────────────────────────────────────────────────────────
+
+  repo-instrument:
+    description: >-
+      A repository-level instrument — tests/stress/**. The corpus harness, the 25 hostile edge-case
+      repositories, and the A/B agent trial script. They live outside the plugin because they measure
+      the plugin from a user's position: they spawn the CLI entry point, never import it.
+    when:
+      any_of:
+        - path: "tests/stress/*.mjs"
+        - path: "tests/stress/*.sh"
+    aspects:
+      - instruments/measure-do-not-gate
+    parents: [project, area]
+    relations:
+      uses: ['*']
+      default: deny
+
+  fixture-builder:
+    description: >-
+      The deterministic fixture builder — tests/fixtures/build-fixture.mjs. Builds the small service
+      repository the tests and every README example run against, with a pinned git history so two builds
+      are byte-identical and every printed answer is reproducible. The planted conventions and the one
+      planted deviant are the ground truth the suite asserts against.
+    when:
+      path: "tests/fixtures/*.mjs"
+    parents: [project, area]
+    relations:
+      uses: ['*']
+      default: deny
+
+  product-readme:
+    description: >-
+      The product README — a single file that is its own locality. It is the front door: it carries the
+      claims, the measured results including the negatives, and the install instructions. Every
+      quantitative claim in it is a promise about a number some instrument produced, which is why it
+      gets its own type and its own rule rather than sitting in the documentation pile.
+    enforce: strict
+    when:
+      path: "README.md"
+    aspects:
+      - docs/internal-links-resolve
+      - docs/claims-carry-their-measurement
+    parents: [project, area]
+    relations:
+      # No code dependency — declared so the link rule may probe the documents and the licence the
+      # front door points at.
+      uses: [doc-page, repo-config]
+      default: deny
+
+  doc-page:
+    description: >-
+      A documentation page — docs/*.md. Four documents carry the depth: the measured record, the
+      mathematics, the validation method and corpus, and the command/store/schema reference. They are
+      for an adopter, and the reference one is also the versioned contract for the export schema and the
+      proposal shape.
+    enforce: strict
+    when:
+      path: "docs/*.md"
+    aspects:
+      - docs/internal-links-resolve
+      - docs/claims-carry-their-measurement
+    parents: [project, area]
+    relations:
+      default: deny
+
+  ci-workflow:
+    description: >-
+      The gate — .github/workflows/*.yml. Two jobs: the full conformance suite on two Node majors, and
+      the seam job that runs this repository's proposal renderer through the NEIGHBOURING projects' real
+      binaries rather than a re-implementation of them. Nothing here installs a runtime dependency,
+      because there is none to install.
+    enforce: strict
+    when:
+      path: ".github/workflows/*.yml"
+    parents: [project, area]
+    relations:
+      default: deny
+
+  director-tool:
+    description: >-
+      Project-management tooling — .claude/skills/director/scripts/*.mjs. The ONLY writers of the
+      committed project state under .system/: tickets, queue, handoff, escalations, decisions, waves.
+      State is mutated through these and never by hand, so that two agents editing at once cannot
+      silently lose an entry.
+    when:
+      path: ".claude/skills/director/scripts/*.mjs"
+    aspects:
+      - source/no-raw-control-bytes
+      - director/state-through-tools-only
+    parents: [project, area]
+    relations:
+      calls: [director-tool]
+      uses: [director-state]
+      default: deny
+
+  director-doc:
+    description: >-
+      The operating manual for the project's own working model — the director skill and its reference
+      documents. It defines the seven classes of defect, the instrument per class, the corpus, the two
+      tracks and the merge checklist. Read by a session that works ON this repository, never shipped.
+    when:
+      any_of:
+        - path: ".claude/skills/director/SKILL.md"
+        - path: ".claude/skills/director/reference/*.md"
+    parents: [project, area]
+    relations:
+      default: deny
+
+  director-state:
+    description: >-
+      Committed project state — .system/**. Tickets with their logs, the queue, the handoff, the
+      escalation ledger, the decision register and the research reports. Append-only in spirit: a
+      decision that has been paid for is not re-derived, and a superseding entry is added rather than
+      the old one edited.
+    when:
+      path: ".system/**"
+    parents: [project, area]
+    relations:
+      default: deny
+
+  repo-config:
+    description: >-
+      Repository configuration — the root dotfiles, the licence and the environment example. Editor,
+      formatter, attribute and ignore rules plus the licence the vendored engine carries forward.
+    when:
+      any_of:
+        - path: ".editorconfig"
+        - path: ".env.example"
+        - path: ".gitattributes"
+        - path: ".gitignore"
+        - path: ".prettierignore"
+        - path: ".prettierrc"
+        - path: "LICENSE"
+    parents: [project, area]
+    relations:
+      default: deny

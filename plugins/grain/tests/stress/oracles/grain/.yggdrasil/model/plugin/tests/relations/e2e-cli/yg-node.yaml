@@ -1,0 +1,12 @@
+name: Relation CLI Cases
+type: test-relations-e2e-cli
+description: >-
+  Twenty-eight cases at the surface a user actually touches: the fixture goes in, the binary runs, the
+  answer is read back. Where the project these were ported from decided ownership against its declared
+  node model, these decide it against modules cut from the directory tree, and every case that
+  depended on the difference says so in its own header.
+relations:
+  - target: plugin/tests/relations/harness
+    type: uses
+mapping:
+  - plugins/grain/tests/relations/e2e-cli/*.test.mjs

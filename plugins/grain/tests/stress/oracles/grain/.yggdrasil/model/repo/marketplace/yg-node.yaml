@@ -1,0 +1,17 @@
+name: Marketplace Catalogues
+type: marketplace-manifest
+description: >-
+  Four catalogues at the repository root, one per host that can install from a git checkout. They are
+  what a stranger installs from, so they must agree with each other and with the plugin manifests about
+  the plugin's name and about what it claims to do. Only the path shape differs between them, because
+  the hosts disagree about that and nothing else.
+relations:
+  # No code dependency — declared so the description rule may read the plugin manifests these
+  # catalogues have to agree with.
+  - target: plugin/manifests
+    type: uses
+mapping:
+  - .claude-plugin/marketplace.json
+  - .cursor-plugin/marketplace.json
+  - .agents/plugins/marketplace.json
+  - .github/plugin/marketplace.json

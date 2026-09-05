@@ -1,0 +1,13 @@
+name: Repository Instruments
+type: repo-instrument
+description: >-
+  Three instruments that measure the plugin from a user's position rather than from inside it: a corpus
+  harness that runs the product end to end over a directory of real clones and records timings, memory,
+  every answer verbatim and the mutation harness; a builder of twenty-five hostile repositories (empty,
+  shallow, no history, symlinked, non-UTF-8, mass renames, races) whose contract is "degrade, never
+  crash, never lie"; and an A/B agent trial that runs the same task twice, with and without the plugin.
+relations:
+  - target: plugin/entry
+    type: uses
+mapping:
+  - tests/stress/
