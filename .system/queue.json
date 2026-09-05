@@ -727,9 +727,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/107-advisory-candidates",
-      "state": "running",
-      "note": "enforced tylko certified+drill; lattice+drill → advisory = kandydaci; 106 nazwa aspektu przy okazji",
-      "updated": "2026-09-05 13:26"
+      "state": "merged",
+      "note": "premerge READY from main checkout (2290/2290); Grain self: enforced 22→0, advisory 22; Yggdrasil unchanged 10/124; 106 folded in. First merge attempt aborted on a dirty ticket log while the rest of the chain ran; corrected, log union-merged.",
+      "updated": "2026-09-05 14:20",
+      "sha": "a6a2c46"
     }
   ]
 }

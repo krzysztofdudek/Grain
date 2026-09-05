@@ -5118,3 +5118,4 @@ note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta gra
 # Fala Fala 8 — odbiór propozycji — close 2026-09-05
 suite: 2290
 note: grain propose jest komendą produktu (104), cichy raport; statusy zarabiane: enforced = certyfikowana konwencja + drill 0 FA + ≥1 mutant; advisory = krata po drillu (kandydaci); draft = reszta z powodem. Yggdrasil: 124 aspektów → 10 enforced. Grain na sobie: 81 → 0 enforced, 22 advisory, 59 prozy. Otwarte dla użytkownika: bump wersji, README (105).
+- 2026-09-05 merged: 107 a6a2c46
