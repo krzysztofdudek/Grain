@@ -9,26 +9,16 @@
 The grain of a piece of wood is the direction the material actually runs, not the direction you wish it ran. You can
 cut across it. You should know where it is first.
 
-## The problem
+## What Grain is for
 
-Your agent writes code that looks right and does not match how this repository does things. The import style is off by
-a hair, the file lands one directory away from where its siblings live, the error is thrown instead of mapped, the test
-asserts in a shape nobody here uses.
-
-The rules that would have prevented that were never written down. What is written down is the subset somebody
-remembered to write, on the day they remembered it. The rest lives in the code, in ten thousand small decisions that
-agreed with each other, and no agent can see it because nothing points at it.
-
-Grain reads that. It mines the conventions your repository actually holds, from the syntax trees of every file and from
-the whole git history, and answers questions about them. Grain asks; if you want conventions *enforced*, that is
-[Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)'s job, and the two split exactly there.
-
-## Where it sits
-
-Every tool that enforces intent assumes somebody already knows what should be true and has written it down, and that
-assumption fails wherever the practiced norm was never legible. One tool enforces the architecture you declared;
-Grain surfaces the architecture the repository practices. You cannot legislate well over a codebase you cannot read,
-and this is the instrument that reads it.
+Grain is a brownfield miner for [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil). Point it at a repository
+that has no architecture graph yet, and `grain propose` writes one — node types, nodes, module dependencies, cycles,
+and the rules the repository's own code and commit history can prove, each one carrying the evidence that produced
+it — instead of a blank `.yggdrasil/` or a graph typed from memory. It is for the moment right after `git clone`:
+adopting Yggdrasil on a codebase nobody has annotated, refactoring against a graph that did not exist an hour ago,
+orienting in an unfamiliar tree, or planning a wave of agent work against a real map instead of none. The
+agent-facing questions Grain has always answered — where does this belong, does my change conform — still work
+exactly as before and are documented further down; they are the second thing this tool is for now, not the first.
 
 ## From clone to graph
 
@@ -52,6 +42,61 @@ Everything else it drafted — the judgement calls, the rules nothing can be sho
 did not take — stays on disk and is summarised in one counted line. `--full` prints all of it. The proposal is a
 proposal: a human reads it and moves it in.
 
+## What it can deduce, and what it can't
+
+**Structure, yes.** Run against [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil) itself — the one repository
+that carries both a hand-written `.yggdrasil/` graph and a full commit history to mine, so it is the only place this
+can currently be checked at scale — `grain export` alone recovers 1105 of 1236 declared node-to-node relations
+(recall 0.894, precision 0.998; the precision figure is inflated by Yggdrasil's own CI-enforced import gate, so read
+it as a ceiling rather than a general number), both dependency cycles `yg advise` already nominates, and 19 of 36
+classifying node types at Jaccard ≥ 0.5 (12 at ≥ 0.8). `grain propose` renders that architecture straight into a
+`.yggdrasil/` shape — one run over Yggdrasil's own history produced 82 node types, 73 nodes, 210 relations and 8
+cycles:
+
+```
+$ grain report
+== architecture — 35 modules · 81 directed dependencies · 2 cycle(s) ==
+  source/cli/src/cli/ → source/cli/src/core/ (87) · source/cli/src/io/ (69) · source/cli/src/utils/ (37) · …
+  source/cli/src/core/ → source/cli/src/utils/ (69) · source/cli/src/io/ (68) · …
+  cycle: source/cli/src/cli ↔ source/cli/src/portal
+  cycle: source/cli/src/core ↔ source/cli/src/relations ↔ source/cli/src/structure
+```
+
+**Intent, forbiddance and "never" rules, no.** The same run drafted 124 aspects from Yggdrasil's own history: 10
+earned real enforcement (a certified convention plus a drill with zero false alarms and at least one caught
+violation), and 114 stayed draft — 91 of them prose no deterministic check can render, 22 that caught nothing
+anywhere in their own corpus, 1 held back as a file-scope approximation. On Grain's own (younger, unenforced)
+repository the same renderer produced 0 enforced rules, 22 advisory candidates and 59 drafts. A dedicated attempt
+to go further — mining the *hand-written* rules themselves, not just an architecture that agrees with them — was
+measured against a bar set before the run: of 20 hand-written rules a miner-miss could plausibly explain, a mined
+candidate reproduced only 2 in verdict, and 0 once the candidate is also required to govern the same files as the
+rule it reproduces; the bar was 10. Grain does not decide what a codebase must never do. That decision stays the
+maintainer's, made from requirements — not mined from what already happened.
+
+Two limits named plainly rather than papered over: Grain's own `examples/*` fixtures are too small (14–24 files, no
+independent commit history of their own) to serve as a second reconstruction check, so Yggdrasil's hand graph is,
+for now, the only full-scale one there is. And when what Grain mines disagrees with what a hand graph declares, the
+disagreement is reported as one of three symmetric classes — a miner miss, graph debt (the hand graph itself is
+stale), or undecidable without a human — never assumed by default to be Grain's fault.
+
+The complete measurement record behind every number above, negatives included, is in
+[docs/results.md](docs/results.md).
+
+## Grain, Yggdrasil, Horde
+
+Three jobs, three tools, one family, each installed on its own: [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)
+**enforces** — it is what reads `.yggdrasil/` and fails a build when code violates it. Grain (this one) **mines** —
+it produces the graph Yggdrasil enforces, from evidence, for a repository that does not have one yet. [Horde](https://github.com/krzysztofdudek/Horde)
+**executes** — it is what raises more than one agent against an architecture graph and holds every one of them to
+it. None of the three assumes the others are installed, and they talk to each other through versioned files on
+disk rather than a shared codebase: a `grain propose` output is a `.yggdrasil/` tree Yggdrasil loads directly; each
+proposed node gets its own `charter.md` (what lives there, what it depends on and is used by, its certified
+conventions with their share and exemplars, its co-change partners) written for a human or for Horde's own tooling
+to read, not for Grain itself; and grain's role groups are also emitted as Yggdrasil's own `.family-candidates.json`
+shape, so `yg advise` can nominate families mined by Grain with no code change on Yggdrasil's side at all — verified
+against a planted fixture where all 5 real families were nominated 5 of 5. Install whichever tools a repository
+needs, in whichever order adopting them makes sense.
+
 ## Install
 
 Requires Node 22 or newer and git. The plugin is self-contained: the parser runtime and every grammar ship inside it,
@@ -71,9 +116,11 @@ That gives you:
 - a **session-start hook**: what grain answers here, and the live state of this repository's index;
 - the **pre-write and post-edit hooks**: placement advice before a file exists, findings after an edit, silence
   otherwise;
-- slash commands for a human at the keyboard: `/grain:where`, `/grain:check`, `/grain:review`, `/grain:completeness`,
-  `/grain:spectrum`, `/grain:status`, `/grain:report`, `/grain:rules`, `/grain:refresh`, `/grain:export`, and
-  `/grain:steer`, which is the slash name for the CLI verb `seed add`;
+- slash commands covering the full command set: `/grain:propose`, `/grain:where`, `/grain:how`, `/grain:what`,
+  `/grain:map`, `/grain:obligation`, `/grain:check`, `/grain:review`, `/grain:completeness`, `/grain:explain`,
+  `/grain:status`, `/grain:report`, `/grain:rules`, `/grain:selftest`, `/grain:refresh`, `/grain:export`,
+  `/grain:decide`, and `/grain:steer`, which is the slash name for the CLI verb `decide steer` under its original
+  name `seed add`;
 - an **MCP server** (started automatically via `.mcp.json`), for any MCP-speaking tool, not only Claude Code:
   `where`/`check`/`status`/`report` as JSON-RPC tools over stdio — see
   [docs/reference.md](docs/reference.md#mcp-server).
@@ -92,7 +139,21 @@ node /path/to/Grain/plugins/grain/bin/grain.mjs where "background job"
 The first query builds the index under `<repo>/.grain/cache/` (gitignored; `.grain/.gitignore` is created for you):
 full git history once, incremental afterwards. Delete the cache any time; the next query rebuilds the same bytes.
 
-## What it looks like
+## What it costs you
+
+1. It never blocks: no gate, no failing build, no policy file.
+2. Nothing leaves your machine: no model calls, no API keys, no network at runtime.
+3. It is silent when it has nothing certified to say, and a warm query answers in 0.08 to 0.31 s across the corpus.
+4. It will tell you a place has no convention rather than invent one.
+
+## The agent-facing commands
+
+Before `grain propose` existed, this was the whole product, and it still works exactly as it did: an agent editing
+this repository gets code that looks right but does not match how this repository actually does things — the import
+style is off by a hair, the file lands one directory away from where its siblings live, the error is thrown instead
+of mapped. Nobody wrote that rule down; it lives in the code, in ten thousand small decisions that agreed with each
+other, and Grain reads that history and answers questions about it directly, at the terminal or through the hooks
+below.
 
 Real output on the deterministic fixture repository the test suite builds; nothing below is mocked up. `grain report`
 needs no question. It prints what the repository already practices, a denominator on every claim:
@@ -113,7 +174,9 @@ $ grain report
 as of 47da000
 ```
 
-When you do have a question, `where` answers with places, expectations and the exemplar to copy:
+When you do have a question, `where` answers with places, expectations and the exemplar to copy, and after writing,
+`check` says how the change sits against the local norm — deviations in the agent's own change first, pre-existing
+ones folded into a count:
 
 ```
 $ grain where handler
@@ -126,29 +189,28 @@ $ grain where handler
   depends on: src/core/ (30) · src/services/ (30)
   …
 as of 47da000
+
+$ grain check src/handlers/dispute.handler.ts
+
+check src/handlers/dispute.handler.ts — package src/handlers · 4 scopes + file · governed by 12 convention(s) · 0 deviation(s) in your change, 3 pre-existing
+pre-existing (not in your change, not yours to fix — `--all` to list): handle: methods call `validate` ×1 · package src/handlers: types are annotated with `@Handler` ×1 · …
+conforms to: package src/handlers: types here extend `Command` (100% of 29) · types here are named PascalCase (…) (100% of 58) · handle: methods here call `this.service.apply` (100% of 29) · +5 more
+as of 47da000+dirty
 ```
 
-The full cards, the `check` view and everything the hooks say unbidden are further down.
+A `where` hit is one of four kinds: a **group** of similar code with its conventions, a **marker** (`@decorator`,
+`extends X`, `returns X`) with the code that carries it, a **directory**, or a **file** with the functions in it
+that match the words you used. There is no test/example special-casing anywhere: code is code, and the partitions a
+file is judged against are cut from the directory tree by compression alone (see below) — on express that cut
+rediscovers `examples/ · lib/ · test/` by itself. The answers are percentages with denominators and paths you can
+open — there is no essay, because the answer goes into an agent's context on every question and tokens are a cost.
+Every convention can also say how alive it is (`held since 2024-02, last reinforced 2024-07`, `trend 80>100%`, `a
+newer pattern is emerging: …`), which neighbours break it (`not to copy:`), and which scope in the same file you can
+copy (`In this file, \`x\` (line 12) conforms.`). The vocabulary is not only syntax: the lexical layer sees quote
+style, `var`/`let`/`const`, the `'use strict'` directive, indentation, semicolons and a UTF-8 BOM — and speaks only
+where the repository shows a choice (double quotes in Go are the language, not a convention).
 
-## What it costs you
-
-1. It never blocks: no gate, no failing build, no policy file.
-2. Nothing leaves your machine: no model calls, no API keys, no network at runtime.
-3. It is silent when it has nothing certified to say, and a warm query answers in 0.08 to 0.31 s across the corpus.
-4. It will tell you a place has no convention rather than invent one.
-
-## Four results
-
-- On express, the compression cut over the directory tree rediscovered `examples/`, `lib/` and `test/` with no name
-  list anywhere in the product.
-- The express middleware signature `function(req res next)` emerged as a template thirty-two times, on its own.
-- The mutation harness across twelve repositories: 73 of 76 planted violations detected, zero false fires, and the
-  three misses sit at 7.0 to 7.8 : 1 odds, just under the 8 : 1 the loss constant demands before grain accuses an
-  instance.
-- In the third agent trial a worker moved four files it had misplaced, writing "Following grain's placement signal"
-  into its own transcript.
-
-## The questions
+The full command surface:
 
 | | |
 |---|---|
@@ -159,206 +221,59 @@ The full cards, the `check` view and everything the hooks say unbidden are furth
 | `grain spectrum <file>` | the full local-to-global convention lattice around one file, with no acceptance cut — `NORM` rows are accepted conventions, `obs` rows are observations below the gate. |
 | `grain status` / `grain report` | model size, a signal verdict ("a sparse model — expect placement, not shape"), freshness, history, the top conventions with trends, deviant counts and age. |
 | `grain rules [--out <file>]` | the same top conventions `report` prints, generated as a standalone Markdown document with its own staleness header naming the commit it was computed from — for a maintainer or a coding tool with no terminal and no grain plugin installed. No `--out` prints it to stdout, so `grain rules > CONVENTIONS.md` already works. |
-| `grain seed add <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/seeds.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `decision steer (who when)`, beside how far practice has caught up. `seed list` / `seed rm <id>`; `.grain/decisions.jsonl` is the audit trail. |
+| `grain decide steer <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/decisions.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `decision steer (who when)`, beside how far practice has caught up. `decide list` / `decide rm <id>`. |
 | `grain export --out model.json` | the whole model as data: every convention with its context, evidence, trend, lifecycle, every conforming and deviating site (with the lines where the convention manifests and the nearest conforming exemplar), a machine check per convention, groups with their templates, markers, directories, co-change and the commit-message affinity. The schema is a published interface with a downstream consumer (a fine-tuning pipeline cuts training samples from the anchor lines): it changes deliberately or not at all. `where`, `check`, `report` and `status` take `--json` too. |
 
-## The evidence
-
-Grain's own claims are held to grain's standard. What has actually been measured, negatives included:
-
-**The complete record, including the negative result that paused development — two paired trials on this build with
-zero diffs changed by a grain answer — is in [docs/results.md](docs/results.md). Read that first.**
-
-- **Truth audits** (independent sessions, no shared context, every claim re-verified with find/grep/git): audit #1 —
-  13/15 claims exactly true, 0 false; audit #2, after the mathematical rebuild — 39 claims: 28 exact, 8
-  true-but-imprecise, 2 unverifiable, **1 false class** (deviant counts mixed populations with the percentage beside them — fixed at
-  the source the same day, and the audit is why). Once, grain out-verified the auditor (it named the one real deviant
-  where the auditor's grep was fooled by a comment).
-- **Three A/B agent trials** on a private, post-cutoff repository, scored against the diffs its author actually
-  shipped: trial 1 — the index was *right* (it named the exact directory and component both arms got wrong) and the
-  agent never asked; trial 2 — the edit-time hook delivered zero notes on 27 edited files (correct silence, and
-  the lesson that line-level checks cannot catch placement); trial 3 — the placement hook carried four notes, the
-  worker moved four files citing grain by name (the first demonstrated effect on a diff), and the two defects that
-  kept the move off-target (post-write timing, sequential competing notes) are fixed in this build. A feature that
-  only extends existing modules draws no placement note — that boundary is structural and stated.
-- **The mutation harness** over the same 12-repo corpus plants a violation of a mined convention in a real file and
-  asks `check` to catch it: **73 of 76 detected, 0 false fires**. The 3 misses are the loss constant made visible,
-  not defects: all three cells sit at 7.0–7.8 : 1 odds, below the 8 : 1 that λ demands before grain accuses an
-  instance. 25 of 25 hostile repositories (empty, shallow, no-git, symlinks, non-UTF-8, mass renames, races)
-  degrade without a crash and with an honest stamp.
-- **Performance** (the private trial monorepo, 1 117 files, full history): cold build 18 s / 1.0 GB RSS; forced warm rebuild 6.3 s;
-  `check`/`where` 0.12 s on a warm index; the hook adds ~0.12 s to an edit. 916 tests, CI on node 22 and 24.
-
-## The answers, in detail
-
-Before creating a file, the agent asks where such things live and what is expected of them. This is real output on a
-small service repository (the test fixture in `tests/fixtures/`):
-
-```
-$ grain where handler
-
-«handler» → marker @Handler — 29 carriers (package src/handlers, match 100%)
-  lives in: src/handlers/ (100%)
-  carriers to copy: src/handlers/address.handler.ts:7 `UpdateAddressHandler` (type) · src/handlers/audit.handler.ts:7 `CancelAuditHandler` (type) · …
-  a new carrier comes with: a same-stem `*.dto.ts` companion (100% of 29 have one, e.g. `src/dto/address.dto.ts`) · registration by a `*.test.ts` file (29 of 29)
-  - types here are annotated with `@Handler` — 100% of 29 · held since 2024-02, last reinforced 2024-07
-«handler» → directory src/handlers/ — 30 files, 58 established (package src/handlers, match 100%)
-  depends on: src/core/ (30) · src/services/ (30)
-  used by: test/handlers/ (29)
-  - files here import `~/src/core/handler` — 100% of 29
-  - types here extend `Command` — 100% of 29 · held since 2024-02, last reinforced 2024-10
-  pattern to copy: src/handlers/address.handler.ts:4 `UpdateAddressCommand` · src/handlers/audit.handler.ts:4 `CancelAuditCommand` · …
-as of 47da000
-```
-
-A hit is one of four kinds: a **group** of similar code with its conventions, a **marker** (`@decorator`,
-`extends X`, `returns X`) with the code that carries it, a **directory**, or a **file** with the functions in it that
-match the words you used. There is no test/example special-casing anywhere: code is code, and the partitions a file is
-judged against are cut from the directory tree by compression alone (see below) — on express that cut rediscovers
-`examples/ · lib/ · test/` by itself.
-
-After writing, it asks how the change sits against the local norm — deviations in the agent's own change first,
-pre-existing ones folded into a count:
-
-```
-$ grain check src/handlers/dispute.handler.ts
-
-check src/handlers/dispute.handler.ts — package src/handlers · 4 scopes + file · governed by 12 convention(s) · 0 deviation(s) in your change, 3 pre-existing
-pre-existing (not in your change, not yours to fix — `--all` to list): handle: methods call `validate` ×1 · package src/handlers: types are annotated with `@Handler` ×1 · …
-conforms to: package src/handlers: types here extend `Command` (100% of 29) · types here are named PascalCase (…) (100% of 58) · handle: methods here call `this.service.apply` (100% of 29) · +5 more
-as of 47da000
-```
-
-The answers are percentages with denominators and paths you can open. There is no essay, because the answer goes into
-an agent's context on every question and tokens are a cost.
-
-Every convention can also say how alive it is (`held since 2024-02, last reinforced 2024-07`, `trend 80>100%`, `a
-newer pattern is emerging: …`), which neighbours break it (`not to copy:`), and which scope in the same file you can
-copy (`In this file, \`x\` (line 12) conforms.`). The vocabulary is not only syntax: the lexical layer sees quote
-style, `var`/`let`/`const`, the `'use strict'` directive, indentation, semicolons and a UTF-8 BOM — and speaks only where
-the repository shows a choice (double quotes in Go are the language, not a convention).
-
-## The measured architecture
-
-The same parse that mines conventions binds cross-file references — per-language extractors and a tri-state resolver
-(resolved / ambiguous / absent: silence instead of a false edge) vendored from the battle-tested Yggdrasil relation
-machinery (same author, MIT; regenerate with `npm run build:relations`). The result is file→file edges and their
-module-level aggregation: which modules exist, who depends on whom, where the cycles are. Real output on
-[Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil), elided rows marked:
-
-```
-$ grain report
-== architecture — 35 modules · 81 directed dependencies · 2 cycle(s) ==
-  source/cli/src/cli/ → source/cli/src/core/ (87) · source/cli/src/io/ (69) · source/cli/src/utils/ (37) · …
-  source/cli/src/core/ → source/cli/src/utils/ (69) · source/cli/src/io/ (68) · …
-  cycle: source/cli/src/cli ↔ source/cli/src/portal
-  cycle: source/cli/src/core ↔ source/cli/src/relations ↔ source/cli/src/structure
-```
-
-`check` enforces it at edit time: an import creating the FIRST edge between two modules, closing a cycle, or crossing
-a committed boundary decision (`grain seed add-boundary apps/frontend --never-imports packages/infra --note "ADR-3"`)
-is reported with the established path (`today apps/frontend reaches packages/infra via packages/core`). Existing
-crossings stay silent — practice already speaks there.
-
-`status` carries the counts, the session hook announces the shape (`Architecture (measured): 25 modules, 31
-dependencies, 0 cycles; most depended-on: packages/core/`), `where` directory cards say `depends on:` / `used by:`,
-and `export` ships every edge. Resolution covers 13 languages (TS/TSX/JS incl. workspace-package specifiers, Python,
-Go via go.mod, Java, C#, Ruby, Rust via the crate tree, PHP via PSR-4, C, C++, Kotlin); the other shipped grammars
-keep the conventions layer only — `status` says so rather than guessing. Conformance is pinned by one test file per
-case under `plugins/grain/tests/relations/`, ported from the Yggdrasil e2e suites.
-
-## The superposition
-
-Similar code, laid on top of itself, is a statistic. A cluster's members anti-unify (Plotkin's least general
-generalization) into ONE template with counted holes: the elements every instance shares stay in the skeleton
-literally (`validate(cmd)` in every handler), a slot each instance fills differently is named as such (each handler's
-own command type — "9 distinct values in 9"), a merely skewed slot gets its distribution (`Get` 6/9). Group cards say
-it (`superposition: 9 members share this skeleton (~7% of an average member): …`), and the code the clustering leaves
-behind — plain functions with no markers, `catch` blocks, route callbacks — is swept by the same machinery into
-standalone templates ("catch always logs" falls out mechanically, with `logger.error` literally in the skeleton;
-express's `function(req res next)` middleware signature emerges ×32). Every template carries its arrival process:
-`held since 2026-06 · 8 new in 180d`.
-
-## The language bridge
-
-Every commit is a translation pair — natural language in the message, code in the touched files. When a query word
-appears in no code card, grain consults the commits that say it and cites them:
-
-```
-example (a1b2c3d): «endpoint» appears in no code card here, but commits saying it touched:
-`src/health/controller.ts` (2) — e.g. "add health endpoint liveness probe" (a1b2c3d)
-```
-
-Never a global dictionary: a repo whose history never says the word stays silent, and repo fillers (`feat`, `fix`)
-are demoted by document frequency over that repo's own commits, not by a word list.
-
-## Placement, before the write
+`how`, `what`, `map`, `obligation`, `explain` and `selftest` round out the surface — a past-commit search, a concept
+card, a structural overview, birth obligations, the full convention lattice, and the mutation/leave-one-out harness
+respectively. The full table, with every flag, is [docs/reference.md](docs/reference.md).
 
 The agent hooks do not wait to be asked. On Claude Code and Codex the plugin registers three hooks: session start
 (what grain is, the live index state), **PreToolUse on Write** — before a new file exists, its *path* is checked
-against where its name-kin already live, and the note arrives while changing the directory is still free:
+against where its name-kin already live —
 
 ```
 [grain] placement: 30 of 30 `*.handler.ts` files live under `src/handlers/`; this one is outside it (`src/misc/`).
 Deliberate is fine — if you guessed, look there first.
 ```
 
-(Real output on the fixture again. When several name-kin point different ways, they argue inside one note, strongest
-count first, with the weaker rivals named beside their counts.)
+— and **PostToolUse on Edit, Write and MultiEdit**: the edited file is re-checked against the index and grain speaks
+ONLY when it has findings on the touched lines (deviations, maintainer decisions, architecture crossings), plus —
+on its own line, capped to 3 partners — the other files this repo's history shows reliably co-changing with the one
+you just touched. A clean edit with no history at all, a foreign repo, a missing index: silence, exit 0, never a
+build step, never a block.
 
-— and **PostToolUse on Edit, Write and MultiEdit**: the edited file is re-checked against the index and grain speaks ONLY when it
-has findings on the touched lines (deviations, maintainer decisions, architecture crossings), plus — on its own line,
-capped to 3 partners — the other files this repo's history shows reliably co-changing with the one you just touched;
-this line fires even on a clean edit with no other findings. Capped at 8 lines total; identical findings repeat at
-most once per 15 minutes. A clean edit with no history at all, a foreign repo, a missing index: silence, exit 0,
-never a build step, never a block.
+A repository is a majority vote, and sometimes the maintainer wants to move it. `decide steer` is the one place
+grain lets a decision outrank the numbers, and it labels it as exactly that — `decision steer (kd 2026-08-26):
+methods here never call \`validate\` — practiced by 3% of 30 in group «handle» today · validate() moves into the
+framework — ADR-7`. Naming what a decision replaces (`--instead-of auto.deco:@app.route`) makes the retirement
+enforceable for new code, and the pre-existing carriers are folded into one calm `transition in progress, not yours
+to fix` line — existing code is never blamed for a decision that postdates it. A decision without `--surfaces` is
+refused with the list of the exemplar's properties; grain does not guess which one you meant.
 
-## Decided, beside practiced
+Similar code, laid on top of itself, is a statistic: a cluster's members anti-unify (Plotkin's least general
+generalization) into one template with counted holes (`superposition: 9 members share this skeleton (~7% of an
+average member): …`), and the code left behind — plain functions, `catch` blocks, route callbacks — is swept into
+standalone templates the same way (express's `function(req res next)` middleware signature emerges ×32 with no
+configuration). Every commit is also a translation pair — natural language in the message, code in the touched
+files — so when a query word appears in no code card, grain consults the commits that say it and cites them
+(`example (a1b2c3d): «endpoint» appears in no code card here, but commits saying it touched: …`); a repo whose
+history never says the word stays silent, never a global dictionary.
 
-A repository is a majority vote, and sometimes the maintainers want to move it. A seed is the one place grain lets a
-decision outrank the numbers, and it labels it as exactly that:
+Most tools in this shape invent authority. Grain will tell you that a place has no convention, because the
+acceptance test is statistical and it fails honestly — a repository is allowed to be undecided about something.
+And every answer carries the commit it was computed from (`as of 4176096`, `+dirty` from an uncommitted worktree):
+uncommitted work never feeds the norm, by design, and the index refreshes itself before every query when history
+moves (`--no-refresh` answers from the old index with a `STALE` banner instead).
 
-```
-$ grain seed add src/handlers/dispute.handler.ts#handle --surfaces auto.call:validate --note "validate() moves into the framework — ADR-7" --author kd
-recorded seed 95a3c9fc in .grain/seeds.jsonl — methods here never call `validate` (weight 8, capped at half the real population of each cell). Commit .grain/seeds.jsonl and .grain/decisions.jsonl; the next query re-mines with it.
-
-$ grain where handler validation
-«handler validation» → group handle — 30 members …
-  decision steer (kd 2026-08-26): methods here never call `validate` — practiced by 3% of 30 in group «handle» today · validate() moves into the framework — ADR-7 · copy src/handlers/dispute.handler.ts:9 `handle`
-  …
-
-$ grain check src/handlers/new.handler.ts          # a NEW file written the old way
-… · 1 maintainer decision(s) your change departs from
-[grain] decision steer (kd 2026-08-26): methods here never call `validate` — practiced by 3% of 30 in group «handle» today. Your method `handle` (line 10) calls `validate`.
-  validate() moves into the framework — ADR-7
-  Copy: src/handlers/dispute.handler.ts:9 `handle`
-as of 47da000+dirty
-```
-
-Naming what a decision replaces (`--instead-of auto.deco:@app.route`) makes the retirement enforceable for new code:
-`check` then flags a scope still written the old way against the decision, prints the live adoption count
-(`adopted by 11 of 235 (app.route 224)`), and folds the pre-existing carriers into one calm
-`transition in progress, not yours to fix` line — existing code is never blamed for a decision that postdates it.
-
-The seed is a pseudo-count on one exemplar's property, capped at half the real population of each cell, excluded from
-every `n of N` it prints, and carried along to the correlated surfaces of the same pattern. A retirement reaches every
-cell where the retired rule fires, so the old majority is muted or marked `superseded by maintainer decision <id>`
-wherever it would still argue back; the session hook announces the decisions in force. A seed without `--surfaces`
-is refused with the list of the exemplar's properties — grain does not guess which one you meant.
-
-## "No strong convention here" is an answer
-
-Most tools in this shape invent authority. Grain will tell you that a place has no convention, because the acceptance
-test is statistical and it fails honestly. Treat that answer as freedom rather than as a broken query. A repository is
-allowed to be undecided about something.
-
-## Never silently stale
-
-Every answer carries the commit it was computed from (`as of 4176096`), and a file read from a dirty worktree says so
-(`+dirty`). Uncommitted work never feeds the norm, by design: the norm is the accepted past — the index is mined from
-HEAD's tree — and an edit in progress must not drag it toward itself. The index refreshes itself before every query when
-the history moves: new commits on the same line cost exactly their new blobs; a switch to a divergent line rebuilds on
-the warm blob cache; `--no-refresh` answers from the old index with a `STALE` banner instead.
+`check` also enforces the mined architecture at edit time: an import creating the FIRST edge between two modules,
+closing a cycle, or crossing a committed boundary decision (`grain decide boundary apps/frontend --never-imports
+packages/infra --note "ADR-3"`) is reported with the established path (`today apps/frontend reaches packages/infra
+via packages/core`). Existing crossings stay silent — practice already speaks there. `status` carries the counts,
+the session hook announces the shape, `where` directory cards say `depends on:` / `used by:`, and `export` ships
+every edge. Resolution covers 13 languages (TS/TSX/JS incl. workspace-package specifiers, Python, Go via go.mod,
+Java, C#, Ruby, Rust via the crate tree, PHP via PSR-4, C, C++, Kotlin); the other shipped grammars keep the
+conventions layer only.
 
 ## How it works
 
@@ -376,7 +291,9 @@ the repository is git's own answer: anything gitignored is never processed, anyt
 the directory tree by the same compression criterion — the deleted test/example name-heuristics re-emerged as
 mathematics on the measurement corpus (express: `examples/ · lib/ · test/`; flask: `docs/ · examples/ · src/ ·
 tests/`). Manifests (`package.json`, `go.mod`) are read for *resolution* — workspaces, the module graph — never as a
-statistical prior.
+statistical prior. Cross-file references are bound the same way: per-language extractors and a tri-state resolver
+(resolved / ambiguous / absent: silence instead of a false edge), vendored from the battle-tested Yggdrasil relation
+machinery (same author, MIT; regenerate with `npm run build:relations`).
 
 There are no model calls anywhere in the engine, no API keys, and no network access at runtime. Your code stays on your
 machine. Nothing about a language, a framework or a coding style is written down in the product: the language bindings
@@ -399,7 +316,10 @@ own, not a hard ceiling: an external field report on a production codebase measu
 (277.6 s walking history, 180.3 s mining) on 2 314 commits and 2 064 files, 91 MB on disk — past this corpus's own
 2.9 min extreme, on a repository with fewer commits than either outlier (typeorm's 6 052, okhttp's 6 444). Commit
 count alone does not predict the cost, on this corpus or that report's; the full case for why, and the boundary this
-sets, is in [docs/validation.md](docs/validation.md)'s Known boundaries.
+sets, is in [docs/validation.md](docs/validation.md)'s Known boundaries. On [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)
+itself, a cold `grain export` for a full `propose` run takes 434 s (180.5 s walking 1510 commits / 14 835 blobs, then
+253.9 s indexing 2290 files); the reconstruction and proposal instruments that measure against it run in 2.5–5 s more
+on top of that export.
 
 ## What it is not
 
@@ -408,25 +328,55 @@ It informs and it never blocks. There is no gate, no verdict that fails a build,
 There are no embeddings and no retrieval layer. When a query matches nothing lexically, Grain prints the compact map of
 what exists and lets the asking model close the semantic gap itself. That is a design decision, not a gap.
 
-It does not judge quality. A convention is a majority, not a virtue.
+It does not judge quality. A convention is a majority, not a virtue. And it does not decide what a codebase must
+never do — a mined rule is a candidate the drill proved it can catch, never a substitute for the maintainer's own
+requirement (see "What it can deduce, and what it can't" above).
+
+## The evidence
+
+Grain's own claims are held to grain's standard. What has actually been measured, negatives included, across both
+the mining objective above and the agent-facing surface below:
+
+**The complete record — the reconstruction and proposal numbers, the failed law-loop bet, the sense-rate measurement
+against Yggdrasil's own CLI, and the earlier agent-facing results (truth audits, A/B trials, the mutation harness) —
+is in [docs/results.md](docs/results.md). Read that first.**
+
+- **Truth audits** (independent sessions, no shared context, every claim re-verified with find/grep/git): audit #1 —
+  13/15 claims exactly true, 0 false; audit #2, after the mathematical rebuild — 39 claims: 28 exact, 8
+  true-but-imprecise, 2 unverifiable, **1 false class** (deviant counts mixed populations with the percentage beside them — fixed at
+  the source the same day, and the audit is why). Once, grain out-verified the auditor (it named the one real deviant
+  where the auditor's grep was fooled by a comment).
+- **Three A/B agent trials** on a private, post-cutoff repository, scored against the diffs its author actually
+  shipped: trial 1 — the index was *right* (it named the exact directory and component both arms got wrong) and the
+  agent never asked; trial 2 — the edit-time hook delivered zero notes on 27 edited files (correct silence, and
+  the lesson that line-level checks cannot catch placement); trial 3 — the placement hook carried four notes, the
+  worker moved four files citing grain by name (the first demonstrated effect on a diff), and the two defects that
+  kept the move off-target (post-write timing, sequential competing notes) are fixed in this build. A feature that
+  only extends existing modules draws no placement note — that boundary is structural and stated.
+- **The mutation harness** over a 12-repo corpus plants a violation of a mined convention in a real file and
+  asks `check` to catch it: **73 of 76 detected, 0 false fires**. The 3 misses are the loss constant made visible,
+  not defects: all three cells sit at 7.0–7.8 : 1 odds, below the 8 : 1 that λ demands before grain accuses an
+  instance. 25 of 25 hostile repositories (empty, shallow, no-git, symlinks, non-UTF-8, mass renames, races)
+  degrade without a crash and with an honest stamp.
+- **Performance** (the private trial monorepo, 1 117 files, full history): cold build 18 s / 1.0 GB RSS; forced warm rebuild 6.3 s;
+  `check`/`where` 0.12 s on a warm index; the hook adds ~0.12 s to an edit. 2 288 tests, CI on node 22 and 24.
 
 ## Documentation
 
 Four documents carry the depth this file only gestures at: [docs/results.md](docs/results.md), the complete measured
-record at the point development paused, negatives first; [docs/mathematics.md](docs/mathematics.md), the single
-objective and its special cases with the honest residue; [docs/validation.md](docs/validation.md), every measurement
-with its method, the corpus tables and the known boundaries; [docs/reference.md](docs/reference.md), commands, hooks,
-the store, environment switches, cache version keys and the export schema contract.
+record — the brownfield-miner numbers first, the earlier agent-facing results after; [docs/mathematics.md](docs/mathematics.md),
+the single objective and its special cases with the honest residue; [docs/validation.md](docs/validation.md), every
+measurement with its method, the corpus tables and the known boundaries; [docs/reference.md](docs/reference.md),
+commands, hooks, the store, environment switches, cache version keys, and both the export and the proposal schema
+contracts.
 
 ## Status
 
-0.3.0, released as a portfolio piece. Development paused on 2026-09-02; the measured reasons are in [docs/results.md](docs/results.md).
-The number describes the age of the interfaces, not the weight of the evidence above: the export schema
-established at 0.1.0 is unbroken — every new convention family added since (constructor shape, marker alternatives,
-file-birth pattern, author concentration, established layering) flows through the same generic per-fact serialization,
-never a hand-listed schema addition — and nothing has yet earned the right to break compatibility. The engine is the
-validated prototype vendored into this repository, made self-contained and incremental, then rebuilt on the
-single-objective mathematics above, with every rebuild measured on the corpus before it was kept.
+0.3.0. The interfaces are stable — the export schema established at 0.1.0 is unbroken, and every new convention
+family added since flows through the same generic per-fact serialization, never a hand-listed schema addition — but
+the objective changed under it: `grain propose` and the brownfield-miner numbers in this file are new since
+2026-09-05, measured on top of the same 0.3.0 build. The agent-facing surface (`where`, `check`, `how`, the hooks)
+is the earlier objective, unchanged in behaviour, kept because it still works and nothing here has replaced it.
 
 ## The Yggdrasil family
 
@@ -458,7 +408,10 @@ repository in a directory and records timings, memory, every answer and the muta
 `node tests/stress/edge-cases.mjs <work>` builds 25 hostile repositories (empty, shallow, symlinks, huge and
 non-UTF-8 files, mass renames, submodules, races…) and asserts grain degrades without crashing;
 `tests/stress/agent-trial.sh <repo> <out> <model> "<task>"` runs the same task with and without the plugin for an
-A/B comparison of a coding agent's output and cost.
+A/B comparison of a coding agent's output and cost; `tests/stress/reconstruct.mjs`, `propose.mjs`, `too-much.mjs`,
+`law-loop.mjs` and `integration-stress.mjs` are the reconstruction and proposal instruments behind
+[docs/results.md](docs/results.md), each runnable against any repository that has (or, for the last, does not need)
+a hand-written `.yggdrasil/` graph.
 
 ## Attribution and licence
 
