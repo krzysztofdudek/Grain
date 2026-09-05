@@ -1,0 +1,2 @@
+
+## 2026-09-05 04:35 — SPEC wstępna (director). explain pokazuje kratę per PLIK jako zrzut debugowy; maintainer potrzebuje jej per PARTYCJA: kandydaci na reguły z udziałem (np. catch→abortOnUnexpectedError 22% w source/cli/src/cli), lista odstępców z ścieżkami, koszt doprowadzenia do 100%. To jest backlog refaktoru i wejście do 094 (aspekt draft + lista plików do naprawy). Bramka λ nie zmienia się na powierzchniach agentowych.

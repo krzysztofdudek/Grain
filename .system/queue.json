@@ -600,6 +600,16 @@
       "state": "running",
       "note": "WAVE 5 #2 trial redesign: tasks selected by without-arm failure",
       "updated": "2026-09-02 13:42"
+    },
+    {
+      "id": 56,
+      "ticket": "093",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "instr/093-reconstruct",
+      "state": "queued",
+      "note": "instrument rekonstrukcji grafu; wzorzec Yggdrasil + examples",
+      "updated": "2026-09-05 04:35"
     }
   ]
 }
