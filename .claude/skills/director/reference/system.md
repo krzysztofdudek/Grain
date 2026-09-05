@@ -7,30 +7,39 @@ Jedno źródło prawdy o **jak** pracujemy. Dyrektor zmienia ten dokument świad
 
 ## 0. Cel i kryterium
 
-**Gwiazda polarna:** Grain rozumie codebase lepiej niż jakikolwiek człowiek czy agent bez Graina; daje
-odpowiedzi na wszelkie pytania, jakie ktoś może mieć pracując z danym codebase; jest ostatecznym narzędziem
-dla agentów kodujących.
+**Gwiazda polarna (od 2026-09-05, decyzja `north-star-brownfield-miner`):** Grain skraca drogę od `git clone`
+obcego repo do działającego `.yggdrasil/` — architektura (typy z `when`), węzły z mapowaniem, relacje i granice,
+aspekty w drafcie, plan refaktoru — i zmusza, żeby ten graf powstał z dowodów w kodzie i historii, nie z
+wyobraźni. Konsumentem jest **maintainer wdrażający Yggdrasila na brownfieldzie** (użytkownik i agent, który mu
+przy tym pomaga), nie agent kodujący przy edycji. Yggdrasil jest referencją i wzorcem; nic tam nie zmieniamy.
+
+Poprzednia gwiazda („grain odpowiada na więcej pytań niż grep") została odłożona po 25 przebiegach z 0
+zmienionych diffów — nie dlatego, że silnik był zły, ale dlatego, że mierzyła niewłaściwego czytelnika
+(`docs/results.md`). Uruchomienie Graina na repo Yggdrasil pokazało, że surowiec pod nową gwiazdę już jest w
+modelu (decyzja `sub-gate-rows-are-the-product`).
 
 Dwa cele, w tej kolejności:
-1. **Uczciwość.** To, co grain mówi, jest prawdą; czego nie widzi — mówi, że nie widzi. Pewna siebie zła
-   odpowiedź jest gorsza niż milczenie; pewne siebie milczenie gorsze niż przyznanie się do ślepoty.
-2. **Zasięg.** Grain odpowiada na pytania drogie, nieosiągalne inaczej, albo dające agentowi przyspieszenie,
-   niższy koszt, spójność lub jakość.
+1. **Uczciwość.** To, co grain proponuje, ma dowód w kodzie (liczby, ścieżki, udziały); czego nie widzi — mówi,
+   że nie widzi. Propozycja bez dowodu jest gorsza niż brak propozycji.
+2. **Rekonstrukcja.** Grain odzyskuje jak największy ułamek tego, co maintainer napisałby ręcznie (typy,
+   mapowania, relacje, granice, kandydaci na aspekty, backlog odstępców), przy precyzji, którą maintainer
+   przyjmuje bez poprawek.
 
-Kryterium każdej decyzji: **zmierzona użyteczność**. Reguła „zero nowych strojonych progów" jest decyzją
-projektową (strojone progi produkowały zapisane wypadki, które po zwinięciu w jedną stałą straty `λ` nie
-wróciły) — nie mandatem. Zmierzony zysk użyteczności może ją przeważyć. Wolimy wyprowadzone od strojonych;
-granicę raportujemy uczciwie jako pełnoprawny wynik.
+Kryterium każdej decyzji: **zmierzona użyteczność** = precision/recall propozycji względem repo z istniejącym
+ręcznym grafem. Wzorce dostępne w tej sesji: Yggdrasil (1564 commity, 427 węzłów, 51 aspektów, 33 typy) i
+`examples/*` (7 mini-grafów, smoke). Prywatne wdrożenia użytkownika — niedostępne; dopisać, gdy się pojawią.
 
-**Reguła zdolności (decyzja `measure-on-tasks-agents-fail-counterfactual-first`, po 25 przebiegach z 0 zmienionych
-diffów):** żadna nowa zdolność bez (1) zadań, na których agent **bez** graina udokumentowanie zawodzi (twarde,
-~99-krokowe przebiegi, nie łatwe replaye), i (2) tabeli kontrfaktycznej per przebieg — *w którym wywołaniu agent
-poszedł źle i jakie jedno zdanie w tym momencie by go zawróciło* — z dowolnego źródła, nie tylko graina. Dopiero z
-tej listy wynika, co grain ma umieć powiedzieć. Naprawianie mechanizmu wskazanego przez próbę bez tego rozbioru
-to dryf. Gdy taka próba jest w toku, tor 1 pracuje w trybie minimalnym (tylko HIGH); pusta lista kontrfaktyczna
-obala hipotezę „wyrocznia" i dyrektor idzie do użytkownika z inną formą produktu (strażnik działający w hooku).
+**Reguła zdolności (decyzja `capability-rule-superseded-by-reconstruction`):** żadna nowa zdolność bez (1) wzorca
+i (2) instrumentu rekonstrukcji, który liczy jej wkład w precision/recall. Stara reguła
+`measure-on-tasks-agents-fail-counterfactual-first` jest zawieszona (wraca, gdyby ktoś wrócił do zdolności
+agentowych). Prace nad adopcją hooków i próbami sparowanymi na diffach agenta — wstrzymane.
 
-Ograniczenia użytkownika: klasa kosztowa agentów (Fable = tylko opinie); push — nigdy bez instrukcji.
+**Co zostaje z konstytucji:** λ=8 i „mów tylko certyfikowane" obowiązują na powierzchniach agentowych (hooki,
+`where`, `check`). Powierzchnia maintainera pokazuje **kratę** — kandydatów pod bramką z udziałem i odstępcami —
+bo dla wdrażającego reguła praktykowana w 22% miejsc to plan refaktoru, nie szum.
+
+Ograniczenia użytkownika: klasa kosztowa agentów (Fable = tylko opinie); push — tylko na wyznaczoną gałąź
+sesji, nigdzie indziej.
 
 ---
 
