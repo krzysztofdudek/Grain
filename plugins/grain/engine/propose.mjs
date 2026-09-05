@@ -1196,6 +1196,9 @@ const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
 // advisory refusals were of exactly this shape. `nameshape`/`filenameshape`/`lex`/`mods` and the rest are NOT
 // here: their `expected` is a VALUE the code carries, so there is no absence to mistake for a prohibition.
 const ABSENCE_CLASS = new Set([...BOOLEAN_CLASS, 'has', 'ptype']);
+// One predicate for it, because the same row must read the same way wherever the proposal shows it: as an
+// aspect, and in the refactor backlog's own listing of the lattice.
+export const isAbsenceRow = r => ABSENCE_CLASS.has(/^auto\.([a-z0-9]+):?/.exec(String(r.pid))?.[1] || '') && String(r.exp) === 'false';
 // grain's own `unitOf` domain (engine/core.mjs): a convention's `kind` names the SUBJECT its evidence is about.
 // `file` and `module` ARE the unit Yggdrasil's `scope: { per: 'file' }` reviews; every other kind — a method, a
 // type/class, a catch or finally block — is a SYMBOL living inside a file, smaller than the unit a rendered
@@ -1917,7 +1920,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     // as one, shipped as prose so no drill can promote it, and held at `draft` with its own reason. The same
     // class in the `true` direction, and a `false` direction grain CERTIFIED (a real "this partition never uses
     // X"), are untouched.
-    const absence = ABSENCE_CLASS.has(fam) && String(r.exp) === 'false';
+    const absence = isAbsenceRow(r);
     const statement = absence
       ? `${r.ne} of ${r.ne + deviants.length} ${unitOne(r.kind)}s under \`${glob}\` do not ${describeRow(r.pid, r.exp)} — an absence, not a rule.`
       : obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
@@ -2579,8 +2582,15 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
   L.push(`## 2. Candidate house rules below grain's gate (${sub.length})`, '',
     'Practised by a supermajority but not yet by enough of the code for grain to state it as a fact. This is the',
     'sub-gate lattice — the surface `grain explain` shows one file at a time, aggregated per partition.', '',
+    // A `false`-direction row of an absence class is listed as what it is (ticket 115). Printed in this table's
+    // own idiom it read `files never import X` with `8 sites to fix` beside it — an instruction to delete the
+    // eight imports, on evidence that says only that most files here do not have one.
     mdTable(['adoption', 'n', 'partition', 'scope', 'candidate rule', 'sites to fix'],
-      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describeRow(r.pid, r.exp)}`, r.deviants.length])), '');
+      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition',
+        isAbsenceRow(r)
+          ? `${r.ne} of ${r.n} ${r.kind}s do not ${describeRow(r.pid, r.exp)} — an absence, not a rule`
+          : `${r.kind}s ${describeRow(r.pid, r.exp)}`,
+        isAbsenceRow(r) ? '—' : r.deviants.length])), '');
 
   const twins = (exp.twins || []).filter(t => t.namedDifferently);
   L.push(`## 3. Structural twins — one shape under two names (${twins.length} of ${(exp.twins || []).length} twin pairs are named differently)`, '',

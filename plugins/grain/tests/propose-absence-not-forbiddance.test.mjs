@@ -103,6 +103,15 @@ test('the same class in the `true` direction is untouched and still eligible', (
   assert.match(yaml, /Every file under/);
 });
 
+test('the refactor backlog lists the same row as an observation, with nothing to fix', () => {
+  const md = readFileSync(join(out, 'REFACTOR-BACKLOG.md'), 'utf8');
+  const rows = md.split('\n').filter(l => /node:fs/.test(l) && l.startsWith('|'));
+  assert.equal(rows.length, 1, md.split('\n').filter(l => l.startsWith('|')).join('\n'));
+  assert.match(rows[0], /do not import `node:fs` — an absence, not a rule/);
+  assert.ok(!/never import/.test(md), 'the backlog still tells a maintainer to delete the imports');
+  assert.match(rows[0], /\|\s*—\s*\|\s*$/, `an absence has no sites to fix: ${rows[0]}`);
+});
+
 test('the count of absences is reported, not hidden among the prose rows', () => {
   const j = sidecar();
   assert.ok(j.counts.aspectsAbsenceNotForbiddance >= 1, JSON.stringify(j.counts));
