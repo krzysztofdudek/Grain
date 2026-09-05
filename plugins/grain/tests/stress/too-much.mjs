@@ -465,7 +465,7 @@ export function analyse({ exp, cache, fps, tree = null }) {
   const sigFit = fitSignatures(exp);
 
   const dims = {};
-  const elements = new Map(); // rank + ' ' + id -> element record
+  const elements = new Map(); // rank + '\x00' + id -> element record
   const silent = [];
   const underpowered = [];
 
@@ -603,13 +603,13 @@ export function analyse({ exp, cache, fps, tree = null }) {
   // ---- cycles: a categorical graph fact, not a codelength excess. The minimal cut is the weakest edge on the
   // cycle by dependency count — a graph cut, and named as one.
   const medge = new Map();
-  for (const e of exp.moduleGraph?.edges || []) medge.set(e.from + ' ' + e.to, e.n);
+  for (const e of exp.moduleGraph?.edges || []) medge.set(e.from + '\x00' + e.to, e.n);
   const cycles = (exp.moduleGraph?.cycles || []).map(c => {
     let weakest = null;
     for (let i = 0; i < c.length; i++)
       for (let j = 0; j < c.length; j++) {
         if (i === j) continue;
-        const n = medge.get(c[i] + ' ' + c[j]);
+        const n = medge.get(c[i] + '\x00' + c[j]);
         if (n === undefined) continue;
         if (!weakest || n < weakest.n) weakest = { from: c[i], to: c[j], n };
       }
