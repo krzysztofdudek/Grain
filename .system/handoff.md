@@ -1,15 +1,15 @@
 # Handoff
 
-at: 2026-09-05T05:34:04.480Z
+at: 2026-09-05T05:49:09.546Z
 by: director
-head: claude/grain-agent-tool-b89y0x@3f1fe03
+head: claude/grain-agent-tool-b89y0x@413ad4c
 
 ## Summary
-Memo Fable-counsel scalone (3f1fe03): przełom = PĘTLA PRAWA (B1) — Grain renderuje deterministyczne check.mjs z drills z hold-outem czasowym, yg simulate/drill scoruje, draft→advisory na kontrakcie 0/0, enforced tylko podpisem człowieka, retirement z catch/exposure. Zapisane jako law-loop-is-the-bet. Steer do 094: check.mjs zamiast prozy + drills. Nowe tickety: 097 (pomiar B1, bramki ≥10/20 w werdykcie, precyzja ≥0.80), 098 (B2 graf przy wave close). Horde przeczytany; użytkownik doprecyzował wizję: ekosystem, od człowieka tylko wymagania. W locie: 094, 096 (Opus).
+Oba memo Fable scalone: counsel-factory (B1 pętla prawa) i ecosystem-design (413ad4c: brakuje dwu końców — kompilator intencji i drut incydentów; dwa scalenia, jedno cięcie, trzy rzeczy do zbudowania; 10 inwariantów I1–I10; sekwencja S0–S6). Zakres Grain vs poza Grainem zapisany w decyzji ecosystem-design-scope-split. 097 dostał addendum (provenance.json, I10, retirement z drills, szablon-jako-check). W locie: 094 i 096 (Opus). Yggdrasil/.grain/ zostawiony przez workerów — sprawdzić czystość po ich raportach.
 
 ## In flight
-- 57 branch:research/094-propose —  (since 2026-09-05T05:34:04.489Z, reports to lead)
-- 58 branch:research/096-too-much —  (since 2026-09-05T05:34:04.489Z, reports to lead)
+- 57 branch:research/094-propose —  (since 2026-09-05T05:49:09.555Z, reports to lead)
+- 58 branch:research/096-too-much —  (since 2026-09-05T05:49:09.555Z, reports to lead)
 
 ## Pending decisions
 (none)
@@ -33,7 +33,7 @@ Memo Fable-counsel scalone (3f1fe03): przełom = PĘTLA PRAWA (B1) — Grain ren
 - - 2026-09-05 merged: 093 fdd19c9
 
 ## Next actions
-- Odbiór 094 i 096 jak hub. Po 094: spawn Opus na 097 (bramki już w tickecie). Po 096: decyzja, czy 'za dużo' wchodzi do renderera jako backlog. 098 po 094 (Sonnet). Przetłumaczyć użytkownikowi sedno memo (zrobione w czacie). Yggdrasil git status czysty po każdym workerze.
+- Odbiór 094/096 jak hub (premerge, suita, Yggdrasil git status czysty). Po 094: Opus na 097 (bramki w tickecie). 098 po 094 (Sonnet). Przedstawić użytkownikowi listę decyzji poza Grainem (Yggdrasil: event stream/retirement z drills, family-without-law cut, advise→proposal; Horde: --kind incident, kolumny charteru, sizing ratio; meta-prawo; scalenie skilla dyrektora w Horde; kompilator intencji jako nowe narzędzie) — zrobione w czacie.
 
 ## Notes
 (none)
