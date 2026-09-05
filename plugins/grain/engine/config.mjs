@@ -95,7 +95,14 @@ export const EXT_ALT = Object.fromEntries(
 // processed, anything TRACKED is code (a repo that commits vendor/ chose to). In git mode the universe is the HEAD
 // tree, where gitignore already holds, and only HARD_EXCL applies (grain's own store; .git for symmetry). The EXCL
 // name list below survives ONLY as the no-git fallback, where there is no gitignore to consult.
-export const HARD_EXCL = /(^|\/)\.(git|grain)(\/|$)/;
+// `.yggdrasil-proposal/` is grain's OWN OUTPUT, in the same category as `.grain/`: the staging tree `grain
+// propose` writes for a human to read, edit and move in. `grain propose` gives it a self-ignoring `.gitignore`,
+// but an adopter who commits a proposal mid-review — or who follows `.grain/.gitignore`'s own instruction that
+// everything in `.grain/` other than `cache/` is meant to be committed — hands grain its own bookkeeping back
+// as if it were the repository's code. Measured: `.grain` became a node type of the proposed architecture
+// ("`.grain` holds 2 tracked files nothing else in this proposal claims"). Neither is the repo's code at any
+// point in its history, so neither is mined, walked or proposed on.
+export const HARD_EXCL = /(^|\/)(\.git|\.grain|\.yggdrasil-proposal)(\/|$)/;
 export const EXCL =
   /(^|\/)(node_modules|dist|build|out|vendor|\.git|\.yggdrasil|\.grain|__pycache__|migrations|coverage|\.next|bin|obj|fixtures?|benchmarks?|__mocks__|target)(\/|$)|\.min\.|generated|\.d\.ts$/;
 // DESIGN RULING (maintainer, 2026-08-25): no semantic recognition of tests, examples or any other role by NAME —

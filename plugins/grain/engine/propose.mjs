@@ -49,7 +49,7 @@ import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './
 // Read-only: two version constants, the same ones `grain export`'s own `proposal.json`-equivalent
 // (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
 // without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
-import { ENGINE_VERSION, EXTR_V } from './config.mjs';
+import { ENGINE_VERSION, EXTR_V, HARD_EXCL } from './config.mjs';
 // Read-only, and only these two: the vocabulary grain ALREADY uses to put a measured value into words — a name
 // shape (`(Ua)+` -> "PascalCase") and a lexical surface (`quote`,`single` -> "quote strings with single
 // quotes"). §7-bis below words a lattice row with them rather than with a private copy, so a proposal and
@@ -142,7 +142,7 @@ const pct = x => `${(x * 100).toFixed(0)}%`;
 // It is a WEAKER file set than `git ls-files`, and knowingly so: with no git there is no `.gitignore` resolution,
 // so build output a git repo would have hidden is visible here. That is a degradation, which is the contract,
 // rather than a crash, which is not.
-const WALK_SKIP = new Set(['.git', '.grain', '.yggdrasil', 'node_modules']);
+const WALK_SKIP = new Set(['.git', '.grain', '.yggdrasil', '.yggdrasil-proposal', 'node_modules']);
 function walkWorktree(root, rel = '', out = []) {
   let entries;
   try { entries = readdirSync(join(root, rel), { withFileTypes: true }); } catch { return out; }
@@ -181,6 +181,13 @@ function gitFiles(repo) {
       // filename character, legal on POSIX. Folding it to `/` could only corrupt such a path, and did:
       // `src/we\ird.ts` became `src/we/ird.ts`, a file mapped into a directory that does not exist, sized at
       // zero bytes because nothing on disk answers to it, and named by a node mapping `yg check` cannot resolve.
+      // GRAIN'S OWN STATE IS NOT THE REPOSITORY'S CODE, EVEN WHEN IT IS TRACKED. `grain export` has always
+      // filtered it (`HARD_EXCL`), and this list — which decides which files become types, nodes, mappings and
+      // the uncovered remainder — did not, so the filter held for what grain MINED and not for what it
+      // PROPOSED. Invisible until a repository commits `.grain/`, which grain's own `.grain/.gitignore` tells
+      // it to ("everything else in .grain/ is meant to be committed"): measured, `.grain` then arrives as a
+      // node type of the adopter's architecture. Same filter, same reason, in both places.
+      if (HARD_EXCL.test(m[2])) continue;
       files.push(m[2]);
     }
     return { files, degraded: null };
