@@ -684,9 +684,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/099-filescopes-cap",
-      "state": "running",
-      "note": "cap 200 w model.json: nieść prawdziwą liczbę zakresów (scopesTotal / truncated) obok obciętej listy; konsumenci (too-much.mjs, export) czytają prawdę",
-      "updated": "2026-09-05 11:00"
+      "state": "merged",
+      "note": "premerge READY from main checkout (2269/2269); fileScopesTotal sparse, MODEL_V m24→m25; two too-much.mjs bugs fixed on sight",
+      "updated": "2026-09-05 11:42",
+      "sha": "498da86"
     },
     {
       "id": 64,
