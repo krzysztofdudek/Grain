@@ -23,7 +23,7 @@
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { join, resolve, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '..', '..', 'bin', 'grain.mjs');
@@ -121,12 +121,34 @@ function run(args, cwd, { timeoutMs } = {}) {
 }
 const git = (cwd, ...a) => execFileSync('git', ['-C', cwd, ...a], { encoding: 'utf8' }).trim();
 
+// Ladder bucketing: `--only id,id` narrows a corpus.json `repos` list to the named ids, in corpus order; no
+// `--only` runs the whole corpus. `only` is the already-split array (or null), same shape ladderMain builds it in.
+export function selectEntries(repos, only) {
+  return repos.filter(e => !only || only.includes(e.id));
+}
+
+// Result aggregation: merge one repo's result row into an accumulated run's `repos` array by id — a second
+// invocation against the same day+engine-sha output file (a resumed `--only` bucket, a retry after a crash) must
+// overwrite that repo's stale row in place, not duplicate it, and must leave every other repo's row untouched.
+// Returns nothing; mutates `repos` in place, matching the closure this was extracted from.
+export function upsertRepoInto(repos, repoRes) {
+  const i = repos.findIndex(r => r.id === repoRes.id);
+  if (i >= 0) repos[i] = repoRes;
+  else repos.push(repoRes);
+}
+
 // ---------------------------------------------------------------------------------------------------------------
 // the eleven command shapes director/system.md §2.F names, in the shipped CLI's actual argument shape
 // (grep `case '` in engine/grain.mjs for the authoritative dispatch table). `check`/`explain`/`obligation` each
 // need one representative file/path, filled in per repo from its own model once the cold build has run.
 // ---------------------------------------------------------------------------------------------------------------
-function ladderCommands({ intentWords, checkFile }) {
+// The eleven labels in the fixed order both the ladder (ladderCommands, below) and --table's rendering
+// (tableMain) must agree on — hoisted once so the two cannot silently drift apart.
+export const LADDER_COMMAND_LABELS = [
+  'report', 'map', 'where', 'what', 'how', 'check', 'explain', 'selftest --how', 'selftest --where', 'selftest --extract', 'obligation',
+];
+
+export function ladderCommands({ intentWords, checkFile }) {
   return [
     { label: 'report', args: ['report', '--top', '40'] },
     { label: 'map', args: ['map'] },
@@ -173,9 +195,9 @@ const INTENTS = {
   'symfony-mid': ['controller'],
   'symfony-full': ['controller'],
 };
-const pickIntentWords = id => INTENTS[id] || ['handler'];
+export const pickIntentWords = id => INTENTS[id] || ['handler'];
 
-function classifyFailure(r) {
+export function classifyFailure(r) {
   if (r.code === 0 && !r.signal) return null;
   // node's spawnSync sends the killSignal (default SIGTERM) when its own `timeout` elapses — that is OUR harness
   // giving up, not the process dying on its own. Any other signal (SIGKILL, SIGSEGV, …) with no matching stderr is
@@ -189,7 +211,7 @@ function classifyFailure(r) {
   return 'nonzero-exit';
 }
 
-function parseFlags(argv) {
+export function parseFlags(argv) {
   const out = { _: [] };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -229,7 +251,7 @@ async function ladderMain(flags) {
   mkdirSync(outDir, { recursive: true });
 
   const corpus = JSON.parse(readFileSync(corpusPath, 'utf8'));
-  const entries = corpus.repos.filter(e => !only || only.includes(e.id));
+  const entries = selectEntries(corpus.repos, only);
   const engineSha = (() => {
     try {
       return execFileSync('git', ['-C', here, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).trim();
@@ -261,11 +283,7 @@ async function ladderMain(flags) {
     }
   }
   if (!runRecord) runRecord = { date, engineSha, engineVersion: engineVersionLine, timeoutMs, corpusPath: 'plugins/grain/tests/stress/corpus.json', repos: [] };
-  const upsertRepo = repoRes => {
-    const i = runRecord.repos.findIndex(r => r.id === repoRes.id);
-    if (i >= 0) runRecord.repos[i] = repoRes;
-    else runRecord.repos.push(repoRes);
-  };
+  const upsertRepo = repoRes => upsertRepoInto(runRecord.repos, repoRes);
 
   for (const entry of entries) {
     const dir = join(corpusDir, entry.id);
@@ -372,15 +390,15 @@ async function ladderMain(flags) {
 // --table: render the most recent (or a named) ladder run as the markdown table docs/validation.md's corpus
 // section can be regenerated from.
 // ---------------------------------------------------------------------------------------------------------------
-function latestResultFile(resultsDir) {
+export function latestResultFile(resultsDir) {
   const files = readdirSync(resultsDir).filter(f => /^\d{4}-\d{2}-\d{2}-.+\.json$/.test(f)).sort();
   return files.length ? join(resultsDir, files[files.length - 1]) : null;
 }
 
-function fmtMs(ms) {
+export function fmtMs(ms) {
   return ms == null ? '—' : ms < 1000 ? `${ms} ms` : ms < 60_000 ? `${(ms / 1000).toFixed(1)} s` : `${(ms / 60_000).toFixed(1)} min`;
 }
-function fmtCommits(n) {
+export function fmtCommits(n) {
   return n == null ? '—' : String(n).replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
 }
 
@@ -392,7 +410,7 @@ function tableMain(flags) {
     process.exit(2);
   }
   const runData = JSON.parse(readFileSync(inFile, 'utf8'));
-  const COMMANDS = ['report', 'map', 'where', 'what', 'how', 'check', 'explain', 'selftest --how', 'selftest --where', 'selftest --extract', 'obligation'];
+  const COMMANDS = LADDER_COMMAND_LABELS;
 
   const lines = [];
   lines.push(`Ladder run: ${runData.date}, engine ${runData.engineSha} (${runData.engineVersion}), timeout ${fmtMs(runData.timeoutMs)} per command.`, '');
@@ -431,14 +449,17 @@ function tableMain(flags) {
 }
 
 // ---------------------------------------------------------------------------------------------------------------
-// dispatch
+// dispatch — guarded the same way reconstruct.mjs and too-much.mjs guard theirs, so the guardian test
+// (tests/run-corpus.test.mjs) can `import` this file for its pure functions without also running the CLI.
 // ---------------------------------------------------------------------------------------------------------------
-const argv = process.argv.slice(2);
-if (argv.includes('--table')) tableMain(parseFlags(argv));
-else if (argv.includes('--ladder')) await ladderMain(parseFlags(argv));
-else {
-  console.error(
-    'usage: run-corpus.mjs --ladder --corpus-dir <dir> --timeout <ms> [--corpus <corpus.json>] [--only id,id] [--out-dir <dir>] [--checkout]\n   or: run-corpus.mjs --table [--in <results.json>] [--results-dir <dir>]'
-  );
-  process.exit(2);
+if (process.argv[1] && pathToFileURL(process.argv[1]).href === import.meta.url) {
+  const argv = process.argv.slice(2);
+  if (argv.includes('--table')) tableMain(parseFlags(argv));
+  else if (argv.includes('--ladder')) await ladderMain(parseFlags(argv));
+  else {
+    console.error(
+      'usage: run-corpus.mjs --ladder --corpus-dir <dir> --timeout <ms> [--corpus <corpus.json>] [--only id,id] [--out-dir <dir>] [--checkout]\n   or: run-corpus.mjs --table [--in <results.json>] [--results-dir <dir>]'
+    );
+    process.exit(2);
+  }
 }
