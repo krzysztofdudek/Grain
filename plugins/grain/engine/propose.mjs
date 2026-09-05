@@ -397,7 +397,7 @@ function commonAffix(names, which) {
   return which === 'prefix' ? out : [...out].reverse().join('');
 }
 
-export function buildTypes(exp, loc, files, ctx, opts = {}) {
+export function buildTypes(exp, loc, files, ctx) {
   // The 2-files-up admission floor for a directory-derived type used to be MIN_TYPE_FILES, a named, overridable
   // constant (`--min-type-files`) — ruling `granularity-bounded-by-evidence-not-taste` asked for exactly that: it
   // to be MEASURED as a floor to remove, not defended. Ticket 101 §5 ran 2 against 1 on three repositories and
@@ -611,7 +611,7 @@ export const nestedProjectRoots = files => {
   return [...roots];
 };
 
-export function buildNodes(active, typeOfFile, exp, nestedRoots = []) {
+export function buildNodes(active, exp, nestedRoots = []) {
   const live = f => !nestedRoots.some(r => f.startsWith(r + '/'));
   const nodes = active.map(a => ({
     id: nodePathFor(a.dir),
@@ -694,7 +694,6 @@ export function buildNodes(active, typeOfFile, exp, nestedRoots = []) {
     dropped.push({ from: weakest.from.id, to: weakest.edge.target, n: weakest.edge.n, cycle: loop });
   }
   for (const n of nodes) n.relations = n.relations.map(r => { const { _masked, ...rest } = r; void _masked; return rest; });
-  void typeOfFile;
   return { nodes, cycles: dropped, nodeOfFile };
 }
 
@@ -720,7 +719,7 @@ export function buildNodes(active, typeOfFile, exp, nestedRoots = []) {
 
 const CELL_SEP = '\u0001'; // the same cell-key separator `core.mjs` uses; a pid can contain spaces, so ' ' would truncate it
 
-export async function partitionLattice(repo, opts = {}) {
+export async function partitionLattice(repo) {
   const modelPath = join(repo, '.grain', 'cache', 'model.json');
   const treePath = join(repo, '.grain', 'cache', 'tree.json');
   if (!existsSync(modelPath) || !existsSync(treePath)) return { rows: [], reason: 'no grain cache (.grain/cache/{model,tree}.json) — run `grain export` on this repo first' };
@@ -786,7 +785,6 @@ export async function partitionLattice(repo, opts = {}) {
       });
     }
   }
-  void opts;
   return { rows, reason: null };
 }
 
@@ -1152,7 +1150,7 @@ function scopeCountsFromTreeCache(repo) {
   return byFile;
 }
 
-export function computeSizing(repo, active, nodes, handGraph, handFiles) {
+export function computeSizing(repo, nodes, handGraph, handFiles) {
   const scopesByFile = scopeCountsFromTreeCache(repo);
   const bytesOf = rel => { try { return statSync(join(repo, rel)).size; } catch { return 0; } };
   const linesOf = rel => { try { return readFileSync(join(repo, rel), 'utf8').split('\n').length; } catch { return 0; } };
@@ -1166,7 +1164,6 @@ export function computeSizing(repo, active, nodes, handGraph, handFiles) {
     }
     return { files, bytes, codelengthLines, scopes: scopesByFile ? scopes : null };
   };
-  void active; // the proposed rows are read off `nodes` (post deepest-node-precedence `ownFiles`), not `active`
   const proposedNodes = nodes.filter(n => !n.organizational).map(n => ({ id: n.id, dir: n.dir, ...sizeOf(n.ownFiles) }));
   let handNodes = null;
   if (handGraph) {
@@ -1219,10 +1216,10 @@ export async function propose(repo, outDir, opts = {}) {
   for (const a of byDepth) for (const f of a.files) typeOfFile.set(f, a.id);
   const rels = buildRelations(exp, typeOfFile, active);
   const nestedRoots = nestedProjectRoots(files);
-  const { nodes, cycles: nodeCycles, nodeOfFile } = buildNodes(active, typeOfFile, exp, nestedRoots);
+  const { nodes, cycles: nodeCycles, nodeOfFile } = buildNodes(active, exp, nestedRoots);
   say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycles in the proposed node graph (declared, not hidden — the proposal is red until they are broken)`);
 
-  const lat = await partitionLattice(repo, opts);
+  const lat = await partitionLattice(repo);
   const sub = subGate(lat.rows);
   say(opts, `lattice: ${lat.rows.length} rows${lat.reason ? ` (${lat.reason})` : ''} · ${sub.length} in the sub-gate band`);
 
@@ -1361,7 +1358,7 @@ export async function propose(repo, outDir, opts = {}) {
   // already carries its own `.yggdrasil/` (see §7.5 above for what is derived vs. an external constant)
   const hasHandGraph = existsSync(join(repo, '.yggdrasil'));
   const handGraphForSizing = hasHandGraph ? readGraph(repo) : null;
-  const sizing = computeSizing(repo, active, nodes, handGraphForSizing, files);
+  const sizing = computeSizing(repo, nodes, handGraphForSizing, files);
   write(join(outDir, 'sizing.json'), JSON.stringify({ instrument: sizing.instrument, repo, asOf: exp.asOf, ...sizing }, null, 1) + '\n');
 
   // charter.md — one per proposed node, beside its yg-node.yaml (ticket 100, §7c above). Written here, AFTER
@@ -1401,7 +1398,7 @@ export async function propose(repo, outDir, opts = {}) {
   };
   write(join(outDir, 'PROPOSAL.md'), renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts }));
   write(join(outDir, 'REFACTOR-BACKLOG.md'), renderBacklogMd({ exp, sub, rels, nodeCycles }));
-  write(join(outDir, 'alternatives.md'), renderAlternativesMd({ alternatives, active }));
+  write(join(outDir, 'alternatives.md'), renderAlternativesMd({ alternatives }));
   // proposal.json — the published, versioned interface (ticket 100, "the proposal contract" in docs/reference.md).
   // `schema`/`engine`/`extractor`/`schemaNotes` are ADDED here, alongside the `instrument`/`repo`/`asOf`/`files`/
   // `counts`/`evidence` fields 094/097/098 already read — nothing existing is renamed or removed, so a reader of
@@ -2097,7 +2094,7 @@ function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspec
   return L.join('\n') + '\n';
 }
 
-function renderAlternativesMd({ alternatives, active }) {
+function renderAlternativesMd({ alternatives }) {
   const L = ['# Finer type candidates — your choice, not grain\'s', '', ...PREAMBLE, '', '---', '',
     'Each row is a role group grain found INSIDE one of the proposed types whose members are not simply "the',
     'files of a directory". A hand-written architecture very often splits a directory-shaped type exactly here,',
@@ -2109,7 +2106,6 @@ function renderAlternativesMd({ alternatives, active }) {
     alternatives.map(a => [`\`${a.id}\``, `\`${a.of}\``, a.groupFiles, a.selected, a.fidelity.toFixed(2), a.viable ? 'yes' : 'no', a.why])));
   L.push('', '## The drafted predicates', '');
   for (const a of alternatives) L.push(`### \`${a.id}\``, '', '```yaml', yamlEmit({ when: a.when }).trimEnd(), '```', '', a.why, '');
-  void active;
   return L.join('\n') + '\n';
 }
 
