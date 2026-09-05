@@ -611,6 +611,26 @@
       "note": "premerge READY (2194/2194), merged; director fixed 9 literal NUL bytes in reconstruct.mjs at merge (file read as binary by git)",
       "updated": "2026-09-05 05:18",
       "sha": "fdd19c9"
+    },
+    {
+      "id": 57,
+      "ticket": "094",
+      "kind": "research",
+      "agent": "opus",
+      "branch": "research/094-propose",
+      "state": "running",
+      "note": "Opus spawned, worktree, research/094-propose",
+      "updated": "2026-09-05 05:20"
+    },
+    {
+      "id": 58,
+      "ticket": "096",
+      "kind": "research",
+      "agent": "opus",
+      "branch": "research/096-too-much",
+      "state": "running",
+      "note": "Opus spawned, worktree, research/096-too-much",
+      "updated": "2026-09-05 05:20"
     }
   ]
 }
