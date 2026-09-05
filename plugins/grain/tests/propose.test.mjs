@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -143,18 +143,113 @@ test('every written YAML carries the honest preamble and an inline `# evidence:`
   assert.ok(comments >= Object.keys(arch.node_types).length, `${comments} evidence comments for ${Object.keys(arch.node_types).length} types`);
 });
 
-test('every aspect draft is status: draft and ships exactly one rule source', () => {
+test('every aspect ships either draft or enforced status, and exactly one rule source', () => {
   const dir = join(out, '.yggdrasil', 'aspects');
   if (!existsSync(dir)) return; // a fixture this small may certify nothing — that is an honest outcome
   for (const p of walkFiles(dir, x => x.endsWith('yg-aspect.yaml'))) {
     const doc = parseYaml(readFileSync(p, 'utf8'));
-    assert.equal(doc.status, 'draft', `${p} is not a draft`);
+    // ticket 102: prose NEVER leaves draft; a deterministic check earns `enforced` only from a real `yg drill`
+    // (0 FALSE-ALARM, >= 1 catch) — `advisory` is never written by this renderer at all.
+    assert.ok(doc.status === 'draft' || doc.status === 'enforced', `${p} carries an unexpected status ${doc.status}`);
     assert.ok(doc.name && doc.description, `${p} is missing name/description`);
     const d = dirname(p);
     const hasCheck = existsSync(join(d, 'check.mjs')), hasContent = existsSync(join(d, 'content.md'));
     assert.ok(hasCheck !== hasContent, `${p} must ship exactly one of check.mjs / content.md`);
     if (hasCheck) assert.equal(doc.errs, 'under', `${p} renders a check and must declare its error direction`);
+    else assert.equal(doc.status, 'draft', `${p} ships prose (content.md) but is not draft — prose never earns \`enforced\` (ruling prose-aspects-draft-by-default)`);
   }
+});
+
+// ---------- 2a. status is EARNED, not declared (ticket 102) ----------
+//
+// `promoteEnforceableAspects` is the only place anything leaves `draft`, and it does so from a REAL `yg drill`
+// run, never a claim this renderer computes on its own. This drives it directly against three hand-authored
+// deterministic aspects (a real check.mjs, a real drill corpus, no mining involved — the mining pipeline itself
+// is covered above) so the three outcomes are each exercised against the real Yggdrasil binary: a clean catch
+// promotes to `enforced`, a FALSE-ALARM demotes with a named reason, and a rule that never catches its own
+// planted violation stays draft with the other named reason. Skipped, like the staged-check test above, where
+// `YG_BIN` is not resolvable — `promoteEnforceableAspects` itself then leaves everything draft, unverified,
+// which is covered by the assertion right after it runs.
+test('promoteEnforceableAspects earns `enforced` only from a real yg drill: FALSE-ALARM and no-catch both stay draft, named', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const t2 = mkdtempSync(join(tmpdir(), 'promote-'));
+  const outDir2 = join(t2, 'proposal');
+  const ygg = join(outDir2, '.yggdrasil');
+  // the bare minimum Yggdrasil needs to recognize `.yggdrasil/` as a project root at all — `writeProposal`
+  // always has these on disk already by the time `promoteEnforceableAspects` runs; this test hand-builds only
+  // the aspects subtree, so it supplies the rest itself.
+  mkdirSync(join(ygg, 'model'), { recursive: true });
+  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '5.2.0' }));
+  writeFileSync(join(ygg, 'yg-architecture.yaml'), yamlEmit({ node_types: { project: { description: 'root' } } }));
+  const flagsBad = 'import { walk } from \'@chrisdudek/yg/ast\';\nexport function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.content.includes(\'BAD\')) v.push({ file: file.path, line: 1, column: 0, message: \'hit\' });\n  return v;\n}\n';
+  const writeAspect = (id, { violatesHasBad, satisfiesHasBad, kind }) => {
+    const dir = join(ygg, 'aspects', id);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'yg-aspect.yaml'), yamlEmit({ name: id, description: `test aspect ${id}`, status: 'draft', errs: 'under', scope: { per: 'file' } }));
+    writeFileSync(join(dir, 'check.mjs'), flagsBad);
+    mkdirSync(join(dir, 'drills', 'violates-case'), { recursive: true });
+    writeFileSync(join(dir, 'drills', 'violates-case', 'case.txt'), violatesHasBad ? 'this file is BAD\n' : 'this file is fine\n');
+    if (satisfiesHasBad != null) {
+      mkdirSync(join(dir, 'drills', 'satisfies-case'), { recursive: true });
+      writeFileSync(join(dir, 'drills', 'satisfies-case', 'case.txt'), satisfiesHasBad ? 'this one is secretly BAD\n' : 'this one is clean\n');
+    }
+    return { id, check: flagsBad, kind: kind || null, drillViolatesWritten: 1, drillSatisfiesWritten: satisfiesHasBad != null ? 1 : 0 };
+  };
+  const aspects = [
+    writeAspect('catches-clean', { violatesHasBad: true }), // 1 violates case, correctly flagged -> catches, no FA -> enforced
+    writeAspect('never-catches', { violatesHasBad: false }), // 1 violates case the check does NOT flag -> MISS -> no-catch
+    writeAspect('false-alarms', { violatesHasBad: true, satisfiesHasBad: true, kind: 'method' }), // satisfies case mislabelled -> FALSE-ALARM
+    { id: 'a-prose-aspect', check: null, kind: null, drillViolatesWritten: 0, drillSatisfiesWritten: 0 }, // no check.mjs at all — never drilled
+  ];
+  mkdirSync(join(ygg, 'aspects', 'a-prose-aspect'), { recursive: true });
+  writeFileSync(join(ygg, 'aspects', 'a-prose-aspect', 'yg-aspect.yaml'), yamlEmit({ name: 'a-prose-aspect', description: 'prose', status: 'draft', scope: { per: 'file' } }));
+  writeFileSync(join(ygg, 'aspects', 'a-prose-aspect', 'content.md'), '# prose\n');
+
+  const evidence = aspects.map(a => ({ kind: 'aspect', id: a.id }));
+  const result = promoteEnforceableAspects(aspects, { ygg, outDir: outDir2, evidence, asOf: '2026-01-01', repo: t2 });
+  assert.equal(result.haveYg, true);
+  assert.equal(result.verified, 3, 'exactly the three deterministic aspects should have run a real drill');
+
+  const byId = Object.fromEntries(aspects.map(a => [a.id, a]));
+  assert.equal(byId['catches-clean'].finalStatus, 'active');
+  assert.equal(byId['catches-clean'].draftReason, null);
+  assert.equal(byId['never-catches'].finalStatus, 'draft');
+  assert.equal(byId['never-catches'].draftReason, 'no-catch');
+  assert.equal(byId['false-alarms'].finalStatus, 'draft');
+  assert.equal(byId['false-alarms'].draftReason, 'file-scope-approximation-fa');
+  assert.equal(byId['false-alarms'].scopeApproximation, 'file-from-symbol', 'a `method`-kind check is a symbol-level convention approximated at file scope');
+  assert.equal(byId['catches-clean'].scopeApproximation, null, 'no `kind` was recorded for this one — nothing to approximate');
+  assert.equal(byId['a-prose-aspect'].finalStatus, 'draft');
+  assert.equal(byId['a-prose-aspect'].draftReason, 'prose-unenforceable-keyless');
+
+  // yg-aspect.yaml was rewritten `enforced` for the one that earned it, and only that one
+  const enforcedDoc = parseYaml(readFileSync(join(ygg, 'aspects', 'catches-clean', 'yg-aspect.yaml'), 'utf8'));
+  assert.equal(enforcedDoc.status, 'enforced');
+  for (const id of ['never-catches', 'false-alarms', 'a-prose-aspect']) {
+    const doc = parseYaml(readFileSync(join(ygg, 'aspects', id, 'yg-aspect.yaml'), 'utf8'));
+    assert.equal(doc.status, 'draft', `${id} must stay draft in its own yg-aspect.yaml`);
+  }
+
+  // provenance.json carries all three new fields (ticket 102), and the evidence row was annotated in place
+  const prov = JSON.parse(readFileSync(join(ygg, 'aspects', 'false-alarms', 'provenance.json'), 'utf8'));
+  assert.equal(prov.status, 'draft');
+  assert.equal(prov.draftReason, 'file-scope-approximation-fa');
+  assert.equal(prov.scopeApproximation, 'file-from-symbol');
+  const evRow = evidence.find(e => e.id === 'catches-clean');
+  assert.equal(evRow.status, 'active');
+  assert.equal(evRow.draftReason, null);
+
+  rmSync(t2, { recursive: true, force: true });
+});
+
+test('provenanceFor carries status/draftReason/scopeApproximation, additive over the law-loop.mjs field set', () => {
+  const p = provenanceFor({ id: 'x', origin: 'certified-convention', check: 'body', finalStatus: 'active', draftReason: null, scopeApproximation: null }, { asOf: '2026-01-01', repo: '/r' });
+  assert.equal(p.status, 'active');
+  assert.equal(p.draftReason, null);
+  assert.equal(p.scopeApproximation, null);
+  const p2 = provenanceFor({ id: 'y', origin: 'sub-gate-lattice', check: null }, { asOf: '2026-01-01', repo: '/r' });
+  // no classification ran yet on this synthetic object — defaults to draft, unexplained, never a crash on a missing field
+  assert.equal(p2.status, 'draft');
+  assert.equal(p2.draftReason, null);
 });
 
 // ---------- 3. Yggdrasil's own CLI must be able to load it ----------

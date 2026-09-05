@@ -18,10 +18,6 @@
 //                     override SUBGATE_PER_PARTITION, the READING cap on how many sub-gate candidates a
 //                     maintainer is asked to look at per partition. It bounds presentation, not measurement, so
 //                     a measurement run (097) lifts it and says so.
-//   --min-type-files <n>
-//                     override MIN_TYPE_FILES, the admission floor on how many files a directory must hold
-//                     before it is drafted as a type. Ruling `granularity-bounded-by-evidence-not-taste` asks
-//                     for this floor to be MEASURED as one to remove; ticket 101 runs 2 against 1.
 //   --score <repo>    after writing, score the proposal against that repo's HAND-WRITTEN `.yggdrasil/`, in BOTH
 //                     directions (recall: hand element -> proposed element; precision: proposed -> hand)
 //   --json <path>     write the run's numbers (and the score, with --score) as JSON
@@ -36,15 +32,27 @@
 //      made grain propose it. A proposal without evidence is a guess with a YAML syntax, and the whole point of
 //      the north star is that the graph comes from the code rather than from imagination. The evidence is both a
 //      `# evidence:` comment in the YAML and a row in `<out-dir>/proposal.json`.
-//   3. NOTHING IS ASSERTED AS TRUE. Every aspect ships `status: draft` (the reviewer is skipped, no verdict, no
-//      baseline), no type carries `enforce: strict`, and the honest limits — above all that a rule about an
-//      ABSENCE can never come from mining — are printed at the top of every file a human opens.
+//   3. NOTHING IS ASSERTED AS TRUE UNTIL IT HAS EARNED IT. Every aspect ships `status: draft` by default (the
+//      reviewer is skipped, no verdict, no baseline); no type ever carries `enforce: strict`. A prose aspect
+//      (`content.md`, an LLM judgment call) NEVER leaves draft here — ticket 101 measured its sense rate under
+//      a keyless gate at 0% (ruling `prose-aspects-draft-by-default`) — and its `content.md` says so. A
+//      deterministic aspect (`check.mjs`) is promoted to `status: enforced` ONLY when `YG_BIN` is set and a
+//      REAL `yg drill` on the just-written proposal, in a throwaway staging copy, confirms it: zero
+//      FALSE-ALARMs and at least one caught `violates-*` case. A check that false-alarms stays draft with
+//      `draftReason: file-scope-approximation-fa` (ruling `drill-fa-labelling-is-acceptance-not-defect` — the
+//      convention's own subject is a symbol inside the file, Yggdrasil's unit is the file, and the label is
+//      what is wrong, not the check); a check that catches nothing stays draft with `draftReason: no-catch`
+//      (ruling `no-catch-rules-stay-draft`). Without `YG_BIN` every deterministic aspect stays draft too,
+//      unverified — same as before this ticket. The honest limits — above all that a rule about an ABSENCE can
+//      never come from mining — are printed at the top of every file a human opens either way.
 //
 // Zero changes under `plugins/grain/engine/`: like `reconstruct.mjs`, this drives `grain export` as a subprocess
 // and imports engine modules read-only (`core.mjs` for the lattice vocabulary, `relations.mjs` through
-// reconstruct's own module assigner).
-import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
+// reconstruct's own module assigner). Verifying against Yggdrasil (`yg drill`) is not the engine either — it
+// runs the built CLI as a subprocess over a throwaway copy of this renderer's own output, exactly as
+// `tests/integration-stress.mjs` and `tests/propose.test.mjs` already do.
+import { execFileSync, spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
@@ -76,8 +84,6 @@ export const SUPERMAJORITY = 2 / 3;
 export const LAMBDA_BOUND = 1 - 1 / 8;
 // The same support-floor family as `cochangeMinSup` (8 commits): below it a single small cell fabricates a rule.
 export const MIN_SUPPORT = 8;
-// A type worth naming classifies more than one file; a one-file type is a node, not a category.
-export const MIN_TYPE_FILES = 2;
 // A directory card is promoted to its own type only from this many files up — below it the split is noise a
 // maintainer would immediately merge back.
 export const MIN_PROMOTE_FILES = 3;
@@ -100,6 +106,12 @@ export const FAMILY_MIN_MEMBERS = 5;
 export const SUBGATE_PER_PARTITION = 6;
 
 const SCHEMA_VERSION = '5.2.0'; // CLI_SUPPORTED_SCHEMA in Yggdrasil's core/graph-loader.ts
+
+// Where the built Yggdrasil CLI lives, same lookup `tests/propose.test.mjs` and `tests/stress/integration-
+// stress.mjs` already use: `YG_BIN` first, this path otherwise. Not a threshold — a location. When it does not
+// exist, `promoteEnforceableAspects` below skips verification entirely and every aspect ships `status: draft`,
+// unverified — exactly what this renderer did before ticket 102.
+const DEFAULT_YG_BIN = '/home/user/Yggdrasil/source/cli/dist/bin.js';
 
 // ==================================================================================================
 // 1. Small helpers.
@@ -360,11 +372,15 @@ function commonAffix(names, which) {
 }
 
 export function buildTypes(exp, loc, files, ctx, opts = {}) {
-  // MIN_TYPE_FILES is a stated ADMISSION FLOOR (ruling `instrument-floors-allowed-if-stated-and-measured`), and
-  // ruling `granularity-bounded-by-evidence-not-taste` asks for it to be measured as a floor to REMOVE, not to
-  // defend. It is therefore overridable per run (`--min-type-files`), so 2-vs-1 is a measurement rather than an
-  // argument. Nothing else in this renderer reads the constant.
-  const MTF = Number.isFinite(opts.minTypeFiles) ? opts.minTypeFiles : MIN_TYPE_FILES;
+  // The 2-files-up admission floor for a directory-derived type used to be MIN_TYPE_FILES, a named, overridable
+  // constant (`--min-type-files`) — ruling `granularity-bounded-by-evidence-not-taste` asked for exactly that: it
+  // to be MEASURED as a floor to remove, not defended. Ticket 101 §5 ran 2 against 1 on three repositories and
+  // found it not load-bearing: types and nodes count differ by a few (every extra element is a one- or two-file
+  // directory nothing else claims), but aspects, pairs, refusals, drill outcomes and FALSE-ALARMs are
+  // byte-identical between the two runs — the floor gated no operability at all. Ruling
+  // `root-fix-accepted-min-type-files-goes` retires the knob; ticket 102 removes it. The number a directory
+  // needs to be classified is a bare `2` below, unowned by any named constant, because there is nothing left to
+  // measure by varying it.
   const active = [];       // { id, dir, when, files, evidence, source }
   const alternatives = []; // { id, of, when, selected, evidence, why }
 
@@ -406,7 +422,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
   // places and finer in others, and both were in the candidate set the reconstruction measured against.
   for (const m of exp.moduleGraph?.nodes || []) {
     const s = underDir(files, m.id);
-    if (s.size < MTF) continue;
+    if (s.size < 2) continue;
     put({ dir: m.id, files: s, src: 'module', why: `grain module \`${m.id}\` (${m.files} files, dependency layer ${m.layer})` });
   }
   // directory cards ONE LEVEL below a partition root. Grain publishes a card only for a directory that carries
@@ -420,7 +436,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
     put({ dir: d.name, files: d.files, src: 'directory', why: `grain directory card \`${d.name}\` (${d.card.files} files, ${d.card.scopes} scopes), one level below the partition \`${owner}\`` });
   }
   for (const c of [...cands.values()].sort((a, b) => (String(a.dir) < String(b.dir) ? -1 : 1))) {
-    if (c.files.size < MTF) continue;
+    if (c.files.size < 2) continue;
     active.push({ id: c.id || slug(c.dir), dir: c.dir, files: c.files, source: c.src, why: c.why, ...(c.rootGlob ? { rootGlob: true } : {}) });
   }
 
@@ -434,11 +450,11 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
     (rest.get(top) || rest.set(top, new Set()).get(top)).add(f);
   }
   for (const [top, set] of [...rest].sort((a, b) => b[1].size - a[1].size)) {
-    if (set.size < MTF || top === '.' || cands.has(top)) continue;
+    if (set.size < 2 || top === '.' || cands.has(top)) continue;
     active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'uncovered', why: `directory \`${top}\` holds ${set.size} tracked files no grain partition, module or directory card claims — a grouping from the layout alone, with no mining behind it` });
   }
   const rootFiles = rest.get('.');
-  if (rootFiles && rootFiles.size >= MTF && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and no grain partition, module or directory card claims them — a grouping from the layout alone, with no mining behind it` });
+  if (rootFiles && rootFiles.size >= 2 && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and no grain partition, module or directory card claims them — a grouping from the layout alone, with no mining behind it` });
 
   for (const a of active) {
     a.when = a.rootGlob ? { path: '*' } : { path: `${a.dir}/**` };
@@ -471,7 +487,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
     ...loc.directories.filter(d => !active.some(a => a.dir === d.name)).map(d => ({ set: d.files, label: d.name, group: null, groupId: null, partKind: d.part.kind, part: d.part.name, kind: 'directory card' })),
   ];
   for (const f of finer) {
-    if (f.set.size < MTF) continue;
+    if (f.set.size < 2) continue;
     const host = active.filter(a => a.dir && [...f.set].every(x => x.startsWith(a.dir + '/') || x === a.dir)).sort((a, b) => b.dir.length - a.dir.length)[0];
     if (!host) continue;
     if (jaccard(f.set, host.files) >= 0.9) continue; // the candidate IS the host — nothing finer on offer
@@ -1016,6 +1032,16 @@ export const RENDERABLE = new Set(['imp', 'call', 'deco', 'extends', 'returns', 
 // import, a file name, a lexical layer, or a name shape the whole partition shares. A NEGATIVE rule ("nothing
 // here does X") renders in every class, because it fires only on evidence it can see and never on absence.
 const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
+// grain's own `unitOf` domain (engine/core.mjs): a convention's `kind` names the SUBJECT its evidence is about.
+// `file` and `module` ARE the unit Yggdrasil's `scope: { per: 'file' }` reviews; every other kind — a method, a
+// type/class, a catch or finally block — is a SYMBOL living inside a file, smaller than the unit a rendered
+// check is actually judged at. Rendering such a convention as a check is still sound by construction (the
+// `errs: under` templates above only fire on evidence they can prove, never on an absence), but the CORPUS label
+// this renderer cuts from the export's own sites approximates a symbol-level fact as a file-level one — ticket
+// 101 §8.1 traced every remaining FALSE-ALARM in its whole corpus to exactly this gap. `scopeApproximation`
+// names it in `provenance.json` (ruling `drill-fa-labelling-is-acceptance-not-defect`) so a real drill's FA
+// count is read as a labelling artifact of the corpus, not a defect in the check.
+const SYMBOL_LEVEL_KIND = new Set(['method', 'type', 'catch', 'finally', 'case']);
 export function renderableDirection(enumerator, expected, kind, ctxType) {
   if (!RENDERABLE.has(enumerator)) return false;
   // A GROUP-SCOPED RULE IS UNRENDERABLE IN BOTH DIRECTIONS. The counsel memo said group-scoped conventions
@@ -1154,7 +1180,7 @@ export async function propose(repo, outDir, opts = {}) {
 
   say(opts, `${repo}: ${files.length} tracked files · ${(exp.partitions || []).length} partitions · ${(exp.conventions || []).length} conventions`);
   const loc = localities(exp, cache, files);
-  const { active, alternatives } = buildTypes(exp, loc, files, ctx, { minTypeFiles: opts.minTypeFiles });
+  const { active, alternatives } = buildTypes(exp, loc, files, ctx);
   // deepest wins, matching Yggdrasil's own child precedence (a child node claiming a file inside a directory
   // its parent globs owns that file)
   const byDepth = [...active].sort((a, b) => (a.dir || '').split('/').length - (b.dir || '').split('/').length);
@@ -1214,7 +1240,16 @@ export async function propose(repo, outDir, opts = {}) {
       // listed here (`parent-type-forbidden`) — so every ancestor type is an allowed parent, by construction
       parents: ['project', 'module', ...active.filter(b => b.dir && a.dir && b.dir !== a.dir && a.dir.startsWith(b.dir + '/')).map(b => b.id)],
       ...(Object.keys(relBlock).length ? { relations: relBlock } : {}),
-      ...(a.aspectIds?.length ? { aspects: a.aspectIds.map(id => ({ id, status: 'draft' })) } : {}),
+      // Bare ids, deliberately — no explicit `status:` override at this attach site (channel 3). This block is
+      // written before an aspect's OWN final status is known (verification runs later, once check.mjs and its
+      // drill corpus are on disk), and an explicit override here would need to track it exactly: any override
+      // LOWER than the aspect's own eventual default is `aspect-status-downgrade`, a validator error (`yg
+      // schemas read architecture` — "bump up OK, downgrade is validator error"). Found on sight rendering
+      // Yggdrasil's own proposal once `promoteEnforceableAspects` started promoting some aspects to `enforced`:
+      // the old `{ id, status: 'draft' }` form downgraded every one of them right back down, twelve nodes'
+      // worth. Omitting `status:` here lets the cascade rule (effective status = max() across channels 1–6)
+      // read the aspect's own default with nothing to disagree with, whatever that default turns out to be.
+      ...(a.aspectIds?.length ? { aspects: [...a.aspectIds] } : {}),
     };
     if (targets.length) ev('relations', a.id, `${targets.length} allowed \`uses\` targets, aggregated from ${[...(rels.uses.get(a.id) || new Map()).values()].reduce((x, y) => x + y, 0)} resolved imports out of files of this type`);
     if (deny) ev('deny', a.id, `established negative: \`${deny.from}\` does not reach \`${deny.to}\` (share ${deny.share.toFixed(3)}, ${deny.ne}/${deny.neff} scopes, ${deny.bits.toFixed(1)} bits) AND this type has no resolved outgoing import at all, so the deny contradicts nothing observed`);
@@ -1241,25 +1276,24 @@ export async function propose(repo, outDir, opts = {}) {
     }));
   }
 
-  // aspects/<id>/ — yg-aspect.yaml, the rule source (check.mjs or content.md), and a drill corpus
+  // aspects/<id>/ — yg-aspect.yaml, the rule source (check.mjs or content.md), and a drill corpus.
+  //
+  // `status` is written TWICE. Every aspect ships `draft` here, first — `yg drill` is not gated by status
+  // (`yg knowledge read aspect-status`: "draft dormancy applies to `yg check`/`--approve` only"), so `draft` is
+  // the one value guaranteed valid before this renderer knows a check's own verdict. `promoteEnforceableAspects`
+  // below rewrites `yg-aspect.yaml` a second time for whatever a REAL drill just confirmed — see the header.
   let drillCases = 0, drillDropped = 0;
   for (const a of aspects) {
     ev('aspect', a.id, a.evidenceLine, { reviewer: a.check ? 'deterministic' : 'llm', origin: a.origin, enumerator: a.enumerator, identifier: a.argument ?? null, expected: a.expected ?? null, host: a.host });
-    const doc = {
-      '#e': a.evidenceLine,
-      name: a.name, description: a.description, status: 'draft',
-      ...(a.check ? { errs: 'under' } : {}),
-      review_by: a.reviewBy,
-      scope: a.scope,
-    };
-    write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(doc));
+    write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(aspectYamlDoc(a, 'draft')));
     if (a.check) write(join(ygg, 'aspects', a.id, 'check.mjs'), a.check);
     else write(join(ygg, 'aspects', a.id, 'content.md'), a.content);
-    // provenance.json — same field set 097's law-loop.mjs writes for a candidate it renders from a cut export
-    // (ticket 100, "the proposal contract"); see §7a above for why the fields differ in HOW they are obtained.
-    write(join(ygg, 'aspects', a.id, 'provenance.json'), JSON.stringify(provenanceFor(a, { asOf: exp.asOf, repo }), null, 2) + '\n');
 
     const { kept, dropped } = cutDrills(repo, a, opts.holdout);
+    // On-disk case counts, not `a.drills`' full deviating/conforming lists (`cutDrills` caps each side at 5) —
+    // `promoteEnforceableAspects` below judges the check by what a real drill can actually see.
+    a.drillViolatesWritten = kept.violates.length;
+    a.drillSatisfiesWritten = kept.satisfies.length;
     const lines = [];
     for (const side of ['satisfies', 'violates']) {
       for (const c of kept[side]) {
@@ -1283,6 +1317,15 @@ export async function propose(repo, outDir, opts = {}) {
   }
   say(opts, `drills: ${drillCases} cases${opts.holdout ? ` (hold-out ${opts.holdout}; ${drillDropped} sites dropped as pre-cut)` : ' (NO hold-out — labelled as such in every CORPUS.md)'}`);
 
+  // Aspect status, earned or not — rulings `prose-aspects-draft-by-default`, `drill-fa-labelling-is-acceptance-
+  // not-defect`, `no-catch-rules-stay-draft` (ticket 101/102). Rewrites `yg-aspect.yaml` for whatever a real
+  // drill just confirmed, writes every `provenance.json` (deferred until now so it can carry the verdict), and
+  // annotates the matching `evidence[]` rows in place. See the header comment for the full rule.
+  const verify = promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf: exp.asOf, repo });
+  say(opts, verify.haveYg
+    ? `verification: ${verify.verified} deterministic aspect(s) drilled against a real Yggdrasil (${verify.ygBin}) — ${aspects.filter(a => a.finalStatus === 'active').length} promoted to \`status: enforced\``
+    : `verification: skipped — no Yggdrasil CLI at ${verify.ygBin} (set YG_BIN); every deterministic aspect ships \`status: draft\`, unverified`);
+
   // sizing.json — files/bytes/scopes/codelength per proposed node, and per HAND node when the source repo
   // already carries its own `.yggdrasil/` (see §7.5 above for what is derived vs. an external constant)
   const hasHandGraph = existsSync(join(repo, '.yggdrasil'));
@@ -1304,9 +1347,17 @@ export async function propose(repo, outDir, opts = {}) {
   say(opts, `charters: ${chartersWritten} written, avg ${(charterLines / Math.max(1, chartersWritten)).toFixed(1)} lines`);
 
   // the documents a human actually reads
+  const aspectsByDraftReason = {};
+  for (const a of aspects) if (a.draftReason) aspectsByDraftReason[a.draftReason] = (aspectsByDraftReason[a.draftReason] || 0) + 1;
   const counts = {
     types: active.length, alternatives: alternatives.length, nodes: nodes.length,
     aspects: aspects.length, aspectsRenderedAsCheck: aspects.filter(a => a.check).length, aspectsProse: aspects.filter(a => !a.check).length,
+    // status split (ticket 102) — `active` is what a plain `yg check` on this proposal enforces; the rest is a
+    // candidate for a human decision, split by WHY (`aspectsByDraftReason`, see `promoteEnforceableAspects`).
+    aspectsActive: aspects.filter(a => a.finalStatus === 'active').length,
+    aspectsDraft: aspects.filter(a => a.finalStatus !== 'active').length,
+    aspectsByDraftReason,
+    aspectsVerified: verify.verified, aspectsVerifiedAgainst: verify.haveYg ? verify.ygBin : null,
     aspectsSkippedUnrenderableGroupScoped: skipped.unrenderableGroupScoped, aspectsSkippedNotARule: skipped.notARule, proseByClass: skipped.byClass,
     drillCases, drillHoldout: opts.holdout || null, drillDropped, nodeCycles: nodeCycles.length,
     latticeRows: lat.rows.length, subGate: sub.length, denies: rels.denies.length, denyBacklog: rels.backlog.length,
@@ -1328,11 +1379,11 @@ export async function propose(repo, outDir, opts = {}) {
     instrument: 'propose/1', repo, asOf: exp.asOf, files: files.length, counts,
     schemaNotes: {
       evidence:
-        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
+        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102 — `status` (`active` | `draft`) and `draftReason` (`prose-unenforceable-keyless` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
       counts:
-        'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
+        'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (ticket 102 — see `provenance.json`\'s own `status`/`draftReason`), `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified), `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
       provenance:
-        'NOT inlined here — each `.yggdrasil/aspects/<id>/provenance.json` (same field set as ticket 097\'s law-loop.mjs: aspectId, conventionId, origin, enumeratorClass, identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note) is the per-aspect record; this file\'s `evidence` rows are the prose summary, provenance.json is the structured one a machine reads.',
+        'NOT inlined here — each `.yggdrasil/aspects/<id>/provenance.json` (same field set as ticket 097\'s law-loop.mjs: aspectId, conventionId, origin, enumeratorClass, identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note — PLUS, ticket 102, `status`/`draftReason`/`scopeApproximation`, additive fields law-loop.mjs\'s own replay provenance does not carry) is the per-aspect record; this file\'s `evidence` rows are the prose summary, provenance.json is the structured one a machine reads.',
       sizing:
         'NOT inlined here — `sizing.json` alongside this file carries files/bytes/codelength-lines/scopes per proposed (and, where the source repo already carries its own `.yggdrasil/`, per HAND) node; every node\'s `charter.md` quotes its own row under "## Sizing".',
       charter:
@@ -1408,7 +1459,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
       whyProse: proseReason,
       content: check ? null : contentMd(c, profile, evidenceLine, proseReason),
       drills: { satisfies: (c.conformingSites || []).slice(), violates: (c.deviatingSites || []).slice() },
-      enumerator: c.feature.enumerator, argument: c.feature.argument, expected: c.expected,
+      enumerator: c.feature.enumerator, argument: c.feature.argument, expected: c.expected, kind: c.kind,
       // structured fields for provenance.json (ticket 100) — parallel to the prose already in `provenance`,
       // never re-derived from it by regex the way a POST-HOC reader of a written proposal has to (097's
       // law-loop.mjs `provenanceFor`, which reads back a file this renderer did not annotate at write time)
@@ -1451,7 +1502,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
       whyProse: proseReason2,
       content: check ? null : subGateMd(r, statement, evidenceLine, proseReason2),
       drills: { satisfies: [], violates: r.deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
-      enumerator: fam, argument: identifierOf(r.pid), expected: r.exp,
+      enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind,
       // sub-gate rows have no CONFORMING exemplar of their own — only `deviants` (sites that do NOT follow the
       // candidate) — so `exemplars` (a "copy this" list, never a "avoid this" one) stays empty here, unlike a
       // certified convention above; the charter renderer reads absence as "not yet a copy-worthy pattern".
@@ -1475,6 +1526,11 @@ export function buildAspects(exp, active, sub, opts = {}) {
 // of a written `provenance` prose string because it loads a proposal a PAST run already wrote to disk; here the
 // renderer has the structured numbers on hand at write time (`a.partition`, `a.share`, `a.n`, `a.deviating` —
 // added to the aspect object above for exactly this) and writes them directly, never through a regex.
+//
+// `status`, `draftReason` and `scopeApproximation` (ticket 102) are ADDED here, not shared with law-loop.mjs's
+// own `provenanceFor` — they describe something only a LIVE run with a real `.yggdrasil/` tree on disk can know
+// (a real `yg drill` result), which a held-out replay never produces. Additive, per the proposal contract's own
+// rule (docs/reference.md): a field gained here is not a shape change to an existing one.
 export function provenanceFor(a, { asOf, repo }) {
   return {
     aspectId: a.id,
@@ -1495,7 +1551,103 @@ export function provenanceFor(a, { asOf, repo }) {
     note: a.check
       ? 'Generated by grain from measured practice at `asOf`; rendered as a deterministic check.mjs.'
       : 'Generated by grain from measured practice at `asOf`; no template renders this class as a deterministic check, so it ships as prose (content.md) for an LLM reviewer.',
+    // 'active' | 'draft' — Grain's own vocabulary (see `promoteEnforceableAspects`), not to be confused with the
+    // three Yggdrasil-schema values (`draft`/`advisory`/`enforced`) the aspect's own `yg-aspect.yaml` carries;
+    // 'active' there is written as `status: enforced`. Absent only if this ran before classification ran at all.
+    status: a.finalStatus ?? 'draft',
+    // one of 'prose-unenforceable-keyless' | 'file-scope-approximation-fa' | 'no-catch', or null when `status`
+    // is 'active' (nothing to explain) or the aspect was never verified this run (no `YG_BIN`, no drill corpus).
+    draftReason: a.draftReason ?? null,
+    // 'file-from-symbol' when the CONVENTION's own subject (`a.kind`) is a symbol inside a file — a method, a
+    // type, a catch/finally block — but Yggdrasil reviews this check per FILE; null for a file/module-level
+    // convention, where the unit the check runs at and the unit the convention is ABOUT are the same thing.
+    scopeApproximation: a.scopeApproximation ?? null,
   };
+}
+
+// The `yg-aspect.yaml` document, shared by the provisional (`draft`, before verification) and final write.
+function aspectYamlDoc(a, status) {
+  return {
+    '#e': a.evidenceLine,
+    name: a.name, description: a.description, status,
+    ...(a.check ? { errs: 'under' } : {}),
+    review_by: a.reviewBy,
+    scope: a.scope,
+  };
+}
+
+// ==================================================================================================
+// 7a-continued. Aspect status, earned rather than declared (ticket 102, rulings from 101's integration-stress
+// report). Sits right after `provenanceFor` (§7a) rather than claiming its own top-level number — §7b/§7c below
+// (the family-candidates adapter, `charter.md`) are ticket 100's, unrenumbered.
+//
+// `status: draft` is where every aspect starts (§ above). This function is the only place anything leaves it:
+//
+//   - PROSE (`content.md`) never leaves. Ticket 101 measured its sense rate under a keyless gate at 0% (1305 of
+//     1671 proposed aspects on a 17-repo corpus) — a judgment call needs a configured reviewer this renderer
+//     cannot assume, so it ships as a candidate for a human decision, always (`prose-unenforceable-keyless`).
+//   - A DETERMINISTIC check (`check.mjs`) is judged by a REAL `yg drill` run against the proposal this renderer
+//     JUST wrote, in a throwaway staging copy — never against a claim this script computes on its own. `yg
+//     drill` needs nothing but a `.yggdrasil/` tree at its cwd (status does not gate it — `yg knowledge read
+//     aspect-status`), so the stage is exactly that tree, nothing more.
+//     - `FALSE-ALARM > 0` → stays draft, `file-scope-approximation-fa`. Ticket 101 §8.1 traced every remaining
+//       FALSE-ALARM in its whole corpus to one shape: the convention's subject is a symbol inside a file (a
+//       method, a type), the check's unit is the file, and a drill corpus cut from a SAMPLE of sites mislabels
+//       the file. Ruling `drill-fa-labelling-is-acceptance-not-defect`: this is a corpus-labelling artifact, not
+//       a defect to chase here, and the fix is to demote, not to relabel — 0 is not a matter of taste, it is the
+//       only value at which a keyless CI never blocks on an honest change.
+//     - Else, `catches (violates-case refusals) <= 0` → stays draft, `no-catch`. Ruling `no-catch-rules-stay-
+//       draft`: a rule nothing can ever be shown to violate does not enforce architecture — it is noise for a
+//       future agent session, whatever else is true about it.
+//     - Else (0 FALSE-ALARM, >= 1 catch) → `active` (written as `status: enforced` in `yg-aspect.yaml`).
+//   - No `YG_BIN`, or a check with no drill corpus at all (nothing to run) → stays draft, unverified, no reason.
+//     Exactly what this renderer shipped before ticket 102 — the absence of a verdict is not one of the three
+//     named reasons above, because none of them fired; nothing here says the check is bad, only that no drill
+//     was run to say either way.
+export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf, repo }) {
+  const ygBin = process.env.YG_BIN || DEFAULT_YG_BIN;
+  const haveYg = existsSync(ygBin);
+  const stage = join(outDir, '.grain-verify-stage');
+  if (haveYg) {
+    rmSync(stage, { recursive: true, force: true });
+    mkdirSync(stage, { recursive: true });
+    // `yg drill` reads only the aspect's own `check.mjs` and its `drills/{satisfies-*,violates-*}` corpus, both
+    // already self-contained copies inside `.yggdrasil/aspects/<id>/` — no repository source tree is needed at
+    // all (verified against the real CLI while designing this). A throwaway copy of the tree this renderer just
+    // wrote, nothing else, and it is deleted again below whether or not verification ran to completion.
+    cpSync(ygg, join(stage, '.yggdrasil'), { recursive: true });
+  }
+
+  let verified = 0;
+  try {
+    for (const a of aspects) {
+      a.scopeApproximation = (a.check && a.kind && SYMBOL_LEVEL_KIND.has(a.kind)) ? 'file-from-symbol' : null;
+      if (!a.check) { a.finalStatus = 'draft'; a.draftReason = 'prose-unenforceable-keyless'; continue; }
+      const violates = a.drillViolatesWritten || 0, satisfies = a.drillSatisfiesWritten || 0;
+      if (!haveYg || (!violates && !satisfies)) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
+      const r = spawnSync('node', [ygBin, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
+      const m = /(\d+) pass\s*·\s*(\d+) MISS\s*·\s*(\d+) FALSE-ALARM/.exec(`${r.stdout || ''}${r.stderr || ''}`);
+      if (!m) { a.finalStatus = 'draft'; a.draftReason = null; continue; } // could not verify this run (e.g. a spawn failure) — unverified, not blamed
+      verified++;
+      const miss = Number(m[2]), falseAlarm = Number(m[3]);
+      const catches = violates - miss;
+      if (falseAlarm > 0) { a.finalStatus = 'draft'; a.draftReason = 'file-scope-approximation-fa'; }
+      else if (catches <= 0) { a.finalStatus = 'draft'; a.draftReason = 'no-catch'; }
+      else { a.finalStatus = 'active'; a.draftReason = null; }
+    }
+  } finally {
+    // Always — a thrown drill invocation must not leave a throwaway copy of the whole proposal sitting in the
+    // maintainer's out-dir.
+    if (haveYg) rmSync(stage, { recursive: true, force: true });
+  }
+
+  for (const a of aspects) {
+    if (a.finalStatus === 'active') write(join(ygg, 'aspects', a.id, 'yg-aspect.yaml'), preambleComment() + yamlEmit(aspectYamlDoc(a, 'enforced')));
+    write(join(ygg, 'aspects', a.id, 'provenance.json'), JSON.stringify(provenanceFor(a, { asOf, repo }), null, 2) + '\n');
+    const row = evidence.find(e => e.kind === 'aspect' && e.id === a.id);
+    if (row) { row.status = a.finalStatus; row.draftReason = a.draftReason || null; }
+  }
+  return { haveYg, ygBin, verified };
 }
 
 // ==================================================================================================
@@ -2022,14 +2174,12 @@ function parseArgs(argv) {
     else if (a === '--json') opts.json = resolve(argv[++i]);
     else if (a === '--holdout') opts.holdout = argv[++i];
     else if (a === '--subgate-per-partition') opts.subGatePerPartition = Number(argv[++i]);
-    else if (a === '--min-type-files') opts.minTypeFiles = Number(argv[++i]);
     else if (a === '--family-candidates') opts.familyCandidates = resolve(argv[++i]);
     else if (a.startsWith('--')) throw new Error(`unknown flag ${a}`);
     else pos.push(a);
   }
   if (opts.holdout && !/^\d{4}-\d{2}-\d{2}$/.test(opts.holdout)) throw new Error('--holdout takes a YYYY-MM-DD date');
-  if (opts.minTypeFiles != null && (!Number.isFinite(opts.minTypeFiles) || opts.minTypeFiles < 1)) throw new Error('--min-type-files takes an integer >= 1');
-  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--min-type-files <n>] [--score <repo>] [--json <path>] [--family-candidates <out.json>] [--quiet]');
+  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--score <repo>] [--json <path>] [--family-candidates <out.json>] [--quiet]');
   return { repo: resolve(pos[0]), outDir: resolve(pos[1]), opts };
 }
 
