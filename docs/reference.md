@@ -336,3 +336,60 @@ only) does not — a minor, known asymmetry, harmless since the aggregate's own 
 the whole payload's shape. That same parseable-file item also carries `disclosures[]` (§089, see above) — a
 degraded parse on a file review lists for another reason is disclosed there exactly like `check`'s own verdict for
 that file, even when `review`'s own text collapses several such files into one aggregate line above its display cap.
+
+## The proposal contract
+
+`node tests/stress/propose.mjs <repo> <out-dir>` (the proposal renderer, G'') writes a proposed `.yggdrasil/`
+graph to `<out-dir>` — `PROPOSAL.md`, `REFACTOR-BACKLOG.md`, `alternatives.md`, `sizing.json` and the `.yggdrasil/`
+tree itself. `<out-dir>/proposal.json` prints `schema: "grain-proposal/1"`. **The schema is a published,
+versioned interface exactly like `grain-export/1` above**: Yggdrasil's own `yg check`/`yg drill`/`yg advise`
+read the `.yggdrasil/` tree this renderer writes, and Horde's `node.mjs show` reads `charter.md` from it — a
+shape change here is a breaking change for both neighbours, made deliberately and versioned, never as a side
+effect of a refactor. **Fields are added freely without bumping the schema number**; only a change to an
+EXISTING field's shape needs `grain-proposal/2` (has not happened yet). 094/097/098's existing output is
+untouched by this contract — nothing already there was renamed or removed to make room for it.
+
+`proposal.json` top level: `schema, engine, extractor, instrument, repo, asOf, files, counts, schemaNotes,
+evidence`. `schema`/`engine`/`extractor` mirror `grain-export/1`'s own fields (the same `ENGINE_VERSION`/
+`EXTR_V` constants) — a proposal names the engine build that produced it without a consumer re-deriving that
+from the export it was rendered from. `instrument: "propose/1"`, `repo` and `asOf` are 094's original fields,
+unchanged. `evidence[]` is the full audit trail: one row per emitted element (`kind`: `type` | `relations` |
+`deny` | `node` | `charter` | `aspect`), `id` naming the element, `evidence` the exact prose a human reads on
+the file itself, plus `kind`-specific structured detail (an `aspect` row carries `enumerator`/`identifier`/
+`expected`/`host`). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there for
+the exact, current wording.
+
+**Per-aspect `provenance.json`** — `.yggdrasil/aspects/<id>/provenance.json`, one per rendered aspect, same
+field set as the law-loop measurement's own (ticket 097): `aspectId, conventionId, origin, enumeratorClass,
+identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note`. A live
+`propose` run has no hold-out cut of its own, so `cutSha` is `asOf` (HEAD) and `cutDate` is `null` — the two
+differ only in provenance, never in the fields carried.
+
+**Per-node `charter.md`** — `.yggdrasil/model/<node>/charter.md`, beside `yg-node.yaml`, one per proposed node
+(including organizational ones). Rendered the way a `where` card reads a directory to a human: what lives here
+(files, extensions, nested groups), depends on / used by (module edges with resolved-import counts in both
+directions), certified conventions (share, n conforming/deviating, exemplars to copy — `path:line`), sub-gate
+candidates (evidence below the certification bound, not yet law), co-change partners (aggregated from `.grain`'s
+own file-level co-change up to node granularity), sizing (the node's own row from `sizing.json`), and the `asOf`
+sha. Every line carries a number or a path; a section with nothing to report says so rather than being omitted.
+Horde's `node.mjs show <node>` reads this file verbatim — no schema of its own beyond "a markdown file at that
+path".
+
+**`sizing.json`** (ticket 098) is unchanged by this contract — see its own header comment in
+`tests/stress/propose.mjs` for the field-by-field explanation; every `charter.md` quotes its own node's row from
+it rather than duplicating the numbers.
+
+**The `.family-candidates.json` adapter** — `propose.mjs --family-candidates <out.json>` writes a SEPARATE file
+(not part of `proposal.json`) in the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
+`advise-nominations.ts`): `{v: 1, ts, families: [{id, language, members, fittedPredicate: {kind, value},
+scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `ts` MUST be a parseable calendar instant (Yggdrasil's
+freshness gate runs `Date.parse` on it and silently drops the whole file otherwise) — grain's own `asOf` is a git
+sha, so this adapter uses the export's `indexedAt` instead. A "family without a law" in grain's own terms is a
+role group (093/094's structural cluster within a partition) that clears the same size floor Yggdrasil's own
+offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `tests/stress/propose.mjs`) and carries no certified
+convention of its own — whether that group ended up as a finer `-content` alternative (a subset of its host
+type) or, when the group coincides with its whole host type, was cut directly as an active type with no
+alternative offered. Dropping the file into an existing `.yggdrasil/` at `.family-candidates.json` and running
+`yg advise` there makes Yggdrasil nominate the family with zero code changes on Yggdrasil's side —
+`plugins/grain/tests/seams.test.mjs` proves this against a real `yg` binary and against Yggdrasil's own
+planted-family precision fixtures.
