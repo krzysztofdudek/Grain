@@ -343,3 +343,6 @@ Poprawka renderowania węzła _root (nie jest ścieżką ani gitlinkiem) przyję
 
 ## 2026-09-05 · no-catch-rules-stay-draft · ticket 101 · class D
 125/366 reguł deterministycznych w propozycjach 101, których drill nie potrafi złapać żadnym mutantem (no-catch), pozostają DRAFT. Reguła, która nic nie wykrywa, nie egzekwuje architektury — jest szumem dla przyszłych sesji agenta. Granularność ma sens tylko wtedy, gdy każda reguła ma co najmniej jeden mutant, który ją łamie; to jest miara 'docinania architektury', a nie liczba plików aspektów.
+
+## 2026-09-05 · propose-default-is-quiet · ticket 104 · class 6
+grain propose wchodzi jako komenda produktu, ale w formie 'cichej': domyślne wyjście to architektura (węzły, relacje, cykle) + aspekty, które zasłużyły na enforced realnym drillem + krótka lista kandydatów posortowana siłą dowodu (mutanty złapane, udział, n). Wszystko poza tym (proza, no-catch, alternatywy typów) zostaje na dysku w propozycji, ale nie w domyślnym raporcie — dostępne za flagą. Liczby: na autopropozycji Yggdrasil 10 z 124 aspektów (8%) zasłużyło na egzekwowanie; 22 z 33 deterministycznych nie łapie żadnego mutanta; sędzia 101 dał 14/20 'to nie reguła'. Raport, w którym 92% pozycji to szum, zniechęca adoptera i podważa 8% prawdy. Bramka reachability (081) obowiązuje jak dla każdej nowej komendy.

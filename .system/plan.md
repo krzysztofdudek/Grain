@@ -5111,3 +5111,4 @@ note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta gra
 - 2026-09-05 merged: 099 498da86
 - 2026-09-05 merged: 102 26acdf0
 - 2026-09-05 Dyrektor przy scaleniu 102 skleił definicję SYMBOL_LEVEL_KIND z komentarzem (perl), a łańcuch komend zacommitował mimo 1 fail (grep zwrócił 0). Naprawione 2272/2272. Lekcja: nigdy commit za grepem — bramką jest kod wyjścia testu.
+- 2026-09-05 Niezależny przerender autopropozycji Yggdrasil scalonym rendererem (export 5cca6b15, YG_BIN): 124 aspekty, 33 deterministyczne drillowane (665 przypadków) → 10 enforced, 22 no-catch, 1 file-scope FA; 91 prozy draft; 37 pominięte jako nie-reguły, 17 jako group-scoped nierenderowalne; 8 cykli węzłów; 73 karty. Rozjazd z liczbami pracownika 102 (11/13) — inny export; do weryfikacji w 104 na jednym ustalonym exporcie.
