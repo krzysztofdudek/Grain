@@ -378,7 +378,10 @@ rule) is written to disk exactly as before and summarised in one counted line na
 `--full` prints all of it. `--json <path>` writes the same report as a
 `schema: "grain-propose/1"` document built in the same pass, so the two cannot disagree. When no Yggdrasil CLI
 resolves (`YG_BIN`, or `yg` on PATH) nothing is drilled, nothing is enforced, and the report says so in place of
-the enforced list. **The schema is a published,
+the enforced list. A drill that does not return within its own bound is abandoned, and its aspect stays a
+draft that no verdict was reached on rather than one that was judged and found wanting — the report says how
+many were given up on and after how long, and `--json`'s `yggdrasil.timedOut` carries the same count. The bound
+is derived from the slowest drill actually measured (see `DRILL_TIMEOUT_MS`), not chosen. **The schema is a published,
 versioned interface exactly like `grain-export/1` above**: Yggdrasil's own `yg check`/`yg drill`/`yg advise`
 read the `.yggdrasil/` tree this renderer writes, and Horde's `node.mjs show` reads `charter.md` from it — a
 shape change here is a breaking change for both neighbours, made deliberately and versioned, never as a side
