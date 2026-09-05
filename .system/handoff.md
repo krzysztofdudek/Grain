@@ -1,14 +1,14 @@
 # Handoff
 
-at: 2026-09-05T04:36:09.807Z
+at: 2026-09-05T05:19:20.490Z
 by: director
-head: claude/grain-agent-tool-b89y0x@4cf2a96
+head: claude/grain-agent-tool-b89y0x@fdd19c9
 
 ## Summary
-Nowa gwiazda polarna ZABETONOWANA (decyzje north-star-brownfield-miner, sub-gate-rows-are-the-product, capability-rule-superseded-by-reconstruction; SKILL.md i system.md §0 zaktualizowane; commit 4cf2a96 wypchnięty na gałąź sesji). Tickety 093 (instrument rekonstrukcji, HIGH), 094 (renderer propozycji .yggdrasil/), 095 (krata maintainera). 093 w toku: Opus w worktree, gałąź instr/093-reconstruct; wzorzec /home/user/Yggdrasil (unshallow, 1564 commity) + examples/*. Stare pozycje kolejki 091/092 dropped (zawieszone). Pętla /loop dynamic uruchomiona na życzenie użytkownika; prywatne repo-wzorce niedostępne.
+093 scalone (fdd19c9), suita 2194/2194, wave 6 otwarta. Wynik rekonstrukcji na Yggdrasilu: typy 19/36 (7 więcej Grain już ma jako karty katalogów/grupy ról, ale nie oferuje jako typów), relacje na poziomie węzłów 1105/1236 recall 0.894, cykle 2/2, mapowania węzłów 83/393 (250 węzłów jednoplikowych — granularność, nie ślepota), aspekty deterministyczne 11/57 (20 chybień pod bramką λ, 6 reguł o nieobecności niewidocznych z konstrukcji, 20 bez literału). Naprawiony błąd: NUL w źródle instrumentu. Spawnuję dwóch Opusów: 094 (renderer propozycji .yggdrasil/ + pomiar recall propozycji tym samym instrumentem) i 096 (matematyka 'za dużo' + pomiar na Yggdrasilu i Grainie).
 
 ## In flight
-- 56 branch:instr/093-reconstruct —  (since 2026-09-05T04:36:09.816Z, reports to lead)
+(none)
 
 ## Pending decisions
 (none)
@@ -20,9 +20,6 @@ Nowa gwiazda polarna ZABETONOWANA (decyzje north-star-brownfield-miner, sub-gate
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
 
 ## Last actions
-- - 2026-09-02 merged: 082 9c498b3
-- - 2026-09-02 merged: 083 2d1fc05
-- - 2026-09-02 merged: 084 f231b26
 - - 2026-09-02 merged: 086 8efac06
 - - 2026-09-02 merged: 085 c439ae7
 - - 2026-09-02 merged: 088 1f2efa9
@@ -30,9 +27,12 @@ Nowa gwiazda polarna ZABETONOWANA (decyzje north-star-brownfield-miner, sub-gate
 - - 2026-09-02 merged: 087 84f0188
 - - 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).
 - - 2026-09-02 merged: 089 80d5b5c
+- # Fala 6 — rekonstrukcja — start 2026-09-05
+- - 2026-09-05 Nowa gwiazda: miner brownfieldu dla Yggdrasila. Instrument G' (093) mierzy, ile ręcznego .yggdrasil/ Grain odzyskuje; kierunek: 094 renderer propozycji, 095 krata maintainera, 096 diagnostyka 'za dużo'.
+- - 2026-09-05 merged: 093 fdd19c9
 
 ## Next actions
-- Gdy 093 zaraportuje: zweryfikować jak hub (diff, test czerwono-zielony, pełna suita, liczby z przebiegu nie z docs), premerge.mjs instr/093-reconstruct, merge do gałęzi sesji, wave start. Z najgorszych chybień rekonstrukcji założyć tickety. Potem 094 do Opusa z liczbami z 093. Yggdrasil: git status musi być czysty po pracy workera.
+- Odbiór 094 i 096 jak hub: diff, red-green, suita, liczby z przebiegu. 094: decyzja czy renderer wchodzi jako komenda produktu (Sonnet) — bramka: recall typów z propozycji ≥ 26/36 bez nowego miningu, zero fabrykacji (każda propozycja z dowodem). 096: bramka — wskazuje check.ts (Yggdrasil) i core.mjs (Grain) oraz wskaźnik odpaleń na czystych plikach. Potem 095 jako część 094 albo osobno.
 
 ## Notes
 (none)
