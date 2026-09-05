@@ -342,13 +342,15 @@ i **398 z 400 na Grainie** — tam **21 z 22** wyrenderowanych reguł advisory t
 nim nie jest (`plugins-grain-tests-stress/candidate-auto-lex-quote`), odpowiada za 2 odmowy. To nie jest korekta
 progu: to jest cała populacja szumu adopcyjnego na trzech z czterech repozytoriów.
 
-**116 — cięcie domenowe jako predykat.** Petclinic jest przypadkiem granicznym i teraz ma liczbę:
-karta katalogu jest tam poziomem, który trafia najwięcej węzłów (9 z 20), a katalogi te to dokładnie
-`owner/`, `vet/`, `model/`, `system/` — cięcie domenowe. Grain je znajduje, ale wystawia jako `any_of`
-z jawną listą ścieżek, więc nowy plik w `owner/` nie zostanie sklasyfikowany. Rekomendacja: alternatywa
-domenowa ma nieść predykat `path:` na katalogu, nie listę plików — dopiero wtedy 9 trafień poziomu
-katalogowego zamienia się w 9 typów, które przeżyją następny commit, i dopiero wtedy warstwa nad grafem ma
-z czego zrobić drugiego właściciela.
+**116 — cięcie domenowe jako predykat.** Petclinic jest przypadkiem granicznym i teraz ma liczbę: **karta
+katalogu jest tam poziomem, który trafia najwięcej węzłów ręcznych — 9 z 20**, przy 4 dla modułu i 3 dla
+partycji, a katalogi, które je trafiają, to dokładnie pakiety domenowe: `…/owner` (najlepsze dopasowanie dla
+`app/owner/{entities,repositories,web-support}`), `…/vet` (dla `app/vet/{entities,repository,marshalling}`).
+To jest cięcie domenowe i Grain je ZNAJDUJE. Wystawia je jednak jako `any_of` z jawną listą ścieżek, więc nowy
+plik w `owner/` nie zostanie przez nie sklasyfikowany, a `propose` odzyskuje z tego 0 z 20 węzłów.
+Rekomendacja: alternatywa domenowa ma nieść predykat `path:` na katalogu, a nie listę plików — poziom, który
+już trafia 45% ręcznych węzłów tego repozytorium, dopiero wtedy da typy przeżywające następny commit, i dopiero
+wtedy warstwa nad grafem ma z czego zrobić drugiego właściciela.
 
 ---
 
