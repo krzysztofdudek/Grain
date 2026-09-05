@@ -48,6 +48,13 @@ import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './
 // (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
 // without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
 import { ENGINE_VERSION, EXTR_V } from './config.mjs';
+// Read-only, and only these two: the vocabulary grain ALREADY uses to put a measured value into words — a name
+// shape (`(Ua)+` -> "PascalCase") and a lexical surface (`quote`,`single` -> "quote strings with single
+// quotes"). `describeRow` below words a lattice row with them rather than with a private copy, so a proposal
+// and grain's own report can never drift into two names for one thing. Everything else this renderer needs
+// from `core.mjs` still comes through the dynamic import in `partitionLattice`, which is where the model is
+// read.
+import { shapeWords, lexWords } from './core.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = resolve(here, '..', 'bin', 'grain.mjs');
@@ -1496,7 +1503,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const id = `grain/${slug(r.partition)}/candidate-${slug(r.pid)}`.slice(0, 120);
     if (out.some(o => o.id === id)) continue;
     seen.push(id);
-    const statement = `${r.kind}s in \`${r.partition}\`${r.role !== null ? ` (role group r${r.role})` : ''} ${r.exp === 'false' ? 'do not ' : ''}${describePid(r.pid)}`.replace(/\s+/g, ' ');
+    const statement = `${r.kind}s in \`${r.partition}\`${r.role !== null ? ` (role group r${r.role})` : ''} ${r.exp === 'false' ? 'do not ' : ''}${describeRow(r.pid, r.exp)}`.replace(/\s+/g, ' ');
     const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.n} ${r.kind}s · ${r.deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
     const evidenceLine = `sub-gate candidate: ${provenance}`;
     const check = renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
@@ -1928,10 +1935,43 @@ export function cutDrills(repo, aspect, holdout, cap = 5) {
 }
 
 
-const describePid = pid => {
-  const m = /^auto\.([a-z0-9]+):?(.*)$/.exec(pid) || [];
-  const [, fam, arg] = m;
-  return ({ imp: `import \`${arg}\``, call: `call \`${arg}\``, deco: `carry \`@${arg}\``, extends: `extend \`${arg}\``, has: `contain a \`${arg}\``, returns: `declare a return type of \`${arg}\``, stshape: `use the structure \`${arg}\``, nameshape: `follow the name shape \`${arg}\``, ptype: `take a parameter of type \`${arg}\`` }[fam]) || `have ${pid}`;
+// The mined predicate of a LATTICE ROW, in words.
+//
+// THE CATEGORICAL FAMILIES CARRY THEIR VALUE IN THE ROW, NOT IN THE PID. `auto.nameshape` has no argument at
+// all, and `auto.lex:quote` names the SURFACE (`quote`), never the value (`single`). The value grain measured
+// — and the value the rendered check compiles, since every template in `renderCheck` reads `expected` and none
+// reads `argument` for these classes — is the row's own `exp`. Reading the pid alone produced "methods in
+// `Slim/Interfaces` follow the name shape ``" (a rule naming an empty identifier) and "files in `themes` have
+// auto.lex:quote" (an internal predicate id printed at a maintainer). Measured on ticket 109's corpus: 25 of
+// the first 250 rendered aspects, six of them already promoted to `advisory` by a real drill of a check that
+// was correct — the check knew the value the sentence did not say.
+export const describeRow = (pid, exp) => {
+  const [, fam, arg] = /^auto\.([a-z0-9]+):?(.*)$/.exec(String(pid)) || [];
+  const v = String(exp ?? '');
+  const shaped = s => shapeWords(s) || `in the shape \`${s}\``;
+  switch (fam) {
+    case 'imp': return `import \`${arg}\``;
+    case 'call': return `call \`${arg}\``;
+    case 'deco': return `carry \`@${arg}\``;
+    case 'extends': return `extend \`${arg}\``;
+    case 'has': return `contain a \`${arg}\``;
+    case 'returns': return `declare a return type of \`${arg}\``;
+    case 'stshape': return `use the structure \`${arg}\``;
+    case 'ptype': return `take a parameter of type \`${arg}\``;
+    case 'nameshape': return `follow the name shape ${shaped(v)}`;
+    case 'filenameshape': return `have a file name ${shaped(v)}`;
+    case 'lex': return lexWords(arg, v);
+    case 'mods': return v === 'none' ? 'carry no modifiers' : `carry the modifiers \`${v}\``;
+    case 'memberorder': return `declare their members in the order \`${v}\``;
+    case 'namesuffix': return `have a name ending in \`${v}\``;
+    case 'modexport': return `export through \`${v}\``;
+    case 'arity': return `take exactly ${v} parameter${v === '1' ? '' : 's'}`;
+    case 'first1': return `open with a \`${v}\``;
+    case 'ret': return `return a \`${v}\``;
+    case 'varshape': return `name local variables ${shaped(v)}`;
+    case 'ctorshape': return `declare their constructor as \`${v}\``;
+    default: return /^dir\d*$/.test(String(fam)) ? `live under \`${v}/\`` : `satisfy \`${pid}\` = \`${v}\``;
+  }
 };
 
 function contentMd(c, profile, evidenceLine, whyProse) {
@@ -2072,7 +2112,7 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
     'Practised by a supermajority but not yet by enough of the code for grain to state it as a fact. This is the',
     'sub-gate lattice — the surface `grain explain` shows one file at a time, aggregated per partition.', '',
     mdTable(['adoption', 'n', 'partition', 'scope', 'candidate rule', 'sites to fix'],
-      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describePid(r.pid)}`, r.deviants.length])), '');
+      sub.slice(0, 80).map(r => [pct(r.share), r.n, `\`${r.partition}\``, r.role !== null ? `role r${r.role}` : 'partition', `${r.kind}s ${r.exp === 'false' ? 'never ' : ''}${describeRow(r.pid, r.exp)}`, r.deviants.length])), '');
 
   const twins = (exp.twins || []).filter(t => t.namedDifferently);
   L.push(`## 3. Structural twins — one shape under two names (${twins.length} of ${(exp.twins || []).length} twin pairs are named differently)`, '',

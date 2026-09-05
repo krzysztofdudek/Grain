@@ -277,6 +277,33 @@ test('buildAspects never truncates `name` (ticket 106 — `.slice(0, 70)` used t
   assert.ok(aspects[0].description.startsWith(longStatement), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
 });
 
+// ---------- ticket 109 (defect): a lattice row's rule names the value it was measured at ----------
+//
+// The categorical families carry their value in the ROW, not in the predicate id: `auto.nameshape` has no
+// argument at all and `auto.lex:quote` names the surface, never `single`. Reading the pid alone produced a
+// rule with an empty identifier and a rule that printed an internal predicate id at a maintainer — while the
+// `check.mjs` rendered beside it was compiling the right value all along (`renderCheck` reads `expected`).
+test('a lattice-row rule names the value grain measured, never its internal predicate id', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const row = (pid, exp) => ({ partition: 'src', pid, exp, share: 0.8, n: 10, ne: 8, bits: 1, kind: 'method', role: null, deviants: ['a.ts#x', 'b.ts#y'] });
+  const { aspects } = buildAspects({ conventions: [] }, active, [
+    row('auto.nameshape', '(Ua)+'),
+    row('auto.lex:quote', 'single'),
+    row('auto.mods', 'public'),
+    row('auto.first1', 'return_statement'),
+  ]);
+  assert.equal(aspects.length, 4);
+  for (const a of aspects) {
+    assert.ok(!/auto\./.test(a.name), `an internal predicate id leaked into the rule: ${a.name}`);
+    assert.ok(!/``/.test(a.name), `the rule names an empty identifier: ${a.name}`);
+  }
+  // the value itself, in the vocabulary grain's own report already uses for it
+  assert.match(aspects[0].name, /PascalCase/);
+  assert.match(aspects[1].name, /quote strings with single quotes/);
+  assert.match(aspects[2].name, /`public`/);
+  assert.match(aspects[3].name, /`return_statement`/);
+});
+
 test('provenanceFor carries status/draftReason/scopeApproximation, additive over the law-loop.mjs field set', () => {
   const p = provenanceFor({ id: 'x', origin: 'certified-convention', check: 'body', finalStatus: 'enforced', draftReason: null, scopeApproximation: null }, { asOf: '2026-01-01', repo: '/r' });
   assert.equal(p.status, 'enforced');
