@@ -1,6 +1,6 @@
 # Handoff
 
-at: 2026-09-05T14:19:28.602Z
+at: 2026-09-05T14:21:16.449Z
 by: director
 head: claude/grain-agent-tool-b89y0x@34cd140
 
@@ -18,6 +18,7 @@ Fala 8 zamknięta (suita 2290): 099, 102, 104, 107(+106) scalone. grain propose 
 - grain-lead: wave 2 start message (workers dispatched, count), then queue-empty escalation (since 2026-09-01T21:51:42.758Z)
 - grain-lead: wave close (wave close --suite 2115, wave start 3) and a fresh handoff (since 2026-09-02T04:11:36.859Z)
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
+- user: decyzje: bump wersji 0.3.0→0.4.0; zgoda na 105 (README/docs pod nowy cel) (since 2026-09-05T14:21:16.449Z)
 
 ## Last actions
 - - 2026-09-05 099 (cap fileScopes) + 102 (skutki 101 w rendererze) → Sonnet; potem decyzja z liczbami: grain propose jako komenda produktu, Grain jako brownfield nr 2, README pod nową funkcję celu (klasa 6).
