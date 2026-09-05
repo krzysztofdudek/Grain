@@ -819,6 +819,17 @@
       "updated": "2026-09-05 23:16",
       "sha": "148c4d0",
       "note": "with 116 and 119; premerge suite 2365/2367 (2 skipped), version-constants flag verified intentional (LANG_MARKER_STEMS renderer-only); advisory petclinic 33→2, Yggdrasil 71→21, all false-direction lattice rows out; leveldb 0→37 aspects, kotlin-datetime 0→46; package-info refusals 5→0; .grain leak closed in propose gitFiles"
+    },
+    {
+      "id": 76,
+      "ticket": "113",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/113-java-relations",
+      "state": "merged",
+      "updated": "2026-09-05 23:49",
+      "sha": "d94d05c",
+      "note": "premerge READY (2370/2372, 2 skipped); source roots from package declarations + Maven layout, same-package refs, static receivers; petclinic recall .114→.829 (25/25 miner misses recovered, 6 left = oracle debt/undecidable), precision .725 vs oracle debt; express/Yggdrasil edges byte-identical; EXTR_V g33, MODEL_V m26 (director); 116 test accepts owner as active type"
     }
   ]
 }

@@ -16,7 +16,7 @@ _none_
 
 _none_
 
-## merged (69)
+## merged (70)
 
 | id | ticket | kind | agent | branch | sha | note | updated |
 |---|---|---|---|---|---|---|---|
@@ -89,6 +89,7 @@ _none_
 | 73 | 117 | fix | sonnet | fix/117-control-bytes | c8ce4cc | premerge READY (2335/2335); 5 SOH bytes escaped, C0 guard test, run-corpus 21 tests, vendor 5/5 browser-only dead code; core.mjs size left (oracle refusals 12→8) | 2026-09-05 22:06 |
 | 74 | 114 | fix | opus | fix/114-118-charter-progressive | 675d19a | with 118; premerge READY (2347/2349, 2 skipped); charter cascade = yg context parity 19/19 on petclinic sample; nodes-with-rules petclinic 2/14→4/14, Yggdrasil 16/73→50/73; progressive.reference derived from origin/HEAD; existingViolations in provenance and report | 2026-09-05 23:03 |
 | 75 | 115 | fix | opus | fix/115-116-119-selection | 148c4d0 | with 116 and 119; premerge suite 2365/2367 (2 skipped), version-constants flag verified intentional (LANG_MARKER_STEMS renderer-only); advisory petclinic 33→2, Yggdrasil 71→21, all false-direction lattice rows out; leveldb 0→37 aspects, kotlin-datetime 0→46; package-info refusals 5→0; .grain leak closed in propose gitFiles | 2026-09-05 23:16 |
+| 76 | 113 | fix | opus | fix/113-java-relations | d94d05c | premerge READY (2370/2372, 2 skipped); source roots from package declarations + Maven layout, same-package refs, static receivers; petclinic recall .114→.829 (25/25 miner misses recovered, 6 left = oracle debt/undecidable), precision .725 vs oracle debt; express/Yggdrasil edges byte-identical; EXTR_V g33, MODEL_V m26 (director); 116 test accepts owner as active type | 2026-09-05 23:49 |
 
 ## escalated (0)
 
