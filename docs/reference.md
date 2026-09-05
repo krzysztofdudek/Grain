@@ -397,6 +397,36 @@ the file itself, plus `kind`-specific structured detail (an `aspect` row carries
 `draftReason`, see below). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there
 for the exact, current wording.
 
+### How a proposed rule is worded (ticket 109)
+
+Every aspect this renderer writes is an OBLIGATION with its scope inside the sentence, not a report of what the
+code does:
+
+```
+name: "Every method under `tests/**`, in a file carrying `@Then`, must be annotated with `[Then]`."
+name: "No file under `src/Application/**` may import `lodash`."
+```
+
+Three rules produce that sentence, and they are the whole of it:
+
+- **The subject is one thing and it names where it lives.** `Every <method|type|file|directory|catch block|…>
+  under <the aspect's own `scope:` glob>`, plus the `content:` half of the scope as a participial clause
+  (`carrying \`@Handler\``, `mentioning \`counter\``) when the scope has one. Grain's own query surface says
+  "methods here …"; an aspect read cold, months later, has no way to know where "here" is.
+- **The mood is deontic.** `must` for a rule whose expected value is true, `No … may` for one whose expected
+  value is false — a prohibition, never a doubled negative. The PREDICATE keeps every word grain mined; only
+  the verb form changes (`are annotated with` → `be annotated with`).
+- **A lattice row is worded from the value it was measured at.** The categorical families carry their value in
+  the row, not in the predicate id: `auto.nameshape` has no argument and `auto.lex:quote` names the surface
+  rather than `single`. The sentence reads the same field the rendered `check.mjs` compiles.
+
+The `#e` evidence line leads with the two numbers that decide whether to believe the sentence — how many sites
+in scope hold the rule and how many break it today — then where it applies, then what to copy, then how grain
+came to propose it. `description` carries the rule, how far it already holds, and one sentence saying what the
+`status:` beside it actually does to `yg check`. None of this changes anything measured: ticket 109 diffs the
+whole rendered tree round to round, and every id, status, count, `check.mjs` body, drill corpus and
+`provenance.json` number is byte-identical across the change.
+
 ### What "enforced" means in a proposal (ticket 102, sharpened by 107)
 
 Every element this renderer writes starts as a candidate, never a claim: no type carries `enforce: strict`
@@ -483,8 +513,10 @@ anything.
 
 **Per-node `charter.md`** — `.yggdrasil/model/<node>/charter.md`, beside `yg-node.yaml`, one per proposed node
 (including organizational ones). Rendered the way a `where` card reads a directory to a human: what lives here
-(files, extensions, nested groups), depends on / used by (module edges with resolved-import counts in both
-directions), certified conventions (share, n conforming/deviating, exemplars to copy — `path:line`), sub-gate
+(files, extensions, nested groups, and why they were grouped), what this node may depend on (its declared
+relations with resolved-import counts, and what `yg check` does about an undeclared one — the built-in
+relation-conformance check refuses a node that depends on a node it has not declared a relation to), certified
+conventions (share, n conforming/deviating, exemplars to copy — `path:line`), sub-gate
 candidates (evidence below the certification bound, not yet law), co-change partners (aggregated from `.grain`'s
 own file-level co-change up to node granularity), sizing (the node's own row from `sizing.json`), and the `asOf`
 sha. Every line carries a number or a path; a section with nothing to report says so rather than being omitted.

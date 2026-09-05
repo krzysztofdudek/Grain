@@ -272,9 +272,65 @@ test('buildAspects never truncates `name` (ticket 106 — `.slice(0, 70)` used t
   };
   const { aspects } = buildAspects(exp, active, []);
   assert.equal(aspects.length, 1);
-  assert.equal(aspects[0].name, longStatement, 'name must be the whole statement, not a 70-char prefix');
+  // Ticket 109 words the name as an obligation with its scope inside it, so `name` is no longer the mined
+  // statement verbatim — but 106's guarantee is untouched and asserted the same way: every word of the mined
+  // statement survives, and nothing is cut. This fixture's statement has no ` here ` to rewrite around, which
+  // is the branch that words it exactly as mined under its scope.
+  assert.ok(aspects[0].name.includes(longStatement), `name must carry the whole statement, not a 70-char prefix: ${aspects[0].name}`);
   assert.ok(!aspects[0].name.endsWith('Bo'), 'a mid-word cut like the old `.slice(0, 70)` must not reappear');
-  assert.ok(aspects[0].description.startsWith(longStatement), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
+  assert.ok(aspects[0].description.startsWith(aspects[0].name), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
+});
+
+// ---------- ticket 109: the obligation form, and the two things it may never do ----------
+test('buildAspects words a rule as an obligation with its scope inside it, and keeps every word of the mined predicate', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const conv = (statement, expected, enumerator, argument) => ({
+    established: 6, statement, partition: 'src', feature: { enumerator, argument },
+    share: 1, bitsPerInstance: 4, expected, kind: 'method', exemplars: [], deviatingSites: [], conformingSites: [],
+  });
+  const { aspects } = buildAspects({
+    conventions: [
+      conv('methods here are annotated with `@Handler`', 'true', 'deco', '@Handler'),
+      conv('methods here do not import `lodash`', 'false', 'imp', 'lodash'),
+      conv('methods here are not annotated with `@Test`', 'false', 'deco', '@Test'),
+    ],
+  }, active, []);
+  assert.equal(aspects.length, 3);
+  assert.equal(aspects[0].name, 'Every method under `src/**` must be annotated with `@Handler`.');
+  // a prohibition reads as one, and the identifier the rule is about survives the rewrite intact
+  assert.equal(aspects[1].name, 'No method under `src/**` may import `lodash`.');
+  assert.equal(aspects[2].name, 'No method under `src/**` may be annotated with `@Test`.');
+  for (const a of aspects) {
+    assert.match(a.name, /^(Every|No) method under `src\/\*\*` (must|may) /, `not an obligation: ${a.name}`);
+    assert.ok(a.name.endsWith('.'), `an obligation is a sentence: ${a.name}`);
+    // the scope the sentence names is the scope the aspect is judged over — never a narrower one
+    assert.equal(a.scope.files.path, 'src/**');
+  }
+});
+
+test('a lattice row is worded from the value it was measured at, not from its pid (ticket 109)', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const row = (pid, exp) => ({ partition: 'src', pid, exp, share: 0.8, n: 10, ne: 8, bits: 1, kind: 'method', role: 3, deviants: ['a.ts#x', 'b.ts#y'] });
+  const { aspects } = buildAspects({ conventions: [] }, active, [
+    row('auto.nameshape', '(Ua)+'),
+    row('auto.lex:quote', 'single'),
+    row('auto.mods', 'public'),
+    row('auto.imp:lodash', 'false'),
+  ]);
+  const names = aspects.map(a => a.name);
+  assert.deepEqual(names, [
+    'Every method under `src/**` must be named PascalCase.',
+    'Every method under `src/**` must quote strings with single quotes.',
+    'Every method under `src/**` must carry the modifiers `public`.',
+    'No method under `src/**` may import `lodash`.',
+  ]);
+  for (const a of aspects) {
+    assert.ok(!/auto\./.test(a.name), `an internal pid leaked into the rule: ${a.name}`);
+    assert.ok(!/``/.test(a.name), `the rule names an empty identifier: ${a.name}`);
+    // the role cluster is where the row was MEASURED; the rule speaks about the scope it is judged over
+    assert.ok(!/role/.test(a.name), `the sentence claims a narrower subject than the scope: ${a.name}`);
+    assert.match(a.evidenceLine, /role cluster \(r3\)/, 'the cluster must still be disclosed in the evidence');
+  }
 });
 
 // ---------- ticket 109 (defect): a lattice row's rule names the value it was measured at ----------
