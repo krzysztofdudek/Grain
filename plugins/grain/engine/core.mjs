@@ -32,6 +32,7 @@ import {
   moduleGraph,
   moduleOf,
   refineModOf,
+  sourceRootsOf,
   compactDecls,
   hydrateTable,
   tableFrom,
@@ -2650,7 +2651,7 @@ export function buildObligationTable(fps, { refinedM, live }) {
 // from present-but-uncertified (n > 0, rules/ambient both empty below CFG.minRaw) — the renderer must tell them
 // apart rather than collapsing both to silence (§6: "never say (complete)", the coverage-note lesson).
 export function obligationFor(model, rel) {
-  const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
+  const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [], model.srcRoots || []));
   const suffix = sufOf(rel) || '';
   const module = refined(rel);
   const rec = (model.obligations || []).find(o => o.module === module && o.suffix === suffix);
@@ -5038,10 +5039,15 @@ export async function learn({
     } catch {
       /* an extra channel, never a reason to fail the pass */
     }
-    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, tsAliases, phpAutoload });
+    // JVM-family source roots (§113): where a package hierarchy starts on disk, from the `package` declaration
+    // the extractor already read and from the Maven/Gradle standard layout. Stored on the model because the
+    // single-file `check` path has no relFacts for the whole tree and must resolve the SAME way this pass did.
+    const srcRoots = sourceRootsOf(files, relFacts);
+    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, srcRoots, tsAliases, phpAutoload });
     model.edges = edges.slice(0, 30000);
     model.edgesTruncated = Math.max(0, edges.length - 30000);
-    model.moduleGraph = moduleGraph(edges, files, pkgs);
+    model.srcRoots = srcRoots;
+    model.moduleGraph = moduleGraph(edges, files, pkgs, srcRoots);
     // what the single-file `check` path needs to resolve an EDITED file's references against the accepted tree
     model.relDecls = compactDecls(files, relFacts);
     model.workspaces = workspaces;
@@ -5395,7 +5401,7 @@ export async function learn({
   model.changeArchetypes = [];
   if (H && H.fps && H.fps.length) {
     const refinedM =
-      model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
+      model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [], model.srcRoots || []));
     const liveM = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
     const currentOf = currentPathOf(H.fps, liveM);
     // a scope renamed IN PLACE (its file kept) keeps its historical `#kind#name` half and simply fails to resolve
@@ -5496,7 +5502,7 @@ export async function learn({
   model.obligations =
     H && H.fps && H.fps.length
       ? buildObligationTable(H.fps, {
-          refinedM: model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [])),
+          refinedM: model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [], model.srcRoots || [])),
           live: new Set([...(model.pathsAll || []), ...(model.filesAll || [])]),
         })
       : [];
@@ -6405,7 +6411,7 @@ export function architectureNorms(model) {
   const files = model.filesAll || [];
   const pkgs = model.pkgs || [];
   const EMPTY = new Set();
-  const refined = refineModOf(files, pkgs);
+  const refined = refineModOf(files, pkgs, model.srcRoots || []);
   const modOf = new Map();
   for (const f of files) modOf.set(f, refined(f));
   // per-file reached-module set: a target module counts once per file, regardless of how many edges/how much .n land on it
@@ -6520,13 +6526,14 @@ function computeArchHits({ model, root, effRel, relFact }) {
         table: hydrateTable(model.relDecls),
         workspaces: model.workspaces || [],
         pkgs: model.pkgs || [],
+        srcRoots: model.srcRoots || [],
         tsAliases: model.tsAliases || [],
         phpAutoload: model.phpAutoload || [],
         csGlobal: model.csGlobal || { usings: [], aliases: [] },
       });
       const mg = model.moduleGraph;
       const refined =
-        model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
+        model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [], model.srcRoots || []));
       for (const e of resolve(effRel, relFact)) {
         const a = refined(effRel),
           b2 = refined(e.to);
@@ -7223,7 +7230,7 @@ export function inLineForCard(model, h) {
 // A path whose refined module DOES hold files is untouched: its layer and fan-in are real.
 export function inLineForFile(model, rel) {
   if (!model.moduleGraph || !model.filesAll) return null;
-  const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll, model.pkgs || []));
+  const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll, model.pkgs || [], model.srcRoots || []));
   const mod = refined(rel);
   // "exists" is a fact about the indexed tree, never a threshold: the union `pathsAll ∪ filesAll` is the same
   // liveness set changeArchetypes/buildObligationTable already treat as "alive at HEAD", so a directory holding
@@ -7886,7 +7893,7 @@ export function howCmd({
     return m || (fp.toks.length ? fp.toks.join(' ') : '(no commit message)');
   };
   const refined =
-    model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
+    model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [], model.srcRoots || []));
   const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]); // every path alive at HEAD, code or not — `fp.files` spans both
   const currentOf = currentPathOf(fps, live);
   // counted on the CURRENT path, so a file renamed inside the match window is one place at k/K, not two half-places
@@ -8374,7 +8381,7 @@ export function whatCmd({
   for (const h of valueHits) for (const [rel] of h.places) spreadFiles.add(rel);
   const spread = [];
   if (spreadFiles.size && model.filesAll) {
-    const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll, model.pkgs || []));
+    const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll, model.pkgs || [], model.srcRoots || []));
     const byMod = new Map();
     for (const rel of spreadFiles) {
       const m = refined(rel);
@@ -9137,7 +9144,7 @@ export function whereEval({ model, H, last = 100 }) {
 export function obligationEval({ model, H, last = 100 }) {
   const fps = (H && H.fps) || [];
   const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
-  const refinedM = model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
+  const refinedM = model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [], model.srcRoots || []));
   const currentOf = currentPathOf(fps, live);
 
   const allEvents = [];
@@ -10334,7 +10341,7 @@ export function missingLines(model, files, { sources = [], newFileScopes = {}, c
   // cells are worth reporting as missing — a complete match to a shape is not a gap, so it says nothing at all.
   if (sources.includes('shape') && (model.changeArchetypes || []).length) {
     const refined =
-      model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || []));
+      model._archModOf || (model._archModOf = refineModOf(model.filesAll || [], model.pkgs || [], model.srcRoots || []));
     const changeCells = new Set();
     for (const rel of files) {
       changeCells.add('m:' + refined(rel));

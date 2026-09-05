@@ -266,6 +266,127 @@ export function phpAutoloadResolverFor({ phpAutoload = [], fileSet }) {
     language === 'php' ? resolvePhpFqn(specifier, fromFile, deps) : undefined;
 }
 
+// ---- source roots: where a JVM-family package hierarchy starts on disk (§113) ----
+//
+// Two independent language/build facts, never a threshold:
+//
+//  (1) THE PACKAGE DECLARATION. JLS §7.2.1 ("Storing packages in a file system") and the Kotlin spec's package
+//      layout both define a source root as the directory under which a type's package name IS its directory
+//      path: a file declaring `package a.b.c` sits in some `<root>/a/b/c/`. So `<root>` = the file's directory
+//      with its own package path removed as a SUFFIX. This needs no build file and no configuration, and it is
+//      self-validating — where the directory does not mirror the package (legal in Kotlin, Groovy and Scala)
+//      the suffix simply does not match and nothing is claimed.
+//  (2) THE STANDARD DIRECTORY LAYOUT. Maven's Standard Directory Layout and Gradle's Java-plugin source sets
+//      both place source roots at `<module>/src/<sourceSet>/<language>` — `src/main/java`, `src/test/kotlin`,
+//      `src/integrationTest/groovy`. Derived here from the DIRECTORY SHAPE alone (a `src/*/<lang>` directory
+//      that actually holds files of that language), not from the presence of `pom.xml`/`build.gradle`: the shape
+//      is what both build tools mean by it, it survives a Gradle subproject with no build file of its own, and
+//      it is the only one of the two available for a language grain parses but has no declaration extractor for.
+//
+// The union is used for TWO things: resolution (a type reference resolves against every source root of the
+// repository, not only the ancestors of the referencing file) and the module cut (below).
+const SRC_SET_LANG = { java: /\.java$/, kotlin: /\.(kt|kts)$/, groovy: /\.groovy$/, scala: /\.(scala|sc)$/ };
+export function sourceRootsOf(files, relFacts = {}) {
+  const roots = new Set();
+  for (const rel of files) {
+    // (2) layout: <prefix>src/<sourceSet>/<lang>/… with the file's own extension matching <lang>
+    const m = rel.match(/(^|.*\/)src\/[^/]+\/(java|kotlin|groovy|scala)\//);
+    if (m && SRC_SET_LANG[m[2]].test(rel)) roots.add(m[0].slice(0, -1));
+    // (1) package declaration: the extractor's symbolKey is `<package>.<Type>` (`+` separates nested types)
+    const f = relFacts[rel];
+    if (!f || (f.l !== 'java' && f.l !== 'kotlin') || !f.d || !f.d.length) continue;
+    const top = f.d[0].symbolKey.split('+')[0];
+    const dot = top.lastIndexOf('.');
+    const dir = rel.slice(0, Math.max(0, rel.lastIndexOf('/')));
+    if (dot < 0) {
+      roots.add(dir); // the unnamed package: the file's own directory IS the root
+      continue;
+    }
+    const pkgPath = top.slice(0, dot).split('.').join('/');
+    if (dir === pkgPath) roots.add('');
+    else if (dir.endsWith('/' + pkgPath)) roots.add(dir.slice(0, dir.length - pkgPath.length - 1));
+  }
+  return [...roots].sort();
+}
+
+// The module cut below a source root. A package hierarchy opens with a reverse-domain prefix (`org/springframework/
+// samples/`) that the language spec requires and that carries no architecture: every file in the repository shares
+// it, so cutting there yields ONE module for the whole source root — which is exactly how spring-petclinic's ten
+// resolved edges all fell inside `src/main/java` and vanished from the module graph. The base is therefore the
+// source root advanced through its non-branching prefix: while the current directory holds no files of its own and
+// exactly one subdirectory, that subdirectory cannot be a boundary. Pure function of the file list.
+export function cutBasesOf(files, srcRoots = []) {
+  if (!srcRoots.length) return [];
+  const out = [];
+  for (const root of srcRoots) {
+    const pfx = root === '' ? '' : root + '/';
+    let cur = root;
+    for (;;) {
+      const curPfx = cur === '' ? '' : cur + '/';
+      const kids = new Set();
+      let hasOwnFile = false;
+      for (const rel of files) {
+        if (!rel.startsWith(pfx) || !rel.startsWith(curPfx)) continue;
+        const sub = rel.slice(curPfx.length);
+        const slash = sub.indexOf('/');
+        if (slash < 0) hasOwnFile = true;
+        else kids.add(sub.slice(0, slash));
+      }
+      if (hasOwnFile || kids.size !== 1) break;
+      cur = curPfx + [...kids][0];
+    }
+    if (cur !== '') out.push(cur);
+  }
+  return [...new Set(out)].sort((a, b) => b.length - a.length || (a < b ? -1 : 1)); // deepest first: a nested root wins
+}
+
+// issue 113: Maven and Gradle put production and test code in SIBLING source roots, and the vendored
+// `resolveJavaFqn` (java-resolve.mjs) tries `<ancestor>/<fqn>.java` over the ancestor directories of the
+// REFERENCING file only — from `src/test/java/…` it walks `src/test/java`, `src/test`, `src`, `<root>` and never
+// reaches `src/main/java`, so every test → main import silently fails to resolve (all 14 of them on
+// spring-petclinic). Mirrors `phpAutoloadResolverFor`: the same resolution, re-run against the repository's own
+// source roots instead of one file's ancestors, and only after the per-file resolution above came up empty — a
+// reference inside one root keeps resolving exactly as it did.
+export function javaRootResolverFor({ srcRoots = [], fileSet, modOwner }) {
+  if (!srcRoots.length) return () => undefined;
+  const roots = [...srcRoots].sort();
+  return (specifier, language, fromFile, isPackage) => {
+    if (language !== 'java') return undefined;
+    const segs = specifier.split('.').filter(s => s.length > 0);
+    if (!segs.length) return undefined;
+    if (isPackage) {
+      // a wildcard import names a package, not a type: it binds only when every file of that package under one
+      // root shares a module owner (the vendored resolver's own rule — a split package stays silent)
+      const dir = segs.join('/');
+      for (const root of roots) {
+        const pfx = (root === '' ? '' : root + '/') + dir + '/';
+        const inPkg = [];
+        for (const f of fileSet) if (f.startsWith(pfx) && f.endsWith('.java') && !f.slice(pfx.length).includes('/')) inPkg.push(f);
+        if (!inPkg.length) continue;
+        inPkg.sort();
+        let sole;
+        for (const f of inPkg) {
+          const owner = modOwner?.(f);
+          if (owner === undefined) continue;
+          if (sole === undefined) sole = owner;
+          else if (owner !== sole) return undefined;
+        }
+        return sole === undefined ? inPkg[0] : inPkg.find(f => modOwner?.(f) === sole);
+      }
+      return undefined;
+    }
+    // a nested type's FQN also resolves to the file of its ENCLOSING type — the vendored resolver's second candidate
+    const cands = [segs.join('/') + '.java'];
+    if (segs.length >= 2) cands.push(segs.slice(0, -1).join('/') + '.java');
+    for (const root of roots)
+      for (const c of cands) {
+        const f = root === '' ? c : root + '/' + c;
+        if (fileSet.has(f)) return f;
+      }
+    return undefined;
+  };
+}
+
 // the shared edge resolver: the full pass and the single-file `check` path resolve through the SAME machinery
 export function makeEdgeResolver({
   root,
@@ -273,6 +394,7 @@ export function makeEdgeResolver({
   table,
   workspaces = [],
   pkgs = [],
+  srcRoots = [],
   tsAliases = [],
   phpAutoload = [],
   csGlobal = { usings: [], aliases: [] },
@@ -280,17 +402,20 @@ export function makeEdgeResolver({
   const ownerOf = f => (fileSet.has(f) ? f : undefined);
   // package-level splits (a Go package / Java wildcard import spanning several owners → silence) are decided at MODULE
   // granularity: with per-file owners every multi-file package would read as split and the whole language would go silent
-  const modOwner = f => (fileSet.has(f) ? moduleOf(f, pkgs) : undefined);
+  const bases = cutBasesOf([...fileSet], srcRoots);
+  const modOwner = f => (fileSet.has(f) ? moduleOf(f, pkgs, bases) : undefined);
   const isExcluded = f => !fileSet.has(f);
   const base = makeResolvePathToFile(root, modOwner, isExcluded);
   const ws = wsResolverFor({ workspaces, fileSet });
   const alias = aliasResolverFor({ tsAliases, fileSet });
   const phpMono = phpAutoloadResolverFor({ phpAutoload, fileSet });
+  const javaRoots = javaRootResolverFor({ srcRoots, fileSet, modOwner });
   const resolvePathToFile = (specifier, fromFile, language, isPackage) =>
     base(specifier, fromFile, language, isPackage) ??
     alias(specifier, language, fromFile) ??
     ws(specifier, language) ??
-    phpMono(specifier, language, fromFile);
+    phpMono(specifier, language, fromFile) ??
+    javaRoots(specifier, language, fromFile, isPackage);
   const resolver = makeResolver({ ownerIndex: { ownerOf }, symbolTable: table, resolvePathToFile });
   return (rel, f) => {
     // one file's resolved out-edges (deduplicated, deterministic)
@@ -360,10 +485,10 @@ export function hydrateTable(relDecls) {
 }
 
 // ---- resolution over the whole indexed tree → deduplicated file→file edges ----
-export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], tsAliases = [], phpAutoload = [] }) {
+export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], srcRoots = [], tsAliases = [], phpAutoload = [] }) {
   const fileSet = new Set(files);
   const { table, csGlobal } = tableFrom(files, relFacts);
-  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, tsAliases, phpAutoload, csGlobal });
+  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, srcRoots, tsAliases, phpAutoload, csGlobal });
   const edges = [];
   for (const rel of files) edges.push(...resolve(rel, relFacts[rel]));
   return edges.sort((a, b) =>
@@ -372,7 +497,16 @@ export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], 
 }
 
 // ---- the module graph: directories at layout depth ≤ 2 as nodes, edge counts, cycles ----
-export const moduleOf = (rel, pkgs = []) => {
+export const moduleOf = (rel, pkgs = [], bases = []) => {
+  // a source-root cut base (cutBasesOf, §113) reroots the depth-2 rule so the cut lands on PACKAGES: the segments
+  // are counted from the base, not from the repository root, and a file sitting directly in the base is the base's
+  // own module. Checked before `pkgs` because a Maven/Gradle module's `pom.xml` would otherwise swallow every
+  // package under it into one module — the coarser answer for exactly the repositories this exists to cut finer.
+  for (const b of bases)
+    if ((rel + '/').startsWith(b + '/')) {
+      const segs = rel.slice(b.length + 1).split('/');
+      return segs.length <= 1 ? b : b + '/' + segs.slice(0, Math.min(2, segs.length - 1)).join('/');
+    }
   for (const d of pkgs) if (d !== '.' && (rel + '/').startsWith(d + '/')) return d; // a package root IS the module
   const segs = rel.split('/');
   return segs.length <= 1 ? '.' : segs.slice(0, Math.min(2, segs.length - 1)).join('/');
@@ -383,8 +517,9 @@ export const moduleOf = (rel, pkgs = []) => {
 // uses for its nodes/edges must be used everywhere a module ID is computed for a file, or module IDs silently stop
 // matching between callers (§G11). Cheap to recompute (two O(files) passes); a closure can't survive model.json
 // serialization, so callers at check time (after a fresh deserialize) recompute it rather than reusing a stored one.
-export function refineModOf(files, pkgs = []) {
-  let modOf = rel => moduleOf(rel, pkgs);
+export function refineModOf(files, pkgs = [], srcRoots = []) {
+  const bases = cutBasesOf(files, srcRoots);
+  let modOf = rel => moduleOf(rel, pkgs, bases);
   for (let round = 0; round < 2; round++) {
     const per = new Map();
     for (const rel of files) {
@@ -410,8 +545,8 @@ export function refineModOf(files, pkgs = []) {
   }
   return modOf;
 }
-export function moduleGraph(edges, files, pkgs = []) {
-  const modOf = refineModOf(files, pkgs);
+export function moduleGraph(edges, files, pkgs = [], srcRoots = []) {
+  const modOf = refineModOf(files, pkgs, srcRoots);
   const filesPer = new Map();
   for (const rel of files) {
     const m = modOf(rel);

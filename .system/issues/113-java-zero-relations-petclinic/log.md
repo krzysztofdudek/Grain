@@ -10,3 +10,6 @@ STAGE 2 — module mapping: 0 of the 10 resolved edges survive. All 10 sit insid
 CROSS-CHECK against the hand oracle at ITS own granularity (reconstruct.mjs --graph oracles/spring-petclinic): 35 declared node pairs, grain 4 node pairs, matched 4 — recall 0.114, precision 1.000. So the edges grain does resolve are all correct and all present in the oracle; the fault is coverage, at every one of the three stages, never accuracy. relCoverage reports n=27 files in groovy/json/properties/yaml with no resolution, which is a different and smaller gap than any of the above.
 
 REPORTING (the ticket's second half) stands unchanged and is now quantified: '0 relations' should read as 'this graph carries no law about dependencies' — on this repository the honest line names 24 internal imports seen, 10 resolved, 0 surviving the module cut.
+## 2026-09-05 22:09 — start: worker on fix/113-java-relations; merged agent-tool base; reading 108 memo and relation layer
+
+## 2026-09-05 22:20 — baseline re-measured on this branch: petclinic relation recall 4/35=.114, precision 1.000, 10 file edges, 10 modules, 0 module edges. Export baselines captured for express (32 mod/48 medges/153 edges), grain (20/6/1111), Yggdrasil (37/65/2161) to diff byte-identity after. Cherry-picked 108's two instrument commits (--graph, --score contentRoot) since they were not in the merge base.
