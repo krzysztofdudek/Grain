@@ -17,7 +17,10 @@ Relay the report as it stands — every line already carries a number or a path.
   count above zero is declared on purpose, and `REFACTOR-BACKLOG.md` lists them.
 - **enforced** — the rules a real `yg drill` proved on this repository's own code (zero false alarms, at least
   one caught violation each) AND that came from a convention grain itself certified. Nothing stands between the
-  maintainer and turning these on. When no Yggdrasil CLI was found, this says so and nothing is enforced — do
+  maintainer and turning these on. Each one says how many sites already break it today, and the proposal sets
+  the branch changes are measured against so those sites are reported as warnings until a change reaches them —
+  where the repository offered no branch to derive, the report says so and the first check blocks on all of
+  them. When no Yggdrasil CLI was found, this says so and nothing is enforced — do
   not present drafts as if they were.
 - **candidates** — advisory rules first: the same drill result, but the convention sits below grain's own
   certification bound, so it is real evidence, not yet law — turning it on is the maintainer's refactor

@@ -1,0 +1,625 @@
+{
+ "instrument": "oracles-4/1",
+ "question": "With four independent hand-written .yggdrasil/ graphs instead of one, what does grain recover, and where do the disagreements fall?",
+ "asOf": "2026-09-05",
+ "ruling": "oracle-is-fallible-report-disagreements-symmetrically — every disagreement is (a) miner miss, (b) graph debt, or (c) undecidable; the classes are assigned by reading the code, never by the score.",
+ "schema": {
+  "repos.<name>.oracle": "denominators read out of the hand graph, against the target repository's own tracked files",
+  "repos.<name>.mined": "what `grain export` produced on that repository",
+  "repos.<name>.reconstruct": "what the export already HOLDS of the hand graph (tests/stress/reconstruct.mjs)",
+  "repos.<name>.relationLedger": "the symmetric node-to-node relation ledger, hand-classified after reading each pair in the source",
+  "repos.<name>.cycles": "oracle-declared vs `yg advise`-nominated vs mined",
+  "repos.<name>.propose": "what `grain propose` WRITES and how it scores (tests/stress/propose.mjs --score)",
+  "repos.<name>.proposalStagedCheck": "Yggdrasil's own CLI on a copy of the repository with the proposal at its root",
+  "aggregate": "the four-row table of the memo"
+ },
+ "commands": {
+  "export": "node plugins/grain/bin/grain.mjs export --repo <target> --out export-<name>.json --compact --no-anchors",
+  "reconstruct": "node plugins/grain/tests/stress/reconstruct.mjs <target> recon-<name>.json --graph <oracle-dir> --export export-<name>.json --advise advise-<name>.txt --md",
+  "propose": "YG_BIN=... node plugins/grain/tests/stress/propose.mjs <target> prop-<name> --export export-<name>.json --score <oracle-dir> --json prop-<name>.json",
+  "stagedCheck": "copy the target without .git/.grain/.yggdrasil, drop prop-<name>/.yggdrasil at its root, git init + commit, then `yg check --summary` and `yg check --approve --only-deterministic`",
+  "advise": "copy the target, drop the ORACLE .yggdrasil at its root, git init + commit, then `yg advise`"
+ },
+ "ygBin": "/home/user/Yggdrasil/source/cli/dist/bin.js (Yggdrasil 5.8.0)",
+ "repos": {
+  "grain": {
+   "oracle": {
+    "classifyingTypes": 33,
+    "organizationalTypes": 2,
+    "nodesWithMapping": 35,
+    "nodesWithoutMapping": 7,
+    "declaredRelations": 49,
+    "declaredNodePairs": 49,
+    "deterministicAspects": 22,
+    "proseAspects": 8,
+    "filesWithAnOwningNode": 1470
+   },
+   "target": "this repository",
+   "revision": "3d249bf",
+   "language": "JavaScript (ESM)",
+   "ciDependencyGate": false,
+   "files": 1470,
+   "filesExcludedByCoverage": 0,
+   "mined": {
+    "partitions": 19,
+    "modules": 20,
+    "fileEdges": 1106,
+    "moduleEdges": 6,
+    "moduleCycles": 0,
+    "conventions": 0,
+    "archNorms": 1,
+    "relCoverageUnresolvedFiles": 45,
+    "relCoverageGrammars": [
+     "bash",
+     "json",
+     "yaml"
+    ],
+    "moduleAssignmentMismatch": 0
+   },
+   "reconstruct": {
+    "typeRecallAt50": 0.545,
+    "typesAt50": 18,
+    "typesAt80": 14,
+    "typeMeanJ": 0.55,
+    "typeDisagreements": {
+     "a": 8,
+     "b": 1,
+     "c": 6
+    },
+    "typeLedgerNote": "a 8 — grain holds the set as a directory card (3) or a role group (5), just not as a partition or module. b 1 — plugin-manifest spreads over 4 grain modules. c 6 — same locality, one level coarser or finer.",
+    "nodeRecallAt50": 0.8,
+    "nodesAt50": 28,
+    "nodesAt80": 24,
+    "nodeMeanJ": 0.783,
+    "nodeBestMatchLevel": {
+     "module": 17,
+     "group": 9,
+     "partition": 3,
+     "directory": 6
+    },
+    "relationRecall": 0.694,
+    "relationPrecision": 1,
+    "relationMatched": 34,
+    "minedNodePairs": 34,
+    "aspectsMatched": 2,
+    "aspectsMinerMiss": 4,
+    "aspectsInvisibleByConstruction": 8,
+    "aspectsUnmeasurable": 8,
+    "wallSeconds": 1
+   },
+   "relationLedger": {
+    "oracleHasGrainLacks": {
+     "a": 1,
+     "b": 8,
+     "c": 6
+    },
+    "grainHasOracleLacks": {
+     "a": 0,
+     "b": 0,
+     "c": 0
+    },
+    "notes": "a: one dynamic import assembled from a literal. b: seven the oracle marks \"No code dependency ... declared so <rule> may read <target>\", plus repo/fixture -> plugin/entry which has no backing at all. c: spawns of the built binary and dependencies reached through the shared harness."
+   },
+   "cycles": {
+    "oracleDeclared": 0,
+    "ygAdviseNominated": 0,
+    "mined": 0,
+    "matched": 0,
+    "note": "the oracle README states a recovered cycle here would be a false positive; none was recovered"
+   },
+   "propose": {
+    "counts": {
+     "types": 31,
+     "alternatives": 190,
+     "nodes": 34,
+     "aspects": 81,
+     "aspectsRenderedAsCheck": 22,
+     "aspectsProse": 59,
+     "aspectsActive": 0,
+     "aspectsAdvisory": 22,
+     "aspectsDraft": 59,
+     "aspectsByDraftReason": {
+      "prose-unenforceable-keyless": 59
+     },
+     "aspectsVerified": 22,
+     "aspectsVerifiedAgainst": "/home/user/Yggdrasil/source/cli/dist/bin.js",
+     "aspectsSkippedUnrenderableGroupScoped": 0,
+     "aspectsSkippedNotARule": 0,
+     "proseByClass": {
+      "first1": 3,
+      "has": 31,
+      "call": 10,
+      "varshape": 3,
+      "stshape": 7,
+      "ret": 1,
+      "arity": 4
+     },
+     "drillCases": 338,
+     "drillHoldout": null,
+     "drillDropped": 0,
+     "nodeCycles": 0,
+     "latticeRows": 5453,
+     "subGate": 430,
+     "denies": 0,
+     "denyBacklog": 1,
+     "sizingHandNodes": null,
+     "charters": 34,
+     "charterAvgLines": 54.5
+    },
+    "typeRecall": "15/33",
+    "typeRecallWithAlternatives": "21/33",
+    "typePrecision": "18/31",
+    "nodeRecall": "15/35",
+    "nodePrecision": "18/31",
+    "handMechanicalRulesNamedByADraft": "0/15",
+    "wallSeconds": 26.4
+   },
+   "proposalStagedCheck": {
+    "summaries": [
+     "PASS (618 warnings)  34 nodes · 1466/1470 files (100%) · 81 aspects · 0 flows · 59 draft",
+     "PASS (402 warnings)  34 nodes · 1466/1470 files (100%) · 81 aspects · 0 flows · 216 verified (216 deterministic, 0 LLM) · 59 draft",
+     "PASS (402 warnings)  34 nodes · 1466/1470 files (100%) · 81 aspects · 0 flows · 216 verified (216 deterministic, 0 LLM) · 59 draft"
+    ],
+    "approveDeterministic": {
+     "attempted": 616,
+     "filled": 616,
+     "ok": 216,
+     "refused": 400,
+     "refusalRate": 0.649
+    }
+   }
+  },
+  "spring-petclinic": {
+   "oracle": {
+    "classifyingTypes": 28,
+    "organizationalTypes": 2,
+    "nodesWithMapping": 20,
+    "nodesWithoutMapping": 7,
+    "declaredRelations": 35,
+    "declaredNodePairs": 35,
+    "deterministicAspects": 23,
+    "proseAspects": 5,
+    "filesWithAnOwningNode": 77
+   },
+   "target": "spring-projects/spring-petclinic",
+   "revision": "818c4136ea971c21674525f9053de0d9c7ad8cfe",
+   "language": "Java",
+   "ciDependencyGate": false,
+   "files": 131,
+   "filesExcludedByCoverage": 1,
+   "mined": {
+    "partitions": 3,
+    "modules": 10,
+    "fileEdges": 10,
+    "moduleEdges": 0,
+    "moduleCycles": 0,
+    "conventions": 6,
+    "archNorms": 0,
+    "relCoverageUnresolvedFiles": 27,
+    "relCoverageGrammars": [
+     "groovy",
+     "json",
+     "properties",
+     "yaml"
+    ],
+    "moduleAssignmentMismatch": 0
+   },
+   "reconstruct": {
+    "typeRecallAt50": 0.143,
+    "typesAt50": 4,
+    "typesAt80": 2,
+    "typeMeanJ": 0.277,
+    "typeDisagreements": {
+     "a": 3,
+     "b": 2,
+     "c": 19
+    },
+    "typeLedgerNote": "a 3 — the set is a role group or a partition. b 2 — build-tooling and dev-environment are category buckets, not localities. c 19 — every Java type is a slice of the single src/main/java module.",
+    "nodeRecallAt50": 0.15,
+    "nodesAt50": 3,
+    "nodesAt80": 0,
+    "nodeMeanJ": 0.294,
+    "nodeBestMatchLevel": {
+     "module": 4,
+     "directory": 9,
+     "group": 4,
+     "partition": 3
+    },
+    "relationRecall": 0.114,
+    "relationPrecision": 1,
+    "relationMatched": 4,
+    "minedNodePairs": 4,
+    "aspectsMatched": 1,
+    "aspectsMinerMiss": 7,
+    "aspectsInvisibleByConstruction": 7,
+    "aspectsUnmeasurable": 8,
+    "wallSeconds": 0.2
+   },
+   "relationLedger": {
+    "oracleHasGrainLacks": {
+     "a": 25,
+     "b": 3,
+     "c": 3
+    },
+    "grainHasOracleLacks": {
+     "a": 0,
+     "b": 0,
+     "c": 0
+    },
+    "notes": "a: 17 same-package simple-name references Java needs no import for, plus 8 test->main imports the ancestor-walk resolver never reaches. b: two SQL->entity read-boundary edges the oracle README declares are not dependencies, plus tests/web-slice -> tests/unit. c: three controllers naming a Thymeleaf template by a returned string."
+   },
+   "cycles": {
+    "oracleDeclared": 0,
+    "ygAdviseNominated": 0,
+    "mined": 0,
+    "matched": 0,
+    "note": "the planted trap Vet<->Specialty (a cycle only if a javadoc {@link} counts) is not sprung — but grain resolves no same-package Java edge at all, so it avoids the trap without seeing the package"
+   },
+   "propose": {
+    "counts": {
+     "types": 12,
+     "alternatives": 18,
+     "nodes": 14,
+     "aspects": 18,
+     "aspectsRenderedAsCheck": 12,
+     "aspectsProse": 6,
+     "aspectsActive": 0,
+     "aspectsAdvisory": 9,
+     "aspectsDraft": 9,
+     "aspectsByDraftReason": {
+      "prose-unenforceable-keyless": 6,
+      "no-catch": 3
+     },
+     "aspectsVerified": 12,
+     "aspectsVerifiedAgainst": "/home/user/Yggdrasil/source/cli/dist/bin.js",
+     "aspectsSkippedUnrenderableGroupScoped": 0,
+     "aspectsSkippedNotARule": 0,
+     "proseByClass": {
+      "returns": 2,
+      "deco": 2,
+      "has": 1,
+      "mods": 1
+     },
+     "drillCases": 82,
+     "drillHoldout": null,
+     "drillDropped": 0,
+     "nodeCycles": 0,
+     "latticeRows": 270,
+     "subGate": 62,
+     "denies": 0,
+     "denyBacklog": 0,
+     "sizingHandNodes": null,
+     "charters": 14,
+     "charterAvgLines": 54.4
+    },
+    "typeRecall": "2/28",
+    "typeRecallWithAlternatives": "6/28",
+    "typePrecision": "3/12",
+    "nodeRecall": "0/20",
+    "nodePrecision": "0/12",
+    "handMechanicalRulesNamedByADraft": "0/15",
+    "wallSeconds": 9
+   },
+   "proposalStagedCheck": {
+    "summaries": [
+     "PASS (227 warnings)  14 nodes · 131/132 files (99%) · 18 aspects · 0 flows · 9 draft",
+     "PASS (46 warnings)  14 nodes · 131/132 files (99%) · 18 aspects · 0 flows · 181 verified (181 deterministic, 0 LLM) · 9 draft",
+     "PASS (46 warnings)  14 nodes · 131/132 files (99%) · 18 aspects · 0 flows · 181 verified (181 deterministic, 0 LLM) · 9 draft"
+    ],
+    "approveDeterministic": {
+     "attempted": 225,
+     "filled": 224,
+     "ok": 180,
+     "refused": 44,
+     "refusalRate": 0.196
+    }
+   }
+  },
+  "express": {
+   "oracle": {
+    "classifyingTypes": 13,
+    "organizationalTypes": 1,
+    "nodesWithMapping": 15,
+    "nodesWithoutMapping": 5,
+    "declaredRelations": 15,
+    "declaredNodePairs": 15,
+    "deterministicAspects": 20,
+    "proseAspects": 3,
+    "filesWithAnOwningNode": 211
+   },
+   "target": "expressjs/express",
+   "revision": "023767fe9872e029271df1418f73401bff20ff40",
+   "language": "JavaScript (CommonJS)",
+   "ciDependencyGate": false,
+   "files": 213,
+   "filesExcludedByCoverage": 0,
+   "mined": {
+    "partitions": 4,
+    "modules": 32,
+    "fileEdges": 153,
+    "moduleEdges": 48,
+    "moduleCycles": 0,
+    "conventions": 26,
+    "archNorms": 1,
+    "relCoverageUnresolvedFiles": 7,
+    "relCoverageGrammars": [
+     "json",
+     "yaml"
+    ],
+    "moduleAssignmentMismatch": 0
+   },
+   "reconstruct": {
+    "typeRecallAt50": 0.538,
+    "typesAt50": 7,
+    "typesAt80": 5,
+    "typeMeanJ": 0.565,
+    "typeDisagreements": {
+     "a": 2,
+     "b": 0,
+     "c": 4
+    },
+    "typeLedgerNote": "a 2 — library-core and library-prototype are role groups (lib::r0, lib::r1). b 0. c 4 — one-file and root-level types inside a coarser module.",
+    "nodeRecallAt50": 0.6,
+    "nodesAt50": 9,
+    "nodesAt80": 7,
+    "nodeMeanJ": 0.601,
+    "nodeBestMatchLevel": {
+     "partition": 1,
+     "group": 2,
+     "module": 12
+    },
+    "relationRecall": 0.867,
+    "relationPrecision": 0.929,
+    "relationMatched": 13,
+    "minedNodePairs": 14,
+    "aspectsMatched": 4,
+    "aspectsMinerMiss": 1,
+    "aspectsInvisibleByConstruction": 0,
+    "aspectsUnmeasurable": 15,
+    "wallSeconds": 0.2
+   },
+   "relationLedger": {
+    "oracleHasGrainLacks": {
+     "a": 0,
+     "b": 0,
+     "c": 2
+    },
+    "grainHasOracleLacks": {
+     "a": 0,
+     "b": 1,
+     "c": 0
+    },
+    "notes": "c: request/response reach the application only through `this.app`, never a require. b: the one mined pair the oracle lacks is examples -> package/factory, the violation the oracle deliberately leaves undeclared so the built-in check refuses it — grain reproduced it from evidence."
+   },
+   "cycles": {
+    "oracleDeclared": 0,
+    "ygAdviseNominated": 0,
+    "mined": 0,
+    "matched": 0,
+    "note": "the oracle declares the static require graph acyclic and three runtime application<->prototype cycles its notation cannot hold; those are outside both sides"
+   },
+   "propose": {
+    "counts": {
+     "types": 22,
+     "alternatives": 175,
+     "nodes": 22,
+     "aspects": 40,
+     "aspectsRenderedAsCheck": 7,
+     "aspectsProse": 33,
+     "aspectsActive": 1,
+     "aspectsAdvisory": 4,
+     "aspectsDraft": 35,
+     "aspectsByDraftReason": {
+      "prose-unenforceable-keyless": 33,
+      "no-catch": 2
+     },
+     "aspectsVerified": 7,
+     "aspectsVerifiedAgainst": "/home/user/Yggdrasil/source/cli/dist/bin.js",
+     "aspectsSkippedUnrenderableGroupScoped": 4,
+     "aspectsSkippedNotARule": 0,
+     "proseByClass": {
+      "lex": 3,
+      "call": 9,
+      "has": 12,
+      "stshape": 8,
+      "dir3": 1
+     },
+     "drillCases": 151,
+     "drillHoldout": null,
+     "drillDropped": 0,
+     "nodeCycles": 0,
+     "latticeRows": 1950,
+     "subGate": 77,
+     "denies": 0,
+     "denyBacklog": 0,
+     "sizingHandNodes": null,
+     "charters": 22,
+     "charterAvgLines": 57.1
+    },
+    "typeRecall": "6/13",
+    "typeRecallWithAlternatives": "6/13",
+    "typePrecision": "7/22",
+    "nodeRecall": "6/15",
+    "nodePrecision": "7/22",
+    "handMechanicalRulesNamedByADraft": "1/5",
+    "wallSeconds": 7.1
+   },
+   "proposalStagedCheck": {
+    "summaries": [
+     "FAIL  22 nodes · 213/213 files · 40 aspects · 0 flows · 35 draft",
+     "FAIL  22 nodes · 213/213 files · 40 aspects · 0 flows · 246 verified (246 deterministic, 0 LLM) · 35 draft",
+     "FAIL  22 nodes · 213/213 files · 40 aspects · 0 flows · 246 verified (246 deterministic, 0 LLM) · 35 draft"
+    ],
+    "approveDeterministic": {
+     "attempted": 358,
+     "filled": 356,
+     "ok": 245,
+     "refused": 111,
+     "refusalRate": 0.312
+    }
+   }
+  },
+  "yggdrasil": {
+   "oracle": {
+    "classifyingTypes": 36,
+    "organizationalTypes": 2,
+    "nodesWithMapping": 393,
+    "nodesWithoutMapping": 34,
+    "declaredRelations": 1261,
+    "declaredNodePairs": 1236,
+    "deterministicAspects": 57,
+    "proseAspects": 13,
+    "filesWithAnOwningNode": 2087
+   },
+   "target": "krzysztofdudek/Yggdrasil",
+   "revision": "5cca6b15",
+   "language": "TypeScript",
+   "ciDependencyGate": true,
+   "files": 3019,
+   "filesExcludedByCoverage": 0,
+   "mined": {
+    "partitions": 19,
+    "modules": 37,
+    "fileEdges": 2161,
+    "moduleEdges": 65,
+    "moduleCycles": 2,
+    "conventions": 149,
+    "archNorms": 2,
+    "relCoverageUnresolvedFiles": 852,
+    "relCoverageGrammars": [
+     "bash",
+     "json",
+     "yaml"
+    ],
+    "moduleAssignmentMismatch": 0
+   },
+   "reconstruct": {
+    "typeRecallAt50": 0.528,
+    "typesAt50": 19,
+    "typesAt80": 12,
+    "typeMeanJ": 0.55,
+    "typeDisagreements": {
+     "a": 7,
+     "b": 2,
+     "c": 8
+    },
+    "typeLedgerNote": "a 7, b 2, c 8 — as ticket 093 recorded, reproduced here.",
+    "nodeRecallAt50": 0.211,
+    "nodesAt50": 83,
+    "nodesAt80": 53,
+    "nodeMeanJ": 0.266,
+    "nodeBestMatchLevel": {
+     "module": 72,
+     "group": 182,
+     "directory": 131,
+     "partition": 8
+    },
+    "relationRecall": 0.894,
+    "relationPrecision": 0.998,
+    "relationMatched": 1105,
+    "minedNodePairs": 1107,
+    "aspectsMatched": 11,
+    "aspectsMinerMiss": 20,
+    "aspectsInvisibleByConstruction": 6,
+    "aspectsUnmeasurable": 20,
+    "wallSeconds": 3.4
+   },
+   "relationLedger": {
+    "oracleHasGrainLacks": {
+     "a": 0,
+     "b": 0,
+     "c": 131
+    },
+    "grainHasOracleLacks": {
+     "a": 0,
+     "b": 0,
+     "c": 2
+    },
+    "notes": "Classification carried over from ticket 093, whose counts this run reproduces exactly: the 131 are relations declared for a dependency reached through an intermediary, so no direct import exists to resolve."
+   },
+   "cycles": {
+    "oracleDeclared": null,
+    "ygAdviseNominated": 1,
+    "mined": 2,
+    "matched": 1,
+    "note": "the ticket-093 advise capture at an earlier commit nominated 2; at 5cca6b15 advise nominates 1 and grain mines 2, one of which matches"
+   },
+   "propose": {
+    "counts": {
+     "types": 82,
+     "alternatives": 284,
+     "nodes": 72,
+     "aspects": 215,
+     "aspectsRenderedAsCheck": 43,
+     "aspectsProse": 172,
+     "aspectsActive": 8,
+     "aspectsAdvisory": 11,
+     "aspectsDraft": 196,
+     "aspectsByDraftReason": {
+      "prose-unenforceable-keyless": 172,
+      "no-catch": 24
+     },
+     "aspectsVerified": 43,
+     "aspectsVerifiedAgainst": "/home/user/Yggdrasil/source/cli/dist/bin.js",
+     "aspectsSkippedUnrenderableGroupScoped": 16,
+     "aspectsSkippedNotARule": 16,
+     "proseByClass": {
+      "returns": 20,
+      "stshape": 23,
+      "has": 69,
+      "modexport": 8,
+      "lex": 10,
+      "call": 22,
+      "ptype": 8,
+      "arity": 2,
+      "namesuffix": 2,
+      "varshape": 3,
+      "dir3": 1,
+      "nameshape": 1,
+      "first1": 3
+     },
+     "drillCases": 960,
+     "drillHoldout": null,
+     "drillDropped": 0,
+     "nodeCycles": 8,
+     "latticeRows": 6552,
+     "subGate": 587,
+     "denies": 0,
+     "denyBacklog": 2,
+     "sizingHandNodes": 393,
+     "charters": 72,
+     "charterAvgLines": 55.6
+    },
+    "typeRecall": "21/36",
+    "typeRecallWithAlternatives": "23/36",
+    "typePrecision": "23/82",
+    "nodeRecall": "30/393",
+    "nodePrecision": "31/70",
+    "handMechanicalRulesNamedByADraft": "6/37",
+    "wallSeconds": 77.1
+   },
+   "proposalStagedCheck": {
+    "summaries": [
+     "FAIL  72 nodes · 1366/1615 files (85%) · 215 aspects · 0 flows · 196 draft",
+     "FAIL  72 nodes · 1366/1615 files (85%) · 215 aspects · 0 flows · 912 verified (912 deterministic, 0 LLM) · 196 draft",
+     "FAIL  72 nodes · 1366/1615 files (85%) · 215 aspects · 0 flows · 912 verified (912 deterministic, 0 LLM) · 196 draft"
+    ],
+    "approveDeterministic": {
+     "attempted": 1155,
+     "filled": 1152,
+     "ok": 909,
+     "refused": 243,
+     "refusalRate": 0.211
+    }
+   }
+  }
+ },
+ "headline": {
+  "relationPrecisionIsRepresentative": true,
+  "relationPrecisionRange": "0.929 (express) – 1.000 (grain, spring-petclinic); 0.998 on the Yggdrasil oracle",
+  "relationRecallIsNot": "0.894 (TypeScript) / 0.867 (CommonJS) / 0.694 (JS with spawns and read-boundary edges) / 0.114 (Java)",
+  "minedPairsNoOracleHas": "3 across 1335 declared pairs, and none of the three is a false edge",
+  "adoptionNoiseFloorIsOneClass": "the false direction (imp/deco/call): 35 of 44 refusals on spring-petclinic, 102 of 112 on express, 398 of 400 on grain",
+  "grainCertifiesZeroConventionsOnItself": true
+ }
+}

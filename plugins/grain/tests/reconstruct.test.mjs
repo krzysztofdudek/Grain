@@ -14,7 +14,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, cpSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, cpSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -184,6 +184,78 @@ test('--graph over a copy of an in-tree graph reproduces the in-place numbers ex
   assert.equal(beside.relations.declaredPairs, inPlace.relations.declaredPairs);
   assert.equal(beside.aspects.deterministicAspects, inPlace.aspects.deterministicAspects);
 });
+
+// ---------- 1c. the three in-tree oracles, against the real repositories they describe ----------
+// The synthetic fixture above proves the plumbing; these prove it on graphs nobody wrote for the instrument.
+// The oracle graphs are committed here; the repositories are clones that are not, so the corpus directory has to
+// be pointed at with GRAIN_CORPUS_CLONES and the test skips with a reason when it is not. What is asserted is the
+// ORACLE side of every comparison — the denominators — because those are facts about a committed graph read
+// against a real foreign tree, and a glob, `content:` predicate or mapping that silently stopped matching would
+// move them without failing anything else. Grain's own scores are the measurement, not the guard, and are not
+// pinned here: they are reported in `.system/research/oracles-4-measurement.md`.
+const CLONES = process.env.GRAIN_CORPUS_CLONES;
+const ORACLES = join(here, 'stress', 'oracles');
+const ORACLE_FACTS = {
+  express: {
+    oracle: 'express', clone: 'express',
+    files: 213, nodeTypes: 14, nodes: 20, aspects: 23,
+    classifyingTypes: 13, nodesWithMapping: 15, declaredRelations: 15,
+    deterministicAspects: 20, proseAspects: 3, filesWithAnOwningNode: 211,
+  },
+  'spring-petclinic': {
+    oracle: 'spring-petclinic', clone: 'spring-petclinic',
+    files: 131, nodeTypes: 30, nodes: 27, aspects: 28,
+    classifyingTypes: 28, nodesWithMapping: 20, declaredRelations: 35,
+    deterministicAspects: 23, proseAspects: 5, filesWithAnOwningNode: 77,
+  },
+};
+// a throwaway git repo holding the clone's HEAD tree: the corpus clones are read-only, and `grain export` would
+// otherwise leave a `.grain/` inside one
+function stageClone(src, dst, env) {
+  mkdirSync(dst, { recursive: true });
+  const tar = spawnSync('sh', ['-c', `git -C '${src}' archive HEAD | tar -x -C '${dst}'`], { encoding: 'utf8' });
+  assert.equal(tar.status, 0, tar.stderr);
+  execFileSync('git', ['-C', dst, 'init', '-q', '-b', 'main'], { env });
+  execFileSync('git', ['-C', dst, 'add', '-A'], { env });
+  execFileSync('git', ['-C', dst, 'commit', '-q', '-m', 'staged clone'], { env });
+}
+
+for (const [name, F] of Object.entries(ORACLE_FACTS)) {
+  test(`the ${name} oracle scores against its own repository`, { skip: CLONES ? false : 'GRAIN_CORPUS_CLONES is not set — the corpus clones are not in this repository' }, () => {
+    const clone = join(CLONES, F.clone);
+    if (!existsSync(join(clone, '.git'))) {
+      assert.ok(true, `skipped: no clone at ${clone}`);
+      return;
+    }
+    const target = join(tmp, `clone-${name}`);
+    stageClone(clone, target, {
+      ...process.env, HOME: tmp,
+      GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x',
+      GIT_AUTHOR_DATE: '2026-01-10T12:00:00Z', GIT_COMMITTER_DATE: '2026-01-10T12:00:00Z',
+    });
+    const o = runRecon(target, ['--graph', join(ORACLES, F.oracle), '--no-history']);
+
+    assert.equal(o.files, F.files, 'tracked files after coverage.excluded');
+    assert.equal(o.graph.nodeTypes, F.nodeTypes);
+    assert.equal(o.graph.nodes, F.nodes);
+    assert.equal(o.graph.aspects, F.aspects);
+    // every `when` and every `mapping` still expands against the real tree — the silent-failure mode
+    assert.equal(o.types.classifyingTypes, F.classifyingTypes);
+    assert.equal(o.types.unmeasurable, 0, 'a node type whose `when` matches no tracked file');
+    assert.equal(o.nodes.nodesWithMapping, F.nodesWithMapping);
+    assert.equal(o.nodes.unmeasurable, 0, 'a node whose `mapping` matches no tracked file');
+    assert.equal(o.unknownWhenKeys.length, 0);
+    assert.equal(o.relations.declaredRelations, F.declaredRelations);
+    assert.equal(o.relations.nodeLevel.filesWithAnOwningNode, F.filesWithAnOwningNode);
+    assert.equal(o.aspects.deterministicAspects, F.deterministicAspects);
+    assert.equal(o.aspects.proseAspects, F.proseAspects);
+    // grain's side is not pinned, but the tallies must close
+    assert.equal(o.grain.moduleAssignmentMismatch, 0, 'the instrument must reproduce grain\'s own module file counts');
+    assert.ok(o.relations.nodeLevel.matched <= Math.min(o.relations.nodeLevel.declaredPairs, o.relations.nodeLevel.grainPairs));
+    const t = o.types.disagreementClasses;
+    assert.equal(o.types.ge50 + t.a + t.b + t.c, o.types.classifyingTypes);
+  });
+}
 
 // ---------- 2. the type-recall arithmetic, against a pinned synthetic export ----------
 const syntheticExport = modules => ({

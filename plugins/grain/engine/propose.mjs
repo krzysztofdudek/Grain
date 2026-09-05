@@ -194,6 +194,48 @@ function gitFiles(repo) {
   }
 }
 
+// THE BRANCH A CHANGE IS MEASURED AGAINST (ticket 118).
+//
+// Ticket 109 measured what an earned `enforced` actually costs on delivery: all 21 enforced rules across the
+// 17-repo corpus block between 1 and 18 EXISTING files at the first `yg check`. The drill that earned the
+// status proves the CHECK correct; neither it nor ruling `enforced-requires-certified-origin` asks whether the
+// repository is green today. Yggdrasil's answer is progressive mode — `progressive: { reference: <ref> }` in
+// `yg-config.yaml` (`yg schemas read config`): with it set, a plain `yg check` blocks only on what the current
+// change reaches, everything inherited from that ref is listed and counted as a non-blocking warning, and
+// `yg check --full` blocks on all of it again. Status is NOT lowered by it — the rule stays enforced and blocks
+// the moment a change reaches it — which is exactly what the ruling requires.
+//
+// The reference is DERIVED from the repository, never guessed, and in the order an adopter's own CI resolves it:
+//
+//   1. `origin/HEAD` — the default branch of the remote this repository was cloned from. This is what a pull
+//      request is opened against, so it is what a change is accountable against.
+//   2. failing that, the branch HEAD is on, as the remote has it (`origin/<branch>`) if that ref exists locally,
+//      and otherwise the local branch name — a repository with no remote at all still has something to compare
+//      against, and Yggdrasil resolves a plain branch name the same way.
+//   3. failing both (a detached HEAD with no `origin/HEAD`, or no git at all) — NOTHING. The block is left out
+//      and the report prints the one-line instruction instead. A `progressive` block that names no reference is
+//      a hard `config-progressive-missing-reference` error, and a reference naming a ref that does not exist
+//      makes every run answer for the whole project while the config reads as though it did not: both are worse
+//      than saying plainly that this repository gave the renderer nothing to derive.
+export function progressiveReference(repo) {
+  const git = (...args) => {
+    try { return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; }
+  };
+  const head = git('symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD');
+  if (head.startsWith('refs/remotes/')) {
+    const ref = head.slice('refs/remotes/'.length);
+    return { reference: ref, why: `\`${ref}\` is the default branch of the remote this repository was cloned from, so it is what a change here is opened against` };
+  }
+  const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
+  if (branch && branch !== 'HEAD') {
+    if (git('rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`)) {
+      return { reference: `origin/${branch}`, why: `this repository names no default branch, so the reference is the branch it is on (\`${branch}\`) as the remote has it` };
+    }
+    return { reference: branch, why: `this repository has no remote, so the reference is the branch it is on (\`${branch}\`)` };
+  }
+  return { reference: null, why: 'this repository names no default branch (no `origin/HEAD`) and its HEAD is not on a branch, so there is no ref here to measure a change against' };
+}
+
 // Repo-relative directory prefix -> the tracked files beneath it.
 const underDir = (files, dir) => new Set(files.filter(f => f === dir || f.startsWith(dir + '/')));
 
@@ -1263,14 +1305,25 @@ function loadInputs(repo, opts) {
 }
 
 // `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
-function writeArchitecture(ygg, { active, nodes, rels, files, ev }) {
+function writeArchitecture(ygg, { active, nodes, rels, files, ev, progressive }) {
   // yg-config.yaml — require nothing. A proposal that turns every unmapped file into a blocking error on day one
   // is a proposal nobody runs twice; `getting-started` §4 says require-nothing is the brownfield default.
+  //
+  // `progressive` (ticket 118) is the same principle applied to the RULES rather than to coverage: an enforced
+  // rule earned its status from a drill that never asked whether the repository already holds it, so on day one
+  // it blocks on code nobody in this change wrote. With the block set, `yg check` blocks only on what the
+  // current change reaches; the pre-existing sites are still listed and still counted, as warnings, and
+  // `yg check --full` blocks on all of them again. It is left out entirely where the repository gave nothing to
+  // derive — a block that names no reference is refused by Yggdrasil rather than silently ignored.
   write(join(ygg, 'yg-config.yaml'), preambleComment() + yamlEmit({
     version: SCHEMA_VERSION,
     coverage: { required: [], excluded: [] },
     auto_approve: false,
     quality: { max_direct_relations: Math.max(10, ...nodes.map(n => n.relations.length)) },
+    ...(progressive?.reference ? {
+      '#e': `progressive: measure a change against \`${progressive.reference}\` — ${progressive.why}. An enforced rule this change did not reach is reported as a warning instead of blocking; \`yg check --full\` blocks on all of it again. Remove this block to answer for the whole repository on every run.`,
+      progressive: { reference: progressive.reference },
+    } : {}),
   }));
 
   // yg-architecture.yaml
@@ -1404,7 +1457,12 @@ function writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev 
   for (const n of nodes) {
     const md = renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf: exp.asOf, repo });
     write(join(ygg, 'model', n.id, 'charter.md'), md);
-    ev('charter', n.id, `charter.md rendered for \`${n.id}\` — ${n.organizational ? 'organizational node' : `${n.files.size} files`}, ${aspects.filter(a => a.host === n.id).length} hosted aspect drafts, ${(cochangeByNode.get(n.id) || []).length} co-change partners`);
+    // The audit row counts what the charter NAMES, through the same cascade the charter renders (ticket 114).
+    // It used to compare an aspect's `host` — a TYPE id — against the node's `id`, a PATH: the category error
+    // ticket 112 fixed inside the charter, left behind in the row that reports on it, so every charter row on
+    // every repository read "0 hosted aspect drafts" including the ones whose charter names eight.
+    const eff = effectiveAspectsForNode(n, nodes, aspects);
+    ev('charter', n.id, `charter.md rendered for \`${n.id}\` — ${n.organizational ? 'organizational node' : `${n.files.size} files`}, ${eff.own.length + eff.inherited.length} rules in force here (${eff.own.length} attached at this node's own type, ${eff.inherited.length} inherited from an ancestor), ${(cochangeByNode.get(n.id) || []).length} co-change partners`);
     chartersWritten++; charterLines += md.split('\n').length;
   }
   return { chartersWritten, charterLines };
@@ -1441,7 +1499,10 @@ export async function propose(repo, outDir, opts = {}) {
   const evidence = [];
   const ev = (kind, id, line, extra = {}) => { evidence.push({ kind, id, evidence: line, ...extra }); return line; };
 
-  writeArchitecture(ygg, { active, nodes, rels, files, ev });
+  // The branch a change is measured against, derived from this repository (ticket 118) — read once here so the
+  // config, the report and `--json` all name the same reference and cannot disagree about it.
+  const progressive = progressiveReference(repo);
+  writeArchitecture(ygg, { active, nodes, rels, files, ev, progressive });
 
   writeNodeFiles(ygg, nodes, ev);
 
@@ -1508,18 +1569,18 @@ export async function propose(repo, outDir, opts = {}) {
       counts:
         'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsAdvisory`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (ticket 102, three-way since 107 — see `provenance.json`\'s own `status`/`draftReason`): `aspectsActive` counts `status: enforced` (a certified-convention origin that cleared a real drill — nothing stands between the maintainer and turning it on), `aspectsAdvisory` counts `status: advisory` (a sub-gate-lattice origin that cleared the SAME drill but sits below grain\'s own certification bound — a refactor decision, not law; these are the report\'s `candidates`), `aspectsDraft` is everything that never cleared the drill at all. `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified), `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
       provenance:
-        'NOT inlined here — each `.yggdrasil/aspects/<id>/provenance.json` (same field set as ticket 097\'s law-loop.mjs: aspectId, conventionId, origin, enumeratorClass, identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note — PLUS, ticket 102, `status`/`draftReason`/`scopeApproximation`, additive fields law-loop.mjs\'s own replay provenance does not carry) is the per-aspect record; this file\'s `evidence` rows are the prose summary, provenance.json is the structured one a machine reads.',
+        'NOT inlined here — each `.yggdrasil/aspects/<id>/provenance.json` (same field set as ticket 097\'s law-loop.mjs: aspectId, conventionId, origin, enumeratorClass, identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note — PLUS, ticket 102, `status`/`draftReason`/`scopeApproximation`, and, ticket 118, `existingViolations` (the count of sites that break the rule at `asOf` — the same number as `deviating`, named for what it costs on the day the graph is switched on), additive fields law-loop.mjs\'s own replay provenance does not carry) is the per-aspect record; this file\'s `evidence` rows are the prose summary, provenance.json is the structured one a machine reads.',
       sizing:
         'NOT inlined here — `sizing.json` alongside this file carries files/bytes/codelength-lines/scopes per proposed (and, where the source repo already carries its own `.yggdrasil/`, per HAND) node; every node\'s `charter.md` quotes its own row under "## Sizing".',
       charter:
-        'one `charter.md` per non-organizational AND organizational node, written beside its `yg-node.yaml` under `.yggdrasil/model/<node>/` — Horde\'s `node.mjs show` reads it verbatim. Sections: what lives here, depends on / used by (module edges with counts), certified conventions (share/n/deviating + exemplars), sub-gate candidates, co-change partners, sizing, and the `asOf` sha.',
+        'one `charter.md` per non-organizational AND organizational node, written beside its `yg-node.yaml` under `.yggdrasil/model/<node>/` — Horde\'s `node.mjs show` reads it verbatim. Sections: what lives here, depends on / used by (module edges with counts), certified conventions (share/n/deviating + status + drill numbers + exemplars), rules inherited from above (ticket 114 — every rule that reaches this node\'s files through Yggdrasil\'s own cascade from an ancestor node or an ancestor node\'s architecture type, each marked with where it is declared), sub-gate candidates, co-change partners, sizing, and the `asOf` sha.',
       familyCandidates:
         'NOT part of this file — `propose.mjs --family-candidates <out.json>` writes a SEPARATE `.family-candidates.json` in the exact shape Yggdrasil\'s `yg advise` (`parseFamilyCandidates`, `advise-nominations.ts`) already accepts; see `buildFamilyCandidates` and docs/reference.md, "The proposal contract".',
     },
     evidence,
   }, null, 1) + '\n');
 
-  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded };
+  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded, progressive };
 }
 
 // ---- aspect drafting ----
@@ -1815,6 +1876,11 @@ export function provenanceFor(a, { asOf, repo }) {
     share: a.share ?? null,
     n: a.n ?? null,
     deviating: a.deviating ?? null,
+    // The same number as `deviating`, named for the question a maintainer switching this graph on is actually
+    // asking (ticket 118): how much of the code that is already here does this rule refuse on day one? For an
+    // `enforced` rule that is what the first `yg check` blocks on unless progressive mode is set; the field is
+    // written for every aspect so a consumer never has to know which statuses carry it.
+    existingViolations: a.deviating ?? null,
     asOf: asOf || null,
     cutSha: asOf || null, // a live `propose` run has no hold-out cut of its own — the cut IS `asOf` (HEAD)
     cutDate: null,
@@ -2130,6 +2196,60 @@ export function nodeCochangePairs(exp, nodeOfFile, top = 5) {
   return out;
 }
 
+// ==================================================================================================
+// 7c-bis. THE CASCADE, AS YGGDRASIL RUNS IT (ticket 114).
+//
+// A grain proposal attaches every mined rule to a TYPE (`a.host` is a type id, written into
+// `yg-architecture.yaml` under `node_types.<type>.aspects`). The node that actually OWNS the files is often a
+// nested one whose own type hosts nothing: on spring-petclinic the 30 Java files belong to
+// `src/main/java/org`, while all 8 mined rules sit on the `src-main-java` type one level up. Yggdrasil
+// resolves that correctly — `yg context --file` lists all 8 — because its cascade
+// (`core/graph/aspects.ts`, `iterateAttachments`) walks six channels, in this order:
+//
+//   1. the node's own `aspects:`            4. an ANCESTOR node's architecture type's `aspects:`
+//   2. an ANCESTOR node's own `aspects:`    5. flow aspects
+//   3. the node's own architecture type's `aspects:`   6. port-consumption aspects
+//
+// The charter was per-node and flat, so the owner assigned to the node holding the code read "none certified
+// yet at this node" about code governed by eight rules — and the charter is the ONLY file the layer above the
+// graph reads (Horde's `node.mjs show` prints it verbatim; nothing there opens `yg-architecture.yaml`).
+//
+// This walk is the same walk, restricted to the channels a grain proposal can populate. Channels 5 and 6 are
+// structurally empty here — this renderer writes no `yg-flow.yaml` and no `ports:` — so they are not walked
+// rather than walked and found empty. Channels 1 and 2 ARE walked, off `n.aspectIds`, even though the node
+// writer attaches nothing there today: the moment it does, the charter follows without a second edit.
+// Ancestors are the node-path chain, ROOT-FIRST, exactly as `collectAncestors` returns it.
+//
+// Effective STATUS is not recomputed here. Yggdrasil takes max() across the channels that attach an aspect;
+// this renderer writes a bare id at every attach site (no `status:` override — see `writeArchitecture`), so
+// the only status in play is the aspect's own, which is what each row prints.
+const ancestorNodesOf = (n, nodes) => nodes
+  .filter(p => p !== n && p.id !== n.id && n.id.startsWith(p.id + '/'))
+  .sort((a, b) => a.id.split('/').length - b.id.split('/').length);
+
+export function effectiveAspectsForNode(n, nodes, aspects) {
+  const ancestors = ancestorNodesOf(n, nodes);
+  const byId = new Map(aspects.map(a => [a.id, a]));
+  const seen = new Set();
+  const own = [], inherited = [];
+  const take = (a, into, via) => { if (!a || seen.has(a.id)) return; seen.add(a.id); into.push(via ? { a, via } : a); };
+  for (const id of n.aspectIds || []) take(byId.get(id), own);                                  // channel 1
+  for (const a of aspects) if (a.host && a.host === n.type) take(a, own);                       // channel 3
+  for (const p of ancestors) for (const id of p.aspectIds || []) take(byId.get(id), inherited, `inherited from ancestor node \`${p.id}\``); // channel 2
+  for (const p of ancestors) for (const a of aspects) if (a.host && a.host === p.type) take(a, inherited, `inherited from type \`${p.type}\`, on ancestor node \`${p.id}\``); // channel 4
+  return { own, inherited };
+}
+
+// One rule, one line, in the words the report and the aspect file already use. `status` is the word Yggdrasil's
+// own `yg-aspect.yaml` carries (`yg schemas read aspect`), and the drill numbers are the ones the proposal's
+// report prints for the same rule — so a reader meeting a rule in the charter and again in the report meets one
+// account of it, not two.
+const charterStatusOf = a => a.finalStatus || 'draft';
+// A drill with nothing planted (`violates: 0`) says nothing about the check, so the row says nothing about the
+// drill — "caught 0 of 0" reads as a failure and is not one.
+const charterDrillOf = a => (a.drill?.violates ? ` · drill: caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s)` : '');
+const charterShareOf = a => (typeof a.share === 'number' ? a.share.toFixed(3) : String(a.share));
+
 export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf, repo }) {
   const L = [`# Charter — \`${n.id}\``, '', ...PREAMBLE.map(l => (l ? `> ${l}` : '>')), ''];
   // THE CHARTER OPENS WITH WHAT THE NODE OBLIGES, NOT WITH HOW IT WAS CUT (ticket 109). `n.why` is the
@@ -2169,26 +2289,44 @@ export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByN
   // An aspect's `host` is the TYPE that carries it in `yg-architecture.yaml`; a node's own `id` is a PATH
   // (`src/main/java`) and `n.type` is that type id (`src-main-java`). Matching the host against the id is
   // a category error that empties every charter the moment a directory name is not already its own slug —
-  // and the charter is the one file the layer above the graph reads.
-  const hosted = aspects.filter(a => a.host === n.type);
+  // and the charter is the one file the layer above the graph reads. `effectiveAspectsForNode` above walks
+  // the rest of the cascade, so a node whose OWN type hosts nothing still reads the rules that reach its
+  // files from an ancestor (ticket 114).
+  const { own: hosted, inherited } = effectiveAspectsForNode(n, nodes, aspects);
   const certified = hosted.filter(a => a.origin === 'certified-convention');
   const subgate = hosted.filter(a => a.origin === 'sub-gate-lattice');
   L.push('## Certified conventions', '');
   if (certified.length) {
     for (const a of certified) {
-      const sh = typeof a.share === 'number' ? a.share.toFixed(3) : String(a.share);
-      L.push(`- ${a.name} — share ${sh} · n ${a.n} conforming, ${a.deviating} deviating (\`${a.id}\`)`);
+      L.push(`- ${a.name} — share ${charterShareOf(a)} · n ${a.n} conforming, ${a.deviating} deviating · status \`${charterStatusOf(a)}\`${charterDrillOf(a)} (\`${a.id}\`)`);
       if (a.exemplars?.length) L.push(`  exemplars to copy: ${a.exemplars.map(e => `${e.rel}:${e.line}`).join(', ')}`);
     }
   } else {
-    L.push('- (none certified yet at this node)');
+    // NEVER A DEAD END WHERE RULES DO REACH THE FILES. "none certified yet at this node" was literally true
+    // and practically false on the one node that owns the code: the rules are attached one level up, and the
+    // reader is told where to look rather than told there is nothing.
+    L.push(inherited.length
+      ? `- (none attached at this node itself — but ${inherited.length} rule${inherited.length === 1 ? '' : 's'} reach${inherited.length === 1 ? 'es' : ''} these files from above; they are in **Rules inherited from above** below and they are in force here)`
+      : '- (none certified yet at this node)');
+  }
+  L.push('');
+  // The same rules `yg context --file` lists for a file this node owns, arriving through the cascade rather
+  // than attached here. Each row says where it comes from, so a reader knows which file to edit to change it.
+  L.push('## Rules inherited from above', '');
+  if (inherited.length) {
+    for (const { a, via } of inherited) {
+      L.push(`- ${a.name} — ${via} · status \`${charterStatusOf(a)}\` · share ${charterShareOf(a)} · n ${a.n} conforming, ${a.deviating} deviating${charterDrillOf(a)} (\`${a.id}\`)`);
+      if (a.exemplars?.length) L.push(`  exemplars to copy: ${a.exemplars.map(e => `${e.rel}:${e.line}`).join(', ')}`);
+    }
+    L.push('', 'These are not attached here and cannot be changed here: each one is declared on the type or node named beside it, and applies to every file below it. `yg check` judges this node\'s files against them exactly as it judges the node that declares them.');
+  } else {
+    L.push('- (no rule reaches this node from an ancestor node or type)');
   }
   L.push('');
   L.push('## Sub-gate candidates — evidence, not yet law', '');
   if (subgate.length) {
     for (const a of subgate) {
-      const sh = typeof a.share === 'number' ? a.share.toFixed(3) : String(a.share);
-      L.push(`- ${a.name} — share ${sh} · practised in ${a.n} · ${a.deviating} sites do not (\`${a.id}\`)`);
+      L.push(`- ${a.name} — share ${charterShareOf(a)} · practised in ${a.n} · ${a.deviating} sites do not · status \`${charterStatusOf(a)}\`${charterDrillOf(a)} (\`${a.id}\`)`);
     }
   } else {
     L.push('- (none below the certification bound worth naming)');
@@ -2486,10 +2624,24 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   const restByReason = {};
   for (const a of rest) { const k = a.draftReason || 'unverified'; restByReason[k] = (restByReason[k] || 0) + 1; }
 
+  // What an enforced rule costs on the day the graph is switched on (ticket 118). `deviating` is the count of
+  // sites that break the rule at `asOf`; whether they block depends on the progressive reference the proposal
+  // just wrote, so the sentence names the one that applies rather than leaving the reader to work it out.
+  const prog = r.progressive || { reference: null, why: null };
+  const existingCost = a => {
+    const n = a.deviating ?? 0;
+    if (!n) return ' · nothing in this repository breaks it today';
+    return prog.reference
+      ? (n === 1
+        ? ' · 1 existing site violates it today; progressive mode keeps it a warning until touched'
+        : ` · ${n} existing sites violate it today; progressive mode keeps them as warnings until touched`)
+      : ` · the first \`yg check\` will be red on ${n} site${n === 1 ? '' : 's'} that break${n === 1 ? 's' : ''} it today`;
+  };
+
   const aspectJson = a => ({
     id: a.id, statement: a.name, status: a.finalStatus,
     draftReason: a.draftReason || null, reviewer: a.check ? 'deterministic' : 'llm',
-    share: a.share ?? null, n: a.n ?? null, deviating: a.deviating ?? null, node: a.host || null,
+    share: a.share ?? null, n: a.n ?? null, deviating: a.deviating ?? null, existingViolations: a.deviating ?? null, node: a.host || null,
     drill: a.drill ? { caught: a.drill.catches, planted: a.drill.violates, falseAlarms: a.drill.falseAlarm } : null,
     path: aspectPath(a),
   });
@@ -2501,6 +2653,9 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     // `timedOut` (additive) counts drills abandoned at `DRILL_TIMEOUT_MS`; their aspects are unverified, so
     // they are already inside the draft counts below — this names WHY they are, rather than leaving it silent.
     yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0, timedOut: r.verify?.timedOut || 0 },
+    // `progressive` (ticket 118, additive) — the reference the proposal's own `yg-config.yaml` names, and why
+    // that one. `reference: null` means the block was left out and the first `yg check` answers for everything.
+    progressive: { reference: prog.reference || null, why: prog.why || null },
     // `advisory` (ticket 107, additive) is also the count of `candidates` rows that carry `status: advisory` —
     // both numbers are given so a reader does not have to filter `candidates` to get the split.
     aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason },
@@ -2528,7 +2683,14 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     if (r.verify.timedOut) L.push(`  ${r.verify.timedOut} drill(s) were given up on after ${r.verify.drillTimeoutMs / 1000}s each and their aspects are unverified, not judged — re-run, or drill them by hand with \`yg drill --aspect <id>\``);
     for (const a of enforced) {
       L.push(`  ${a.id} — ${a.name}`);
-      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · it already ${evidenceOf(a)} — ${aspectPath(a)}`);
+      L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · it already ${evidenceOf(a)}${existingCost(a)} — ${aspectPath(a)}`);
+    }
+    // Said once, under the enforced list, because it is the same answer for all of them (ticket 118). The
+    // drill proved each check correct; it never asked whether this repository already holds the rule.
+    if (enforced.length) {
+      L.push(prog.reference
+        ? `  measured against \`${prog.reference}\` — ${prog.why}: the sites above that break a rule today are reported as warnings until a change reaches them, and \`yg check --full\` blocks on all of them. Remove \`progressive\` from ${ygg}/yg-config.yaml to answer for the whole repository on every run.`
+        : `  no branch to measure against: ${prog.why}, so the proposal names none and the first \`yg check\` blocks on every site above. Set \`progressive: { reference: <branch> }\` in ${ygg}/yg-config.yaml to hold the pre-existing sites as warnings until a change reaches them.`);
     }
     L.push(`candidates: ${candidates.length} of ${c.aspects} — ${advisory.length} advisory (sub-gate origin, same drill bar as enforced but below grain's own certification bound) + ${legacyCandidates.length} draft(s) a drill still caught a violation with, strongest evidence first within each`);
     for (const a of candidates) {

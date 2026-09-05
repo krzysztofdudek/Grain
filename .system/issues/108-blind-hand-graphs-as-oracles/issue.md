@@ -1,6 +1,6 @@
 # 108 · A: trzy ślepe ręczne grafy .yggdrasil/ (Grain, spring-petclinic, express) pisane przez niezależnych agentów z czytania kodu; rekonstrukcja i propozycja mierzone przeciw nim — precyzja/pokrycie na 4 wyroczniach zamiast 1
 
-**Status:** OPEN
+**Status:** LANDED — merged fdb7672
 **Found by:** director, 2026-09-05
 **Severity:** high
 **Class:** G
