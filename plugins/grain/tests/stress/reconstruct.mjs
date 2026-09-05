@@ -8,10 +8,15 @@
 // proposes by itself. That is what this script does. It never edits the pattern repo and never touches the
 // engine — it drives `grain export` as a subprocess, reads the graph YAML, and counts.
 //
-//   node tests/stress/reconstruct.mjs <repo-with-.yggdrasil> <out.json> [--md]
+//   node tests/stress/reconstruct.mjs <repo> <out.json> [--md]
 //
 // Options:
 //   --md               also print the markdown tables on stdout
+//   --graph <dir>      read the hand graph from `<dir>/.yggdrasil/` instead of `<repo>/.yggdrasil/`. A hand
+//                      graph written as an ORACLE lives beside the code it describes, not inside it: the
+//                      oracles under `tests/stress/oracles/<name>/` are committed here and the repositories
+//                      they describe are clones somewhere else. Without this the instrument can only score a
+//                      repository that carries its own graph, which is one layout out of several.
 //   --export <path>    reuse an existing `grain export` JSON instead of spawning one (re-runs, tests)
 //   --advise <path>    reuse captured `yg advise` text instead of spawning the Yggdrasil CLI
 //   --yg <path>        Yggdrasil CLI entry (bin.js) to run `advise` with; without it, comparison (d) is
@@ -787,11 +792,13 @@ export async function run(opts) {
   const t0 = Date.now();
   const say = m => { if (!opts.quiet) console.error('[reconstruct] ' + m); };
 
-  const graph = readGraph(repo);
+  const graphRoot = opts.graph ? resolve(opts.graph) : repo;
+  const graph = readGraph(graphRoot);
   const allFiles = gitFiles(repo);
   const excluded = (graph.config?.coverage?.excluded || []).map(p => pathMatcher(p));
   const files = allFiles.filter(rel => !excluded.some(m => m(rel)));
   say(`${repo}: ${files.length} tracked files (${allFiles.length - files.length} excluded by coverage.excluded), ` +
+    (graphRoot === repo ? '' : `graph from ${graphRoot}, `) +
     `${Object.keys(graph.arch.node_types || {}).length} node types, ${graph.nodes.length} nodes, ${graph.aspects.length} aspects`);
 
   let exp;
@@ -828,7 +835,7 @@ export async function run(opts) {
 
   const out = {
     instrument: 'reconstruct/1',
-    repo, asOf: new Date().toISOString(),
+    repo, graphRoot, asOf: new Date().toISOString(),
     files: files.length, filesExcluded: allFiles.length - files.length,
     graph: { nodeTypes: Object.keys(graph.arch.node_types || {}).length, nodes: graph.nodes.length, aspects: graph.aspects.length },
     grain: {
@@ -857,12 +864,13 @@ export async function run(opts) {
 }
 
 function parseArgs(argv) {
-  const o = { md: false, quiet: false, exportPath: null, advisePath: null, yg: null, noHistory: false };
+  const o = { md: false, quiet: false, exportPath: null, advisePath: null, yg: null, graph: null, noHistory: false };
   const pos = [];
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
     if (a === '--md') o.md = true;
     else if (a === '--quiet') o.quiet = true;
+    else if (a === '--graph') o.graph = argv[++i];
     else if (a === '--export') o.exportPath = argv[++i];
     else if (a === '--advise') o.advisePath = argv[++i];
     else if (a === '--yg') o.yg = argv[++i];
@@ -870,7 +878,7 @@ function parseArgs(argv) {
     else pos.push(a);
   }
   if (!pos[0] || !pos[1]) {
-    console.error('usage: reconstruct.mjs <repo-with-.yggdrasil> <out.json> [--md] [--export <json>] [--advise <txt>] [--yg <bin.js>] [--no-history]');
+    console.error('usage: reconstruct.mjs <repo> <out.json> [--md] [--graph <dir-with-.yggdrasil>] [--export <json>] [--advise <txt>] [--yg <bin.js>] [--no-history]');
     process.exit(2);
   }
   o.repo = pos[0];

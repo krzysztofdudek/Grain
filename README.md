@@ -34,7 +34,10 @@ short on purpose, and every line of it carries a number or a path:
 
 - the **architecture**: node types, nodes, relations, dependency cycles;
 - the rules that **earned enforcement** — each one drilled against this repository's own code, kept only on zero
-  false alarms and at least one caught violation, with those numbers beside the practice it was mined from;
+  false alarms and at least one caught violation, with those numbers beside the practice it was mined from, and
+  beside how many places already break it today: the proposal names the branch your changes are measured
+  against, so a rule blocks on what you touch while the debt that was already there stays a warning until you
+  reach it;
 - the **candidates**: rules the same drill proved but that grain itself has not certified — advisory, not
   enforced — plus drafts the same drill caught a violation with, strongest evidence first.
 

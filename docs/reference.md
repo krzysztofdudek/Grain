@@ -375,7 +375,13 @@ origin) the same real drill still caught at least one violation with. A candidat
 cut-off: with no drill there are no candidates and the report says that instead of ranking drafts nobody has
 judged. Everything else (prose aspects, no-catch drafts, finer type alternatives, conventions skipped as not a
 rule) is written to disk exactly as before and summarised in one counted line naming the file that holds it;
-`--full` prints all of it. `--json <path>` writes the same report as a
+`--full` prints all of it. Because a rule earns `enforced` from a drill that never asked whether the repository is green today, the
+proposal also turns on Yggdrasil's progressive mode — `progressive.reference` in its `yg-config.yaml`, derived
+from the repository (the remote's default branch, else the branch HEAD is on, and left out with a one-line
+instruction in the report where there is neither) — so a rule blocks on what a change reaches while the sites
+that already break it are reported as warnings until touched, with `yg check --full` blocking on all of it;
+each enforced rule's report line and its `provenance.json` (`existingViolations`) carry how many those are.
+`--json <path>` writes the same report as a
 `schema: "grain-propose/1"` document built in the same pass, so the two cannot disagree. When no Yggdrasil CLI
 resolves (`YG_BIN`, or `yg` on PATH) nothing is drilled, nothing is enforced, and the report says so in place of
 the enforced list. A drill that does not return within its own bound is abandoned, and its aspect stays a
