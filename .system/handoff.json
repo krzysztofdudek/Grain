@@ -1,22 +1,15 @@
 {
-  "at": "2026-09-05T13:22:01.894Z",
+  "at": "2026-09-05T14:19:28.602Z",
   "by": "director",
-  "head": "claude/grain-agent-tool-b89y0x@d307472",
-  "summary": "Fala 7 zamknięta (suita 2260): 100 szwy i 101 stress scalone; cztery orzeczenia z 101 zapisane (proza DRAFT, FA-etykieta jako odbiór, _root/MIN_TYPE_FILES, no-catch DRAFT). Fala 8 'odbiór propozycji' otwarta: 099 i 102 u Sonnetów w worktree'ach agenta (gałęzie fix/099-filescopes-cap, fix/102-propose-rulings).",
+  "head": "claude/grain-agent-tool-b89y0x@34cd140",
+  "summary": "Fala 8 zamknięta (suita 2290): 099, 102, 104, 107(+106) scalone. grain propose działa jako cicha komenda produktu; statusy aspektów zarabiane drillem i pochodzeniem. Dwie decyzje czekają na użytkownika: bump wersji 0.3.0→0.4.0 i przepisanie README/docs (105, klasa 6).",
   "inFlight": [
     {
-      "name": 63,
+      "name": 67,
       "task": "",
-      "since": "2026-09-05T11:02:28.227Z",
+      "since": "2026-09-05T14:19:28.614Z",
       "reportsTo": "lead",
-      "branch": "fix/099-filescopes-cap"
-    },
-    {
-      "name": 64,
-      "task": "",
-      "since": "2026-09-05T11:02:28.227Z",
-      "reportsTo": "lead",
-      "branch": "fix/102-propose-rulings"
+      "branch": "fix/107-advisory-candidates"
     }
   ],
   "pendingDecisions": [
@@ -49,24 +42,22 @@
     }
   ],
   "lastActions": [
-    "# Fala 7 — szwy i stress — start 2026-09-05",
-    "- 2026-09-05 100 kontrakty szwów + charter.md + adapter family-candidates; 101 stress integracji na korpusie + sense rate + sędzia Opus dla próbki 097; 099 cap fileScopes; 095 do sprawdzenia czy wchłonięte.",
-    "- 2026-09-05 merged: 100 adbe951",
-    "- 2026-09-05 merged: 101 b3a9b32",
-    "- 2026-09-05 101 odebrany jako hub: 17/17 propozycji ładowalnych przez yg, wrogie repo 17/17, sens det. aspektów 60% / typów 12% / węzłów 36% / prozy 0%, bar 2 (0.091/0.300) NIE zdany — 14/20 to nie reguły. Sześć defektów propose.mjs naprawionych od ręki. Cztery orzeczenia zapisane (proza draft, FA-etykieta jako odbiór, _root/MIN_TYPE_FILES, no-catch draft).",
-    "# Fala 7 — szwy i stress — close 2026-09-05",
-    "suite: 2260",
-    "note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta grafu 0 długu/100 commitów (098). Wniosek fali: Grain dostarcza architekturę + reguły leksykalne z drillem; proza i no-catch to kandydaci, nie prawo.",
-    "# Fala Fala 8 — odbiór propozycji — start 2026-09-05",
-    "- 2026-09-05 099 (cap fileScopes) + 102 (skutki 101 w rendererze) → Sonnet; potem decyzja z liczbami: grain propose jako komenda produktu, Grain jako brownfield nr 2, README pod nową funkcję celu (klasa 6)."
+    "- 2026-09-05 099 (cap fileScopes) + 102 (skutki 101 w rendererze) → Sonnet; potem decyzja z liczbami: grain propose jako komenda produktu, Grain jako brownfield nr 2, README pod nową funkcję celu (klasa 6).",
+    "- 2026-09-05 merged: 099 498da86",
+    "- 2026-09-05 merged: 102 26acdf0",
+    "- 2026-09-05 Dyrektor przy scaleniu 102 skleił definicję SYMBOL_LEVEL_KIND z komentarzem (perl), a łańcuch komend zacommitował mimo 1 fail (grep zwrócił 0). Naprawione 2272/2272. Lekcja: nigdy commit za grepem — bramką jest kod wyjścia testu.",
+    "- 2026-09-05 Niezależny przerender autopropozycji Yggdrasil scalonym rendererem (export 5cca6b15, YG_BIN): 124 aspekty, 33 deterministyczne drillowane (665 przypadków) → 10 enforced, 22 no-catch, 1 file-scope FA; 91 prozy draft; 37 pominięte jako nie-reguły, 17 jako group-scoped nierenderowalne; 8 cykli węzłów; 73 karty. Rozjazd z liczbami pracownika 102 (11/13) — inny export; do weryfikacji w 104 na jednym ustalonym exporcie.",
+    "- 2026-09-05 merged: 104 e53127f",
+    "- 2026-09-05 Wersje NIE podbite przy 104: ENGINE_VERSION 0.3.0 to publiczne wydanie (3bc8468 po wcześniejszym 0.4.0 → 113ef97); bump wersji to decyzja użytkownika, nie dyrektora — rekomendacja pracownika (0.4.0 za nową powierzchnię komendy) zapisana w logu 104. Wart osobnego biletu: nazwa aspektu ucięta do 70 znaków w połowie słowa (kosmetyka, na dysku tak samo).",
+    "# Fala Fala 8 — odbiór propozycji — close 2026-09-05",
+    "suite: 2290",
+    "note: grain propose jest komendą produktu (104), cichy raport; statusy zarabiane: enforced = certyfikowana konwencja + drill 0 FA + ≥1 mutant; advisory = krata po drillu (kandydaci); draft = reszta z powodem. Yggdrasil: 124 aspektów → 10 enforced. Grain na sobie: 81 → 0 enforced, 22 advisory, 59 prozy. Otwarte dla użytkownika: bump wersji, README (105)."
   ],
   "nextActions": [
-    "Odbiór 099 i 102: premerge z /home/user/Grain z --base claude/grain-agent-tool-b89y0x (nigdy z worktree).",
-    "Po scaleniu 102: przerender propozycji dla Yggdrasil i policz aspekty active/draft — to liczby do decyzji 'grain propose jako komenda produktu'.",
-    "Grain jako brownfield nr 2: propose na samym Grainie, porównać z .system/ intencją.",
-    "README/docs pod nową funkcję celu — eskalacja klasy 6, decyzja dyrektora."
+    "Po 'tak' użytkownika: dispatch 105 (Sonnet) — README/docs pod funkcję celu brownfield miner, results.md z liczbami 093–107.",
+    "Kandydaci następnej fali z liczbami: (a) Horde czyta statusy advisory/enforced z propozycji? (szew 100 sprawdzał charter.md, nie statusy); (b) drugi oracle poza Yggdrasil — examples/* z własnym .yggdrasil/ jako mini-wyrocznie rekonstrukcji; (c) prywatne repo użytkownika, gdy dostępne."
   ],
   "notes": [
-    "Pracownicy piszą separator \\0 realnym bajtem — test strażniczy w 102 (ticket 103)."
+    "Nigdy pkill -f z wzorcem, który pasuje do własnej komendy (zabiło powłokę dyrektora przy 104). Nigdy commit za grepem — bramką jest kod wyjścia testu."
   ]
 }
