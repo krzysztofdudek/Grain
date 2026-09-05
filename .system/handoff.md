@@ -1,14 +1,14 @@
 # Handoff
 
-at: 2026-09-05T07:29:23.840Z
+at: 2026-09-05T07:50:10.501Z
 by: director
-head: claude/grain-agent-tool-b89y0x@7076df3
+head: claude/grain-agent-tool-b89y0x@54f31c0
 
 ## Summary
-Wave 6: 093, 094, 096, 098 scalone (suita 2225/2225). 098: dług grafu Yggdrasila 4 wiersze, 0 per 100 commitów, sizing.json w propozycji, 5/7 typów dotarło. Rulingi dzisiejsze: layers-compatible-no-user-thresholds (progi wyprowadzane, nie od użytkownika; warstwy kompatybilne przez kontrakty szwów), granularity-bounded-by-evidence-not-taste, two-granularities-rules-fine-nodes-ownership-sized, no-rewrite-one-chain-three-gates. Tickety w kolejce: 100 (szwy + charter.md + adapter family-candidates), 101 (stress integracji na korpusie, sense rate). W locie: 097 (Opus, pętla prawa).
+Fala 6 zamknięta (5 ticketów scalonych, suita 2239/2239, zero zmian silnika, wersje bez zmian). 097 = uczciwy negatyw: B1 jako główny drut praktyka→prawo NIE wchodzi (2/20, strict 0/20; zakład szablonu przegrany); zostają hold-out (I10=1.0), provenance, errs:under wewnątrz zakresu. Nowy kształt produktu reguł zapisany w law-loop-b1-not-doing-it-with-numbers: Grain = architektura + styl/kształt nazw z drillem + krata jako kandydaci na DECYZJE; 'nigdy' pochodzi z wymagań. Fala 7 otwarta: 100 w locie (Sonnet: grain-proposal/1, charter.md per węzeł, adapter family-candidates, testy szwów przez realne yg/Horde, job CI seams), 101 w kolejce (Opus: stress integracji na korpusie, sense rate, sędzia Opus dla próbki 097).
 
 ## In flight
-- 59 branch:research/097-law-loop —  (since 2026-09-05T07:29:23.849Z, reports to lead)
+- 61 branch:fix/100-seams —  (since 2026-09-05T07:50:10.510Z, reports to lead)
 
 ## Pending decisions
 (none)
@@ -20,19 +20,19 @@ Wave 6: 093, 094, 096, 098 scalone (suita 2225/2225). 098: dług grafu Yggdrasil
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
 
 ## Last actions
-- - 2026-09-02 merged: 080 aa45602
-- - 2026-09-02 merged: 087 84f0188
-- - 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).
-- - 2026-09-02 merged: 089 80d5b5c
-- # Fala 6 — rekonstrukcja — start 2026-09-05
-- - 2026-09-05 Nowa gwiazda: miner brownfieldu dla Yggdrasila. Instrument G' (093) mierzy, ile ręcznego .yggdrasil/ Grain odzyskuje; kierunek: 094 renderer propozycji, 095 krata maintainera, 096 diagnostyka 'za dużo'.
 - - 2026-09-05 merged: 093 fdd19c9
 - - 2026-09-05 merged: 096 2c16467
 - - 2026-09-05 merged: 094 8d65a2c
 - - 2026-09-05 merged: 098 7076df3
+- - 2026-09-05 merged: 097 80ba07d
+- # Fala 6 — rekonstrukcja — close 2026-09-05
+- suite: 2239
+- note: Fala 6 (rekonstrukcja): 093 instrument G', 094 renderer propozycji, 096 'za dużo', 098 dług grafu + sizing, 097 pętla prawa (negatyw z liczbami). Zero zmian silnika — wersje bez zmian (ENGINE 0.3.0, g32/h11/m24). Trzy memo Fable scalone. Rulingi: north star, law loop (przyjęty, potem 'not doing it' po 097), layers/no user thresholds, granularity (dwie granularności), no rewrite.
+- # Fala 7 — szwy i stress — start 2026-09-05
+- - 2026-09-05 100 kontrakty szwów + charter.md + adapter family-candidates; 101 stress integracji na korpusie + sense rate + sędzia Opus dla próbki 097; 099 cap fileScopes; 095 do sprawdzenia czy wchłonięte.
 
 ## Next actions
-- Odbiór 097 jak hub (premerge z /home/user/Grain z --base). Potem spawn 100 (Sonnet) — propose.mjs będzie wolny od konfliktów; potem 101 (Opus). Zamknięcie fali 6 po 097 (wersje bez zmian — zero zmian silnika; wave close --suite). Yggdrasil/Horde read-only; lista rzeczy po ich stronie w decyzjach ecosystem-design-scope-split, no-rewrite-one-chain-three-gates, two-granularities.
+- Odbiór 100 jak hub (premerge z /home/user/Grain z --base). Potem spawn 101 (Opus) z dopiskiem: próbka 20 z 097 klasyfikowana przez sędziego. Potem 099, 095. Użytkownikowi: negatyw 097 przekazany w czacie; lista rzeczy po stronie Yggdrasila/Horde w decyzjach.
 
 ## Notes
 (none)
