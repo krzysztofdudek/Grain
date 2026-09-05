@@ -5110,3 +5110,4 @@ note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta gra
 - 2026-09-05 099 (cap fileScopes) + 102 (skutki 101 w rendererze) → Sonnet; potem decyzja z liczbami: grain propose jako komenda produktu, Grain jako brownfield nr 2, README pod nową funkcję celu (klasa 6).
 - 2026-09-05 merged: 099 498da86
 - 2026-09-05 merged: 102 26acdf0
+- 2026-09-05 Dyrektor przy scaleniu 102 skleił definicję SYMBOL_LEVEL_KIND z komentarzem (perl), a łańcuch komend zacommitował mimo 1 fail (grep zwrócił 0). Naprawione 2272/2272. Lekcja: nigdy commit za grepem — bramką jest kod wyjścia testu.
