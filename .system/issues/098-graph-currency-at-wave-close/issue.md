@@ -1,6 +1,6 @@
 # 098 · Graf odświeżany przy zamknięciu fali (B2): reconstruct.mjs jako sensor dryfu — wiersze długu grafu per 100 commitów, 7 typów z kart/grup jako propozycje typów
 
-**Status:** MEASURED — graph-currency instrument built and measured on Yggdrasil; sizing.json shipped; guard tests green; 2224/2224 npm test
+**Status:** FIXED — graph-currency.mjs + sizing.json landed (7076df3)
 **Found by:** counsel, 2026-09-05
 **Severity:** medium
 **Class:** G

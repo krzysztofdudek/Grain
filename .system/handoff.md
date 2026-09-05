@@ -1,15 +1,14 @@
 # Handoff
 
-at: 2026-09-05T06:42:10.289Z
+at: 2026-09-05T07:29:23.840Z
 by: director
-head: claude/grain-agent-tool-b89y0x@2a5cec8
+head: claude/grain-agent-tool-b89y0x@7076df3
 
 ## Summary
-Trzy memo Fable scalone (law loop; ecosystem design; rewrite+factory: 2a5cec8). Werdykty: nie przepisywać Yggdrasila (opcja iii + strangler z rankingu 096), fabryka = jeden łańcuch/dwie epistemologie/trzy bramki, nie monorepo; 'factory' nie na README do pierwszego podpisanego incydentu; progi E1/E2/E6/E7/E8 są użytkownika. Zapisane jako no-rewrite-one-chain-three-gates. W locie: 097 (Opus), 098 (Sonnet). 093/094/096 scalone, suita 2217/2217.
+Wave 6: 093, 094, 096, 098 scalone (suita 2225/2225). 098: dług grafu Yggdrasila 4 wiersze, 0 per 100 commitów, sizing.json w propozycji, 5/7 typów dotarło. Rulingi dzisiejsze: layers-compatible-no-user-thresholds (progi wyprowadzane, nie od użytkownika; warstwy kompatybilne przez kontrakty szwów), granularity-bounded-by-evidence-not-taste, two-granularities-rules-fine-nodes-ownership-sized, no-rewrite-one-chain-three-gates. Tickety w kolejce: 100 (szwy + charter.md + adapter family-candidates), 101 (stress integracji na korpusie, sense rate). W locie: 097 (Opus, pętla prawa).
 
 ## In flight
-- 59 branch:research/097-law-loop —  (since 2026-09-05T06:42:10.299Z, reports to lead)
-- 60 branch:fix/098-graph-currency —  (since 2026-09-05T06:42:10.299Z, reports to lead)
+- 59 branch:research/097-law-loop —  (since 2026-09-05T07:29:23.849Z, reports to lead)
 
 ## Pending decisions
 (none)
@@ -21,7 +20,6 @@ Trzy memo Fable scalone (law loop; ecosystem design; rewrite+factory: 2a5cec8). 
 - trial-0-4-0: paired trial verdict — the mission decision point (since 2026-09-02T04:11:36.882Z)
 
 ## Last actions
-- - 2026-09-02 merged: 088 1f2efa9
 - - 2026-09-02 merged: 080 aa45602
 - - 2026-09-02 merged: 087 84f0188
 - - 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).
@@ -31,9 +29,10 @@ Trzy memo Fable scalone (law loop; ecosystem design; rewrite+factory: 2a5cec8). 
 - - 2026-09-05 merged: 093 fdd19c9
 - - 2026-09-05 merged: 096 2c16467
 - - 2026-09-05 merged: 094 8d65a2c
+- - 2026-09-05 merged: 098 7076df3
 
 ## Next actions
-- Odbiór 097 i 098 jak hub (premerge z głównego checkoutu, --base). Po 097: próbka 20 kandydatów + 59 typów do klasyfikacji przez użytkownika — przygotować jedną tabelę. Zamknięcie fali 6. Kandydaci następnej fali (Grain): 099 cap fileScopes; 095 sprawdzić czy wchłonięte przez 094; grain propose jako komenda produktu dopiero po zmierzeniu podłóg; próba 'Grain jako brownfield nr 2' (094 na Grainie, użytkownik ocenia). Poza Grainem — lista dla użytkownika w decyzji ecosystem-design-scope-split i no-rewrite-one-chain-three-gates.
+- Odbiór 097 jak hub (premerge z /home/user/Grain z --base). Potem spawn 100 (Sonnet) — propose.mjs będzie wolny od konfliktów; potem 101 (Opus). Zamknięcie fali 6 po 097 (wersje bez zmian — zero zmian silnika; wave close --suite). Yggdrasil/Horde read-only; lista rzeczy po ich stronie w decyzjach ecosystem-design-scope-split, no-rewrite-one-chain-three-gates, two-granularities.
 
 ## Notes
 (none)

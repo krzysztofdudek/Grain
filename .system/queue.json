@@ -650,9 +650,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/098-graph-currency",
-      "state": "running",
-      "note": "Sonnet spawned; branch fix/098-graph-currency",
-      "updated": "2026-09-05 06:39"
+      "state": "merged",
+      "note": "premerge READY from main checkout (2225/2225); 4 debt rows, 0 per 100 commits; 5/7 types reached",
+      "updated": "2026-09-05 07:29",
+      "sha": "7076df3"
     },
     {
       "id": 61,
