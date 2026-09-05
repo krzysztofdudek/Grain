@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter, describeRow } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter, describeRow, progressiveReference, proposeReport } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -723,4 +723,80 @@ test('a charter\'s evidence row counts the rules the charter actually names', ()
     assert.ok(claimed, `charter row for ${row.id} does not say how many rules its charter names: ${row.evidence}`);
     assert.equal(Number(claimed[1]), named.size, `charter row for ${row.id} claims ${claimed[1]} rules, the charter names ${named.size}`);
   }
+});
+
+// ---------- 17. an enforced rule says how much of TODAY it already refuses (ticket 118) ----------
+//
+// Ticket 109 measured it on the whole corpus: all 21 enforced rules block 1-18 EXISTING files at the first
+// `yg check`. The drill that earned `enforced` proves the CHECK correct; it never asks whether the repository
+// conforms, and ruling `enforced-requires-certified-origin` does not either. Yggdrasil answers this with
+// progressive mode (`progressive.reference` in `yg-config.yaml`, `yg schemas read config`): an enforced finding
+// the current change did not reach renders as a warning, and `yg check --full` blocks on it again. So the
+// proposal turns it on with a reference derived from the repository, and every enforced rule carries the number
+// of sites that break it on the day it is delivered.
+test('the proposal derives progressive.reference from the repository and writes it to yg-config.yaml', () => {
+  const cfg = parseYaml(readFileSync(join(out, '.yggdrasil', 'yg-config.yaml'), 'utf8'));
+  // the fixture repository is a fresh `git init -b main` with no remote at all — no `origin/HEAD`, no
+  // `origin/main`, so the only honest reference is the branch it is on
+  assert.deepEqual(cfg.progressive, { reference: 'main' }, 'the proposal names no reference to measure changes against');
+  assert.equal(Object.keys(cfg.progressive).length, 1, 'the progressive block accepts `reference` and nothing else (config-progressive-unknown-key)');
+});
+
+test('progressiveReference prefers the remote default branch, then the current branch, and says when it has neither', () => {
+  const t = mkdtempSync(join(tmpdir(), 'progref-'));
+  const env = {
+    ...process.env, HOME: t,
+    GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x',
+    GIT_AUTHOR_DATE: '2026-01-10T12:00:00Z', GIT_COMMITTER_DATE: '2026-01-10T12:00:00Z',
+  };
+  const upstream = join(t, 'upstream'), clone = join(t, 'clone');
+  mkdirSync(upstream, { recursive: true });
+  writeFileSync(join(upstream, 'a.txt'), 'a\n');
+  execFileSync('git', ['-C', upstream, 'init', '-q', '-b', 'trunk'], { env });
+  execFileSync('git', ['-C', upstream, 'add', '-A'], { env });
+  execFileSync('git', ['-C', upstream, 'commit', '-q', '-m', 'one'], { env });
+  execFileSync('git', ['clone', '-q', upstream, clone], { env });
+  // a clone knows its remote's default branch, and that is what an adopter's CI compares against
+  assert.equal(progressiveReference(clone).reference, 'origin/trunk');
+  // a repository with no remote at all can still name the branch it is on
+  assert.equal(progressiveReference(upstream).reference, 'trunk');
+  // and a directory with no git names nothing rather than guessing
+  const bare = join(t, 'nogit');
+  mkdirSync(bare, { recursive: true });
+  const none = progressiveReference(bare);
+  assert.equal(none.reference, null);
+  assert.match(none.why, /\S/, 'a missing reference must say why it is missing');
+  rmSync(t, { recursive: true, force: true });
+});
+
+// The number itself, on the two surfaces an adopter reads: the per-aspect record on disk and the report the
+// command prints. `deviating` is the count of sites that break the rule at `asOf` — the same number the
+// evidence line already carries, said in the words that matter on the day the graph is switched on.
+test('an enforced aspect carries existingViolations, and the report says what happens to those sites', () => {
+  const t = mkdtempSync(join(tmpdir(), 'existing-'));
+  const a = { id: 'grain/x/rule', origin: 'certified-convention', name: 'Every file under `x/**` must be tidy', share: 0.9, n: 45, deviating: 7, finalStatus: 'enforced', check: 'x', drill: { pass: 5, miss: 0, falseAlarm: 0, catches: 5, violates: 5, satisfies: 5 } };
+  const prov = provenanceFor(a, { asOf: 'abc1234', repo: t });
+  assert.equal(prov.existingViolations, 7, 'provenance.json does not say how many sites break the rule today');
+
+  const withProgressive = proposeReport({
+    counts: { types: 1, nodes: 1, nodeCycles: 0, aspects: 1, alternatives: 0, aspectsSkippedNotARule: 0 },
+    exp: { asOf: 'abc1234567' }, files: ['x/a.ts'], nodes: [{ relations: [] }], aspects: [a], alternatives: [],
+    verify: { haveYg: true, ygBin: '/yg', verified: 1, timedOut: 0 },
+    progressive: { reference: 'origin/main', why: 'the default branch' },
+  }, { outDir: join(t, 'proposal'), root: t }).lines.join('\n');
+  assert.match(withProgressive, /7 existing sites violate it today; progressive mode keeps them as warnings until touched/,
+    'the report does not say what the enforced rule does to the code that is already there');
+  assert.match(withProgressive, /origin\/main/, 'the report never names the reference the proposal set');
+
+  const withoutProgressive = proposeReport({
+    counts: { types: 1, nodes: 1, nodeCycles: 0, aspects: 1, alternatives: 0, aspectsSkippedNotARule: 0 },
+    exp: { asOf: 'abc1234567' }, files: ['x/a.ts'], nodes: [{ relations: [] }], aspects: [a], alternatives: [],
+    verify: { haveYg: true, ygBin: '/yg', verified: 1, timedOut: 0 },
+    progressive: { reference: null, why: 'this repository names no branch to measure against' },
+  }, { outDir: join(t, 'proposal'), root: t });
+  assert.match(withoutProgressive.lines.join('\n'), /the first `yg check` will be red on 7 sites/,
+    'with no progressive reference the report must say plainly that the first check is red');
+  assert.equal(withoutProgressive.json.progressive.reference, null);
+  assert.equal(withProgressive.includes('undefined'), false);
+  rmSync(t, { recursive: true, force: true });
 });
