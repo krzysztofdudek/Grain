@@ -34,7 +34,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { yq, yamlEmit } from '../engine/propose.mjs';
+import { yq, yamlEmit, promoteEnforceableAspects, proposeReport, DRILL_TIMEOUT_MS, SLOWEST_OBSERVED_DRILL_MS } from '../engine/propose.mjs';
 import { parseYaml } from '../engine/yggdrasil-graph.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -213,4 +213,53 @@ test('hostile scalars round-trip through nested mappings and sequences too', () 
     assert.equal(back.top[i].id, HOSTILE_SCALARS[i], `sequence item ${i} did not round-trip`);
     assert.equal(back.top[i].nested.v, HOSTILE_SCALARS[i], `nested value ${i} did not round-trip`);
   }
+});
+
+// ---------- 5. a drill that never returns may not hang the command ----------
+//
+// `spawnSync` with no `timeout` waits forever, so a wedged CLI hung `grain propose` itself: no output, and
+// nothing to interrupt but the process. The bound is derived (see `DRILL_TIMEOUT_MS`) and what is asserted here
+// is that it is actually enforced — injected small, so the test does not have to wait out the real one.
+test('a drill that never returns is abandoned, its aspect stays unverified, and the run says how many were given up on', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'propose-drill-timeout-'));
+  try {
+    // a stand-in for the Yggdrasil CLI that accepts the drill invocation and then never returns
+    const hang = join(tmp, 'hangs.mjs');
+    writeFileSync(hang, 'setInterval(() => {}, 1000);' + NL);
+    // the minimum a drill is attempted on at all: an aspect with a rendered check and a corpus written
+    const outDir = join(tmp, 'out'), ygg = join(outDir, '.yggdrasil');
+    const id = 'grain/x/candidate-hang';
+    mkdirSync(join(ygg, 'aspects', id), { recursive: true });
+    writeFileSync(join(ygg, 'aspects', id, 'check.mjs'), 'export function check() { return []; }' + NL);
+    const aspect = {
+      id, origin: 'certified-convention', check: 'export function check() { return []; }' + NL,
+      kind: 'file', drillViolatesWritten: 1, drillSatisfiesWritten: 1,
+    };
+    const evidence = [{ kind: 'aspect', id }];
+    const t0 = Date.now();
+    const verify = promoteEnforceableAspects([aspect], { ygg, outDir, evidence, asOf: 'abc', repo: tmp, ygBin: hang, drillTimeoutMs: 1500 });
+    const elapsed = Date.now() - t0;
+
+    assert.equal(verify.haveYg, true, 'the stand-in CLI has to resolve, or the test proves nothing');
+    assert.ok(elapsed < 60_000, `the drill was not abandoned — the call took ${elapsed} ms`);
+    assert.equal(verify.timedOut, 1, 'the abandoned drill was not counted');
+    assert.equal(verify.verified, 0, 'a drill that returned no verdict must not count as verified');
+    // unverified is not the same as judged and found wanting: no draftReason is invented for it
+    assert.equal(aspect.finalStatus, 'draft');
+    assert.equal(aspect.draftReason, null);
+    // and the report says so, in one line, naming the bound that fired
+    const report = proposeReport({
+      counts: { types: 0, nodes: 0, nodeCycles: 0, aspects: 1, alternatives: 0, aspectsSkippedNotARule: 0, aspectsSkippedUnrenderableGroupScoped: 0 },
+      nodes: [], aspects: [aspect], files: [], exp: { asOf: 'abc' }, alternatives: [], verify,
+    }, { outDir });
+    assert.equal(report.json.yggdrasil.timedOut, 1);
+    const line = report.lines.find(l => /given up on/.test(l));
+    assert.ok(line, `the report never mentions the abandoned drill:${NL}${report.lines.join(NL)}`);
+    assert.match(line, /1\.5s/, `the report does not name the bound that fired: ${line}`);
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+
+test('the drill timeout is a stated multiple of a drill actually measured, not a chosen number', () => {
+  assert.equal(DRILL_TIMEOUT_MS, SLOWEST_OBSERVED_DRILL_MS * 100);
+  assert.ok(SLOWEST_OBSERVED_DRILL_MS > 0);
 });

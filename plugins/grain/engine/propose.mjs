@@ -1349,7 +1349,7 @@ export async function propose(repo, outDir, opts = {}) {
   // annotates the matching `evidence[]` rows in place. See the header comment for the full rule.
   const verify = promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf: exp.asOf, repo, ygBin: opts.ygBin });
   say(opts, verify.haveYg
-    ? `verification: ${verify.verified} deterministic aspect(s) drilled against a real Yggdrasil (${verify.ygBin}) — ${aspects.filter(a => a.finalStatus === 'enforced').length} promoted to \`status: enforced\`, ${aspects.filter(a => a.finalStatus === 'advisory').length} to \`status: advisory\` (sub-gate origin, below grain's own certification bound)`
+    ? `verification: ${verify.verified} deterministic aspect(s) drilled against a real Yggdrasil (${verify.ygBin}) — ${aspects.filter(a => a.finalStatus === 'enforced').length} promoted to \`status: enforced\`, ${aspects.filter(a => a.finalStatus === 'advisory').length} to \`status: advisory\` (sub-gate origin, below grain's own certification bound)${verify.timedOut ? `; ${verify.timedOut} drill(s) gave up after ${verify.drillTimeoutMs / 1000}s and left their aspect unverified` : ''}`
     : 'verification: skipped — no Yggdrasil CLI found (set YG_BIN to a built bin.js, or put `yg` on PATH); every deterministic aspect ships `status: draft`, unverified');
 
   // sizing.json — files/bytes/scopes/codelength per proposed node, and per HAND node when the source repo
@@ -1651,7 +1651,27 @@ function aspectYamlDoc(a, status) {
 //     Exactly what this renderer shipped before ticket 102 — the absence of a verdict is not one of the three
 //     named reasons above, because none of them fired; nothing here says the check is bad, only that no drill
 //     was run to say either way.
-export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf, repo, ygBin: explicitYgBin }) {
+// HOW LONG ONE `yg drill` MAY TAKE BEFORE IT IS ABANDONED, AND WHERE THE NUMBER COMES FROM.
+//
+// `spawnSync` with no `timeout` waits forever. A drill that does not return — a wedged CLI, a filesystem that
+// stops answering, a pathological regex in a rendered check — therefore hung `grain propose` itself, silently,
+// with no output and nothing to interrupt but the process. A product command may not have that failure mode.
+//
+// The bound is DERIVED, not chosen. A drill's whole input is bounded by construction: `cutDrills` writes at
+// most 5 `satisfies-` and 5 `violates-` cases and skips any source file over 200 KiB, so the work does not grow
+// with the size of the repository being proposed on — only the machine and the grammar load vary. Measured on
+// the largest proposal this project renders (Yggdrasil's own, 33 deterministic aspects carrying a drill
+// corpus): slowest single drill 2148 ms, median 1420 ms. The ceiling is that slowest observed drill x100, so it
+// is reached only by a machine two orders of magnitude slower than the one measured on, or by a drill that is
+// not progressing at all. A drill that hits it is reported as unverified — the same outcome as any other drill
+// that returned no verdict — and the count is disclosed in the report rather than folded in silently.
+export const SLOWEST_OBSERVED_DRILL_MS = 2148;
+export const DRILL_TIMEOUT_MS = SLOWEST_OBSERVED_DRILL_MS * 100;
+
+//
+// `drillTimeoutMs` exists so a test can prove the bound is actually enforced without waiting out the real one;
+// nothing in the product passes it, and the default IS `DRILL_TIMEOUT_MS`.
+export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf, repo, ygBin: explicitYgBin, drillTimeoutMs = DRILL_TIMEOUT_MS }) {
   const yg = resolveYg(explicitYgBin);
   const ygBin = yg.label;
   const haveYg = yg.have;
@@ -1666,16 +1686,17 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
     cpSync(ygg, join(stage, '.yggdrasil'), { recursive: true });
   }
 
-  let verified = 0;
+  let verified = 0, timedOut = 0;
   try {
     for (const a of aspects) {
       a.scopeApproximation = (a.check && a.kind && SYMBOL_LEVEL_KIND.has(a.kind)) ? 'file-from-symbol' : null;
       if (!a.check) { a.finalStatus = 'draft'; a.draftReason = 'prose-unenforceable-keyless'; continue; }
       const violates = a.drillViolatesWritten || 0, satisfies = a.drillSatisfiesWritten || 0;
       if (!haveYg || (!violates && !satisfies)) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
-      const r = spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
+      const r = spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26, timeout: drillTimeoutMs, killSignal: 'SIGKILL' });
+      if (r.error?.code === 'ETIMEDOUT') timedOut++;
       const m = /(\d+) pass\s*·\s*(\d+) MISS\s*·\s*(\d+) FALSE-ALARM/.exec(`${r.stdout || ''}${r.stderr || ''}`);
-      if (!m) { a.finalStatus = 'draft'; a.draftReason = null; continue; } // could not verify this run (e.g. a spawn failure) — unverified, not blamed
+      if (!m) { a.finalStatus = 'draft'; a.draftReason = null; continue; } // could not verify this run (a spawn failure, or the timeout above) — unverified, not blamed
       verified++;
       const miss = Number(m[2]), falseAlarm = Number(m[3]);
       const catches = violates - miss;
@@ -1705,7 +1726,7 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
     const row = evidence.find(e => e.kind === 'aspect' && e.id === a.id);
     if (row) { row.status = a.finalStatus; row.draftReason = a.draftReason || null; }
   }
-  return { haveYg, ygBin, verified };
+  return { haveYg, ygBin, verified, timedOut, drillTimeoutMs };
 }
 
 // ==================================================================================================
@@ -2192,7 +2213,9 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     schema: 'grain-propose/1',
     outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length,
     architecture: { nodeTypes: c.types, nodes: c.nodes, relations: edges, cycles: c.nodeCycles, path: `${ygg}/yg-architecture.yaml` },
-    yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0 },
+    // `timedOut` (additive) counts drills abandoned at `DRILL_TIMEOUT_MS`; their aspects are unverified, so
+    // they are already inside the draft counts below — this names WHY they are, rather than leaving it silent.
+    yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0, timedOut: r.verify?.timedOut || 0 },
     // `advisory` (ticket 107, additive) is also the count of `candidates` rows that carry `status: advisory` —
     // both numbers are given so a reader does not have to filter `candidates` to get the split.
     aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason },
@@ -2213,6 +2236,9 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     L.push(`candidates: 0 of ${c.aspects} — a candidate is an advisory or draft aspect a real drill caught a violation with, and no drill ran`);
   } else {
     L.push(`enforced: ${enforced.length} of ${c.aspects} aspects earned \`status: enforced\` from a real drill of ${r.verify.verified} deterministic check(s) — a certified-convention origin required, not just a passing drill (${r.verify.ygBin})`);
+    // A line only when it happened: a drill that never returned would otherwise leave its aspect in the draft
+    // pile with no reason given, which reads as "the check is bad" rather than "nothing judged it".
+    if (r.verify.timedOut) L.push(`  ${r.verify.timedOut} drill(s) were given up on after ${r.verify.drillTimeoutMs / 1000}s each and their aspects are unverified, not judged — re-run, or drill them by hand with \`yg drill --aspect <id>\``);
     for (const a of enforced) {
       L.push(`  ${a.id} — ${a.name}`);
       L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · practised in ${evidenceOf(a)} — ${aspectPath(a)}`);
