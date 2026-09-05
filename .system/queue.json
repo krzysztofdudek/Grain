@@ -628,9 +628,10 @@
       "kind": "research",
       "agent": "opus",
       "branch": "research/096-too-much",
-      "state": "running",
-      "note": "Opus spawned, worktree, research/096-too-much",
-      "updated": "2026-09-05 05:20"
+      "state": "merged",
+      "note": "premerge READY against session branch (2206/2206); escalation ruled: ranking not flag",
+      "updated": "2026-09-05 06:10",
+      "sha": "2c16467"
     },
     {
       "id": 59,
