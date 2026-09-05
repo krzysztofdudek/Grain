@@ -5100,3 +5100,11 @@ note: Fala 6 (rekonstrukcja): 093 instrument G', 094 renderer propozycji, 096 'z
 - 2026-09-05 100 kontrakty szwów + charter.md + adapter family-candidates; 101 stress integracji na korpusie + sense rate + sędzia Opus dla próbki 097; 099 cap fileScopes; 095 do sprawdzenia czy wchłonięte.
 - 2026-09-05 merged: 100 adbe951
 - 2026-09-05 merged: 101 b3a9b32
+- 2026-09-05 101 odebrany jako hub: 17/17 propozycji ładowalnych przez yg, wrogie repo 17/17, sens det. aspektów 60% / typów 12% / węzłów 36% / prozy 0%, bar 2 (0.091/0.300) NIE zdany — 14/20 to nie reguły. Sześć defektów propose.mjs naprawionych od ręki. Cztery orzeczenia zapisane (proza draft, FA-etykieta jako odbiór, _root/MIN_TYPE_FILES, no-catch draft).
+
+# Fala 7 — szwy i stress — close 2026-09-05
+suite: 2260
+note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta grafu 0 długu/100 commitów (098). Wniosek fali: Grain dostarcza architekturę + reguły leksykalne z drillem; proza i no-catch to kandydaci, nie prawo.
+
+# Fala Fala 8 — odbiór propozycji — start 2026-09-05
+- 2026-09-05 099 (cap fileScopes) + 102 (skutki 101 w rendererze) → Sonnet; potem decyzja z liczbami: grain propose jako komenda produktu, Grain jako brownfield nr 2, README pod nową funkcję celu (klasa 6).
