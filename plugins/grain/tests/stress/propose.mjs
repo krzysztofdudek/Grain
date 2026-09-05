@@ -14,6 +14,10 @@
 //   --holdout <date>  cut the drill corpora with a TIME hold-out: keep only sites whose first appearance
 //                     post-dates that date. Without it every corpus says, in its own CORPUS.md, that rule and
 //                     drill are the same data.
+//   --subgate-per-partition <n>
+//                     override SUBGATE_PER_PARTITION, the READING cap on how many sub-gate candidates a
+//                     maintainer is asked to look at per partition. It bounds presentation, not measurement, so
+//                     a measurement run (097) lifts it and says so.
 //   --score <repo>    after writing, score the proposal against that repo's HAND-WRITTEN `.yggdrasil/`, in BOTH
 //                     directions (recall: hand element -> proposed element; precision: proposed -> hand)
 //   --json <path>     write the run's numbers (and the score, with --score) as JSON
@@ -966,7 +970,7 @@ export async function propose(repo, outDir, opts = {}) {
   const sub = subGate(lat.rows);
   say(opts, `lattice: ${lat.rows.length} rows${lat.reason ? ` (${lat.reason})` : ''} · ${sub.length} in the sub-gate band`);
 
-  const { aspects, skipped } = buildAspects(exp, active, sub);
+  const { aspects, skipped } = buildAspects(exp, active, sub, opts);
   say(opts, `aspect drafts: ${aspects.length} (${aspects.filter(a => a.check).length} rendered as check.mjs, ${aspects.filter(a => !a.check).length} prose) · skipped: ${skipped.unrenderableGroupScoped} unrenderable group-scoped, ${skipped.notARule} not a rule`);
 
   // ---------------- write ----------------
@@ -1156,10 +1160,17 @@ export function buildAspects(exp, active, sub, opts = {}) {
   }
 
   // (ii) the sub-gate lattice — the house rules that have not finished spreading
+  //
+  // `SUBGATE_PER_PARTITION` is a READING cap, not a measurement one (§7 of the renderer design): it bounds how
+  // many candidates a maintainer is asked to look at, and nothing about what grain measured. A MEASUREMENT run
+  // must be able to lift it or it is measuring the cap — so `opts.subGatePerPartition` overrides it, the default
+  // is unchanged, and 097 states in its report that it ran with the cap lifted (ruling
+  // `instrument-floors-allowed-if-stated-and-measured`).
+  const capPer = Number.isFinite(opts.subGatePerPartition) ? opts.subGatePerPartition : SUBGATE_PER_PARTITION;
   const perPart = new Map();
   for (const r of sub) {
     const seen = perPart.get(r.partition) || perPart.set(r.partition, []).get(r.partition);
-    if (seen.length >= SUBGATE_PER_PARTITION) continue;
+    if (seen.length >= capPer) continue;
     const fam = /^auto\.([a-z0-9]+):?/.exec(r.pid)?.[1];
     if (!fam || NOT_A_RULE.has(fam)) continue;
     const host = typeForPartition(r.partition);
@@ -1188,7 +1199,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
 
   // attach every draft to the type it came from, so nothing is orphaned in the graph
   for (const a of active) a.aspectIds = out.filter(o => o.host === a.id).map(o => o.id);
-  void opts;
+  // (opts is read above for the sub-gate reading cap)
   return { aspects: out, skipped };
 }
 
@@ -1507,11 +1518,12 @@ function parseArgs(argv) {
     else if (a === '--score') opts.score = resolve(argv[++i]);
     else if (a === '--json') opts.json = resolve(argv[++i]);
     else if (a === '--holdout') opts.holdout = argv[++i];
+    else if (a === '--subgate-per-partition') opts.subGatePerPartition = Number(argv[++i]);
     else if (a.startsWith('--')) throw new Error(`unknown flag ${a}`);
     else pos.push(a);
   }
   if (opts.holdout && !/^\d{4}-\d{2}-\d{2}$/.test(opts.holdout)) throw new Error('--holdout takes a YYYY-MM-DD date');
-  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--score <repo>] [--json <path>] [--quiet]');
+  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--score <repo>] [--json <path>] [--quiet]');
   return { repo: resolve(pos[0]), outDir: resolve(pos[1]), opts };
 }
 
