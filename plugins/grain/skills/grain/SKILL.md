@@ -1,6 +1,6 @@
 ---
 name: grain
-description: Ask the repository about its own conventions BEFORE writing code. Use whenever you are about to create a source file, add a class/function/handler/command/component/test, are unsure where something belongs, or want to know how a kind of change has been done here before — `grain where <intent>` names the directory, the group and the exemplar to copy; `grain obligation <path>` names what a new file there has historically had to come with; `grain how <intent>` cites the past commits that did something like it; `grain what <words>` reports what a concept already is here; `grain check <file>` shows where your change departs from the local norm; `grain completeness <file>` names co-changing files before you call a change done. Statistical answers from this repo's code and full git history; tells you which exemplar to open, never blocks.
+description: Ask the repository about its own conventions BEFORE writing code. Use whenever you are about to create a source file, add a class/function/handler/command/component/test, are unsure where something belongs, or want to know how a kind of change has been done here before — `grain where <intent>` names the directory, the group and the exemplar to copy; `grain obligation <path>` names what a new file there has historically had to come with; `grain how <intent>` cites the past commits that did something like it; `grain what <words>` reports what a concept already is here; `grain check <file>` shows where your change departs from the local norm; `grain completeness <file>` names co-changing files before you call a change done; `grain propose` mines a whole proposed Yggdrasil architecture graph for a repository that has none. Statistical answers from this repo's code and full git history; tells you which exemplar to open, never blocks.
 ---
 
 # grain — ask the repository which exemplar to copy
@@ -203,6 +203,15 @@ same records, same effect.
 - **`map [--json]`** — a structural overview: dependency layers from leaves to top, the repo's top concepts where
   commit messages and code vocabulary agree, the certified change shapes, and how many maintainer decisions are in
   force. Good for orienting in an unfamiliar repository before asking anything more specific.
+- **`propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>]`** — for a repository with no
+  `.yggdrasil/` yet: mine one. Writes a PROPOSED Yggdrasil architecture graph — node types, nodes, relations,
+  dependency cycles and mined rules, each with the evidence that produced it — into `<out-dir>` (default
+  `.yggdrasil-proposal/`, self-ignoring; the repository's own `.yggdrasil/` is never written). The default
+  report is short on purpose: the architecture with its counts, the rules a real `yg drill` proved on this
+  repository's own code (zero false alarms, at least one caught violation), and the candidates that came close;
+  everything else is on disk and summarised in one counted line, with `--full` to print it. With no Yggdrasil
+  CLI (`YG_BIN`, or `yg` on PATH) nothing can be drilled, so nothing is enforced and the report says so. It is
+  a proposal: a human reviews it and moves it in. Never move it in, and never run `yg check --approve`, unbidden.
 - **`refresh [--full]`** — rebuild the index now (every query already auto-refreshes).
 - **`completeness <file…>`** — ask about files BEFORE editing them, or check several files against each other at
   once: the other files this repo's own commit history shows reliably co-changing with the ones given. This is the
