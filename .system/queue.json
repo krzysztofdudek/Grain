@@ -706,9 +706,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "fix/104-propose-command",
-      "state": "running",
-      "note": "cicha komenda propose; reachability; rozjazd liczb",
-      "updated": "2026-09-05 12:29"
+      "state": "merged",
+      "note": "premerge READY from main checkout (2288/2288); renderer moved to engine/propose.mjs byte-identical (diff -r 0); quiet report 24 lines for 124 aspects; 102 discrepancy reproduced (--no-history export → 0 conventions, lattice-only 13/11); SessionStart unchanged for repos with .yggdrasil/",
+      "updated": "2026-09-05 13:22",
+      "sha": "e53127f"
     },
     {
       "id": 66,

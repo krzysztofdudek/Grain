@@ -1,6 +1,6 @@
 # Handoff
 
-at: 2026-09-05T11:02:28.217Z
+at: 2026-09-05T13:22:01.894Z
 by: director
 head: claude/grain-agent-tool-b89y0x@d307472
 
@@ -12,7 +12,7 @@ Fala 7 zamknięta (suita 2260): 100 szwy i 101 stress scalone; cztery orzeczenia
 - 64 branch:fix/102-propose-rulings —  (since 2026-09-05T11:02:28.227Z, reports to lead)
 
 ## Pending decisions
-(none)
+- [d1] Czy podbić ENGINE_VERSION/package.json 0.3.0→0.4.0 za nową komendę propose (precedens wave-close-versions-0-4-0), i czy scalić przepisany README/docs pod nowy cel (bilet 105, klasa 6)? — 104 scalone; wersje nietknięte; 105 czeka na zatwierdzenie użytkownika przed dispatchem
 
 ## Waiting on
 - grain-lead: wave 2 start message (workers dispatched, count), then 'queue empty' escalation (since 2026-09-01T21:51:29.863Z)
