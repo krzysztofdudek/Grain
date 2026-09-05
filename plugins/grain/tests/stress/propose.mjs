@@ -1044,7 +1044,8 @@ const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
 // this renderer cuts from the export's own sites approximates a symbol-level fact as a file-level one — ticket
 // 101 §8.1 traced every remaining FALSE-ALARM in its whole corpus to exactly this gap. `scopeApproximation`
 // names it in `provenance.json` (ruling `drill-fa-labelling-is-acceptance-not-defect`) so a real drill's FA
-// count is read as a labelling artifact of the corpus, not a defect in the check.const SYMBOL_LEVEL_KIND = new Set(['method', 'type', 'catch', 'finally', 'case']);
+// count is read as a labelling artifact of the corpus, not a defect in the check.
+const SYMBOL_LEVEL_KIND = new Set(['method', 'type', 'catch', 'finally', 'case']);
 export function renderableDirection(enumerator, expected, kind, ctxType) {
   if (!RENDERABLE.has(enumerator)) return false;
   // A GROUP-SCOPED RULE IS UNRENDERABLE IN BOTH DIRECTIONS. The counsel memo said group-scoped conventions
