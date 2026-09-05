@@ -699,6 +699,26 @@
       "note": "premerge READY from main checkout after base refresh (2272/2272); status earned from real yg drill: Yggdrasil self-proposal 11/13 det. enforced, 2 no-catch, 89 prose draft; director named GROUP_MIN at merge",
       "updated": "2026-09-05 12:19",
       "sha": "26acdf0"
+    },
+    {
+      "id": 65,
+      "ticket": "104",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/104-propose-command",
+      "state": "running",
+      "note": "cicha komenda propose; reachability; rozjazd liczb",
+      "updated": "2026-09-05 12:29"
+    },
+    {
+      "id": 66,
+      "ticket": "105",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/105-readme",
+      "state": "queued",
+      "note": "po 104; klasa 6 — użytkownik zatwierdza",
+      "updated": "2026-09-05 12:29"
     }
   ]
 }
