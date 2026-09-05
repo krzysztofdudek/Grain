@@ -204,6 +204,22 @@ function gitFiles(repo) {
 // Repo-relative directory prefix -> the tracked files beneath it.
 const underDir = (files, dir) => new Set(files.filter(f => f === dir || f.startsWith(dir + '/')));
 
+// The deepest directory every one of these paths lies under, or null when they share none (a file at the
+// repository root leaves nothing to share). Whole path SEGMENTS only: `src/apple` and `src/apricot` share
+// `src`, never `src/ap`.
+const commonDir = paths => {
+  if (!paths.length) return null;
+  let pre = paths[0].split('/').slice(0, -1);
+  for (const p of paths.slice(1)) {
+    const q = p.split('/').slice(0, -1);
+    let i = 0;
+    while (i < pre.length && i < q.length && pre[i] === q[i]) i++;
+    pre = pre.slice(0, i);
+    if (!pre.length) return null;
+  }
+  return pre.length ? pre.join('/') : null;
+};
+
 // A YAML-safe id: lowercase, path separators and dots folded to dashes, collapsed.
 export function slug(s) {
   const t = String(s).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
@@ -591,10 +607,34 @@ export function buildTypes(exp, loc, files, ctx) {
           why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: ${f.set.size} files; generalising predicate from ${cr.why}; selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` });
       }
     }
+    // THE MEMBERSHIP, AS A PREDICATE WHERE THE PATHS ALLOW ONE AND AS A LIST WHERE THEY DO NOT (ticket 116).
+    //
+    // A domain cut is almost always a directory: on spring-petclinic the `owner`, `vet` and `model` groups each
+    // live entirely under one package. Frozen as an `any_of` of explicit paths that cut is EXACT today and dead
+    // tomorrow — it classifies no file grain has not already seen, so an ecosystem cannot cut a second node and
+    // a second owner out of it, and every file added to the domain lands outside its own type. Where the members
+    // share a directory below the host, the same membership is a `path:` glob over that directory: a file added
+    // there joins the type by itself. Where they do NOT share one there is no path expression to offer and the
+    // list is the honest answer, so the list stays — for exactly those candidates, and it says so.
     const paths = [...f.set].sort();
-    addAlt({ id: `${base}-list`, of: host.id, form: 'list', when: { any_of: paths.map(p => ({ path: p })) }, groupFiles: f.set.size, selected: f.set.size, fidelity: 1, viable: true,
+    const shared = commonDir(paths);
+    const finerThanHost = shared && shared !== host.dir && shared.startsWith(host.dir + '/');
+    let asPath = null;
+    if (finerThanHost) {
+      const when = { path: `${shared}/**` };
+      let selected = null;
+      try { selected = expandWhen(when, files, ctx); } catch { /* a predicate that will not compile is itself a finding */ }
+      if (selected) {
+        const j = jaccard(f.set, selected);
+        asPath = { id: `${base}-path`, of: host.id, form: 'path', when, groupFiles: f.set.size, selected: selected.size, fidelity: +j.toFixed(3), viable: j >= MIN_WHEN_FIDELITY,
+          kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
+          why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: all ${f.set.size} files share the directory \`${shared}\`, so the membership is offered as the path predicate \`${shared}/**\` rather than as a list — it GENERALISES, and a file added under that directory is classified here without grain being run again; it selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` };
+      }
+    }
+    if (asPath) addAlt(asPath);
+    else addAlt({ id: `${base}-list`, of: host.id, form: 'list', when: { any_of: paths.map(p => ({ path: p })) }, groupFiles: f.set.size, selected: f.set.size, fidelity: 1, viable: true,
       kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
-      why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the exact ${f.set.size} files grain grouped, frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` });
+      why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the ${f.set.size} files grain grouped share no directory below \`${host.dir}\`${shared ? ` (the deepest they all share is \`${shared}\`, which is not finer than the host)` : ''}, so there is no path predicate to offer and the membership is frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` });
   }
   alternatives.sort((a, b) => b.fidelity - a.fidelity || b.groupFiles - a.groupFiles || (a.id < b.id ? -1 : 1));
   return { active, alternatives };
