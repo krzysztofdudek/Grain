@@ -717,9 +717,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/105-readme",
-      "state": "queued",
+      "state": "running",
       "note": "po 104; klasa 6 — użytkownik zatwierdza",
-      "updated": "2026-09-05 12:29"
+      "updated": "2026-09-05 19:52"
     },
     {
       "id": 67,
@@ -731,6 +731,56 @@
       "note": "premerge READY from main checkout (2290/2290); Grain self: enforced 22→0, advisory 22; Yggdrasil unchanged 10/124; 106 folded in. First merge attempt aborted on a dirty ticket log while the rest of the chain ran; corrected, log union-merged.",
       "updated": "2026-09-05 14:20",
       "sha": "a6a2c46"
+    },
+    {
+      "id": 68,
+      "ticket": "108",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/108-oracles",
+      "state": "running",
+      "note": "3 ślepe grafy + pomiar",
+      "updated": "2026-09-05 19:52"
+    },
+    {
+      "id": 69,
+      "ticket": "109",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/109-sense",
+      "state": "queued",
+      "note": "po klonach korpusu",
+      "updated": "2026-09-05 19:52"
+    },
+    {
+      "id": 70,
+      "ticket": "110",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "research/110-types",
+      "state": "queued",
+      "note": "po 108",
+      "updated": "2026-09-05 19:52"
+    },
+    {
+      "id": 71,
+      "ticket": "111",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/111-hardening",
+      "state": "running",
+      "note": "review+simplify+security propose",
+      "updated": "2026-09-05 19:52"
+    },
+    {
+      "id": 72,
+      "ticket": "112",
+      "kind": "research",
+      "agent": "opus",
+      "branch": "research/112-factory",
+      "state": "running",
+      "note": "Horde na grafie Graina, repo korpusu",
+      "updated": "2026-09-05 19:52"
     }
   ]
 }
