@@ -112,6 +112,10 @@ const SCHEMA_VERSION = '5.2.0'; // CLI_SUPPORTED_SCHEMA in Yggdrasil's core/grap
 // exist, `promoteEnforceableAspects` below skips verification entirely and every aspect ships `status: draft`,
 // unverified — exactly what this renderer did before ticket 102.
 const DEFAULT_YG_BIN = '/home/user/Yggdrasil/source/cli/dist/bin.js';
+// A type is a GROUP of files: one file is a member, not a group. This is the definition of the object being cut, not an
+// admission threshold — ticket 101 §5 measured that 1 vs 2 changed no count on 17 repos, which is why the former
+// MIN_TYPE_FILES knob was removed (ruling `root-fix-accepted-min-type-files-goes`).
+const GROUP_MIN = 2;
 
 // ==================================================================================================
 // 1. Small helpers.
@@ -422,7 +426,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
   // places and finer in others, and both were in the candidate set the reconstruction measured against.
   for (const m of exp.moduleGraph?.nodes || []) {
     const s = underDir(files, m.id);
-    if (s.size < 2) continue;
+    if (s.size < GROUP_MIN) continue;
     put({ dir: m.id, files: s, src: 'module', why: `grain module \`${m.id}\` (${m.files} files, dependency layer ${m.layer})` });
   }
   // directory cards ONE LEVEL below a partition root. Grain publishes a card only for a directory that carries
@@ -436,7 +440,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
     put({ dir: d.name, files: d.files, src: 'directory', why: `grain directory card \`${d.name}\` (${d.card.files} files, ${d.card.scopes} scopes), one level below the partition \`${owner}\`` });
   }
   for (const c of [...cands.values()].sort((a, b) => (String(a.dir) < String(b.dir) ? -1 : 1))) {
-    if (c.files.size < 2) continue;
+    if (c.files.size < GROUP_MIN) continue;
     active.push({ id: c.id || slug(c.dir), dir: c.dir, files: c.files, source: c.src, why: c.why, ...(c.rootGlob ? { rootGlob: true } : {}) });
   }
 
@@ -450,11 +454,11 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
     (rest.get(top) || rest.set(top, new Set()).get(top)).add(f);
   }
   for (const [top, set] of [...rest].sort((a, b) => b[1].size - a[1].size)) {
-    if (set.size < 2 || top === '.' || cands.has(top)) continue;
+    if (set.size < GROUP_MIN || top === '.' || cands.has(top)) continue;
     active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'uncovered', why: `directory \`${top}\` holds ${set.size} tracked files no grain partition, module or directory card claims — a grouping from the layout alone, with no mining behind it` });
   }
   const rootFiles = rest.get('.');
-  if (rootFiles && rootFiles.size >= 2 && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and no grain partition, module or directory card claims them — a grouping from the layout alone, with no mining behind it` });
+  if (rootFiles && rootFiles.size >= GROUP_MIN && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and no grain partition, module or directory card claims them — a grouping from the layout alone, with no mining behind it` });
 
   for (const a of active) {
     a.when = a.rootGlob ? { path: '*' } : { path: `${a.dir}/**` };
@@ -487,7 +491,7 @@ export function buildTypes(exp, loc, files, ctx, opts = {}) {
     ...loc.directories.filter(d => !active.some(a => a.dir === d.name)).map(d => ({ set: d.files, label: d.name, group: null, groupId: null, partKind: d.part.kind, part: d.part.name, kind: 'directory card' })),
   ];
   for (const f of finer) {
-    if (f.set.size < 2) continue;
+    if (f.set.size < GROUP_MIN) continue;
     const host = active.filter(a => a.dir && [...f.set].every(x => x.startsWith(a.dir + '/') || x === a.dir)).sort((a, b) => b.dir.length - a.dir.length)[0];
     if (!host) continue;
     if (jaccard(f.set, host.files) >= 0.9) continue; // the candidate IS the host — nothing finer on offer
@@ -1040,8 +1044,7 @@ const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
 // this renderer cuts from the export's own sites approximates a symbol-level fact as a file-level one — ticket
 // 101 §8.1 traced every remaining FALSE-ALARM in its whole corpus to exactly this gap. `scopeApproximation`
 // names it in `provenance.json` (ruling `drill-fa-labelling-is-acceptance-not-defect`) so a real drill's FA
-// count is read as a labelling artifact of the corpus, not a defect in the check.
-const SYMBOL_LEVEL_KIND = new Set(['method', 'type', 'catch', 'finally', 'case']);
+// count is read as a labelling artifact of the corpus, not a defect in the check.const SYMBOL_LEVEL_KIND = new Set(['method', 'type', 'catch', 'finally', 'case']);
 export function renderableDirection(enumerator, expected, kind, ctxType) {
   if (!RENDERABLE.has(enumerator)) return false;
   // A GROUP-SCOPED RULE IS UNRENDERABLE IN BOTH DIRECTIONS. The counsel memo said group-scoped conventions
