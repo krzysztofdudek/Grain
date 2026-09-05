@@ -5108,3 +5108,4 @@ note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta gra
 
 # Fala Fala 8 — odbiór propozycji — start 2026-09-05
 - 2026-09-05 099 (cap fileScopes) + 102 (skutki 101 w rendererze) → Sonnet; potem decyzja z liczbami: grain propose jako komenda produktu, Grain jako brownfield nr 2, README pod nową funkcję celu (klasa 6).
+- 2026-09-05 merged: 099 498da86
