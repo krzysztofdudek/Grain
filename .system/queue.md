@@ -16,7 +16,7 @@ _none_
 
 _none_
 
-## merged (67)
+## merged (68)
 
 | id | ticket | kind | agent | branch | sha | note | updated |
 |---|---|---|---|---|---|---|---|
@@ -87,6 +87,7 @@ _none_
 | 71 | 111 | fix | opus | fix/111-hardening | f488c83 | premerge READY after base refresh (2314/2314); 8 correctness bugs (symlink deleted hand .yggdrasil/, YAML key injection, U+0001 unreadable yaml, no drill timeout → derived 2148ms×100), 2 security (tracked symlink content copied out, site path escaping repo), propose() 243→110 lines byte-identical; coverage 71→98% lines | 2026-09-05 21:49 |
 | 72 | 112 | research | opus | research/112-factory | 397a9e4 | premerge READY after base refresh (2293/2293); seams table: enforced structurally empty on petclinic (0/18), 0 relations (113), charter/aspects not read by Horde, yg check absent from Horde merge gate; 3 propose fixes on sight | 2026-09-05 21:39 |
 | 73 | 117 | fix | sonnet | fix/117-control-bytes | c8ce4cc | premerge READY (2335/2335); 5 SOH bytes escaped, C0 guard test, run-corpus 21 tests, vendor 5/5 browser-only dead code; core.mjs size left (oracle refusals 12→8) | 2026-09-05 22:06 |
+| 74 | 114 | fix | opus | fix/114-118-charter-progressive | 675d19a | with 118; premerge READY (2347/2349, 2 skipped); charter cascade = yg context parity 19/19 on petclinic sample; nodes-with-rules petclinic 2/14→4/14, Yggdrasil 16/73→50/73; progressive.reference derived from origin/HEAD; existingViolations in provenance and report | 2026-09-05 23:03 |
 
 ## escalated (0)
 

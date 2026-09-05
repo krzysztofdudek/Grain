@@ -797,6 +797,17 @@
       "updated": "2026-09-05 22:06",
       "sha": "c8ce4cc",
       "note": "premerge READY (2335/2335); 5 SOH bytes escaped, C0 guard test, run-corpus 21 tests, vendor 5/5 browser-only dead code; core.mjs size left (oracle refusals 12→8)"
+    },
+    {
+      "id": 74,
+      "ticket": "114",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/114-118-charter-progressive",
+      "state": "merged",
+      "updated": "2026-09-05 23:03",
+      "sha": "675d19a",
+      "note": "with 118; premerge READY (2347/2349, 2 skipped); charter cascade = yg context parity 19/19 on petclinic sample; nodes-with-rules petclinic 2/14→4/14, Yggdrasil 16/73→50/73; progressive.reference derived from origin/HEAD; existingViolations in provenance and report"
     }
   ]
 }
