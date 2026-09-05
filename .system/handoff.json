@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-05T11:02:28.217Z",
+  "at": "2026-09-05T13:22:01.894Z",
   "by": "director",
   "head": "claude/grain-agent-tool-b89y0x@d307472",
   "summary": "Fala 7 zamknięta (suita 2260): 100 szwy i 101 stress scalone; cztery orzeczenia z 101 zapisane (proza DRAFT, FA-etykieta jako odbiór, _root/MIN_TYPE_FILES, no-catch DRAFT). Fala 8 'odbiór propozycji' otwarta: 099 i 102 u Sonnetów w worktree'ach agenta (gałęzie fix/099-filescopes-cap, fix/102-propose-rulings).",
@@ -19,7 +19,13 @@
       "branch": "fix/102-propose-rulings"
     }
   ],
-  "pendingDecisions": [],
+  "pendingDecisions": [
+    {
+      "id": "d1",
+      "question": "Czy podbić ENGINE_VERSION/package.json 0.3.0→0.4.0 za nową komendę propose (precedens wave-close-versions-0-4-0), i czy scalić przepisany README/docs pod nowy cel (bilet 105, klasa 6)?",
+      "context": "104 scalone; wersje nietknięte; 105 czeka na zatwierdzenie użytkownika przed dispatchem"
+    }
+  ],
   "waitingOn": [
     {
       "who": "grain-lead",
