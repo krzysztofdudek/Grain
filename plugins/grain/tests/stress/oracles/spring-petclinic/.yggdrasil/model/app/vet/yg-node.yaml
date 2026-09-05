@@ -1,0 +1,4 @@
+name: VetArea
+type: feature-area
+description: "The veterinarian feature area — vets, their specialties, and the two read-only endpoints that list them (an HTML page and a JSON/XML representation). Read-only by design: nothing in the application creates or edits a vet."
+relations: []

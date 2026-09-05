@@ -1,0 +1,46 @@
+version: "5.2.0"
+
+quality:
+  # Raised from the default 10 for one reason: the test source set legitimately
+  # reaches into several feature packages at once (the JPA slice test drives
+  # owners, pet types and vets in the same class), and the deny-by-default
+  # relation policy means each of those reaches has to be written down.
+  max_direct_relations: 15
+
+parallel: 1
+
+# Read-only by default. The free, keyless gate is the explicit
+# `yg check --approve --only-deterministic`, which is what CI should run.
+auto_approve: false
+
+coverage:
+  # Every tracked file in this repository is classified by some type, so an
+  # uncovered file means the architecture has genuinely lost sight of
+  # something — treat it as an error everywhere rather than a warning
+  # somewhere.
+  required: ["/"]
+  # Repository plumbing that the enforcement tooling maintains for itself, plus
+  # the git attributes entry it needs. These are not project source and belong
+  # to no component; excluding them is the alternative to inventing a component
+  # to hold them.
+  excluded:
+    - AGENTS.md
+    - CLAUDE.md
+    - .clinerules/yggdrasil.md
+    - .gitattributes
+  # Most files here need no component of their own: a template, a message
+  # bundle, a wrapper script or a workflow is fully described by its type.
+  # Components are written only where there is something to say beyond the
+  # type — a relation, a whole-component rule, or a log worth keeping.
+  type_level: true
+
+reviewer:
+  tiers:
+    standard:
+      # Only the tier NAME is folded into a verdict, so pointing `standard` at
+      # a different reviewer locally (via a gitignored yg-secrets.yaml overlay)
+      # invalidates nothing that has already been recorded.
+      provider: claude-code
+      consensus: 1
+      config:
+        model: sonnet

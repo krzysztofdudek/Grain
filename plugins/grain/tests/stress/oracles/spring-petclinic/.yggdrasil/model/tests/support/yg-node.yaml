@@ -1,0 +1,11 @@
+name: TestSupport
+type: test-support
+description: "Test-source files that carry no test of their own: the entity lookup helper the JPA slice test uses to fetch a seeded row by id, and the configuration that supplies a Testcontainers-backed MySQL datasource to a manually launched application."
+mapping:
+  - src/test/java/org/springframework/samples/petclinic/service/EntityUtils.java
+  - src/test/java/org/springframework/samples/petclinic/MysqlTestApplication.java
+relations:
+  - target: app/model
+    type: uses
+  - target: app/bootstrap
+    type: uses

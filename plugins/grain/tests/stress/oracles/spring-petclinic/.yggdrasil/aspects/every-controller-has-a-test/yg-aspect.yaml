@@ -1,0 +1,7 @@
+name: EveryControllerHasATest
+description: "Every controller in the application has a test class named after it. Controllers are the layer where a typo in a view name, a missing model attribute or a wrong redirect compiles cleanly and only fails in a browser; the test class is the only thing that pins them. All six have one today — five as MVC slices, one (the deliberate-crash endpoint) as a plain unit test, which is why this rule looks in both places."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01

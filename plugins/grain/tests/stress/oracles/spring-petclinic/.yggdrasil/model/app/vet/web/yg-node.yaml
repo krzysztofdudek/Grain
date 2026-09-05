@@ -1,0 +1,14 @@
+name: VetWeb
+type: controller
+description: "Lists veterinarians two ways from one controller: a paged HTML page rendered through the vets template, and a JSON/XML representation returned from the same class with @ResponseBody on the single method that needs it. That one method is the whole reason this application has no @RestController."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/vet/VetController.java
+relations:
+  - target: app/vet/repository
+    type: calls
+  - target: app/vet/entities
+    type: uses
+  - target: app/vet/marshalling
+    type: uses
+  - target: ui/templates
+    type: uses

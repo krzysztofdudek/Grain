@@ -1,0 +1,11 @@
+name: NoStdoutInProductionCode
+description: "Diagnostics go through the logging framework, never to standard output or standard error, and never as a printed stack trace. Log level is configurable per package and the output is captured wherever the application runs; a println is neither. The aspect's own default is advisory and every production type raises it to enforced — the reverse is not expressible, and advisory is the honest level for the test sources, where two files print progress to the console today."
+reviewer:
+  type: deterministic
+status: advisory
+errs: exact
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "**/*.java"

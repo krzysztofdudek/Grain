@@ -1,0 +1,8 @@
+name: EntityBases
+type: mapped-superclass
+description: "The three JPA mapped superclasses every entity inherits: an identity base carrying the generated id and the is-new test, a named base adding a validated name, and a person base adding first and last name. Deliberately the bottom of the dependency order — no application code may be imported from here."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/model/BaseEntity.java
+  - src/main/java/org/springframework/samples/petclinic/model/NamedEntity.java
+  - src/main/java/org/springframework/samples/petclinic/model/Person.java
+relations: []

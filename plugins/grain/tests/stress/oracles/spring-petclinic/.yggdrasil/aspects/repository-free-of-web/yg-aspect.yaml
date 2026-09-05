@@ -1,0 +1,9 @@
+name: RepositoryFreeOfWeb
+description: "A repository must not reach the web layer — not the servlet API, not Spring MVC, and above all not a controller. The dependency runs one way: a controller calls a repository. Reversing it, even once, turns the two into a pair that cannot be tested or reused apart, and makes a slice test that mocks the repository meaningless."
+reviewer:
+  type: deterministic
+status: enforced
+errs: under
+review_by: 2027-03-01
+scope:
+  per: file
