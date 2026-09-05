@@ -40,6 +40,7 @@ import { parseYaml } from '../engine/yggdrasil-graph.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
 const NL = String.fromCharCode(10);
+const NOT_PRINTABLE_RE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
 
 const gitEnv = {
   GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x',
@@ -291,4 +292,17 @@ test('the export `propose` spawns for itself lands in the disposable cache, and 
     assert.deepEqual(inGrain, ['.gitignore', 'cache'], `.grain/ gained a generated file: ${JSON.stringify(inGrain)}`);
     assert.ok(existsSync(join(repo, '.grain', 'cache', 'propose-export.json')), 'the export was not written to the cache');
   } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
+
+// A comment is literal to the end of its line — there is no escape available inside one — so a character YAML
+// does not admit cannot be quoted out of the way there, and one left raw takes the whole document down with it
+// exactly as it would in a scalar.
+test('a character YAML does not admit never reaches a comment raw either', () => {
+  const c = n => String.fromCharCode(n);
+  for (const n of [0x00, 0x01, 0x1b, 0x7f, 0x9f, 0xd800]) {
+    const text = yamlEmit({ '#e': 'evidence for id' + c(n) + 'x', name: 'real' });
+    assert.doesNotMatch(text, NOT_PRINTABLE_RE, `a comment carries U+${n.toString(16).padStart(4, '0')} raw: ${JSON.stringify(text)}`);
+    assert.match(text, /^# evidence for id.x$/m, `the comment lost more than the one character it cannot write: ${JSON.stringify(text)}`);
+    assert.deepEqual(Object.keys(parseYaml(text)), ['name']);
+  }
 });

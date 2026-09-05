@@ -194,6 +194,7 @@ const NOT_PRINTABLE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]|[\ud800-\udbff]
 // and the C1 range raw, and a conforming parser rejects those inside double quotes exactly as it does outside
 // them — measured. Everything the plain form may not carry is therefore escaped as `\uXXXX`, which YAML's
 // double-quoted form admits for every one of them.
+const NOT_PRINTABLE_G = new RegExp(NOT_PRINTABLE.source, 'g');
 const escapeNonPrintable = json => json.replace(/[\u007f-\u009f]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
 export function yq(v) {
   if (v === null || v === undefined) return 'null';
@@ -208,7 +209,11 @@ export function yq(v) {
 // in the document as YAML: a directory named `ev<LF>injected: true` put a real `injected: true` key inside its
 // own node type in `yg-architecture.yaml` — confirmed both by this repository's own parser and by a conforming
 // one. Each line of the value now gets its own `#`, so a comment stays a comment however the value is spelled.
-const yamlComment = (v, pad) => String(v).split(/\r\n|\r|\n/).map(l => `${pad}# ${l}\n`).join('');
+// A COMMENT CANNOT ESCAPE ANYTHING — it is literal to the end of the line — so the characters YAML does not
+// admit at all (see NOT_PRINTABLE above) are replaced by U+FFFD here rather than escaped. One of them raw in a
+// comment is rejected by a conforming parser exactly as one in a scalar is, and takes the whole document with
+// it; the replacement character is the honest rendering of 'a character that cannot be written here'.
+const yamlComment = (v, pad) => String(v).split(/\r\n|\r|\n/).map(l => `${pad}# ${l.replace(NOT_PRINTABLE_G, '\ufffd')}\n`).join('');
 export function yamlEmit(value, indent = 0) {
   const pad = ' '.repeat(indent);
   if (Array.isArray(value)) {
