@@ -68,7 +68,7 @@ test('co-change support is keyed on the REAL non-ASCII path in both pair positio
   for (const k of cafePairs) assert.equal(state.pairSup[k], 4, `expected support 4 for ${k}`);
   assert.ok(!keys.some(k => k.includes(QUOTED)), `no quoted/octal-escaped path may appear in a pairSup key: ${JSON.stringify(keys)}`);
   // regression control: the all-ASCII pair is unaffected
-  assert.equal(state.pairSup['src/other.jssrc/plain.js'], 4);
+  assert.equal(state.pairSup['src/other.js\x01src/plain.js'], 4);
 });
 
 test('the non-ASCII file gets real per-scope lifecycle rows — before the fix this data is silently ABSENT, not just mis-keyed', async () => {
