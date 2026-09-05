@@ -5099,3 +5099,4 @@ note: Fala 6 (rekonstrukcja): 093 instrument G', 094 renderer propozycji, 096 'z
 # Fala 7 — szwy i stress — start 2026-09-05
 - 2026-09-05 100 kontrakty szwów + charter.md + adapter family-candidates; 101 stress integracji na korpusie + sense rate + sędzia Opus dla próbki 097; 099 cap fileScopes; 095 do sprawdzenia czy wchłonięte.
 - 2026-09-05 merged: 100 adbe951
+- 2026-09-05 merged: 101 b3a9b32
