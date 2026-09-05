@@ -1854,7 +1854,11 @@ export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByN
   L.push(`- depends on: ${dep.length ? dep.map(r => `\`${r.target}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ') : '(no resolved outgoing import)'}`);
   L.push(`- used by: ${used.length ? used.map(r => `\`${r.from}\` (${r.n} resolved import${r.n === 1 ? '' : 's'})`).join(' · ') : '(no resolved incoming import)'}`, '');
 
-  const hosted = aspects.filter(a => a.host === n.id);
+  // An aspect's `host` is the TYPE that carries it in `yg-architecture.yaml`; a node's own `id` is a PATH
+  // (`src/main/java`) and `n.type` is that type id (`src-main-java`). Matching the host against the id is
+  // a category error that empties every charter the moment a directory name is not already its own slug —
+  // and the charter is the one file the layer above the graph reads.
+  const hosted = aspects.filter(a => a.host === n.type);
   const certified = hosted.filter(a => a.origin === 'certified-convention');
   const subgate = hosted.filter(a => a.origin === 'sub-gate-lattice');
   L.push('## Certified conventions', '');

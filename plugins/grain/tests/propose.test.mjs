@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -438,4 +438,24 @@ test('the YAML emitter quotes what YAML would otherwise re-read as something els
   // and it round-trips through the reader the instruments actually use
   const doc = { name: 'X', when: { all_of: [{ path: 'a/**' }, { not: { path: '**/*.test.ts' } }] }, mapping: ['a/'] };
   assert.deepEqual(parseYaml(yamlEmit(doc)), doc);
+});
+
+// ---------- 13. the node charter names the rules that govern the node (dry run 112) ----------
+//
+// `charter.md` is the ONE file Horde's `node.mjs show` reads out of a proposal, so a charter that
+// cannot name a rule leaves the layer above the graph with no rule at all. The aspect's `host` is a
+// TYPE id (`src-api`); a node's `id` is a PATH (`src/api`) and its `type` is the type id — matching
+// the host against the id instead of the type silently emptied every charter on a repository whose
+// directories are not already slugs.
+test('a node charter lists the certified conventions and sub-gate candidates hosted by its own TYPE', () => {
+  const node = { id: 'src/api', type: 'src-api', dir: 'src/api', files: new Set(['src/api/a.ts']), ownFiles: new Set(['src/api/a.ts']), relations: [], why: 'a partition' };
+  const aspects = [
+    { id: 'grain/src-api/partition-nameshape', host: 'src-api', origin: 'certified-convention', name: 'types here are named PascalCase', share: 1, n: 25, deviating: 0, exemplars: [] },
+    { id: 'grain/src-api/candidate-auto-imp-x', host: 'src-api', origin: 'sub-gate-lattice', name: 'files here import `x`', share: 0.8, n: 24, deviating: 6, exemplars: [] },
+    { id: 'grain/other/unrelated', host: 'src-util', origin: 'certified-convention', name: 'not this node', share: 1, n: 5, deviating: 0, exemplars: [] },
+  ];
+  const md = renderNodeCharter(node, { nodes: [node], aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: '/tmp/x' });
+  assert.match(md, /types here are named PascalCase/, 'the certified convention hosted by this node\'s type is missing from its charter');
+  assert.match(md, /files here import `x`/, 'the sub-gate candidate hosted by this node\'s type is missing from its charter');
+  assert.doesNotMatch(md, /not this node/, 'a rule hosted by another type must not appear');
 });
