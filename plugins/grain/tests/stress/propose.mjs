@@ -31,14 +31,24 @@ import {
   propose as enginePropose,
   promoteEnforceableAspects as enginePromote,
 } from '../../engine/propose.mjs';
+// imported AND re-exported, not `export … from`: the scoring section and the CLI below call several of these by
+// name, and a bare re-export would leave them undefined in this module's own scope
+import {
+  PREAMBLE, RENDERABLE, WHY_PROSE, SUPERMAJORITY, LAMBDA_BOUND, MIN_SUPPORT, MIN_PROMOTE_FILES,
+  MIN_GROUP_MEMBERS, MIN_WHEN_FIDELITY, MIN_CONVENTION_SITES, FAMILY_MIN_MEMBERS, SUBGATE_PER_PARTITION,
+  slug, yq, yamlEmit, localities, contentRegexFor, caseTolerant, buildTypes, buildRelations, buildNodes,
+  nestedProjectRoots, nodePathFor, partitionLattice, subGate, identifierOf, shapeToRegex, renderCheck,
+  renderableDirection, computeSizing, buildAspects, provenanceFor, buildFamilyCandidates, nodeCochangePairs,
+  renderNodeCharter, cutDrills, resolveYg, proposeReport,
+} from '../../engine/propose.mjs';
 export {
   PREAMBLE, RENDERABLE, WHY_PROSE, SUPERMAJORITY, LAMBDA_BOUND, MIN_SUPPORT, MIN_PROMOTE_FILES,
   MIN_GROUP_MEMBERS, MIN_WHEN_FIDELITY, MIN_CONVENTION_SITES, FAMILY_MIN_MEMBERS, SUBGATE_PER_PARTITION,
   slug, yq, yamlEmit, localities, contentRegexFor, caseTolerant, buildTypes, buildRelations, buildNodes,
   nestedProjectRoots, nodePathFor, partitionLattice, subGate, identifierOf, shapeToRegex, renderCheck,
   renderableDirection, computeSizing, buildAspects, provenanceFor, buildFamilyCandidates, nodeCochangePairs,
-  renderNodeCharter, cutDrills, resolveYg,
-} from '../../engine/propose.mjs';
+  renderNodeCharter, cutDrills, resolveYg, proposeReport,
+};
 
 // Where the built Yggdrasil CLI lives for a MEASUREMENT run on this machine — the same path
 // `tests/propose.test.mjs` and `tests/stress/integration-stress.mjs` already use as their own default: `YG_BIN`

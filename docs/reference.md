@@ -199,9 +199,10 @@ at the same binary by hand.
   `-32602`); a failure while answering (a bad `repo` path, a file that does not exist) comes back as a normal
   result with `isError: true` so the calling model can see and react to it. Neither kind ever crashes the server —
   it keeps answering later calls.
-- Mutating commands (`decide`/`seed`, `refresh`) and `map`/`explain`/`selftest` (not part of the four-question read
-  surface `where`/`how`/`what`/`check` answers) are deliberately not exposed; this is a read-only query surface
-  over the questions an agent asks mid-task, not the whole CLI.
+- Mutating commands (`decide`/`seed`, `refresh`, `propose` — which writes a whole staging tree) and
+  `map`/`explain`/`selftest` (not part of the four-question read surface `where`/`how`/`what`/`check` answers) are
+  deliberately not exposed; this is a read-only query surface over the questions an agent asks mid-task, not the
+  whole CLI.
 
 ## The store
 
@@ -225,6 +226,11 @@ at the same binary by hand.
 ```
 
 Deleting `cache/` is always safe; the next query rebuilds the same bytes.
+
+`grain propose` writes outside this store, to `<repo>/.yggdrasil-proposal/` (or the out-dir you name): a staging
+tree, not state. It carries its own ignore file (`*`) from the first run, so it never shows as an uncommitted
+change and can never be committed by accident, and deleting it is always safe — the next `propose` rewrites it.
+The repository's own `.yggdrasil/` is never written by grain, at all.
 
 ## Environment
 
