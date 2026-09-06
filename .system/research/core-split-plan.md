@@ -214,10 +214,17 @@ because it is the one construct in either file whose value depends on which file
 
 1. `propose-base`, `propose-levels`, `propose-types`, `propose-nodes`
 2. `propose-lattice`, `propose-checks`, `propose-classify`, `propose-sizing`
-3. `propose-aspects`, `propose-status`, `propose-family`, `propose-charters`
-4. `propose-drills`, `propose-markdown`, `propose-report`, `propose-write` — `propose.mjs` becomes the façade
+3. `propose-drills`, `propose-aspects`, `propose-status`, `propose-family`
+4. `propose-charters`, `propose-markdown`, `propose-report`, `propose-write` — `propose.mjs` becomes the
+   façade
 5. `grain-context`, `grain-where`, `grain-what`, `grain-check`
-6. `grain-seed`, `grain-export`, `grain-report`, `grain-session`, `grain-usage` — `grain.mjs` becomes the dispatcher
+6. `grain-seed`, `grain-export`, `grain-report`, `grain-session`, `grain-usage` — `grain.mjs` becomes the
+   dispatcher
+
+`propose-drills` moves ahead of `propose-aspects` (it was listed after it when this plan was first
+written): the aspect layer reads `contentMd`/`subGateMd` from it, so cutting the aspects first leaves a
+stage whose import graph has `propose-aspects → propose.mjs → propose-aspects` in it. Node runs that
+fine, but "zero cycles" has to hold at every stage, not only at the end. Measured, then reordered.
 
 ## The gate
 
