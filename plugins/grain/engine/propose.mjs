@@ -46,29 +46,19 @@
 // modules re-exported at the bottom, and every name this file exported before the split is still
 // exported here.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync } from 'node:fs';
 import { join, resolve, sep } from 'node:path';
-import { readGraph, expandMapping, jaccard, intersectSize } from './yggdrasil-graph.mjs';
-import {
-  ENGINE_VERSION,
-  EXTR_V,
-  MARKER_STEMS_BY_EXT,
-  isLanguageMarkerFile,
-  EXT2GRAMMAR,
-  GRAMMAR_DIR,
-} from './config.mjs';
+import { readGraph, jaccard, intersectSize } from './yggdrasil-graph.mjs';
+import { ENGINE_VERSION, EXTR_V, isLanguageMarkerFile, EXT2GRAMMAR, GRAMMAR_DIR } from './config.mjs';
 import { shapeWords, lexWords } from './core.mjs';
 import {
   BIN,
-  CORE,
   FAMILY_MIN_MEMBERS,
   LAMBDA_BOUND,
   MIN_CONVENTION_SITES,
-  MIN_SUPPORT,
   PREAMBLE,
   SCHEMA_VERSION,
   SUBGATE_PER_PARTITION,
-  SUPERMAJORITY,
   gitFiles,
   pct,
   preambleComment,
@@ -80,515 +70,21 @@ import {
   write,
   yamlEmit,
 } from './propose-base.mjs';
+import { renderCheck } from './propose-checks.mjs';
+import {
+  ABSENCE_CLASS,
+  BOOLEAN_CLASS,
+  SYMBOL_LEVEL_KIND,
+  WHY_PROSE,
+  isAbsenceRow,
+  renderableDirection,
+} from './propose-classify.mjs';
+import { DRAFT_NOTE, identifierOf, partitionLattice, statusNote, subGate } from './propose-lattice.mjs';
 import { TYPE_LEVELS, contentRegexFor, countBy, levelSentence, localities } from './propose-levels.mjs';
 import { buildNodes, buildRelations, nestedProjectRoots, typeGlob } from './propose-nodes.mjs';
+import { computeSizing } from './propose-sizing.mjs';
 import { buildTypes } from './propose-types.mjs';
 
-const CELL_SEP = '\u0001'; // the same cell-key separator `core.mjs` uses; a pid can contain spaces, so ' ' would truncate it
-export async function partitionLattice(repo) {
-  const modelPath = join(repo, '.grain', 'cache', 'model.json');
-  const treePath = join(repo, '.grain', 'cache', 'tree.json');
-  if (!existsSync(modelPath) || !existsSync(treePath)) return { rows: [], reason: 'no grain cache (.grain/cache/{model,tree}.json) — run `grain export` on this repo first' };
-  const core = await import(`file://${CORE}`);
-  const { hydrateScope, applyVocab, buildVocab, skeyR, isBool, kt } = core;
-  const model = JSON.parse(readFileSync(modelPath, 'utf8'));
-  const tree = JSON.parse(readFileSync(treePath, 'utf8'));
-  const byFile = new Map();
-  for (const [k, v] of Object.entries(tree)) {
-    const rel = k.slice(k.indexOf('|') + 1);
-    byFile.set(rel, (Array.isArray(v) ? v : v.s) || []);
-  }
-  const rows = [];
-  for (const part of model.partitions || []) {
-    const ps = [];
-    for (const rel of part.files || []) for (const raw of byFile.get(rel) || []) { if (raw.name !== '<anon>') ps.push(hydrateScope(raw)); }
-    if (ps.length < 3) continue;
-    const vocab = buildVocab(ps, { deep: true });
-    for (const s of ps) applyVocab(s, vocab);
-    const roleOf = s => { const r = part.assignments?.[skeyR(s.rel, s)]; return r !== undefined && r !== -1 ? r : undefined; };
-    const cells = new Map(), sites = new Map();
-    const add2 = (cid, pid, v, s) => {
-      const k = cid + CELL_SEP + pid;
-      const c = cells.get(k) || cells.set(k, Object.create(null)).get(k);
-      c[v] = (c[v] || 0) + 1;
-      (sites.get(k) || sites.set(k, []).get(k)).push({ rel: s.rel, kind: s.kind, name: s.name, line: s.line, v });
-    };
-    for (const s of ps) {
-      const r = roleOf(s);
-      for (const [pid, v] of Object.entries(s.preds)) {
-        add2('_all:' + s.kind, pid, v, s);
-        if (r !== undefined) add2('r' + r + ':' + s.kind, pid, v, s);
-      }
-    }
-    const idxCost = Math.ceil(Math.log2(Math.max(cells.size, 2)));
-    const factKey = new Set((part.facts || []).map(f => f.cid + CELL_SEP + f.pid + CELL_SEP + f.exp));
-    for (const [key, c] of cells) {
-      const [cid, pid] = key.split(CELL_SEP);
-      if (!pid) continue;
-      const kind = cid.split(':').pop();
-      const n = Object.values(c).reduce((a, b) => a + b, 0);
-      if (n < 3) continue;
-      const Vv = Object.keys(c).sort();
-      const bl = isBool(pid);
-      const K = bl ? 2 : Vv.length + 1;
-      const allC = cells.get('_all:' + kind + CELL_SEP + pid);
-      const allN = allC ? Object.values(allC).reduce((a, b) => a + b, 0) : n;
-      let data = 0;
-      if (cid.startsWith('_all')) { const B = Math.max(bl ? 2 : Vv.length, 2); for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) * B); }
-      else if (!allC) continue; // no partition-wide reference for this cell — nothing to contrast against
-      else for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) / kt(allC, K, v, allN));
-      const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost;
-      let exp = null, ne = -1;
-      for (const v of Vv) if (c[v] > ne) { exp = v; ne = c[v]; }
-      if (!bl && ['other', 'none', 'mixed', '?'].includes(exp)) continue;
-      if (bl && exp === 'false') { const tot = allN; if (!tot || (allC?.['true'] || 0) / tot < 0.2) continue; }
-      const share = ne / n;
-      const isNorm = factKey.has(cid + CELL_SEP + pid + CELL_SEP + exp);
-      rows.push({
-        partition: part.name, cid, pid, exp, share, n, ne, bits: +bits.toFixed(1), isNorm,
-        role: /^r(\d+):/.exec(cid)?.[1] ?? null, kind,
-        deviants: (sites.get(key) || []).filter(s => s.v !== exp).map(s => `${s.rel}#${s.name}`),
-      });
-    }
-  }
-  return { rows, reason: null };
-}
-// The sub-gate band: practised by a supermajority but below the certification bound, with real support. These
-// are the rows a maintainer reads as "a house rule that has not finished spreading".
-export const subGate = rows => rows
-  .filter(r => !r.isNorm && r.n >= MIN_SUPPORT && r.share >= SUPERMAJORITY && r.share < LAMBDA_BOUND)
-  .sort((a, b) => b.share - a.share || b.n - a.n || (a.pid < b.pid ? -1 : 1));
-// The identifier a lattice pid or a convention feature is ABOUT — what an aspect draft names, and the thing a
-// comparison against a hand-written mechanical rule can match on.
-export const identifierOf = pid => {
-  const m = /^auto\.([a-z0-9]+):(.*)$/.exec(String(pid));
-  return m ? m[2] : null;
-};
-
-// ---- the check renderer: one template per RENDERABLE enumerator class ----
-//
-// The director's steer (counsel memo §2 B1, §4): where a convention's `check` descriptor has a renderable
-// enumerator class, render a DETERMINISTIC `check.mjs` against Yggdrasil's `check(ctx)` contract — never prose.
-// Prose is reserved for what has no shape, and each prose aspect says which class it fell out of and why.
-//
-// `errs: under` IS EARNED, NOT DECLARED. Every template below obeys one discipline: report a violation only
-// where the tree PROVES the negation. A rule "methods here return `Promise`" fires on a method that declares a
-// DIFFERENT return type, and stays silent on a method that declares none — a missing annotation is a language
-// or a style question, not evidence against the rule. A rule "files here never import X" fires only where the
-// import is actually present. Under-firing is the deliberate error direction; ticket 097 measures it.
-//
-// Grain and Yggdrasil parse with the same tree-sitter grammars, so a rendered check reads the same tree grain
-// counted. Where a language's grammar names a field differently the check sees no evidence and stays silent —
-// again, under.
-// grain's name-shape alphabet (`nameShape`, engine/core.mjs): `U` a run of uppercase, `a` a run of
-// lowercase/digits, `_ - $ .` themselves, `?` anything else, and `(XY)+` a repeated pair. A shape compiles to
-// an anchored regex mechanically; a shape carrying `?` does not compile at all (that is an answer, not a gap).
-export function shapeToRegex(shape) {
-  if (!shape || /\?/.test(shape)) return null;
-  const toks = shape.match(/\([^)]+\)\+|./g) || [];
-  const atom = ch => (ch === 'U' ? '[A-Z]+' : ch === 'a' ? '[a-z0-9]+' : /[_\-$.]/.test(ch) ? ch.replace(/[.$\-]/g, '\\$&') : null);
-  let out = '';
-  for (const t of toks) {
-    const g = /^\((.+)\)\+$/.exec(t);
-    if (g) {
-      let inner = '';
-      for (const ch of g[1]) { const a = atom(ch); if (!a) return null; inner += a; }
-      out += `(?:${inner})+`;
-    } else { const a = atom(t); if (!a) return null; out += a; }
-  }
-  return `^${out}$`;
-}
-// The node types each language's grammar uses for the construct a template needs. Deliberately a REGEX over
-// node-type names rather than a per-language table: the shipped grammars agree on the words, and a grammar that
-// does not match simply yields no evidence (under).
-const NT = {
-  import: '/(^|_)(import|use_declaration|using_directive|include|require)/',
-  call: '/^(call_expression|call|method_invocation|invocation_expression|function_call_expression|macro_invocation)$/',
-  deco: '/(decorator|attribute|annotation)/',
-  heritage: '/(heritage|extends|superclass|base_list|implements|impl_item|superclasses)/',
-  decl: '/(function|method|class|interface|struct|enum|type_alias)_(declaration|definition|item|specifier)|method_signature|function_signature/',
-  typeDecl: '/^(class_declaration|class_definition|class_specifier|interface_declaration|type_alias_declaration|enum_declaration|enum_specifier|enum_item|struct_item|struct_specifier|trait_item|record_declaration|object_declaration|type_declaration|type_item)$/',
-  funcDecl: '/^(function_declaration|function_definition|function_item|function_signature|method_definition|method_declaration|method_signature)$/',
-};
-// The header's second paragraph states the aspect's STATUS, and every check is written before its status is
-// known — a drill has not run yet. `promoteEnforceableAspects` rewrites this paragraph in place when a drill
-// earns `enforced` or `advisory`, so the sentence a maintainer reads at the top of the file is never the
-// opposite of what Yggdrasil is doing with it. The third sentence (the `errs: under` contract) is the same
-// in all three and is kept out of the swapped text.
-export const DRAFT_NOTE = `// DRAFT: this aspect is \`status: draft\`, so the runner never executes this check. Read it, decide whether the
-// rule is real, then promote it.`;
-export const statusNote = status => (status === 'enforced'
-  ? `// ENFORCED: a real \`yg drill\` on this repository's own code caught a violation with this check and raised no
-// false alarm, and its convention cleared grain's certification bound, so \`yg check\` runs it and a refusal blocks.`
-  : status === 'advisory'
-    ? `// ADVISORY: a real \`yg drill\` on this repository's own code caught a violation with this check and raised no
-// false alarm, but its convention sits BELOW grain's certification bound, so \`yg check\` runs it and a refusal
-// warns without blocking. Whether it should become law is the maintainer's refactor decision.`
-    : DRAFT_NOTE);
-const PROVENANCE = p => `// PROVENANCE — grain measured this, it did not decide it.
-//   ${p.replace(/\n/g, '\n//   ')}
-//
-${DRAFT_NOTE}
-// \`errs: under\` is the contract this template keeps: it reports only where the
-// syntax tree proves the negation, and stays silent where the language gives it nothing to read.`;
-// Every template shares one skeleton so the contract (sync, Violation[], guard on file.ast) is identical.
-const wrap = (prov, body, helpers = '') => `import { walk, report } from '@chrisdudek/yg/ast';
-
-${PROVENANCE(prov)}
-${helpers}
-export function check(ctx) {
-  const violations = [];
-  for (const file of ctx.files) {
-${body}
-  }
-  return violations;
-}
-`;
-export function renderCheck(spec) {
-  const { enumerator, argument, expected, provenance } = spec;
-  const A = JSON.stringify(String(argument ?? ''));
-  const wants = String(expected) === 'true';
-  switch (enumerator) {
-    // MATCHING THE SPECIFIER. The first version of this template looked for the specifier only INSIDE QUOTES
-    // (`'x'`, `"x"`, `` `x` ``). That is how JavaScript, TypeScript and Go spell an import and how almost
-    // nothing else does: Java writes `import jakarta.persistence.Entity;`, Python `import os`, Rust
-    // `use serde::Serialize;`, C# `using System;`, all unquoted — so on every one of those languages the check
-    // matched nothing, refused nothing, and MISSED every `violates-` case in its own drill corpus. Measured
-    // (ticket 101, spring-petclinic): 17 of 38 rendered checks were `imp` checks, every one of them scored
-    // 0 refusals on the repository and 4-5/5 MISS on its own corpus. The specifier is now matched as a bounded
-    // token anywhere in the import statement's text, which covers the quoted spelling as well (a quote is not
-    // an identifier character) without matching a longer name that merely contains it (`os` does not match
-    // `import osmosis`, and `java.util.List` does not match `import java.util.ArrayList`).
-    case 'imp':
-      return wrap(provenance, `    if (!file.ast) continue;
-    const SPEC = ${A};
-    const SPEC_RE = new RegExp('(^|[^A-Za-z0-9_$.])' + SPEC.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '($|[^A-Za-z0-9_$])');
-    let sawAnyImport = false, sawSpec = null;
-    walk(file.ast.rootNode, n => {
-      if (!${NT.import}.test(n.type)) return;
-      sawAnyImport = true;
-      if (SPEC_RE.test(n.text)) sawSpec = n;
-    });
-    if (${wants}) {
-      // under: only a file that DOES import things, and not this one, is evidence against the rule.
-      if (sawAnyImport && !sawSpec) violations.push({ file: file.path, line: 1, column: 0, message: 'expected an import of ' + SPEC + ' here (proposed rule, not yet reviewed)' });
-    } else if (sawSpec) {
-      violations.push(report(file, sawSpec, 'this rule proposes that ' + SPEC + ' is not imported here (proposed rule, not yet reviewed)'));
-    }`);
-    case 'call':
-      return wrap(provenance, `    if (!file.ast) continue;
-    const NAME = ${A};
-    let sawAnyCall = false; const hits = [];
-    walk(file.ast.rootNode, n => {
-      if (!${NT.call}.test(n.type)) return;
-      sawAnyCall = true;
-      const callee = (n.namedChild(0) ? n.namedChild(0).text : '').replace(/\\s+/g, '');
-      if (callee === NAME) hits.push(n);
-    });
-    if (${wants}) {
-      if (sawAnyCall && !hits.length) violations.push({ file: file.path, line: 1, column: 0, message: 'expected a call to ' + NAME + ' here (proposed rule, not yet reviewed)' });
-    } else for (const n of hits) violations.push(report(file, n, 'this rule proposes that ' + NAME + ' is not called here (proposed rule, not yet reviewed)'));`);
-    case 'deco':
-      return wrap(provenance, `    if (!file.ast) continue;
-    const NAME = ${A};
-    let sawAny = false; const hits = [];
-    walk(file.ast.rootNode, n => {
-      if (!${NT.deco}.test(n.type)) return;
-      sawAny = true;
-      if (new RegExp('(^|[^A-Za-z0-9_])' + NAME.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\b').test(n.text)) hits.push(n);
-    });
-    if (${wants}) {
-      if (sawAny && !hits.length) violations.push({ file: file.path, line: 1, column: 0, message: 'expected the marker ' + NAME + ' here (proposed rule, not yet reviewed)' });
-    } else for (const n of hits) violations.push(report(file, n, 'this rule proposes that ' + NAME + ' is not used here (proposed rule, not yet reviewed)'));`);
-    case 'extends':
-      return wrap(provenance, `    if (!file.ast) continue;
-    const NAME = ${A};
-    let sawAny = false; const hits = [];
-    walk(file.ast.rootNode, n => {
-      if (!${NT.heritage}.test(n.type)) return;
-      sawAny = true;
-      if (new RegExp('\\\\b' + NAME.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\b').test(n.text)) hits.push(n);
-    });
-    if (${wants}) {
-      if (sawAny && !hits.length) violations.push({ file: file.path, line: 1, column: 0, message: 'expected a declaration extending ' + NAME + ' here (proposed rule, not yet reviewed)' });
-    } else for (const n of hits) violations.push(report(file, n, 'this rule proposes that nothing here extends ' + NAME + ' (proposed rule, not yet reviewed)'));`);
-    case 'returns':
-      return wrap(provenance, `    if (!file.ast) continue;
-    const NAME = ${A};
-    const re = new RegExp('\\\\b' + NAME.replace(/[.*+?^\${}()|[\\]\\\\]/g, '\\\\$&') + '\\\\b');
-    walk(file.ast.rootNode, n => {
-      const rt = n.childForFieldName ? n.childForFieldName('return_type') : null;
-      if (!rt) return; // under: a declaration with no declared return type is no evidence either way
-      const hit = re.test(rt.text);
-      if (hit !== ${wants}) violations.push(report(file, rt, ${wants ? "'expected a declared return type of ' + NAME + ' here'" : "'this rule proposes that nothing here declares a return type of ' + NAME"} + ' (proposed rule, not yet reviewed)'));
-    });`);
-    case 'nameshape': {
-      const re = shapeToRegex(String(expected));
-      // A name-shape rule is about ONE kind of declaration. Rendering it over every declaration node breaks the
-      // `errs: under` contract by construction, and did: drilled on the pattern repo the first version produced
-      // 4 FALSE-ALARMs out of 5 cases on a single rule, refusing files for methods a rule about TYPES never
-      // spoke about. So the template exists only for the kinds whose grammar node types can be named exactly,
-      // and every other kind falls through to prose.
-      const forKind = { type: NT.typeDecl, method: NT.funcDecl }[spec.kind];
-      if (!re || !forKind) return null;
-      return wrap(provenance, `    if (!file.ast) continue;
-    walk(file.ast.rootNode, n => {
-      if (!${forKind}.test(n.type)) return;
-      const nm = n.childForFieldName ? n.childForFieldName('name') : null;
-      if (!nm || !nm.text) return;
-      if (!SHAPE.test(nm.text)) violations.push(report(file, nm, 'name ' + nm.text + ' does not follow the shape this rule proposes (' + ${JSON.stringify(String(expected))} + ') (proposed rule, not yet reviewed)'));
-    });`, `const SHAPE = ${new RegExp(re).toString()};\n`);
-    }
-    case 'filenameshape': {
-      const re = shapeToRegex(String(expected));
-      if (!re) return null;
-      // THE SHAPE IS THE STEM'S, NOT THE BASENAME'S. grain measures `auto.filenameshape` as
-      // `nameShape(basename(rel, extname(rel)))` (`core.mjs`) — the name with its LAST extension removed — and
-      // the compiled shape is anchored (`^...$`), so testing it against the basename can never match a file
-      // that has an extension at all. Measured (ticket 101, spring-petclinic): both rendered `filenameshape`
-      // checks refused 100% of the files in their own scope, and the one whose corpus had `satisfies-` cases
-      // FALSE-ALARMED on 5 of 5 — on the very files grain had certified as conforming. The stem is computed
-      // here exactly as node's `basename(b, extname(b))` computes it, dotfiles included.
-      return `${PROVENANCE(provenance)}
-const SHAPE = ${new RegExp(re).toString()};
-
-// grain measured this shape on the file name with its last extension removed; match what it measured.
-const stemOf = b => { const i = b.lastIndexOf('.'); return i > 0 ? b.slice(0, i) : b; };
-// A NAME THE LANGUAGE ITSELF FIXES IS NOT A NAME A CONVENTION CAN GOVERN. package-info.java has no other
-// spelling, so refusing it for not being PascalCase is a rule at odds with Java. Same table the proposal used
-// to leave these files out of the rule's population, carried here so the check agrees with the count beside it.
-const MARKER_STEMS_BY_EXT = ${JSON.stringify(MARKER_STEMS_BY_EXT)};
-const isMarker = b => { const i = b.lastIndexOf('.'); return i > 0 && (MARKER_STEMS_BY_EXT[b.slice(i).toLowerCase()] || []).includes(b.slice(0, i)); };
-
-export function check(ctx) {
-  const violations = [];
-  for (const file of ctx.files) {
-    const base = file.path.split('/').pop();
-    if (isMarker(base)) continue;
-    if (!SHAPE.test(stemOf(base))) violations.push({ file: file.path, line: 1, column: 0, message: 'file name ' + base + ' does not follow the shape this rule proposes (' + ${JSON.stringify(String(expected))} + ') (proposed rule, not yet reviewed)' });
-  }
-  return violations;
-}
-`;
-    }
-    case 'lex': {
-      // the lexical layer: an exact, content-only reading of the same two surfaces grain measures
-      if (argument === 'indent') {
-        const m = /^space(\d+)$/.exec(String(expected));
-        const unit = m ? `' '.repeat(${m[1]})` : "'\\t'";
-        return `${PROVENANCE(provenance)}
-const UNIT = ${unit};
-
-export function check(ctx) {
-  const violations = [];
-  for (const file of ctx.files) {
-    const lines = file.content.split('\\n');
-    for (let i = 0; i < lines.length; i++) {
-      const lead = /^[ \\t]*/.exec(lines[i])[0];
-      if (!lead || !lines[i].slice(lead.length)) continue;         // blank or unindented — no evidence
-      if (${m ? 'lead.includes("\\t")' : '/^ +/.test(lead)'}) {     // under: only a PROVABLY different unit fires
-        violations.push({ file: file.path, line: i + 1, column: 0, message: 'this rule proposes ${String(expected)} indentation here (proposed rule, not yet reviewed)' });
-        break;
-      }
-    }
-  }
-  return violations;
-}
-`;
-      }
-      if (argument === 'quote') {
-        const wantSingle = String(expected) === 'single';
-        return `${PROVENANCE(provenance)}
-// under: counts complete, same-line string literals only, and fires only where the OTHER quote clearly dominates.
-export function check(ctx) {
-  const violations = [];
-  for (const file of ctx.files) {
-    const single = (file.content.match(/'[^'\\n]*'/g) || []).length;
-    const double = (file.content.match(/"[^"\\n]*"/g) || []).length;
-    if (single + double < 3) continue;
-    const wrong = ${wantSingle ? 'double > single' : 'single > double'};
-    if (wrong) violations.push({ file: file.path, line: 1, column: 0, message: 'this rule proposes ${String(expected)} quotes here (proposed rule, not yet reviewed)' });
-  }
-  return violations;
-}
-`;
-      }
-      return null;
-    }
-    default:
-      return null;
-  }
-}
-// The classes that render, and — for everything else — the reason it does not, stated in the aspect itself
-// rather than approximated into a check that would be wrong.
-export const RENDERABLE = new Set(['imp', 'call', 'deco', 'extends', 'returns', 'nameshape', 'filenameshape', 'lex']);
-// WHICH DIRECTION AN `errs: under` CHECK MAY RENDER AT ALL — measured, not assumed.
-//
-// A drill sweep of the first version over the pattern repo: 86 rendered checks, 423 cases, 314 pass, 56 MISS,
-// 53 FALSE-ALARM. Every FALSE-ALARM had one shape. A convention like "methods in this ROLE GROUP declare a
-// return type of `Promise`" is true of four methods in a file that holds twenty; a check whose subject is the
-// FILE then refuses the file for the other sixteen, which the rule never spoke about. Under-firing is the
-// permitted error direction for `errs: under`; over-firing is a broken contract.
-//
-// So a POSITIVE rule ("everything here does X") renders only where the subject of the rule IS the file — an
-// import, a file name, a lexical layer, or a name shape the whole partition shares. A NEGATIVE rule ("nothing
-// here does X") renders in every class, because it fires only on evidence it can see and never on absence.
-const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
-// WHICH CLASSES SPELL "DOES NOT USE X" WITH `expected: false` (ticket 115) — and so cannot state a prohibition
-// from a majority. For every one of these the enumerator names a THING (an import specifier, a callee, a
-// marker, a supertype, a declared return type, a syntactic construct, a parameter type) and `false` says only
-// that the thing is not there. Nothing about a MAJORITY of absences is a rule: "files in `src/main/java` do not
-// import `jakarta.persistence.Entity`" was mined from 24 of 30 files, and the six that do are the entities — so
-// the sentence is refuted by the very code it was mined from. Measured on spring-petclinic: 12 of 44 standing
-// advisory refusals were of exactly this shape. `nameshape`/`filenameshape`/`lex`/`mods` and the rest are NOT
-// here: their `expected` is a VALUE the code carries, so there is no absence to mistake for a prohibition.
-const ABSENCE_CLASS = new Set([...BOOLEAN_CLASS, 'has', 'ptype']);
-// One predicate for it, because the same row must read the same way wherever the proposal shows it: as an
-// aspect, and in the refactor backlog's own listing of the lattice.
-export const isAbsenceRow = r => ABSENCE_CLASS.has(/^auto\.([a-z0-9]+):?/.exec(String(r.pid))?.[1] || '') && String(r.exp) === 'false';
-// grain's own `unitOf` domain (engine/core.mjs): a convention's `kind` names the SUBJECT its evidence is about.
-// `file` and `module` ARE the unit Yggdrasil's `scope: { per: 'file' }` reviews; every other kind — a method, a
-// type/class, a catch or finally block — is a SYMBOL living inside a file, smaller than the unit a rendered
-// check is actually judged at. Rendering such a convention as a check is still sound by construction (the
-// `errs: under` templates above only fire on evidence they can prove, never on an absence), but the CORPUS label
-// this renderer cuts from the export's own sites approximates a symbol-level fact as a file-level one — ticket
-// 101 §8.1 traced every remaining FALSE-ALARM in its whole corpus to exactly this gap. `scopeApproximation`
-// names it in `provenance.json` (ruling `drill-fa-labelling-is-acceptance-not-defect`) so a real drill's FA
-// count is read as a labelling artifact of the corpus, not a defect in the check.
-const SYMBOL_LEVEL_KIND = new Set(['method', 'type', 'catch', 'finally', 'case']);
-export function renderableDirection(enumerator, expected, kind, ctxType) {
-  if (!RENDERABLE.has(enumerator)) return false;
-  // A GROUP-SCOPED RULE IS UNRENDERABLE IN BOTH DIRECTIONS. The counsel memo said group-scoped conventions
-  // WITHOUT a marker cannot be rendered; drilling says the marker does not save them either. A `content:`
-  // predicate selects FILES, and a role group is a set of SCOPES — so "methods in the `reviewer+point` group
-  // never return `string`" becomes, at file granularity, "no method in any file mentioning `point` returns
-  // `string`", which refuses methods the rule never spoke about. Measured: the last 5 FALSE-ALARMs in the
-  // sweep, all on one such rule, with the marker predicate doing its job correctly.
-  if (ctxType === 'group' && enumerator !== 'filenameshape' && enumerator !== 'lex') return false;
-  if (BOOLEAN_CLASS.has(enumerator)) {
-    if (String(expected) === 'false') return true;
-    return enumerator === 'imp' && kind === 'file';
-  }
-  if (enumerator === 'nameshape') return ctxType === 'partition' && (kind === 'type' || kind === 'method');
-  return true; // filenameshape and lex: the file itself is the subject either way
-}
-export const WHY_PROSE = {
-  // ticket 120 §class 3: the row was measured within one role-group cluster narrower than the host type's own
-  // directory glob, and neither an explicit path list (the export's own member list for that group is truncated)
-  // nor a shared `content:` predicate (the group offers no marker, name shape or import to draft one from) can
-  // state the cluster's own scope exactly. Rendering a check against the wider glob would enforce a rule beyond
-  // the population it was ever measured on; rendering one against the WRONG narrower guess would be worse. So no
-  // check is rendered at all, and this row cannot be promoted (`draftReason: cluster-narrower-than-scope`).
-  _clusterNarrower: 'the convention was measured within one role-group cluster narrower than the scope a check would enforce, and no exact scope for that cluster (an explicit file list, or a shared `content:` predicate) could be derived from what grain exported about it.',
-  _absence: 'the row reports an ABSENCE, not a prohibition. Its class spells "does not use X" with `expected: false`, and its origin is the sub-gate lattice — a band grain has by definition declined to certify — so all the row says is that most things here happen not to use the identifier today. The minority that do are usually the point (the files importing an entity annotation ARE the entities), so read this as a fact about the repository and decide for yourself whether it should become a rule.',
-  stshape: 'the convention asserts a STATEMENT SHAPE — a subtree, not a name. There is no identifier to match and no way to phrase it as a tree query that holds across languages.',
-  has: 'the convention asserts the PRESENCE OR ABSENCE of a syntactic construct. Rendering it would mean asserting the grammar\'s own vocabulary as a rule.',
-  modexport: 'the convention asserts a MODULE-LEVEL export style, which every language spells differently.',
-  arity: 'the convention asserts a PARAMETER COUNT — a shape, and one whose meaning differs per language.',
-  ptype: 'the convention asserts a PARAMETER TYPE, which needs per-language parameter-list field names this template set does not claim to know.',
-  ret: 'the convention asserts a RETURN-STATEMENT SHAPE, not a declared type.',
-  first1: 'the convention asserts what the FIRST STATEMENT is — a shape.',
-  varshape: 'the convention asserts a LOCAL-VARIABLE shape.',
-  moddirshape: 'the convention asserts a directory-name shape at module level; it is placement, and placement is what the node cut already encodes.',
-  modfileshape: 'the convention asserts a file-name shape at module level; the node cut already encodes it.',
-  modsize: 'the convention asserts a module SIZE — a measurement of the repository, not a rule about a file.',
-  nameshape: 'the convention asserts a NAME SHAPE over a kind of declaration whose grammar node types this template set cannot name exactly, so a rendered check would refuse declarations the rule never spoke about.',
-  filenameshape: 'the convention asserts a FILE-NAME SHAPE that does not compile to an anchored pattern (it contains a character class grain records as "anything else").',
-  lex: 'the convention asserts a LEXICAL surface this template set does not read exactly.',
-  imp: 'the convention names no import specifier to look for.',
-  call: 'the convention names no callee to look for.',
-  _scopeMismatch: 'the convention\'s subject is a DECLARATION inside a file, and a deterministic check\'s unit is the FILE. A rule that speaks about some declarations would refuse the file for all the others — measured at 53 false alarms in 423 drill cases before this was closed, and 5 more from the group-scoped case after — and an `errs: under` check may not over-fire. Written as prose so a reviewer that can see which declaration the rule is about judges it instead.',
-  _positiveGroup: 'the convention is POSITIVE ("everything here does X") and its subject is a declaration inside the file, not the file itself. A deterministic check whose unit is the file would refuse the file for every OTHER declaration in it — measured at 53 false alarms in 423 drill cases before this was closed — and an `errs: under` check may not over-fire. Written as prose so a reviewer that can see which declaration the rule is about judges it instead.',
-};
-
-
-// ==================================================================================================
-// 7.5 Sizing — `sizing.json` (ticket 098 / ecosystem-design-2026-09-05.md §2.4).
-//
-// Horde's only cutting rule (skills/horde/reference/model.md, "The node"): "a node is cut correctly when its
-// charter, its contracts and its code fit one Sonnet context with room to work". `node.mjs map` needs a NUMBER
-// to print that ratio against; this is where it comes from. Per proposed node — and per HAND node, when the
-// source repository already carries its own `.yggdrasil/` (as this one does on Yggdrasil itself) — four counts:
-//
-//   - `files`    the node's own file count (deepest-node precedence, same as `buildNodes`'s `ownFiles`)
-//   - `bytes`    total file size on disk (`fs.statSync`)
-//   - `codelengthLines` total source lines (`fs.readFileSync`, newline count) — named deliberately NOT
-//                "codelength" alone: the export's OWN codelength quantity (`bitsPerInstance` on a convention,
-//                `engine/core.mjs`'s description-length statistic over scope populations) is a measure of how
-//                SURPRISING a value is against its population, not a measure of SIZE, and nothing in the export
-//                aggregates it per module or per partition despite the ecosystem-design memo's §2.4 phrasing
-//                ("Grain's export already has bytes, scopes and codelength per module and per partition") — that
-//                claim does not hold for `bytes` or a size-flavoured "codelength" either; both are computed here,
-//                from the files themselves, not read out of any existing export field.
-//   - `scopes`   the file's total scope count, summed from `.grain/cache/tree.json` (the same per-file scope
-//                array `partitionLattice` above reads) when that cache exists; `null` — not zero — when it does
-//                not, so an absent cache is never misread as a repo with no scopes.
-//
-// WHAT IS DERIVED AND WHAT IS A FACT OF THE MODEL. `files`/`bytes`/`codelengthLines`/`scopes` are ALL derived —
-// counted from the files themselves or from grain's own scope cache, nothing tuned, nothing tunable. The ONE
-// number here that is not derived at all is `contextBudgetTokens: 200000` — Anthropic's published context
-// window for the models this family runs on (claude-api skill), a fact about the tool the ecosystem happens to
-// run on, not a Grain measurement and not a Grain constant. `sizing.json` carries it so a consumer (`node.mjs
-// map`) can compute a ratio without hardcoding the number itself; this renderer computes no ratio and makes no
-// claim about what ratio predicts owner success — that is the bet ecosystem-design-2026-09-05.md §6 names, and
-// sizing.json is deliberately just the two numbers a ratio needs, not the ratio's verdict.
-// ==================================================================================================
-function scopeCountsFromTreeCache(repo) {
-  const treePath = join(repo, '.grain', 'cache', 'tree.json');
-  if (!existsSync(treePath)) return null;
-  let tree;
-  try { tree = JSON.parse(readFileSync(treePath, 'utf8')); } catch { return null; }
-  const byFile = new Map();
-  for (const [k, v] of Object.entries(tree)) {
-    const rel = k.slice(k.indexOf('|') + 1);
-    const n = (Array.isArray(v) ? v : v.s || []).length;
-    byFile.set(rel, (byFile.get(rel) || 0) + n);
-  }
-  return byFile;
-}
-export function computeSizing(repo, nodes, handGraph, handFiles) {
-  const scopesByFile = scopeCountsFromTreeCache(repo);
-  const bytesOf = rel => { try { return statSync(join(repo, rel)).size; } catch { return 0; } };
-  const linesOf = rel => { try { return readFileSync(join(repo, rel), 'utf8').split('\n').length; } catch { return 0; } };
-  const sizeOf = fileSet => {
-    let bytes = 0, codelengthLines = 0, scopes = 0, files = 0;
-    for (const rel of fileSet) {
-      files++;
-      bytes += bytesOf(rel);
-      codelengthLines += linesOf(rel);
-      if (scopesByFile?.has(rel)) scopes += scopesByFile.get(rel);
-    }
-    return { files, bytes, codelengthLines, scopes: scopesByFile ? scopes : null };
-  };
-  const proposedNodes = nodes.filter(n => !n.organizational).map(n => ({ id: n.id, dir: n.dir, ...sizeOf(n.ownFiles) }));
-  let handNodes = null;
-  if (handGraph) {
-    handNodes = handGraph.nodes.filter(n => Array.isArray(n.mapping) && n.mapping.length).map(n => {
-      const set = expandMapping(n.mapping, handFiles, { root: repo, pathCache: new Map(), contentCache: new Map(), headCache: new Map() });
-      return { id: n.id, ...sizeOf(set) };
-    });
-  }
-  return {
-    instrument: 'sizing/1',
-    contextBudgetTokens: 200000,
-    contextBudgetSource: 'external constant (Anthropic\'s published context window for Sonnet/Opus) — not measured, not tuned, not a Grain number',
-    scopesAvailable: !!scopesByFile,
-    proposedNodes, handNodes,
-  };
-}
-
-// ==================================================================================================
-// 8. The renderer.
-// ==================================================================================================
-
-// ---- the four file sets `propose` writes, each in its own function ----
-//
-// `propose` below reads its inputs, builds the model, and then writes four things: the architecture, the
-// nodes, the aspects with their drill corpora, and the charters. Those four are what the section comments
-// have always called them; they are functions here so the pipeline reads as the five steps it is rather than
-// as one page of interleaved writes. Every body is unchanged, and `ev` — the one shared piece of state, the
-// evidence recorder — is passed in rather than closed over, so each function's whole effect is in its
-// signature: the directory it writes into, what it needs, and the counts it hands back.
 // The inputs: the tracked files, the export (reused when the caller already has one, spawned otherwise), the
 // model cache when there is one, and the predicate-expansion context every `when` is measured against.
 function loadInputs(repo, opts) {
@@ -2370,3 +1866,18 @@ export {
 export { buildTypes } from './propose-types.mjs';
 // proposal writer · relations and the coarse node cut
 export { buildRelations, nodePathFor, typeGlob, nestedProjectRoots, buildNodes } from './propose-nodes.mjs';
+// proposal writer · the sub-gate lattice and the identifiers a rule is written in
+export {
+  partitionLattice,
+  subGate,
+  identifierOf,
+  shapeToRegex,
+  DRAFT_NOTE,
+  statusNote,
+} from './propose-lattice.mjs';
+// proposal writer · the deterministic check.mjs a drafted aspect ships
+export { renderCheck } from './propose-checks.mjs';
+// proposal writer · which lattice rows are renderable, which direction they hold in, and why
+export { RENDERABLE, isAbsenceRow, renderableDirection, WHY_PROSE } from './propose-classify.mjs';
+// proposal writer · sizing.json — what the graph costs to review
+export { computeSizing } from './propose-sizing.mjs';
