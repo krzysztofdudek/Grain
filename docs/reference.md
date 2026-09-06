@@ -417,6 +417,48 @@ the file itself, plus `kind`-specific structured detail (an `aspect` row carries
 `draftReason`, see below). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there
 for the exact, current wording.
 
+### The level a type was cut at, and the ones it was not (ticket 110)
+
+No single level of a repository's tree is the right one to cut types at. Ticket 108 measured four hand-written
+architectures and found the module level recovering most of one, the directory level most of another, the role
+group most of the remaining two. So the proposal PUBLISHES the level rather than picking one globally:
+
+| level | what it is |
+| --- | --- |
+| `partition` | grain's own MDL cut of the directory tree |
+| `module` | a node of the refined module graph — the unit the dependency graph is aggregated at |
+| `directory` | a directory that carries declarations grain parsed — usually a published directory card, otherwise a directory of parsed code no card named |
+| `domain` | a role group whose members all live under one directory, so the membership is a `path:` glob |
+| `role group` | a structurally-uniform cluster inside a partition — never a place in the layout |
+| `layout` | a grouping the path is the only evidence for: the remainder nothing else claimed, or a directory grain parsed nothing in |
+
+Every ACTIVE type carries its level (`level`) and every level that independently named the same directory
+(`levels`), plus `intrinsic`: the oracle-free evidence for that cut — files, resolved imports touching the set
+split by whether both endpoints are inside it, co-change pairs split the same way, the modal file-name shape and
+how many files carry it, how many of the files grain parsed at all, and how many mined conventions have every
+site inside it. Every candidate the run did NOT activate is now a row of the same audit trail (`kind:
+"alternative"`, with `level`, `form`, `of`, `selects`, `fidelity`, `viable` and the same `intrinsic` block) and
+appears in `alternatives.md` grouped by level, so a maintainer can choose a different level for one subtree by
+comparing like with like. `counts.typesByLevel` and `counts.alternativesByLevel` split the two totals.
+
+**Only a path-shaped level may be active.** Active types are path prefixes, so any two are nested or disjoint
+and Yggdrasil's child precedence gives every file exactly one owner. Two types over the same directory separated
+by a `content:` predicate have no ordering between them, so `role group` is an alternatives-only level by
+construction rather than by preference.
+
+**Which finer candidates go active is DERIVED, not chosen.** Fourteen intrinsic-only policies were scored
+against all four oracles at Jaccard >= 0.5. Recall is monotone in the candidate set — a finer type can only add
+a match — so "maximise recall" alone selects "every directory", which is 418 types on Yggdrasil and not a
+proposal anyone reads. The policy that wins on all four repositories without losing on any is a comparison
+between two measured numbers and carries no cutoff: **a finer directory becomes a type of its own only where it
+beats the level above it on that level's own evidence** — strictly more of its imports stay inside than the
+parent's do, or grain could read none of its files while it could read the parent's. Candidates are decided
+shallowest-first, and an accepted one becomes the parent of its own children, so the cut does not run away down
+the tree. The second disjunct carries most of it: a directory of files grain parsed NONE of (Java resources,
+templates, test fixtures, shipped docs) is invisible to every other level, because a directory card is published
+only where scopes were mined. **The policy is fitted on those four oracles and must be re-measured when a fifth
+arrives**; the sweep is in `.system/research/type-levels.md`.
+
 ### How a proposed rule is worded (ticket 109)
 
 Every aspect this renderer writes is an OBLIGATION with its scope inside the sentence, not a report of what the

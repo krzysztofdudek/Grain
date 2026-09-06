@@ -408,16 +408,21 @@ export function localities(exp, cache, files) {
 // ==================================================================================================
 // 4. `node_types` — choosing the level, and showing the alternatives instead of hiding them.
 //
-// THE CUT. Active types form an ANTICHAIN of path prefixes: no active type's directory contains another's. It is
-// built deepest-first from three sources, in this order of evidence strength:
+// THE CUT. Active types form a NESTED family of path prefixes: any two are either disjoint or one contains the
+// other, and Yggdrasil's child precedence then hands every file to the deepest type that claims it. (It is NOT
+// an antichain — this header said it was and the code never was: the paragraph below on hollowing out a parent
+// is the whole reason both levels ship. Ticket 110 corrected the sentence, not the behaviour.)
+// It is built from four sources, in this order of evidence strength:
 //
 //   1. grain's partitions (its own certified cut of the directory tree — the level 093 §2 found agreeing with
 //      hand types wherever the hand type is a directory);
-//   2. directory cards strictly BELOW a partition root (grain publishes a card only for a directory that
+//   2. nodes of the refined module graph;
+//   3. directory cards strictly BELOW a partition root (grain publishes a card only for a directory that
 //      carries scopes, so a published card is evidence of its own; this is the level that holds `portal-server`
 //      and `portal-engine-api` in 093 §2's class-a table);
-//   3. the top-level directory of any tracked file the first two leave uncovered (no grain evidence at all, and
-//      the evidence line says so in those words).
+//   4. any FINER directory that beats the level above it on that level's own evidence (ticket 110, below), and
+//      then the top-level directory of any tracked file all of the above leave uncovered (no grain evidence at
+//      all, and the evidence line says so in those words).
 //
 // THE ALTERNATIVES. 093 §2 class c is the finding this section exists to answer: hand types are often ONE LEVEL
 // FINER than grain's cut, split by a `content:` predicate. So a role group whose file set is not already a
@@ -425,7 +430,164 @@ export function localities(exp, cache, files) {
 // for the coarse type. It is written to `alternatives.md` with its evidence, its drafted predicate, and the
 // exact count of tracked files that predicate selects, so the maintainer chooses the level rather than
 // discovering one was chosen for them.
+//
+// THE LEVEL IS PUBLISHED, AND THE CUT IS DERIVED FROM MEASURED NUMBERS (ticket 110)
+// ---------------------------------------------------------------------------------
+// Ticket 108 measured four hand-written oracles and found no single level wins: the module level recovers most
+// of express, the directory level most of spring-petclinic, the role group most of Yggdrasil and of grain
+// itself. So this renderer names the level every candidate came from, publishes the ones it did not activate
+// with the same intrinsic numbers the active ones carry, and derives WHICH candidates go active from those
+// numbers rather than from a preference.
+//
+// `TYPE_LEVELS` below is the whole vocabulary. Each is a cut of the same tree that grain already computes:
+//
+//   partition   grain's own MDL cut of the directory tree — the level 093 §2 found agreeing with hand types
+//               wherever the hand type is a directory.
+//   module      a node of the refined module graph — the unit the dependency graph is aggregated at.
+//   directory   a directory that carries declarations grain parsed. Usually a published directory card — grain
+//               publishes one only where it mined scopes — and otherwise a directory of parsed code that no
+//               card named, admitted by the policy below.
+//   domain      ticket 116's cut: a role group whose members all live under one directory below their host, so
+//               the membership is a `path:` glob rather than a guest list and a file added there joins by
+//               itself.
+//   role group  a structurally-uniform cluster INSIDE a partition. It is not a place in the layout, so it can
+//               only ever be offered with a `content:` predicate — never activated (see below).
+//   layout      a grouping the path is the only evidence for: the remainder nothing else claimed, or a
+//               directory grain parsed nothing in at all. The same evidence class the uncovered remainder has
+//               always used at the top level, available at any depth.
+//
+// WHY ONLY A PATH-SHAPED LEVEL MAY BE ACTIVE. Every active type is a path prefix, so any two of them are either
+// nested or disjoint, and Yggdrasil's child precedence then hands every file to exactly one owner. Two types
+// over the SAME directory separated by a `content:` predicate have no such order, and a file matching both
+// would have two owners. So `role group` is an alternatives-only level by construction, not by preference.
+//
+// THE SELECTION POLICY, MEASURED (ticket 110). Fourteen intrinsic-only policies were scored against all four
+// oracles at Jaccard >= 0.5, in both directions. Recall is MONOTONE in the candidate set — a finer type can
+// only add a match — so "maximise recall" alone selects "every directory", which is 418 types on Yggdrasil and
+// not a proposal anyone reads. The policy that wins on all four repositories without losing on any is a
+// comparison between two measured numbers and carries no cutoff:
+//
+//     a finer directory becomes a type of its own only where it BEATS THE LEVEL ABOVE IT ON THAT LEVEL'S OWN
+//     EVIDENCE — strictly more of its imports stay inside than the parent's do, or grain could read none of
+//     its files while it could read the parent's.
+//
+//   policy                 grain          petclinic      express        Yggdrasil     (recall · precision · types)
+//   default (before)       15/33 · 18/31  2/28 · 3/12    6/13 · 7/22    21/36 · 23/82
+//   unmined OR purer       16/33 · 21/35  6/28 · 7/16    7/13 · 8/29    23/36 · 25/106
+//   every directory        18/33 · 29/64  8/28 · 11/38   7/13 · 8/34    23/36 · 27/418   (the ceiling, refused)
+//
+// The second disjunct is the one that carries most of it: a directory of files grain parsed NONE of — Java
+// resources, Thymeleaf templates, test fixtures, shipped docs — is invisible to every other level, because a
+// directory card is published only where scopes were mined. That is where 9 of spring-petclinic's 28 hand
+// types live. The policy is FITTED ON THESE FOUR ORACLES and must be re-measured when a fifth arrives; the
+// sweep that produced the table is `.system/research/type-levels.md`.
 // ==================================================================================================
+
+// How many of a list fall at each key, in `TYPE_LEVELS` order — the shape `counts.typesByLevel` and
+// `counts.alternativesByLevel` take, so a reader gets the levels in one order everywhere.
+const countBy = (xs, key) => {
+  const out = {};
+  for (const l of TYPE_LEVELS) { const n = xs.filter(x => key(x) === l).length; if (n) out[l] = n; }
+  for (const x of xs) { const k = key(x); if (!(k in out) && !TYPE_LEVELS.includes(k)) out[k] = xs.filter(y => key(y) === k).length; }
+  return out;
+};
+
+// The levels, in the order a reader meets them: coarse cut first, then the finer ones, then the level with no
+// evidence but the path. `role group` never appears on an active type (see the header).
+export const TYPE_LEVELS = ['partition', 'module', 'directory', 'domain', 'role group', 'layout'];
+
+// INTRINSIC EVIDENCE FOR ONE CANDIDATE FILE SET — no oracle, no weights, no thresholds, raw counts only.
+//
+// Four numbers plus the rule count, each of which a maintainer can check by hand:
+//   - `importsInside` / `importsCrossing`: resolved imports with both endpoints in the set, against those with
+//     exactly one. This is the import boundary of the candidate, said as a match and a miss.
+//   - `cochangeInside` / `cochangeCrossing`: the same split over the export's co-change pairs.
+//   - `nameShape` / `nameShapeFiles`: the modal file-name shape over the set and how many files carry it.
+//   - `minedFiles`: how many of the set grain actually parsed. Zero is the interesting value — it means the
+//     only thing known about this directory is the path.
+//   - `rules`: mined conventions every one of whose sites lies inside the set, i.e. rules that could host here.
+export function typeEvidence(set, { edges, cochange, mined, ruleSites }) {
+  let importsInside = 0, importsCrossing = 0;
+  for (const e of edges) { const a = set.has(e.from), b = set.has(e.to); if (a && b) importsInside += (e.n || 1); else if (a || b) importsCrossing += (e.n || 1); }
+  let cochangeInside = 0, cochangeCrossing = 0;
+  for (const p of cochange) { const a = set.has(p.a), b = set.has(p.b); if (a && b) cochangeInside++; else if (a || b) cochangeCrossing++; }
+  const shapes = new Map();
+  for (const f of set) { const s = fileNameShape(f); shapes.set(s, (shapes.get(s) || 0) + 1); }
+  const modal = [...shapes].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0] || ['', 0];
+  return {
+    files: set.size,
+    importsInside, importsCrossing,
+    cochangeInside, cochangeCrossing,
+    nameShape: modal[0], nameShapeFiles: modal[1],
+    mined: [...set].filter(f => mined.has(f)).length,
+    rules: ruleSites.filter(rs => [...rs].every(f => set.has(f))).length,
+  };
+}
+
+// The three populations every candidate's evidence is measured against, read once per run: the resolved
+// imports between TRACKED files (an edge into a file git does not track cannot cross a boundary that exists),
+// the co-change pairs, the files grain actually parsed, and the site set of every mined convention.
+export function evidenceContext(exp, loc, files) {
+  const tracked = new Set(files);
+  const mined = new Set();
+  for (const p of loc.partitions || []) for (const f of p.files) mined.add(f);
+  const ruleSites = [];
+  for (const c of exp.conventions || []) {
+    const s = new Set([...(c.conformingSites || []), ...(c.deviatingSites || [])].map(x => x.rel).filter(Boolean));
+    if (s.size) ruleSites.push(s);
+  }
+  return {
+    edges: (exp.edges || []).filter(e => tracked.has(e.from) && tracked.has(e.to)),
+    cochange: (exp.cochange || []).filter(p => tracked.has(p.a) && tracked.has(p.b)),
+    mined, ruleSites,
+  };
+}
+
+// A file name in grain's own shape alphabet, extension included (`OwnerController.java` -> `Ua.a`,
+// `messages_de.properties` -> `a_a.a`): a run of uppercase is `U`, a run of lowercase or digits is `a`, and
+// `_ - $ .` stand for themselves. The same alphabet `nameShape` (core.mjs) uses on declaration names, applied
+// to the basename, so a reader of a card and a reader of this line are reading one vocabulary.
+const fileNameShape = f => f.slice(f.lastIndexOf('/') + 1).replace(/[A-Z]+/g, 'U').replace(/[a-z0-9]+/g, 'a').replace(/[^Ua_\-$.]/g, '?');
+
+// The import boundary as one number, or null where the candidate touches no resolved import at all (a directory
+// of Java resources has no imports either way, and reporting 0.00 there would read as "nothing stays inside").
+const purityOf = m => (m.importsInside + m.importsCrossing ? m.importsInside / (m.importsInside + m.importsCrossing) : null);
+
+// `a`, `a and b`, `a, b and c` — an English list, because a sentence a maintainer reads is not a join.
+const andList = xs => (xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
+
+// THE LEVEL AND THE NUMBERS BEHIND IT, IN ONE CLAUSE (ticket 110, worded under ticket 109's rules).
+//
+// Facts, in the order a maintainer needs them to decide whether this is the right cut: which level it came from
+// and which other levels agree, how big it is, how much of its dependency traffic it keeps inside, how much of
+// it grain could read at all, what its files are named like, how many mined rules could attach here — and last,
+// what finer cut is on offer instead. No coefficient, no hedge, and every number one this run counted.
+export function levelSentence(a, alternatives = []) {
+  const m = a.evidence;
+  if (!m) return null;
+  const levels = (a.levels && a.levels.length ? a.levels : [a.source]).filter(Boolean);
+  const others = levels.slice(1);
+  const head = others.length
+    ? `cut at the ${levels[0]} level, and the ${andList(others)} level${others.length === 1 ? '' : 's'} name${others.length === 1 ? 's' : ''} the same directory`
+    : `cut at the ${levels[0] || 'layout'} level`;
+  const parts = [`${m.files} file${m.files === 1 ? '' : 's'}`];
+  const touching = m.importsInside + m.importsCrossing;
+  parts.push(touching
+    ? `${m.importsInside} of ${touching} import${touching === 1 ? '' : 's'} that touch it stay inside`
+    : 'no resolved import touches it in either direction');
+  if (m.mined === 0) parts.push('grain parsed none of these files');
+  else if (m.mined < m.files) parts.push(`grain parsed ${m.mined} of them`);
+  const cc = m.cochangeInside + m.cochangeCrossing;
+  if (cc) parts.push(`${m.cochangeInside} of ${cc} co-change pair${cc === 1 ? ' stays' : 's stay'} inside`);
+  if (m.nameShapeFiles > 1) parts.push(`${m.nameShapeFiles} of them are named \`${m.nameShape}\``);
+  parts.push(`${m.rules} mined rule${m.rules === 1 ? '' : 's'} could attach here`);
+  const finer = alternatives.filter(x => x.of === a.id);
+  const byLevel = TYPE_LEVELS.filter(l => finer.some(x => x.level === l));
+  const tail = finer.length
+    ? `; ${finer.length} finer ${andList(byLevel)} cut${finer.length === 1 ? '' : 's'} offered in \`alternatives.md\` instead`
+    : '';
+  return `${head}: ${parts.join(', ')}${tail}`;
+}
 
 // Draft a `content:` regex for a role group from the group's own evidence, in descending order of how directly
 // the group names itself. Returns null when the group offers nothing to anchor on — which is an answer, not a
@@ -511,7 +673,15 @@ export function buildTypes(exp, loc, files, ctx) {
   // strict` types may not overlap, and this renderer sets `strict` on nothing) and it is the honest shape: grain
   // measured two cuts of the same tree and has no basis for deleting either.
   const cands = new Map(); // dir -> candidate (first source to name a directory keeps it)
-  const put = c => { const k = c.dir ?? `\0${c.id}`; if (!cands.has(k)) cands.set(k, c); };
+  // The first source keeps the candidate, exactly as before — but every LATER source that names the same
+  // directory is recorded on it (ticket 110). Three levels agreeing on one cut is evidence about that cut, and
+  // it used to be discarded because the second source found the key already taken.
+  const put = c => {
+    const k = c.dir ?? `\0${c.id}`;
+    const have = cands.get(k);
+    if (have) { if (!have.levels.includes(c.src)) have.levels.push(c.src); return; }
+    cands.set(k, { ...c, levels: [c.src] });
+  };
   for (const p of loc.partitions) {
     if (p.name === '_repo' || !p.files.size) continue;
     // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH. `_repo` is the residue bucket (excluded above
@@ -546,16 +716,96 @@ export function buildTypes(exp, loc, files, ctx) {
   // scopes, so a published card is evidence of its own; one level is where a hand architecture actually splits
   // (`portal/api`, `portal/server` in the pattern repo), and deeper cards are drill corpora and fixture trees.
   for (const d of loc.directories) {
-    if (cands.has(d.name) || d.files.size < MIN_PROMOTE_FILES) continue;
+    // the level is recorded on whatever candidate already holds this directory, even where the card itself is
+    // not promoted (ticket 110) — a published card is evidence about the cut whether or not it makes the cut
+    if (cands.has(d.name)) { put({ dir: d.name, src: 'directory' }); continue; }
+    if (d.files.size < MIN_PROMOTE_FILES) continue;
     const owner = [...partRoots].filter(r => d.name.startsWith(r + '/')).sort((a, b) => b.length - a.length)[0];
     const depth = owner ? d.name.slice(owner.length + 1).split('/').length : null;
     if (depth !== 1) continue;
     put({ dir: d.name, files: d.files, src: 'directory', why: `${d.card.files} of them ${d.card.files === 1 ? 'is code grain parsed' : 'are code grain parsed'} (${d.card.scopes} declarations) in a directory one level below \`${owner}\`` });
   }
+  // ticket 116's domain cut, as a LEVEL on the candidate it lands on: a role group all of whose members live
+  // under one directory names that directory, and where the directory is already a candidate that agreement is
+  // recorded here. Where it is not, the group is offered as an alternative further down, unchanged.
+  for (const g of loc.groups) {
+    if (g.files.size < GROUP_MIN) continue;
+    const shared = commonDir([...g.files].sort());
+    if (shared && cands.has(shared)) put({ dir: shared, src: 'domain' });
+  }
   for (const c of [...cands.values()].sort((a, b) => (String(a.dir) < String(b.dir) ? -1 : 1))) {
     if (c.files.size < GROUP_MIN) continue;
-    active.push({ id: c.id || slug(c.dir), dir: c.dir, files: c.files, source: c.src, why: c.why, ...(c.rootGlob ? { rootGlob: true } : {}) });
+    active.push({ id: c.id || slug(c.dir), dir: c.dir, files: c.files, source: c.src, levels: c.levels, why: c.why, ...(c.rootGlob ? { rootGlob: true } : {}) });
   }
+
+  // ------------------------------------------------------------------------------------------------
+  // THE FINER LEVEL, ADMITTED BY THE MEASURED POLICY (ticket 110 — see this section's header for the table).
+  //
+  // Every directory of tracked files that no level above has claimed is a candidate here. It becomes a type of
+  // its own only where it beats the level above it on that level's own evidence, which is a comparison between
+  // two numbers this run measured and not a threshold:
+  //
+  //   - grain could read NONE of its files while it could read its parent's — the directory whose only evidence
+  //     is the path, which is where the resources, templates, fixtures and shipped docs of a repository live
+  //     and which no other level can see, because a directory card is published only where scopes were mined;
+  //   - or strictly more of its imports stay inside it than stay inside its parent — a tighter boundary than
+  //     the cut it is being carved out of, said in the same two counts the evidence line carries.
+  //
+  // Candidates are decided shallowest-first and an accepted one becomes the parent of its own children, so the
+  // shallowest directory that clears the comparison wins and the cut does not run away down the tree.
+  const evCtx = evidenceContext(exp, loc, files);
+  const setOf = a => (a.rootGlob ? a.files : underDir(files, a.dir));
+  for (const a of active) a.evidence = typeEvidence(setOf(a), evCtx);
+  const claimed = new Set(active.map(a => a.dir).filter(Boolean));
+  const finerDirs = new Map();
+  for (const f of files) {
+    const segs = f.split('/');
+    for (let k = 1; k < segs.length; k++) {
+      const d = segs.slice(0, k).join('/');
+      if (claimed.has(d) || finerDirs.has(d)) continue;
+      const s = underDir(files, d);
+      if (s.size >= MIN_PROMOTE_FILES) finerDirs.set(d, s);
+    }
+  }
+  const domainDirs = new Set();
+  for (const g of loc.groups) { if (g.files.size < GROUP_MIN) continue; const s = commonDir([...g.files].sort()); if (s) domainDirs.add(s); }
+  // What the cut above already classifies. A candidate with no active type ABOVE it is not refining anything,
+  // so it may only join when it brings files nothing else claims — `src/main/scss` on spring-petclinic, whose
+  // four files would otherwise fall into the top-level remainder. Without this a repository grain mined nothing
+  // in (no partitions, so every directory reads as unparsed) grew a wrapper type over directories that were
+  // already fully classified: a node that owns no file of its own once its children take theirs, which is a
+  // node no rule can ever attach to and no charter can describe.
+  const claimedFiles = new Set();
+  for (const a of active) for (const f of setOf(a)) claimedFiles.add(f);
+  const promoted = [];
+  for (const [dir, set] of [...finerDirs].sort((a, b) => a[0].split('/').length - b[0].split('/').length || (a[0] < b[0] ? -1 : 1))) {
+    const parent = [...active, ...promoted].filter(a => a.dir && dir.startsWith(a.dir + '/')).sort((a, b) => b.dir.length - a.dir.length)[0] || null;
+    if (!parent && [...set].every(f => claimedFiles.has(f))) continue;
+    const m = typeEvidence(set, evCtx);
+    const p = parent ? parent.evidence : null;
+    const unread = m.mined === 0 && (!p || p.mined > 0);
+    // A boundary is only ever TIGHTER THAN something. With no level above it there is nothing to beat, so the
+    // comparison does not fire — without this the top of every tree (`source/`, `plugins/`) was promoted for
+    // having imports at all, which is a type covering half the repository and saying nothing.
+    const mine = purityOf(m), theirs = p ? purityOf(p) : null;
+    const tighter = mine != null && theirs != null && mine > theirs;
+    if (!unread && !tighter) continue;
+    // The level is what the directory IS, not which half of the policy admitted it: a role group naming it
+    // makes it the domain level, code grain parsed in it makes it the directory level (a published card, or a
+    // directory that carries declarations grain read but published no card for), and nothing read at all makes
+    // it the layout level, where the path is the only evidence there is.
+    const level = domainDirs.has(dir) ? 'domain' : m.mined > 0 ? 'directory' : 'layout';
+    const why = unread
+      ? `\`${dir}\` holds ${set.size} tracked files and grain parsed none of them — the path is the only evidence there is, and ${parent ? `the level above it (\`${parent.dir}\`) does carry code grain read, so this is a different kind of place` : 'no level above it claims them at all'}`
+      : `${m.importsInside} of the ${m.importsInside + m.importsCrossing} resolved imports that touch \`${dir}\` stay inside it, a tighter boundary than \`${parent.dir}\`'s ${p.importsInside} of ${p.importsInside + p.importsCrossing}`;
+    const id = slug(dir);
+    // Two different directories can slug to one id (`a/b` and `a-b`), and a duplicate id is a silently
+    // overwritten key in `yg-architecture.yaml`. A finer cut is an offer, so a colliding one is dropped rather
+    // than allowed to overwrite a type that was already earned.
+    if (active.some(a => a.id === id) || promoted.some(a => a.id === id)) continue;
+    promoted.push({ id, dir, files: set, source: level, levels: [level], why, evidence: m });
+  }
+  for (const a of promoted) active.push(a);
 
   // the uncovered remainder, by top-level directory. No grain evidence — and the evidence line says so.
   const covered = new Set();
@@ -567,11 +817,13 @@ export function buildTypes(exp, loc, files, ctx) {
     (rest.get(top) || rest.set(top, new Set()).get(top)).add(f);
   }
   for (const [top, set] of [...rest].sort((a, b) => b[1].size - a[1].size)) {
-    if (set.size < GROUP_MIN || top === '.' || cands.has(top)) continue;
-    active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'uncovered', why: `\`${top}\` holds ${set.size} tracked files nothing else in this proposal claims — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
+    if (set.size < GROUP_MIN || top === '.' || cands.has(top) || active.some(a => a.dir === top)) continue;
+    active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'layout', levels: ['layout'], why: `\`${top}\` holds ${set.size} tracked files nothing else in this proposal claims — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
   }
   const rootFiles = rest.get('.');
-  if (rootFiles && rootFiles.size >= GROUP_MIN && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'uncovered', rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and nothing else in this proposal claims them — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
+  if (rootFiles && rootFiles.size >= GROUP_MIN && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'layout', levels: ['layout'], rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and nothing else in this proposal claims them — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
+  // the remainder types are measured with the same instrument as everything above them
+  for (const a of active) if (!a.evidence) a.evidence = typeEvidence(setOf(a), evCtx);
 
   for (const a of active) {
     a.when = a.rootGlob ? { path: '*' } : { path: `${a.dir}/**` };
@@ -623,7 +875,18 @@ export function buildTypes(exp, loc, files, ctx) {
   //     it classifies no file grain did not already see. Yggdrasil's own architecture uses this shape where a
   //     type is a fixed set rather than a rule.
   const seenAlt = new Set();
-  const addAlt = (a) => { if (!seenAlt.has(a.id)) { seenAlt.add(a.id); alternatives.push(a); } };
+  // Each alternative carries the LEVEL it is a cut at and the same intrinsic numbers an active type carries
+  // (ticket 110), measured over the set its own predicate selects — so `alternatives.md` can group them by
+  // level and a maintainer comparing a candidate against the active type above it is comparing like with like.
+  // A directory card is the `directory` level whatever form it is offered in; a role group is `domain` when
+  // ticket 116 could turn its membership into a path glob, and `role group` when it can only be a `content:`
+  // predicate or a guest list.
+  const altLevel = a => (a.kind === 'directory card' ? 'directory' : a.form === 'path' ? 'domain' : 'role group');
+  const addAlt = (a, set) => {
+    if (seenAlt.has(a.id)) return;
+    seenAlt.add(a.id);
+    alternatives.push({ ...a, level: altLevel(a), evidence: typeEvidence(set, evCtx) });
+  };
   const finer = [
     // `groupId`/`partKind` ride along ONLY so a downstream family-without-law adapter (ticket 100) can name a
     // stable id and a language stratum for a role-group alternative without re-deriving either from `label` —
@@ -646,7 +909,7 @@ export function buildTypes(exp, loc, files, ctx) {
         const j = jaccard(f.set, selected);
         addAlt({ id: `${base}-content`, of: host.id, form: 'content', when, groupFiles: f.set.size, selected: selected.size, fidelity: +j.toFixed(3), viable: j >= MIN_WHEN_FIDELITY,
           kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: [...f.set].sort(),
-          why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: ${f.set.size} files; generalising predicate from ${cr.why}; selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` });
+          why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: ${f.set.size} files; generalising predicate from ${cr.why}; selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` }, selected);
       }
     }
     // THE MEMBERSHIP, AS A PREDICATE WHERE THE PATHS ALLOW ONE AND AS A LIST WHERE THEY DO NOT (ticket 116).
@@ -673,10 +936,10 @@ export function buildTypes(exp, loc, files, ctx) {
           why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: all ${f.set.size} files share the directory \`${shared}\`, so the membership is offered as the path predicate \`${shared}/**\` rather than as a list — it GENERALISES, and a file added under that directory is classified here without grain being run again; it selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` };
       }
     }
-    if (asPath) addAlt(asPath);
+    if (asPath) addAlt(asPath, expandWhen(asPath.when, files, ctx));
     else addAlt({ id: `${base}-list`, of: host.id, form: 'list', when: { any_of: paths.map(p => ({ path: p })) }, groupFiles: f.set.size, selected: f.set.size, fidelity: 1, viable: true,
       kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
-      why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the ${f.set.size} files grain grouped share no directory below \`${host.dir}\`${shared ? ` (the deepest they all share is \`${shared}\`, which is not finer than the host)` : ''}, so there is no path predicate to offer and the membership is frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` });
+      why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the ${f.set.size} files grain grouped share no directory below \`${host.dir}\`${shared ? ` (the deepest they all share is \`${shared}\`, which is not finer than the host)` : ''}, so there is no path predicate to offer and the membership is frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` }, f.set);
   }
   alternatives.sort((a, b) => b.fidelity - a.fidelity || b.groupFiles - a.groupFiles || (a.id < b.id ? -1 : 1));
   return { active, alternatives };
@@ -1406,7 +1669,7 @@ function loadInputs(repo, opts) {
 }
 
 // `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
-function writeArchitecture(ygg, { active, nodes, rels, files, ev, progressive }) {
+function writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, progressive }) {
   // yg-config.yaml — require nothing. A proposal that turns every unmapped file into a blocking error on day one
   // is a proposal nobody runs twice; `getting-started` §4 says require-nothing is the brownfield default.
   //
@@ -1446,7 +1709,10 @@ function writeArchitecture(ygg, { active, nodes, rels, files, ev, progressive })
     // led with, kept at the tail and named, because `J=0.62` is not a fact a maintainer can act on and
     // "selects 31 files, 12 of which the evidence never named" is.
     const hit = intersectSize(a.files, a.selected);
-    const line = `\`${a.rootGlob ? '*' : `${a.dir}/**`}\` selects ${a.selected.size} of ${files.length} tracked files; ${hit === a.files.size && hit === a.selected.size ? `exactly the ${hit} the evidence names` : `${hit} of them are among the ${a.files.size} the evidence names, ${a.selected.size - hit} are not`} (Jaccard ${a.fidelity.toFixed(2)}) · ${a.why}`;
+    const line = `\`${a.rootGlob ? '*' : `${a.dir}/**`}\` selects ${a.selected.size} of ${files.length} tracked files; ${hit === a.files.size && hit === a.selected.size ? `exactly the ${hit} the evidence names` : `${hit} of them are among the ${a.files.size} the evidence names, ${a.selected.size - hit} are not`} (Jaccard ${a.fidelity.toFixed(2)}) · ${a.why}`
+      // the LEVEL this cut came from and the intrinsic numbers behind it (ticket 110), appended to the line
+      // 109 already wrote rather than replacing it: the two answer different questions about the same type.
+      + (levelSentence(a, alternatives) ? ` · ${levelSentence(a, alternatives)}` : '');
     const relBlock = {};
     if (targets.length) relBlock.uses = targets;
     if (deny) relBlock.default = 'deny';
@@ -1460,7 +1726,7 @@ function writeArchitecture(ygg, { active, nodes, rels, files, ev, progressive })
       ? ` Code of this type may depend on ${targets.map(t => `\`${t}\``).join(', ')}${deny ? ' and on nothing else' : ''} — \`yg check\` refuses a dependency on any other node until the architecture declares it.`
       : deny ? ' This type declares no outgoing dependency, and none is allowed — `yg check` refuses the first one until the architecture declares it.' : '';
     nodeTypes[a.id] = {
-      '#e': ev('type', a.id, line, { level: a.source, dir: a.dir, evidenceFiles: a.files.size, selects: a.selected.size, fidelity: +a.fidelity.toFixed(3) }),
+      '#e': ev('type', a.id, line, { level: a.source, levels: a.levels || [a.source], dir: a.dir, evidenceFiles: a.files.size, selects: a.selected.size, fidelity: +a.fidelity.toFixed(3), intrinsic: a.evidence || null }),
       description: `${a.dir ? `Put a file under \`${a.dir}/\`` : 'Put a file at the repository root itself'} only if it belongs to this type: a file placed there is classified here with no further step, and every rule attached to this type applies to it from that moment.${mayUse || (a.aspectIds?.length ? '' : ' No rule and no relation are attached to this type yet, so today it constrains nothing — it is where they will attach.')}`,
       when: a.when,
       // a nested type's node sits under its ancestors' nodes, and Yggdrasil rejects a parent whose type is not
@@ -1603,7 +1869,17 @@ export async function propose(repo, outDir, opts = {}) {
   // The branch a change is measured against, derived from this repository (ticket 118) — read once here so the
   // config, the report and `--json` all name the same reference and cannot disagree about it.
   const progressive = progressiveReference(repo);
-  writeArchitecture(ygg, { active, nodes, rels, files, ev, progressive });
+  writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, progressive });
+
+  // EVERY CANDIDATE THIS RUN DID NOT ACTIVATE, IN THE AUDIT TRAIL (ticket 110). The active types have carried an
+  // `evidence` row since 094; the alternatives were on disk in `alternatives.md` and nowhere in the machine
+  // record, so nothing downstream could compare a cut that was made against a cut that was offered. Each row
+  // carries the level, the form of the predicate, the type it would be carved out of, and the SAME intrinsic
+  // numbers the active types carry.
+  for (const alt of alternatives) {
+    ev('alternative', alt.id, `${alt.why}${levelSentence({ ...alt, levels: [alt.level] }, []) ? ` · ${levelSentence({ ...alt, levels: [alt.level] }, [])}` : ''}`,
+      { level: alt.level, form: alt.form, of: alt.of, selects: alt.selected, fidelity: alt.fidelity, viable: alt.viable, intrinsic: alt.evidence || null });
+  }
 
   writeNodeFiles(ygg, nodes, ev);
 
@@ -1634,6 +1910,9 @@ export async function propose(repo, outDir, opts = {}) {
   for (const a of aspects) if (a.draftReason) aspectsByDraftReason[a.draftReason] = (aspectsByDraftReason[a.draftReason] || 0) + 1;
   const counts = {
     types: active.length, alternatives: alternatives.length, nodes: nodes.length,
+    // the cut, by the level each active type was cut at, and the candidates by the level each was offered at
+    // (ticket 110) — `typesByLevel` sums to `types` and `alternativesByLevel` to `alternatives`
+    typesByLevel: countBy(active, a => a.source), alternativesByLevel: countBy(alternatives, a => a.level),
     aspects: aspects.length, aspectsRenderedAsCheck: aspects.filter(a => a.check).length, aspectsProse: aspects.filter(a => !a.check).length,
     // status split (ticket 102, three-way since ticket 107) — `aspectsActive` (kept named for schema stability;
     // it counts `status: enforced`) is what a plain `yg check` on this proposal BLOCKS on. `aspectsAdvisory`
@@ -1667,9 +1946,9 @@ export async function propose(repo, outDir, opts = {}) {
     instrument: 'propose/1', repo, asOf: exp.asOf, files: files.length, counts,
     schemaNotes: {
       evidence:
-        'one row per emitted element (`kind`: `type` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`, the same values Yggdrasil\'s own `yg-aspect.yaml` takes) and `draftReason` (`prose-unenforceable-keyless` | `absence-not-forbiddance` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here.',
+        'one row per emitted element (`kind`: `type` | `alternative` | `relations` | `deny` | `node` | `charter` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`, the same values Yggdrasil\'s own `yg-aspect.yaml` takes) and `draftReason` (`prose-unenforceable-keyless` | `absence-not-forbiddance` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here. Ticket 110, additive: a `type` row carries `level` (the cut it came from) and `levels` (every level that independently named the same directory), and an `alternative` row — one per candidate the run did NOT activate, previously present only in `alternatives.md` — carries `level`, `form` (`content` | `path` | `list`), `of` (the active type it would be carved out of), `selects`, `fidelity` and `viable`. Both kinds carry `intrinsic`: the oracle-free evidence for that cut — `files`, `importsInside`/`importsCrossing` (resolved imports touching the set, split by whether both endpoints are in it), `cochangeInside`/`cochangeCrossing`, `nameShape`/`nameShapeFiles` (the modal file-name shape and how many files carry it), `mined` (how many of the files grain parsed at all) and `rules` (mined conventions every one of whose sites lies inside the set).',
       counts:
-        'summary tallies over the SAME run this proposal.json describes — `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsAdvisory`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (ticket 102, three-way since 107 — see `provenance.json`\'s own `status`/`draftReason`): `aspectsActive` counts `status: enforced` (a certified-convention origin that cleared a real drill — nothing stands between the maintainer and turning it on), `aspectsAdvisory` counts `status: advisory` (a sub-gate-lattice origin that cleared the SAME drill but sits below grain\'s own certification bound — a refactor decision, not law; these are the report\'s `candidates`), `aspectsDraft` is everything that never cleared the drill at all. `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified), `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
+        'summary tallies over the SAME run this proposal.json describes — `typesByLevel`/`alternativesByLevel` (ticket 110) split `types` and `alternatives` by the level each was cut or offered at (`partition` | `module` | `directory` | `domain` | `role group` | `layout`); `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsAdvisory`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (ticket 102, three-way since 107 — see `provenance.json`\'s own `status`/`draftReason`): `aspectsActive` counts `status: enforced` (a certified-convention origin that cleared a real drill — nothing stands between the maintainer and turning it on), `aspectsAdvisory` counts `status: advisory` (a sub-gate-lattice origin that cleared the SAME drill but sits below grain\'s own certification bound — a refactor decision, not law; these are the report\'s `candidates`), `aspectsDraft` is everything that never cleared the drill at all. `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified), `charters`/`charterAvgLines` cover the charter.md written per node (§ below).',
       provenance:
         'NOT inlined here — each `.yggdrasil/aspects/<id>/provenance.json` (same field set as ticket 097\'s law-loop.mjs: aspectId, conventionId, origin, enumeratorClass, identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note — PLUS, ticket 102, `status`/`draftReason`/`scopeApproximation`, and, ticket 118, `existingViolations` (the count of sites that break the rule at `asOf` — the same number as `deviating`, named for what it costs on the day the graph is switched on), additive fields law-loop.mjs\'s own replay provenance does not carry) is the per-aspect record; this file\'s `evidence` rows are the prose summary, provenance.json is the structured one a machine reads.',
       sizing:
@@ -2656,12 +2935,26 @@ function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspec
     counts.drillHoldout
       ? `Drills are cut with a TIME HOLD-OUT at ${counts.drillHoldout} (${counts.drillDropped} pre-cut sites dropped), by the export's per-site first-appearance date rather than by a cut sha.`
       : '**Drills carry NO hold-out.** Every case is cut from the sites the rule was mined on, so a passing drill shows only that the rendered check reproduces grain\'s own count. Re-cut with `--holdout <YYYY-MM-DD>`.', '');
-  L.push('## Node types', '', mdTable(['type', 'from', 'evidence files', '`when` selects', 'fidelity', 'uses'],
-    active.map(a => [`\`${a.id}\``, a.source, a.files.size, a.selected.size, a.fidelity.toFixed(2), (rels.uses.get(a.id) || new Map()).size])));
+  L.push('## Node types', '', mdTable(['type', 'level', 'levels agreeing', 'evidence files', '`when` selects', 'fidelity', 'imports inside', 'grain read', 'rules', 'uses'],
+    active.map(a => {
+      const m = a.evidence || {};
+      const touching = (m.importsInside || 0) + (m.importsCrossing || 0);
+      return [`\`${a.id}\``, a.source, (a.levels || [a.source]).join(', '), a.files.size, a.selected.size, a.fidelity.toFixed(2),
+        touching ? `${m.importsInside}/${touching}` : 'none either way', `${m.mined ?? 0}/${m.files ?? 0}`, m.rules ?? 0, (rels.uses.get(a.id) || new Map()).size];
+    })));
   L.push('', 'Fidelity is the renderer checking its own work: the Jaccard overlap between the file set the evidence',
     'names and the file set the drafted `when` predicate actually selects when expanded against `git ls-files`.',
     'A type below 1.00 selects files the evidence does not name (usually files grain has no grammar for, which',
-    'live in the same directory and are correctly classified anyway).', '');
+    'live in the same directory and are correctly classified anyway).', '',
+    'THE LEVEL IS PUBLISHED, NOT CHOSEN FOR YOU (ticket 110). `level` is the cut this type came from; `levels',
+    'agreeing` names every level that independently landed on the same directory. A finer directory becomes a',
+    'type of its own only where it beats the level above it on that level\'s own evidence — strictly more of its',
+    'imports stay inside, or grain could read none of its files while it could read the parent\'s. Every',
+    'candidate that did not clear that comparison is in `alternatives.md` with the same numbers, grouped by its',
+    'own level, so a maintainer can choose a different level per subtree.', '',
+    mdTable(['level', 'active types', 'candidates offered'],
+      TYPE_LEVELS.filter(l => counts.typesByLevel?.[l] || counts.alternativesByLevel?.[l])
+        .map(l => [l, counts.typesByLevel?.[l] || 0, counts.alternativesByLevel?.[l] || 0])), '');
   L.push('## Aspect drafts', '', mdTable(['origin', 'count', 'rendered as `check.mjs`', 'prose'], [
     ['certified convention', aspects.filter(a => a.origin === 'certified-convention').length, aspects.filter(a => a.origin === 'certified-convention' && a.check).length, aspects.filter(a => a.origin === 'certified-convention' && !a.check).length],
     ['sub-gate lattice', aspects.filter(a => a.origin === 'sub-gate-lattice').length, aspects.filter(a => a.origin === 'sub-gate-lattice' && a.check).length, aspects.filter(a => a.origin === 'sub-gate-lattice' && !a.check).length],
@@ -2685,16 +2978,39 @@ function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspec
 
 function renderAlternativesMd({ alternatives }) {
   const L = ['# Finer type candidates — your choice, not grain\'s', '', ...PREAMBLE, '', '---', '',
-    'Each row is a role group grain found INSIDE one of the proposed types whose members are not simply "the',
-    'files of a directory". A hand-written architecture very often splits a directory-shaped type exactly here,',
-    'with a `content:` predicate. The predicate below is drafted from the group\'s own evidence and then',
-    'EXPANDED against the repository, so the "selects" column is a measured count and not a promise.', '',
+    'Every candidate below is a cut of the same tree the active types cut, at a level this proposal did NOT',
+    'activate. They are grouped by that level, because ticket 108 measured four hand-written architectures and',
+    'no single level won: the module level recovers most of one repository, the directory level most of another,',
+    'the role group most of a third. Which level is right for a subtree is the maintainer\'s call, and this file',
+    'is the material for it.', '',
+    'Each row carries the SAME intrinsic numbers the active types carry in `yg-architecture.yaml` — files, how',
+    'much of the import traffic touching the candidate stays inside it, how much of it grain could read at all,',
+    'and how many mined rules have every site inside it — so a candidate can be compared against the active type',
+    'above it (`of`) without running anything. The `selects` column is the drafted predicate EXPANDED against',
+    'the repository, a measured count and not a promise.', '',
     'Nothing here is active. To adopt one: paste its `when` into `yg-architecture.yaml` as a new type, and add',
     'a `not:` for it to the parent type listed in `of`.', ''];
-  L.push(mdTable(['candidate', 'of', 'group files', 'selects', 'J', 'viable', 'evidence'],
-    alternatives.map(a => [`\`${a.id}\``, `\`${a.of}\``, a.groupFiles, a.selected, a.fidelity.toFixed(2), a.viable ? 'yes' : 'no', a.why])));
-  L.push('', '## The drafted predicates', '');
-  for (const a of alternatives) L.push(`### \`${a.id}\``, '', '```yaml', yamlEmit({ when: a.when }).trimEnd(), '```', '', a.why, '');
+  const head = ['candidate', 'of', 'form', 'group files', 'selects', 'J', 'viable', 'imports inside', 'grain read', 'rules', 'evidence'];
+  const row = a => {
+    const m = a.evidence || {};
+    const touching = (m.importsInside || 0) + (m.importsCrossing || 0);
+    return [`\`${a.id}\``, `\`${a.of}\``, a.form, a.groupFiles, a.selected, a.fidelity.toFixed(2), a.viable ? 'yes' : 'no',
+      touching ? `${m.importsInside}/${touching}` : 'none either way', `${m.mined ?? 0}/${m.files ?? 0}`, m.rules ?? 0, a.why];
+  };
+  const LEVEL_NOTE = {
+    domain: 'A role group whose members all live under one directory below their host (ticket 116). Its `when` is a path glob, so a file added to that directory joins the type by itself — this is the only alternatives level that generalises on the layout alone.',
+    'role group': 'A structurally-uniform cluster inside a partition that is NOT a place in the layout. It can only be a `content:` predicate (which generalises, and may over- or under-select) or a frozen list of paths (exact today, and it will classify no file grain has not already seen). Two types over one directory separated by `content:` have no ordering between them, which is why this level is never activated.',
+    directory: 'A directory that carries declarations grain parsed — usually a published directory card — that this run did not promote to a type of its own.',
+  };
+  for (const level of TYPE_LEVELS) {
+    const rows = alternatives.filter(a => a.level === level);
+    if (!rows.length) continue;
+    L.push(`## Level: ${level} (${rows.length})`, '', ...(LEVEL_NOTE[level] ? [LEVEL_NOTE[level], ''] : []), mdTable(head, rows.map(row)), '');
+  }
+  const rest = alternatives.filter(a => !TYPE_LEVELS.includes(a.level));
+  if (rest.length) L.push(`## Level: other (${rest.length})`, '', mdTable(head, rest.map(row)), '');
+  L.push('## The drafted predicates', '');
+  for (const a of alternatives) L.push(`### \`${a.id}\``, '', '```yaml', yamlEmit({ when: a.when }).trimEnd(), '```', '', `Level: ${a.level}. ${a.why}`, '');
   return L.join('\n') + '\n';
 }
 
@@ -2840,7 +3156,10 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   const json = {
     schema: 'grain-propose/1',
     outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length, degraded: r.degraded || null,
-    architecture: { nodeTypes: c.types, nodes: c.nodes, relations: edges, cycles: c.nodeCycles, path: `${ygg}/yg-architecture.yaml` },
+    // `levels`/`alternativeLevels` (ticket 110, additive): which level each active type was cut at, and which
+    // level each candidate the run did not activate was offered at. Both keyed by level name, summing to
+    // `nodeTypes` and to `alternatives`.
+    architecture: { nodeTypes: c.types, levels: c.typesByLevel || {}, alternativeLevels: c.alternativesByLevel || {}, nodes: c.nodes, relations: edges, cycles: c.nodeCycles, path: `${ygg}/yg-architecture.yaml` },
     // `timedOut` (additive) counts drills abandoned at `DRILL_TIMEOUT_MS`; their aspects are unverified, so
     // they are already inside the draft counts below — this names WHY they are, rather than leaving it silent.
     yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0, timedOut: r.verify?.timedOut || 0 },
@@ -2863,7 +3182,11 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   L.push(`proposed a graph for ${r.files.length} tracked files, as of ${sha} — ${ygg}/`);
   // Only when it happened, and above everything else: every count below is measured over that weaker set.
   if (r.degraded) L.push(`  WARNING: ${r.degraded}`);
-  L.push(`architecture: ${c.types} node types · ${c.nodes} nodes · ${edges ? `${edges} relations` : `no law about dependencies could be mined (${r.exp?.relStages?.seen ?? 0} references seen, ${r.exp?.relStages?.resolved ?? 0} resolved, ${r.exp?.relStages?.crossing ?? 0} survived the module cut)`} · ${c.nodeCycles} dependency cycle(s) — ${ygg}/yg-architecture.yaml`);
+  // The types line names the LEVEL each cut came from (ticket 110): no single level wins across repositories,
+  // so the report says which levels this repository's cut is made of, and how many candidates at other levels
+  // are on offer instead — the number that tells a maintainer whether there is a choice left to make.
+  const levelsPhrase = TYPE_LEVELS.filter(l => c.typesByLevel?.[l]).map(l => `${c.typesByLevel[l]} ${l}`).join(', ');
+  L.push(`architecture: ${c.types} node types${levelsPhrase ? ` (${levelsPhrase})` : ''} · ${c.nodes} nodes · ${edges ? `${edges} relations` : `no law about dependencies could be mined (${r.exp?.relStages?.seen ?? 0} references seen, ${r.exp?.relStages?.resolved ?? 0} resolved, ${r.exp?.relStages?.crossing ?? 0} survived the module cut)`} · ${c.nodeCycles} dependency cycle(s) — ${ygg}/yg-architecture.yaml`);
   if (!r.verify?.haveYg) {
     L.push(`enforced: 0 of ${c.aspects} aspects — no Yggdrasil CLI was found, so no rule was drilled and NOTHING here is enforced (set YG_BIN to a built bin.js, or put \`yg\` on PATH, then run this again)`);
     L.push(`candidates: 0 of ${c.aspects} — a candidate is an advisory or draft aspect a real drill caught a violation with, and no drill ran`);
@@ -2898,8 +3221,9 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
       L.push(`  ${reason}: ${group.length}`);
       for (const a of group) L.push(`    ${a.id} — ${a.name} · it already ${evidenceOf(a)} — ${aspectPath(a)}`);
     }
-    L.push(`== ${c.alternatives} finer type alternative(s), not cut as types — ${out}/alternatives.md ==`);
-    for (const alt of r.alternatives) L.push(`  ${alt.id} — ${alt.why}`);
+    const altLevels = TYPE_LEVELS.filter(l => c.alternativesByLevel?.[l]).map(l => `${c.alternativesByLevel[l]} ${l}`).join(', ');
+    L.push(`== ${c.alternatives} finer type alternative(s), not cut as types${altLevels ? ` (${altLevels})` : ''} — ${out}/alternatives.md ==`);
+    for (const alt of r.alternatives) L.push(`  ${alt.id} [${alt.level}] — ${alt.why}`);
   }
   L.push(`next: read ${out}/PROPOSAL.md (per-element evidence: ${out}/proposal.json), then move ${ygg}/ to the repository root as .yggdrasil/ and run \`yg check\``);
   return { lines: L, json };
