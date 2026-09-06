@@ -1,6 +1,6 @@
 # 145 · Yggdrasil: `yg drill add --violates <file>@<sha>` copies a real incident into a rule's drill corpus
 
-**Status:** OPEN
+**Status:** LANDED — committed 8b7e4e3b, pushed
 **Found by:** director, 2026-09-06
 **Severity:** medium
 **Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · same worker, after 144

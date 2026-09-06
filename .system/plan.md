@@ -5181,3 +5181,8 @@ note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a):
 - 2026-09-06 merged: 148 461d006
 - 2026-09-06 merged: 144 49ea51da
 - 2026-09-06 merged: 141 744689c
+- 2026-09-06 merged: 145 8b7e4e3b
+
+# Fala 11 — jeden system, fala A — close 2026-09-06
+suite: 2446
+note: Fala 11 'jeden zgrany system' zamknięta: 23 bilety (126–148) na trzech gałęziach; Horde 580/580 (744689c), Grain 2446/2446 (1856d72), Yggdrasil 8b7e4e3b (repo-check zielony poza dwoma błędami środowiska); katalog dowodów 20/20. Szczegóły: mission-one-system.md §10.

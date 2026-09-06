@@ -1145,9 +1145,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "running",
-      "note": "Yggdrasil worker, after 144",
-      "updated": "2026-09-06 21:43"
+      "state": "merged",
+      "note": "yg drill add --violates path@sha; a missed escape exits 1 and stays; aspects gain a log sharing the component log's composer",
+      "updated": "2026-09-06 22:38",
+      "sha": "8b7e4e3b"
     }
   ]
 }

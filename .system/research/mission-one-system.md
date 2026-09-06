@@ -212,3 +212,35 @@ wymuszona (6 → 132); popularne porty (7 → 127 aprobaty konsumentów); wiersz
 prozą w premerge (12 → 133, 135); zmiana przekrojowa (13 → bez zmian, plan układa rozszerz-zwiń); test-first
 (14 → 129 nie jest regułą); przeniesienie klucza a suita (15 → 126 mówi to wprost w docs); złe cięcie (16 → 138
 statystyka węzłów na bilet).
+
+---
+
+## 10. Wynik — 2026-09-06, zamknięcie fali 11
+
+Wszystkie 23 bilety misji (126–148) wylądowały na gałęziach `claude/grain-agent-tool-b89y0x` trzech repozytoriów.
+Nic nie poszło na `main`.
+
+| repo | bilety | czubek | suita | zakres |
+|---|---|---|---|---|
+| Horde | 126–129, 134–142, 148 (13) | 744689c | 580/580 (z 328) | 181 plików, 34 wpisy changelogu |
+| Grain | 131, 143, 146 (3) | 1856d72 | 2446/2446 (z 2415) | `grain advise`, `grain oracle`, cięcie budżetu współzmian (m27) |
+| Yggdrasil | 130, 132, 133, 144, 145, 147 (6) | 8b7e4e3b | repo-check zielony poza pack-smoke i 7 testami pod rootem | 144 plików; `impact/node/check/aspects/advise --json`, port z wersją i testem, `yg verdict`, `yg drill add` |
+
+Katalog dowodów (§6): **20/20 zielone.** Każdy wiersz ma test w suicie repozytorium, które go realizuje; dyrektor
+odtworzył sam E1 (`yg impact --node cli/io/atomic-write --json` na buildzie) i E18 (przebieg całości, 12 kroków,
+12,7 s). E20 zamykają 144 i 145.
+
+Zmierzone po drodze, nie założone:
+- współzmiana węzłowa nie jest poradą (dwie pary na czterech grafach, obie zadeklarowane) → `--json` z ujawnieniem;
+  podział węzła jest poradą (131, potwierdzone po 146);
+- budżet 5000 par współzmian był w całości pochłaniany przez pary wewnątrzplikowe na repozytoriach z dużymi plikami
+  → cięcie na dwie populacje, zero spadku precyzji konsumentów (146);
+- wyrocznia piąta (Yggdrasil): typy recall .639 / precision .234, relacje .744 / .707 na 44 wspólnych węzłach →
+  kalibracja instrumentu, nie dowód o piątym repozytorium (143);
+- `horde done` nie widział audytu zapisanego po zamknięciu fali → naprawione przez test całości (142);
+- `yg check --json` nie istniało → 147, a indeks jakości Hordy przestał czytać tekst (148).
+
+Otwarte po misji: horda jednego (po pomiarze kosztu weryfikatora), przeniesienie rozwoju Graina na Hordę, drille
+dyscyplin przepuszczone przez prawdziwych agentów pod presją (harness jest, przebiegi należą do maintainera),
+eskalacja 22 (dolny próg wsparcia par międzyplikowych) czeka na pomiar po 146. Decyzje użytkownika: PR-y z trzech
+gałęzi, wersje pakietów, publikacja.
