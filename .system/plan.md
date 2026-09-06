@@ -5146,3 +5146,5 @@ note: Scalone: 105, 108 (3 ślepe wyrocznie + pomiar), 109, 110, 111, 112, 113, 
 - 2026-09-06 122 Horde wylądowało na feature branchu (c226f73): prawo grafu dociera do node.mjs show (13 reguł ze statusami tam, gdzie próba fabryki widziała 0), czerwony graf = czerwona bramka premerge. Uwaga: yg context --json istnieje już w 5.8.0 — 121 item 1 do weryfikacji przez pracownika Yggdrasil.
 - 2026-09-06 merged: 120 0ff0a64
 - 2026-09-06 merged: 117 195c584
+- 2026-09-06 merged: 125 31fc785
+- 2026-09-06 121 Yggdrasil wylądowało (acd9114a, pushed): rodzina ma transakcję przyjęcia grafu. yg adopt --dry-run na propozycji Graina dla Hordy: 8 komponentów, 6 reguł (0/3/3), 268 miejsc już złamanych — czyli propozycja dla Hordy jest w większości szumem kraty (call-join 91, call-fail 88) i to jest kolejny dowód na 115/120 po stronie kandydatów advisory.

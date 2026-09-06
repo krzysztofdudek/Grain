@@ -589,7 +589,6 @@ export async function learn({
     for (const f of part2.facts)
       for (const sd of seeds || []) {
         if (!sd.pids.includes(f.pid) || f.contested || (f.seeded || []).includes(sd.id)) continue;
-        const st2 = model.steers ? null : null; // steers not built yet — read the exemplar's value from its partition scopes
         const pr2 = prepared.find(pr => pr.ps.some(x => x.rel === sd.path && x.name === sd.name));
         if (!pr2) continue;
         const ex2 = pr2.ps.find(x => x.rel === sd.path && x.name === sd.name);

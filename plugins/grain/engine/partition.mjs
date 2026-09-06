@@ -357,6 +357,7 @@ export const serializeScope = s => ({
   decos: s.decos,
   rets: s.rets || [],
   ptypes: s.ptypes || [],
+  tparams: s.tparams || [],
   calls: [...s.calls].sort(),
   seen: [...s.seen].sort(),
   shapes: [...s.shapes].sort(),
