@@ -8,3 +8,5 @@
 ## 2026-09-06 18:06 — Suite green on the final tree: 2442 tests, 0 failures (a mid-way run flaked once in propose-command's drill-count comparison while a second suite and a Yggdrasil rebuild shared the machine; that file passes in isolation and the two clean full runs bracket it). Commit c347180 carries the command, the record and the docs.
 
 ## 2026-09-06 18:06 — Done. Commits c347180 (command, tests, docs, the Yggdrasil record) and ca981ea (memo). Branch claude/grain-agent-tool-b89y0x, not pushed.
+
+## 2026-09-06 18:20 — Merged the base branch after 146 landed (merge 8d0c63f). One conflict, docs/validation.md's suite size: 2433 there, 2442 here, 2446 measured on the merged tree and written. config.mjs keeps 146's MODEL_V m27 — the oracle work changes nothing a store holds. Full suite on the merged tree: 2446 tests, 0 failures.
