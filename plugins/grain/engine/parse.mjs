@@ -138,6 +138,28 @@ export function bindingFor(gname) {
     if (f.name && f.name.multiple && f.value && !f.body) b.namedValueSpec.add(n.type);
     if (f.body && f.parameters && f.receiver) b.rcvCallable.add(n.type);
   }
+  // issue 125 — DECLARED TYPE PARAMETERS (`<T>`, `[T]`), derived from node-types.json alone, never a hand list of
+  // languages: a node type is one type parameter's OWN declaration when its name contains the whole word segment
+  // "type_parameter" (word-bounded, so this also matches Go's `type_parameter_declaration` and Scala's
+  // `contravariant_type_parameter`/`covariant_type_parameter`, not just the bare TS/Java/Rust/C#/Kotlin/Groovy
+  // `type_parameter`) and is not itself a LIST/CONSTRAINT/MODIFIER/CLAUSE wrapper attached to one — C#'s
+  // `type_parameter_list`/`type_parameter_constraint`/`type_parameter_constraints_clause`, Kotlin's
+  // `type_parameter_modifiers` name what BOUNDS or HOLDS a parameter, they never declare a fresh one. The LIST half
+  // is the plural container every `type_parameters`-named field points at across TS/Java/Kotlin/Rust/Scala's own
+  // node type `type_parameters`, or — where a grammar spells its list singularly instead ("_list") — the one node
+  // type that carries that word (C#/Go's `type_parameter_list`). Measured against every shipped grammar: C++'s
+  // declaration nodes have no such container at all (its own template-parameter list is named `template_...`, not
+  // `type_...`) and Python overloads one node type ("type_parameter") for both the list and each entry — both are
+  // left exactly as this derivation naturally leaves them (an empty/absent extraction there), never patched with a
+  // language name to force a fit.
+  const TPARAM_RE = wordBounded(['type_parameter']);
+  const TPARAM_NONDECL_RE = wordBounded(['constraint', 'constraints', 'modifier', 'modifiers', 'list', 'clause']);
+  b.tparamDecl = new Set(nt.filter(n => TPARAM_RE.test(n.type) && !TPARAM_NONDECL_RE.test(n.type)).map(n => n.type));
+  b.tparamContainer = new Set(
+    nt
+      .filter(n => n.type === 'type_parameters' || (TPARAM_RE.test(n.type) && wordBounded(['list']).test(n.type)))
+      .map(n => n.type)
+  );
   // §018 phase 2 — an UNPARSED TOKEN REGION and the CALL that consists of one, both read off node-types.json:
   //   · a token region is a NAMED node type with no fields of its own whose own declared children include ITSELF
   //     — a nested, structureless run of tokens the grammar deliberately declined to analyse (Rust `token_tree`);
