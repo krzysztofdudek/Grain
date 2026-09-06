@@ -1,6 +1,6 @@
 # 131 · Grain: `grain advise` — node-level co-change and split candidates as `grain-advice/1`, measured on four oracles: advisory or nothing
 
-**Status:** OPEN
+**Status:** FIXED — grain advise shipped and measured; relation kind --json-only with disclosure, split kind advisory
 **Found by:** director, 2026-09-06
 **Severity:** medium
 **Repo:** /home/user/Grain · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push

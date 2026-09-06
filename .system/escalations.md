@@ -1,5 +1,13 @@
 # Escalations
 
+## [23] constant · ticket 131 · open
+by: lead · at: 2026-09-06T15:54:39.505Z
+model.scopeCochange is capped at 5000 pairs sorted by DESCENDING SUPPORT (learn.mjs), and within-file pairs saturate that budget on any repository with large files: on express all 5000 retained pairs are within one file, the retained support floor is 14, and all 36 cross-file pairs the store actually holds are dropped before any consumer sees them. So the model's scope co-change is, on such a repository, 100% within-file by construction. Changing what the cap keeps (e.g. reserving part of the budget for cross-file pairs, or capping the two populations separately) changes acceptance, so it is not changed here. Measured for ticket 131 in .system/research/node-cochange-measurement.md; the verdict there does not turn on it (the uncapped store gives the same zero under the mutual gate), but any later reader of scope co-change should know the surface is biased this way.
+
+## [22] constant · ticket 131 · open
+by: lead · at: 2026-09-06T15:54:31.552Z
+Node-level co-change (ticket 131) is starved upstream, not by its own gate: cross-FILE scope pairs above CFG.cochangeMinSup=8 are 0 of 25 (grain), 36 of 28534 (express), 0 of 0 (spring-petclinic), 4 of 5 (Yggdrasil). Two named declarations in different files must be edited together in 8+ commits before the pair exists at all, which is a far stronger requirement than the same floor imposes on a FILE pair. A separate, lower support floor for cross-file scope pairs would be a new constant, so it is not added. Measured in .system/research/node-cochange-measurement.md; grain advise ships without it and its relation kind is --json-only data as a result.
+
 ## [21] other · ruled
 by: lead · at: 2026-09-02T10:56:34.954Z
 Record-only, ticket-status housekeeping: 045 and 073 (both HIGH) were fully shipped and merged weeks/waves ago (branches merged=y, full green suites logged, both already ratified by standing decisions macrodefs-sup-deleted-doc-kept and 073's own merge ruling) but tk status was never advanced past measured/approved. Marked fixed, no code or ruling changed. Also cleaned 016/042/044 (medium, no escalation needed) the same way.
