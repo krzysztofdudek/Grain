@@ -989,9 +989,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/134-stack",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "515/515; queue set --on, next --stack in 136's ranking, one parent-resolution function, merge order enforced, stack cleared on merge",
+      "updated": "2026-09-06 17:13",
+      "sha": "31a9f6c"
     },
     {
       "id": 93,
