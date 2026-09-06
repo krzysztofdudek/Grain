@@ -904,9 +904,9 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "queued",
+      "state": "running",
       "note": "Yggdrasil worker, direct on branch; then 132, 133 in sequence",
-      "updated": "2026-09-06 15:22"
+      "updated": "2026-09-06 15:24"
     },
     {
       "id": 85,
@@ -934,9 +934,9 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "fix/131-grain-advise",
-      "state": "queued",
+      "state": "running",
       "note": "Grain worktree; measurement on four oracles decides advisory or nothing",
-      "updated": "2026-09-06 15:22"
+      "updated": "2026-09-06 15:24"
     },
     {
       "id": 88,
@@ -944,9 +944,9 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/126-patch-id-keys",
-      "state": "queued",
+      "state": "running",
       "note": "Horde worktree",
-      "updated": "2026-09-06 15:22"
+      "updated": "2026-09-06 15:24"
     },
     {
       "id": 89,
@@ -954,9 +954,9 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/127-ticket-fields-plan",
-      "state": "queued",
+      "state": "running",
       "note": "Horde worktree",
-      "updated": "2026-09-06 15:22"
+      "updated": "2026-09-06 15:24"
     },
     {
       "id": 90,
@@ -964,9 +964,9 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/128-fix-loop",
-      "state": "queued",
+      "state": "running",
       "note": "Horde worktree",
-      "updated": "2026-09-06 15:22"
+      "updated": "2026-09-06 15:24"
     },
     {
       "id": 91,
@@ -974,9 +974,9 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/129-disciplines",
-      "state": "queued",
+      "state": "running",
       "note": "Horde worktree",
-      "updated": "2026-09-06 15:22"
+      "updated": "2026-09-06 15:24"
     }
   ]
 }
