@@ -29,6 +29,8 @@ worktree.
 | `export` | `--out <file>`, `--max-sites N`, `--compact`, `--no-anchors` | the whole model as data; see the schema contract below |
 | `propose [<out-dir>]` | `--full`, `--json <path>`, `--holdout <YYYY-MM-DD>` | a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository, written to `<out-dir>` (default `.yggdrasil-proposal/`); the report names the architecture, the rules a real `yg drill` proved, and the candidates, with `--full` for every draft it kept back; see the proposal contract below |
 | `advise` | `--json`, `--graph <dir>` | what this repository's own history and imports say about the architecture graph it ALREADY has (never a proposed one): places that change together with nothing in the graph connecting them, and places a finer cut of their own files beats on their own evidence. The change-together side is not advice and is not listed on the text surface — see the measurement below; the split side is. `--graph` reads a hand-written graph held beside the repository instead of inside it. Emits `grain-advice/1` |
+| `oracle record` | `--proposal <dir>`, `--graph <dir>`, `--name <n>`, `--out <dir>`, `--yes` | keep the difference between the graph `propose` wrote and the graph a maintainer accepted, as a scoreable record: both graphs' structure, the tracked paths each element selects, and the correction between them. Prints what it would store and where and writes NOTHING without `--yes`; outside this repository's own fixtures there is no default destination and `--out` is the adopter's choice. Emits `grain-oracle/1` |
+| `oracle score <name-or-dir>` | `--json` | precision and recall of that proposal against that accepted graph — both directions, at type, node and relation granularity, a match at Jaccard >= 0.5 over file sets, which is the same measure `tests/stress/propose.mjs` scores grain with against the hand-written oracles. Emits `grain-oracle-score/1` |
 | `decide steer <path>#<name>` | `--surfaces <pid,…>`, `--instead-of <pid,…>`, `--note`, `--topic`, `--weight`, `--author` | record a maintainer decision; without `--surfaces` it refuses and lists the exemplar's properties (alias `seed add`) |
 | `decide boundary <from>` | `--never-imports <to>`, `--note`, `--author` | an architecture decision; new imports crossing it are flagged at edit time (alias `seed add-boundary`) |
 | `decide waive <path>#<name>` | `--on <pid>`, `--note`, `--author` | excuse one named scope from one convention; `check` reports the departure as deliberate, the counts still count it non-conforming |
@@ -660,6 +662,49 @@ alternative offered. Dropping the file into an existing `.yggdrasil/` at `.famil
 `yg advise` there makes Yggdrasil nominate the family with zero code changes on Yggdrasil's side —
 `plugins/grain/tests/seams.test.mjs` proves this against a real `yg` binary and against Yggdrasil's own
 planted-family precision fixtures.
+
+## The oracle contract
+
+`grain oracle record` writes five documents under `<out>/<name>/`, and `grain oracle score` reads them. The
+point of the pair is that an adopter's own correction — the difference between the graph `grain propose` wrote
+and the graph they accepted with `yg adopt` — is a measurement oracle by exactly the definition the four
+hand-written graphs in `plugins/grain/tests/stress/oracles/` meet: a graph a maintainer of that repository
+decided to live with, which grain did not write.
+
+| file | what it holds |
+| --- | --- |
+| `oracle.json` | `schema: "grain-oracle/1"`, the name, when it was recorded and by which engine, the target (`repo`, `checkout`, `asOf`, `files`, `filesExcluded`), the two source directories, and the element counts of both sides |
+| `files.json` | the tracked file list at `asOf`, after the accepted graph's own `coverage.excluded` — every file set in the record is a list of indices into it |
+| `proposal.json` | the proposed side: node types with whether they classify, nodes with `mapping`/`relations`/`ports`/attached rules, rule drafts with `status` and the `identifier` each one is about, the alternative cuts, and the file set of each |
+| `accepted.json` | the same shape for the graph the maintainer accepted |
+| `correction.json` | `schema: "grain-correction/1"` — nodes kept, renamed, remapped, merged, split, recut, dropped and added; relations added and removed; rules kept, dropped, added, promoted, demoted, edited; ports counted. Its own `schemaNotes` defines every one of those words |
+
+**Structure and paths, never contents.** A record carries no file bodies, no descriptions, no charters, no prose
+rule bodies, no drill corpora, no history and no lock files — only what the measures consume. Two consequences,
+both deliberate: it is small enough to commit and read, and a repository that cannot be shared can still
+contribute its oracle. The identifiers a mechanical rule polices are read out of its `check.mjs` (the same
+extraction the reconstruction instrument uses) and stored as a list of names; the check itself is not stored.
+
+**The file sets are expanded once, at record time, against the real repository.** That is what makes scoring
+later independent of the repository — and it is also the honest fix for a failure the four-oracle measurement
+names: scored against a checkout that is not there, every `content:`-gated predicate expands to the empty set
+and drops out of a denominator with no error at all.
+
+**Consent is the command's output.** `record` prints the target, both graphs' counts, what it will store, what
+it will not, and the destination — then stops. `--yes` on a second run is what writes anything. The in-repo
+oracles directory is a default only for this repository's own fixtures (its own checkout, a repository named in
+its measurement corpus, or a name it already carries an oracle for); for any other repository there is no
+default and `--out` names a directory the adopter chose.
+
+**The score.** `grain-oracle-score/1` carries `types` (`recall`, `recallWithAlternatives`, `precision`), `nodes`
+(`recall`, `precision`), `relations` and `rules`. Every direction is a list of rows — each element of one graph,
+the best Jaccard it reaches against any element of the other, and which one — with `n`, `hit` (J >= 0.5), `hit8`
+(J >= 0.8), `rate` and `meanJ` over them. Relations are scored only between the nodes both graphs agree on, and
+the result says how many declared relations have an end outside that set and are therefore scored neither way.
+Rules are reported twice: by id (what became of each draft) and by name (how many of the accepted graph's
+mechanical rules some draft names the same identifier as) — and when no draft id survives at all, the command
+says outright that the accepted graph was not grown from that proposal, so the row is a comparison rather than a
+review. A node that maps no file of its own is scored in neither direction and counted separately.
 
 ## The advice contract
 

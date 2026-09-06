@@ -212,6 +212,15 @@ same records, same effect.
   everything else is on disk and summarised in one counted line, with `--full` to print it. With no Yggdrasil
   CLI (`YG_BIN`, or `yg` on PATH) nothing can be drilled, so nothing is enforced and the report says so. It is
   a proposal: a human reviews it and moves it in. Never move it in, and never run `yg check --approve`, unbidden.
+- **`oracle record [--proposal <dir>] [--graph <dir>] [--name <n>] [--out <dir>] [--yes]` / `oracle score
+  <name-or-dir> [--json]`** — after a proposal has been read and a graph accepted, the difference between the
+  two is a measurement oracle. `record` keeps it (both graphs' structure, the tracked paths each element
+  selects, and the correction: what was merged, split, renamed, dropped, added); `score` reports precision and
+  recall in both directions on the same Jaccard >= 0.5 bar the hand-written oracles are scored with. `record`
+  prints what it would store and where and writes NOTHING without `--yes` — relay that plan and wait, never
+  add `--yes` for the user and never pick a destination for them. It stores structure and paths, never file
+  contents, so scoring later needs no checkout.
+
 - **`advise [--json] [--graph <dir>]`** — the other direction from `propose`: for a repository that ALREADY has
   a `.yggdrasil/`, what its own history and imports say about it. Two findings, at very different weights. A
   place a finer cut beats on its own evidence **is** advice: one node owns a pile that is not one thing, and

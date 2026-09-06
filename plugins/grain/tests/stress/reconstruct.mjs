@@ -69,8 +69,9 @@ const REL_ENGINE = resolve(here, '..', '..', 'engine', 'relations.mjs');
 // ==================================================================================================
 import {
   parseYaml, globToRe, pathMatcher, expandWhen, expandMapping, intersectSize, jaccard, readGraph, fileHead,
+  aspectLiterals,
 } from '../../engine/yggdrasil-graph.mjs';
-export { parseYaml, globToRe, pathMatcher, expandWhen, expandMapping, intersectSize, jaccard, readGraph, fileHead };
+export { parseYaml, globToRe, pathMatcher, expandWhen, expandMapping, intersectSize, jaccard, readGraph, fileHead, aspectLiterals };
 
 // An `aspects:` list mixes bare ids and `{id, status}` maps.
 const aspectIds = list => (list || []).map(a => (typeof a === 'string' ? a : a && a.id)).filter(Boolean);
@@ -543,44 +544,9 @@ export function compareCycles(exp, adviseText, graph, files, ctx, modOf) {
 }
 
 // ---- (e) aspects ----
-// The REPO vocabulary a deterministic rule script names — the identifiers and module specifiers it forbids or
-// requires. A `check.mjs` is full of tree-sitter grammar vocabulary too (`'function'`, `'import'`, `'body'`,
-// `'string'`), which is the AST library's alphabet, not this repository's, and counting it would fabricate
-// matches. So a literal is taken only when it is unmistakably a name from the code under review:
-//   - a member of a `new Set([...])` or of a SHOUTY_CONST array (the house shape for a forbidden/required list),
-//   - a module specifier (`node:fs`, `@scope/pkg`, `../x/y`) — anything with `/` or `:` in it,
-//   - a dotted API path (`Date.now`, `process.env`),
-//   - a camelCase or PascalCase identifier (`buildIssueMessage`, `PortalData`).
-// A bare lowercase word is dropped: it cannot be told apart from a grammar node type.
-export function aspectLiterals(src) {
-  const text = String(src).replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
-  // what the rule script imports FOR ITSELF is the aspect harness's vocabulary, not the reviewed repo's
-  const ownImports = new Set();
-  for (const m of text.matchAll(/(?:\bfrom\s*|\brequire\s*\(\s*|\bimport\s*\(\s*)(['"])((?:\\.|(?!\1)[^\\])*)\1/g)) ownImports.add(m[2]);
-  const listed = new Set();
-  const collect = body => {
-    for (const m of body.matchAll(/(['"])((?:\\.|(?!\1)[^\\])*)\1/g)) listed.add(m[2]);
-  };
-  for (const m of text.matchAll(/new\s+Set\s*\(\s*\[([^\]]*)\]/g)) collect(m[1]);
-  for (const m of text.matchAll(/\b[A-Z][A-Z0-9_]{2,}\s*=\s*\[([^\]]*)\]/g)) collect(m[1]);
-  const out = new Set();
-  const keep = s => {
-    if (s.length < 3 || s.length > 80) return false;
-    if (/\s/.test(s)) return false;
-    if (!/^[@A-Za-z_$.][\w$./:@-]*$/.test(s)) return false;
-    if (/^(utf8|true|false|null|undefined)$/i.test(s)) return false;
-    if (ownImports.has(s)) return false;          // the check's own dependency, not a name it polices
-    if (/^\.{1,2}(\/\.{2})*\/?$/.test(s)) return false;   // a bare `../` path fragment is not a name
-    return true;
-  };
-  for (const s of listed) if (keep(s)) out.add(s);
-  for (const m of text.matchAll(/(['"])((?:\\.|(?!\1)[^\\])*)\1/g)) {
-    const s = m[2];
-    if (!keep(s)) continue;
-    if (/[/:]/.test(s) || /^[A-Za-z_$][\w$]*\.[A-Za-z_$][\w$.]*$/.test(s) || /^[a-z][a-z0-9]*[A-Z]/.test(s) || /^[A-Z][a-z]/.test(s)) out.add(s);
-  }
-  return out;
-}
+// `aspectLiterals` MOVED to `engine/yggdrasil-graph.mjs` (ticket 143), verbatim: `grain oracle record`
+// reads the same identifiers out of an accepted graph's checks, and a product command must not import a
+// test instrument. Re-exported at the top of this file, so every consumer keeps the same name from here.
 
 // An aggregate aspect (`reviewer: {type: aggregate}`, e.g. `source-hygiene`) lists its children under `implies:`
 // and expands to them wherever it is attached; a child of an aggregate is never attached by name anywhere, so

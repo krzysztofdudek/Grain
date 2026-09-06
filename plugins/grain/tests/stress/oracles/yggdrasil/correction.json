@@ -1,0 +1,1373 @@
+{
+ "schema": "grain-correction/1",
+ "schemaNotes": {
+  "nodes": "a node that maps no file of its own (an organizational parent) is counted under `organizational` and classified no further. kept (same files, same path) · renamed (same files, new path) · remapped (same path, an edited mapping) · merged (two or more proposed nodes folded into one) · split (one proposed node cut into several) · recut (files kept, boundaries redrawn past a Jaccard of 0.5) · dropped (no accepted node claims these files) · added (an accepted node no proposed node overlaps). A node matches at Jaccard >= 0.5 over expanded file sets, the same bar every other measure here uses.",
+  "relations": "read in the accepted graph's own node names: `added` is a relation the adopter declares and the proposal did not, `removed` one the proposal declared and the adopter did not. A relation with an end that has no counterpart is counted on its own line, never scored.",
+  "rules": "by id — what the adopter did to each draft (kept, dropped, edited, promoted or demoted along draft -> advisory -> enforced) — plus `added`, the rules in the accepted graph that no draft proposed.",
+  "ports": "ports are recorded from the accepted graph and counted; the proposal writer emits none today, so a non-zero count here is entirely the adopter's own contract layer."
+ },
+ "nodes": {
+  "kept": [
+   {
+    "proposed": "scripts",
+    "accepted": "scripts"
+   },
+   {
+    "proposed": "tools",
+    "accepted": "tools"
+   }
+  ],
+  "renamed": [
+   {
+    "proposed": "docs/public",
+    "accepted": "docs/site",
+    "j": 0.5833
+   },
+   {
+    "proposed": "docs",
+    "accepted": "docs/guides",
+    "j": 0.625
+   },
+   {
+    "proposed": "reference/llm-aspect-verdict-responses",
+    "accepted": "cli/reference/llm-aspect-verdict-responses",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/cpp",
+    "accepted": "cli/reference/relations/cpp",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/csharp",
+    "accepted": "cli/reference/relations/csharp",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/go",
+    "accepted": "cli/reference/relations/go",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/java",
+    "accepted": "cli/reference/relations/java",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/kotlin",
+    "accepted": "cli/reference/relations/kotlin",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/php",
+    "accepted": "cli/reference/relations/php",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/python",
+    "accepted": "cli/reference/relations/python",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/ruby",
+    "accepted": "cli/reference/relations/ruby",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/rust",
+    "accepted": "cli/reference/relations/rust",
+    "j": 1
+   },
+   {
+    "proposed": "reference/relations/typescript",
+    "accepted": "cli/reference/relations/typescript",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/src/core/graph",
+    "accepted": "cli/core/graph",
+    "j": 0.8
+   },
+   {
+    "proposed": "source/cli/src/core/log",
+    "accepted": "cli/core/log",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/src/formatters",
+    "accepted": "cli/formatters",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/src/migrations",
+    "accepted": "cli/core/migrations",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/src/portal/api",
+    "accepted": "cli/portal/engine-api",
+    "j": 0.9
+   },
+   {
+    "proposed": "source/cli/src/portal/server",
+    "accepted": "cli/portal/server",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/src/structure",
+    "accepted": "cli/structure",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/src/templates/portal/js",
+    "accepted": "cli/portal/frontend/views",
+    "j": 0.5556
+   },
+   {
+    "proposed": "source/cli/src/templates/schemas",
+    "accepted": "cli/schemas",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/tests/unit/helpers",
+    "accepted": "cli/tests/unit/helpers",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/tests/unit/model",
+    "accepted": "cli/tests/unit/model",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/tests/unit/repo",
+    "accepted": "cli/tests/unit/repo",
+    "j": 1
+   },
+   {
+    "proposed": "source/cli/tests/unit/templates",
+    "accepted": "cli/tests/unit/support/templates",
+    "j": 1
+   }
+  ],
+  "remapped": [],
+  "merged": [
+   {
+    "accepted": "cli/portal/tests/e2e",
+    "from": [
+     "source/cli/tests/portal-e2e/support",
+     "source/cli/tests/portal-e2e"
+    ]
+   },
+   {
+    "accepted": "cli/relations/extractors",
+    "from": [
+     "source/cli/src/relations/extractors",
+     "source/cli/src/relations"
+    ]
+   },
+   {
+    "accepted": "cli/tests/fixtures",
+    "from": [
+     "source/cli/tests/fixtures",
+     "source/cli/tests"
+    ]
+   },
+   {
+    "accepted": "root/ci",
+    "from": [
+     "dot-github/workflows",
+     "dot-github"
+    ]
+   },
+   {
+    "accepted": "root/project-config",
+    "from": [
+     "dot-devcontainer",
+     "repo-root"
+    ]
+   }
+  ],
+  "split": [
+   {
+    "proposed": "source/cli/src/ast",
+    "into": [
+     "cli/ast/report",
+     "cli/ast/runtime"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/cli",
+    "into": [
+     "cli/adopt-transaction",
+     "cli/check-render-groups",
+     "cli/check-render-header",
+     "cli/check-render-views",
+     "cli/cli-version",
+     "cli/commands/adopt",
+     "cli/commands/advise",
+     "cli/commands/aspect-test",
+     "cli/commands/aspects",
+     "cli/commands/build-context",
+     "cli/commands/check",
+     "cli/commands/drill",
+     "cli/commands/find",
+     "cli/commands/flows",
+     "cli/commands/impact",
+     "cli/commands/incident",
+     "cli/commands/init",
+     "cli/commands/knowledge",
+     "cli/commands/log",
+     "cli/commands/node",
+     "cli/commands/owner",
+     "cli/commands/portal",
+     "cli/commands/prime",
+     "cli/commands/schemas",
+     "cli/commands/simulate",
+     "cli/commands/structure",
+     "cli/commands/suppressions",
+     "cli/commands/tree",
+     "cli/commands/type-suggest",
+     "cli/det-concurrency",
+     "cli/exit-after-flush",
+     "cli/group-issues",
+     "cli/impact-handlers",
+     "cli/init-reviewer-setup",
+     "cli/init-scaffold",
+     "cli/preamble",
+     "cli/progressive-preflight",
+     "cli/progressive-scope-resolve",
+     "cli/rules-artifacts"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/core/checks",
+    "into": [
+     "cli/core/checks/architecture",
+     "cli/core/checks/aspects",
+     "cli/core/checks/digest-gate",
+     "cli/core/checks/incident-ledger",
+     "cli/core/checks/mapping",
+     "cli/core/checks/relations"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/core",
+    "into": [
+     "cli/core/advise",
+     "cli/core/allowed-relation-types",
+     "cli/core/aspect-health-signals",
+     "cli/core/aspect-test-file-target",
+     "cli/core/check",
+     "cli/core/check-codes",
+     "cli/core/check-coverage-tiers",
+     "cli/core/checks/architecture",
+     "cli/core/checks/aspects",
+     "cli/core/checks/digest-gate",
+     "cli/core/checks/incident-ledger",
+     "cli/core/checks/mapping",
+     "cli/core/checks/relations",
+     "cli/core/companion-resolve",
+     "cli/core/context",
+     "cli/core/drill",
+     "cli/core/file-when-evaluator",
+     "cli/core/fill",
+     "cli/core/fill-support",
+     "cli/core/loader",
+     "cli/core/log-validator",
+     "cli/core/migrator",
+     "cli/core/migrator-runner",
+     "cli/core/pair-hash",
+     "cli/core/pair-inputs",
+     "cli/core/pairs",
+     "cli/core/parse-cache-buckets",
+     "cli/core/parsing",
+     "cli/core/progressive-scope",
+     "cli/core/reviewer-dispatch",
+     "cli/core/reviewer-tiers",
+     "cli/core/type-classifier",
+     "cli/core/type-coverage",
+     "cli/core/type-effective",
+     "cli/core/type-visibility",
+     "cli/core/validator",
+     "cli/core/verify-lock"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/io",
+    "into": [
+     "cli/io/atomic-write",
+     "cli/io/file-content-cache",
+     "cli/io/incident-ledger",
+     "cli/io/lock-store",
+     "cli/io/parsers/aspect",
+     "cli/io/parsers/config",
+     "cli/io/parsers/graph",
+     "cli/io/stores",
+     "cli/io/type-class-cache"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/llm",
+    "into": [
+     "cli/llm/providers",
+     "cli/llm/registry",
+     "cli/llm/shared",
+     "cli/llm/subprocess-base"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/model",
+    "into": [
+     "cli/model/file-when",
+     "cli/model/graph",
+     "cli/model/lock",
+     "cli/model/validation",
+     "cli/model/when"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/portal",
+    "into": [
+     "cli/portal/contract",
+     "cli/portal/pipeline",
+     "cli/portal/serializer"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/templates/knowledge",
+    "into": [
+     "cli/knowledge",
+     "cli/knowledge-authoring",
+     "cli/knowledge-concepts"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/templates/portal",
+    "into": [
+     "cli/portal/frontend/core",
+     "cli/portal/frontend/vendor"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/templates",
+    "into": [
+     "cli/knowledge-authoring",
+     "cli/knowledge-concepts",
+     "cli/portal/frontend/vendor",
+     "cli/templates",
+     "cli/templates-platform"
+    ]
+   },
+   {
+    "proposed": "source/cli/src/utils",
+    "into": [
+     "cli/language-registry",
+     "cli/utils"
+    ]
+   },
+   {
+    "proposed": "source/cli/src",
+    "into": [
+     "cli/adopt-transaction",
+     "cli/check-render-groups",
+     "cli/check-render-header",
+     "cli/check-render-views",
+     "cli/cli-version",
+     "cli/commands/adopt",
+     "cli/commands/advise",
+     "cli/commands/aspect-test",
+     "cli/commands/aspects",
+     "cli/commands/build-context",
+     "cli/commands/check",
+     "cli/commands/drill",
+     "cli/commands/find",
+     "cli/commands/flows",
+     "cli/commands/impact",
+     "cli/commands/incident",
+     "cli/commands/init",
+     "cli/commands/knowledge",
+     "cli/commands/log",
+     "cli/commands/node",
+     "cli/commands/owner",
+     "cli/commands/portal",
+     "cli/commands/prime",
+     "cli/commands/schemas",
+     "cli/commands/simulate",
+     "cli/commands/structure",
+     "cli/commands/suppressions",
+     "cli/commands/tree",
+     "cli/commands/type-suggest",
+     "cli/core/advise",
+     "cli/core/allowed-relation-types",
+     "cli/core/aspect-health-signals",
+     "cli/core/aspect-test-file-target",
+     "cli/core/check",
+     "cli/core/check-codes",
+     "cli/core/check-coverage-tiers",
+     "cli/core/checks/architecture",
+     "cli/core/checks/aspects",
+     "cli/core/checks/digest-gate",
+     "cli/core/checks/incident-ledger",
+     "cli/core/checks/mapping",
+     "cli/core/checks/relations",
+     "cli/core/companion-resolve",
+     "cli/core/context",
+     "cli/core/drill",
+     "cli/core/file-when-evaluator",
+     "cli/core/fill",
+     "cli/core/fill-support",
+     "cli/core/loader",
+     "cli/core/log-validator",
+     "cli/core/migrator",
+     "cli/core/migrator-runner",
+     "cli/core/pair-hash",
+     "cli/core/pair-inputs",
+     "cli/core/pairs",
+     "cli/core/parse-cache-buckets",
+     "cli/core/parsing",
+     "cli/core/progressive-scope",
+     "cli/core/reviewer-dispatch",
+     "cli/core/reviewer-tiers",
+     "cli/core/type-classifier",
+     "cli/core/type-coverage",
+     "cli/core/type-effective",
+     "cli/core/type-visibility",
+     "cli/core/validator",
+     "cli/core/verify-lock",
+     "cli/det-concurrency",
+     "cli/entry",
+     "cli/exit-after-flush",
+     "cli/group-issues",
+     "cli/impact-handlers",
+     "cli/init-reviewer-setup",
+     "cli/init-scaffold",
+     "cli/io/atomic-write",
+     "cli/io/file-content-cache",
+     "cli/io/incident-ledger",
+     "cli/io/lock-store",
+     "cli/io/parsers/aspect",
+     "cli/io/parsers/config",
+     "cli/io/parsers/graph",
+     "cli/io/type-class-cache",
+     "cli/knowledge-authoring",
+     "cli/knowledge-concepts",
+     "cli/language-registry",
+     "cli/llm/providers",
+     "cli/llm/registry",
+     "cli/llm/shared",
+     "cli/llm/subprocess-base",
+     "cli/model/file-when",
+     "cli/model/graph",
+     "cli/model/lock",
+     "cli/model/validation",
+     "cli/model/when",
+     "cli/portal/contract",
+     "cli/portal/frontend/vendor",
+     "cli/portal/pipeline",
+     "cli/portal/serializer",
+     "cli/preamble",
+     "cli/progressive-preflight",
+     "cli/progressive-scope-resolve",
+     "cli/relations/core",
+     "cli/rules-artifacts",
+     "cli/templates",
+     "cli/templates-platform"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/e2e",
+    "into": [
+     "cli/tests/e2e/adopt",
+     "cli/tests/e2e/architecture-classification",
+     "cli/tests/e2e/architecture-when-validation",
+     "cli/tests/e2e/aspect-authoring",
+     "cli/tests/e2e/aspect-authoring-remaining",
+     "cli/tests/e2e/aspect-status-extended",
+     "cli/tests/e2e/aspect-test-file",
+     "cli/tests/e2e/aspect-test-telemetry",
+     "cli/tests/e2e/aspect-yaml-validation",
+     "cli/tests/e2e/aspects-health",
+     "cli/tests/e2e/attention-dump",
+     "cli/tests/e2e/channels",
+     "cli/tests/e2e/channels-completion",
+     "cli/tests/e2e/channels-extended",
+     "cli/tests/e2e/channels-multilevel",
+     "cli/tests/e2e/channels-status",
+     "cli/tests/e2e/check-coverage-slider",
+     "cli/tests/e2e/check-noise-floor",
+     "cli/tests/e2e/check-validation",
+     "cli/tests/e2e/child-precedence",
+     "cli/tests/e2e/cli-ast-languages",
+     "cli/tests/e2e/commands-surface",
+     "cli/tests/e2e/companion",
+     "cli/tests/e2e/companion-failclosed",
+     "cli/tests/e2e/companion-integration",
+     "cli/tests/e2e/companion-parse-cache-buckets",
+     "cli/tests/e2e/companion-size",
+     "cli/tests/e2e/conditional-when",
+     "cli/tests/e2e/config-tier-validation",
+     "cli/tests/e2e/context-json",
+     "cli/tests/e2e/coverage-modes",
+     "cli/tests/e2e/deterministic-ctx",
+     "cli/tests/e2e/deterministic-fill-lifecycle",
+     "cli/tests/e2e/deterministic-lifecycle",
+     "cli/tests/e2e/disk-scan",
+     "cli/tests/e2e/docs-internal-links",
+     "cli/tests/e2e/dogfood-scripts",
+     "cli/tests/e2e/drill",
+     "cli/tests/e2e/examples",
+     "cli/tests/e2e/fail-closed-mock",
+     "cli/tests/e2e/fill-semantics",
+     "cli/tests/e2e/flow-channel5",
+     "cli/tests/e2e/flows-advanced",
+     "cli/tests/e2e/flows-errors",
+     "cli/tests/e2e/flows-extended",
+     "cli/tests/e2e/graph-json",
+     "cli/tests/e2e/greenfield-init",
+     "cli/tests/e2e/impact",
+     "cli/tests/e2e/impact-lock",
+     "cli/tests/e2e/implies",
+     "cli/tests/e2e/incident-ledger",
+     "cli/tests/e2e/init-pure-cli",
+     "cli/tests/e2e/init-secrets-shape",
+     "cli/tests/e2e/invalidation-extended",
+     "cli/tests/e2e/invalidation-variety",
+     "cli/tests/e2e/lifecycle",
+     "cli/tests/e2e/llm-reviewer-mock",
+     "cli/tests/e2e/llm-reviewer-mock-extended",
+     "cli/tests/e2e/lock-cached-gate",
+     "cli/tests/e2e/lock-format",
+     "cli/tests/e2e/lock-format-recovery",
+     "cli/tests/e2e/lock-lifecycle",
+     "cli/tests/e2e/lock-merge-llm",
+     "cli/tests/e2e/lock-scope",
+     "cli/tests/e2e/log-gate-extended",
+     "cli/tests/e2e/log-integrity",
+     "cli/tests/e2e/log-integrity-extended",
+     "cli/tests/e2e/log-remaining",
+     "cli/tests/e2e/log-with-verdicts",
+     "cli/tests/e2e/log-with-verdicts-attribution",
+     "cli/tests/e2e/meta-modeling",
+     "cli/tests/e2e/migrations",
+     "cli/tests/e2e/migrations-config-extended",
+     "cli/tests/e2e/portal-surface",
+     "cli/tests/e2e/ports",
+     "cli/tests/e2e/ports-enforcement",
+     "cli/tests/e2e/ports-extended",
+     "cli/tests/e2e/ports-inheritance",
+     "cli/tests/e2e/progressive-approve",
+     "cli/tests/e2e/progressive-content-rewrite",
+     "cli/tests/e2e/progressive-gate",
+     "cli/tests/e2e/relation-conformance-compiled",
+     "cli/tests/e2e/relation-conformance-csharp",
+     "cli/tests/e2e/relation-conformance-scripting",
+     "cli/tests/e2e/relations",
+     "cli/tests/e2e/relations-extended",
+     "cli/tests/e2e/runcheck-parity",
+     "cli/tests/e2e/scope-llm",
+     "cli/tests/e2e/scope-toolarge",
+     "cli/tests/e2e/scope-unreadable",
+     "cli/tests/e2e/simulate",
+     "cli/tests/e2e/status-suppress",
+     "cli/tests/e2e/structure",
+     "cli/tests/e2e/support",
+     "cli/tests/e2e/suppress-deterministic-remaining",
+     "cli/tests/e2e/suppress-forms",
+     "cli/tests/e2e/tier-cascade",
+     "cli/tests/e2e/tracked-file-gitignored",
+     "cli/tests/e2e/type-coverage-cache-identity",
+     "cli/tests/e2e/type-coverage-fill",
+     "cli/tests/e2e/type-coverage-gc-graduation",
+     "cli/tests/e2e/type-coverage-impact",
+     "cli/tests/e2e/type-coverage-lattice",
+     "cli/tests/e2e/type-coverage-relation-conditions",
+     "cli/tests/e2e/type-visibility",
+     "cli/tests/e2e/universal-install",
+     "cli/tests/e2e/unreadable-pernode",
+     "cli/tests/e2e/validation-codes",
+     "cli/tests/e2e"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/integration",
+    "into": [
+     "cli/tests/integration/aspect-test",
+     "cli/tests/integration/ast",
+     "cli/tests/integration/features",
+     "cli/tests/integration/fill-divergence-corpus",
+     "cli/tests/integration/impact",
+     "cli/tests/integration/migration-runner",
+     "cli/tests/integration/pipeline/aspect-references",
+     "cli/tests/integration/pipeline/aspect-status",
+     "cli/tests/integration/pipeline/build-check",
+     "cli/tests/integration/portal",
+     "cli/tests/integration/relation-conformance-antifp-compiled",
+     "cli/tests/integration/relation-conformance-antifp-scripting",
+     "cli/tests/integration/relation-conformance-pass",
+     "cli/tests/integration/relation-conformance-verify",
+     "cli/tests/integration/reviewer",
+     "cli/tests/integration/structure/cross-node-and-concurrency",
+     "cli/tests/integration/structure"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/ast",
+    "into": [
+     "cli/tests/unit/ast/core",
+     "cli/tests/unit/ast/syntax"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/bounty",
+    "into": [
+     "cli/tests/unit/bounty/eff-flows",
+     "cli/tests/unit/bounty/eff-implies",
+     "cli/tests/unit/bounty/eff-own-ancestor",
+     "cli/tests/unit/bounty/eff-ports",
+     "cli/tests/unit/bounty/eff-status",
+     "cli/tests/unit/bounty/eff-type-defaults",
+     "cli/tests/unit/bounty/eff-when",
+     "cli/tests/unit/bounty/eff-when-atoms",
+     "cli/tests/unit/bounty/path-coverage",
+     "cli/tests/unit/bounty/path-ctx",
+     "cli/tests/unit/bounty/path-drift-hash",
+     "cli/tests/unit/bounty/path-expand",
+     "cli/tests/unit/bounty/path-validation"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/bounty2",
+    "into": [
+     "cli/tests/unit/bounty/allowedreads",
+     "cli/tests/unit/bounty/coverage",
+     "cli/tests/unit/bounty/ctxfs",
+     "cli/tests/unit/bounty/filewhen",
+     "cli/tests/unit/bounty/gitignore",
+     "cli/tests/unit/bounty/matcher",
+     "cli/tests/unit/bounty/overlap-exist",
+     "cli/tests/unit/bounty/owner",
+     "cli/tests/unit/bounty/structure-infile",
+     "cli/tests/unit/bounty/typewhen-strict"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/bounty3",
+    "into": [
+     "cli/tests/unit/bounty3/flows",
+     "cli/tests/unit/bounty3/ports-relations",
+     "cli/tests/unit/bounty3/suppress"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/bounty4",
+    "into": [
+     "cli/tests/unit/bounty4/conditional-aspects",
+     "cli/tests/unit/bounty4/flows",
+     "cli/tests/unit/bounty4/ports-and-relations",
+     "cli/tests/unit/bounty4/suppress-syntax",
+     "cli/tests/unit/bounty4/working-with-architecture",
+     "cli/tests/unit/bounty4/writing-deterministic-aspects"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/cli",
+    "into": [
+     "cli/tests/unit/cli/adopt",
+     "cli/tests/unit/cli/advise",
+     "cli/tests/unit/cli/general",
+     "cli/tests/unit/cli/graph",
+     "cli/tests/unit/cli/incident",
+     "cli/tests/unit/cli/inspect",
+     "cli/tests/unit/cli/log",
+     "cli/tests/unit/cli/simulate"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/core",
+    "into": [
+     "cli/tests/unit/core/advise",
+     "cli/tests/unit/core/aspect-health-signals",
+     "cli/tests/unit/core/check-codes",
+     "cli/tests/unit/core/check-progressive",
+     "cli/tests/unit/core/companion-resolve",
+     "cli/tests/unit/core/context",
+     "cli/tests/unit/core/drill",
+     "cli/tests/unit/core/graph/aspects",
+     "cli/tests/unit/core/graph/language-registry",
+     "cli/tests/unit/core/graph/metrics",
+     "cli/tests/unit/core/infra",
+     "cli/tests/unit/core/migrations",
+     "cli/tests/unit/core/operations/check-coverage",
+     "cli/tests/unit/core/operations/check-lock",
+     "cli/tests/unit/core/operations/digest-gate",
+     "cli/tests/unit/core/operations/feature-index",
+     "cli/tests/unit/core/operations/fill/classify-scope",
+     "cli/tests/unit/core/operations/fill/det",
+     "cli/tests/unit/core/operations/fill/divergence",
+     "cli/tests/unit/core/operations/fill/gc",
+     "cli/tests/unit/core/operations/fill/llm",
+     "cli/tests/unit/core/operations/other/impact",
+     "cli/tests/unit/core/operations/other/log-helpers",
+     "cli/tests/unit/core/operations/other",
+     "cli/tests/unit/core/operations/pair-hash",
+     "cli/tests/unit/core/operations/pairs",
+     "cli/tests/unit/core/operations/type-coverage",
+     "cli/tests/unit/core/operations/type-effective",
+     "cli/tests/unit/core/operations/type-relation-gate",
+     "cli/tests/unit/core/operations/type-visibility",
+     "cli/tests/unit/core/operations/verify-lock",
+     "cli/tests/unit/core/progressive-scope",
+     "cli/tests/unit/core/reviewer-tiers",
+     "cli/tests/unit/core/validator/architecture-coverage",
+     "cli/tests/unit/core/validator/aspect-references",
+     "cli/tests/unit/core/validator/constraints",
+     "cli/tests/unit/core/validator/reviewer",
+     "cli/tests/unit/core/validator"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/formatters",
+    "into": [
+     "cli/tests/unit/support/formatters/diagnostic-messages",
+     "cli/tests/unit/support/formatters"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/io",
+    "into": [
+     "cli/tests/unit/support/io/config-parser",
+     "cli/tests/unit/support/io/lock-store",
+     "cli/tests/unit/support/io",
+     "cli/tests/unit/support/parsers/aspect/scope",
+     "cli/tests/unit/support/parsers/aspect",
+     "cli/tests/unit/support/parsers/predicate-log",
+     "cli/tests/unit/support/parsers/structural/node",
+     "cli/tests/unit/support/parsers/structural"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/llm",
+    "into": [
+     "cli/tests/unit/llm/infra",
+     "cli/tests/unit/llm/providers",
+     "cli/tests/unit/llm/verifier"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/relations",
+    "into": [
+     "cli/tests/unit/relations/extractors-c-family",
+     "cli/tests/unit/relations/extractors-csharp",
+     "cli/tests/unit/relations/extractors-jvm-go",
+     "cli/tests/unit/relations/extractors-matrix-c-cpp",
+     "cli/tests/unit/relations/extractors-matrix-csharp",
+     "cli/tests/unit/relations/extractors-matrix-go",
+     "cli/tests/unit/relations/extractors-matrix-java",
+     "cli/tests/unit/relations/extractors-matrix-kotlin",
+     "cli/tests/unit/relations/extractors-matrix-php",
+     "cli/tests/unit/relations/extractors-matrix-python",
+     "cli/tests/unit/relations/extractors-matrix-ruby",
+     "cli/tests/unit/relations/extractors-matrix-rust",
+     "cli/tests/unit/relations/extractors-matrix-ts",
+     "cli/tests/unit/relations/extractors-php-python",
+     "cli/tests/unit/relations/extractors-ruby",
+     "cli/tests/unit/relations/extractors-rust-ts",
+     "cli/tests/unit/relations/reference-runner",
+     "cli/tests/unit/relations/resolver-unit",
+     "cli/tests/unit/relations"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/structure",
+    "into": [
+     "cli/tests/unit/structure/allowed-reads-and-runner",
+     "cli/tests/unit/structure/companion-runner",
+     "cli/tests/unit/structure/observation-recording",
+     "cli/tests/unit/structure/runner-robustness",
+     "cli/tests/unit/structure"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit/utils",
+    "into": [
+     "cli/tests/unit/support/utils/git-helpers",
+     "cli/tests/unit/support/utils"
+    ]
+   },
+   {
+    "proposed": "source/cli/tests/unit",
+    "into": [
+     "cli/tests/unit/ast/syntax",
+     "cli/tests/unit/bounty/allowedreads",
+     "cli/tests/unit/bounty/coverage",
+     "cli/tests/unit/bounty/ctxfs",
+     "cli/tests/unit/bounty/eff-flows",
+     "cli/tests/unit/bounty/eff-implies",
+     "cli/tests/unit/bounty/eff-own-ancestor",
+     "cli/tests/unit/bounty/eff-ports",
+     "cli/tests/unit/bounty/eff-status",
+     "cli/tests/unit/bounty/eff-type-defaults",
+     "cli/tests/unit/bounty/eff-when",
+     "cli/tests/unit/bounty/eff-when-atoms",
+     "cli/tests/unit/bounty/filewhen",
+     "cli/tests/unit/bounty/gitignore",
+     "cli/tests/unit/bounty/matcher",
+     "cli/tests/unit/bounty/overlap-exist",
+     "cli/tests/unit/bounty/owner",
+     "cli/tests/unit/bounty/path-coverage",
+     "cli/tests/unit/bounty/path-ctx",
+     "cli/tests/unit/bounty/path-drift-hash",
+     "cli/tests/unit/bounty/path-expand",
+     "cli/tests/unit/bounty/path-validation",
+     "cli/tests/unit/bounty/structure-infile",
+     "cli/tests/unit/bounty/typewhen-strict",
+     "cli/tests/unit/bounty3/flows",
+     "cli/tests/unit/bounty3/ports-relations",
+     "cli/tests/unit/bounty3/suppress",
+     "cli/tests/unit/bounty4/conditional-aspects",
+     "cli/tests/unit/bounty4/flows",
+     "cli/tests/unit/bounty4/ports-and-relations",
+     "cli/tests/unit/bounty4/suppress-syntax",
+     "cli/tests/unit/bounty4/working-with-architecture",
+     "cli/tests/unit/bounty4/writing-deterministic-aspects",
+     "cli/tests/unit/cli/adopt",
+     "cli/tests/unit/cli/advise",
+     "cli/tests/unit/cli/general",
+     "cli/tests/unit/cli/graph",
+     "cli/tests/unit/cli/incident",
+     "cli/tests/unit/cli/inspect",
+     "cli/tests/unit/cli/log",
+     "cli/tests/unit/cli/simulate",
+     "cli/tests/unit/core/advise",
+     "cli/tests/unit/core/aspect-health-signals",
+     "cli/tests/unit/core/check-codes",
+     "cli/tests/unit/core/check-progressive",
+     "cli/tests/unit/core/companion-resolve",
+     "cli/tests/unit/core/context",
+     "cli/tests/unit/core/drill",
+     "cli/tests/unit/core/graph/aspects",
+     "cli/tests/unit/core/graph/language-registry",
+     "cli/tests/unit/core/graph/metrics",
+     "cli/tests/unit/core/infra",
+     "cli/tests/unit/core/migrations",
+     "cli/tests/unit/core/operations/check-coverage",
+     "cli/tests/unit/core/operations/check-lock",
+     "cli/tests/unit/core/operations/digest-gate",
+     "cli/tests/unit/core/operations/feature-index",
+     "cli/tests/unit/core/operations/fill/classify-scope",
+     "cli/tests/unit/core/operations/fill/det",
+     "cli/tests/unit/core/operations/fill/divergence",
+     "cli/tests/unit/core/operations/fill/gc",
+     "cli/tests/unit/core/operations/fill/llm",
+     "cli/tests/unit/core/operations/other/impact",
+     "cli/tests/unit/core/operations/other/log-helpers",
+     "cli/tests/unit/core/operations/other",
+     "cli/tests/unit/core/operations/pair-hash",
+     "cli/tests/unit/core/operations/pairs",
+     "cli/tests/unit/core/operations/type-coverage",
+     "cli/tests/unit/core/operations/type-effective",
+     "cli/tests/unit/core/operations/type-relation-gate",
+     "cli/tests/unit/core/operations/type-visibility",
+     "cli/tests/unit/core/operations/verify-lock",
+     "cli/tests/unit/core/progressive-scope",
+     "cli/tests/unit/core/reviewer-tiers",
+     "cli/tests/unit/core/validator/architecture-coverage",
+     "cli/tests/unit/core/validator/aspect-references",
+     "cli/tests/unit/core/validator/constraints",
+     "cli/tests/unit/core/validator/reviewer",
+     "cli/tests/unit/core/validator",
+     "cli/tests/unit/family-without-law",
+     "cli/tests/unit/llm/infra",
+     "cli/tests/unit/llm/verifier",
+     "cli/tests/unit/meta-drills",
+     "cli/tests/unit/metamorphic",
+     "cli/tests/unit/prompt-headroom",
+     "cli/tests/unit/relations/extractors-c-family",
+     "cli/tests/unit/relations/extractors-csharp",
+     "cli/tests/unit/relations/extractors-jvm-go",
+     "cli/tests/unit/relations/extractors-matrix-c-cpp",
+     "cli/tests/unit/relations/extractors-matrix-csharp",
+     "cli/tests/unit/relations/extractors-matrix-go",
+     "cli/tests/unit/relations/extractors-matrix-java",
+     "cli/tests/unit/relations/extractors-matrix-kotlin",
+     "cli/tests/unit/relations/extractors-matrix-php",
+     "cli/tests/unit/relations/extractors-matrix-python",
+     "cli/tests/unit/relations/extractors-matrix-ruby",
+     "cli/tests/unit/relations/extractors-matrix-rust",
+     "cli/tests/unit/relations/extractors-matrix-ts",
+     "cli/tests/unit/relations/extractors-php-python",
+     "cli/tests/unit/relations/extractors-ruby",
+     "cli/tests/unit/relations/extractors-rust-ts",
+     "cli/tests/unit/relations/reference-runner",
+     "cli/tests/unit/relations/resolver-unit",
+     "cli/tests/unit/relations",
+     "cli/tests/unit/rules-artifact-names-attach",
+     "cli/tests/unit/runcheck-parity-attach",
+     "cli/tests/unit/spectral-headroom",
+     "cli/tests/unit/structure/companion-runner",
+     "cli/tests/unit/structure/observation-recording",
+     "cli/tests/unit/structure/runner-robustness",
+     "cli/tests/unit/structure",
+     "cli/tests/unit/support/formatters/diagnostic-messages",
+     "cli/tests/unit/support/io/config-parser",
+     "cli/tests/unit/support/io/lock-store",
+     "cli/tests/unit/support/io",
+     "cli/tests/unit/support/parsers/aspect/scope",
+     "cli/tests/unit/support/parsers/aspect",
+     "cli/tests/unit/support/parsers/predicate-log",
+     "cli/tests/unit/support/parsers/structural/node",
+     "cli/tests/unit/support/parsers/structural",
+     "cli/tests/unit/support/utils/git-helpers"
+    ]
+   },
+   {
+    "proposed": "source/cli",
+    "into": [
+     "cli/config/build",
+     "cli/config/linters",
+     "cli/config/quality"
+    ]
+   }
+  ],
+  "recut": [
+   {
+    "proposed": "dot-yggdrasil/aspects/no-shell-injection",
+    "nearest": "graph-rules",
+    "j": 0.0233
+   },
+   {
+    "proposed": "dot-yggdrasil/aspects/progressive-tier-partition",
+    "nearest": "graph-rules",
+    "j": 0.0217
+   },
+   {
+    "proposed": "dot-yggdrasil/aspects/prototype-safe-registry-lookup",
+    "nearest": "graph-rules",
+    "j": 0.0204
+   },
+   {
+    "proposed": "dot-yggdrasil/aspects/reviewer-secrets-not-from-flags",
+    "nearest": "graph-rules",
+    "j": 0.0233
+   },
+   {
+    "proposed": "dot-yggdrasil/aspects/self-contained-references",
+    "nearest": "graph-rules",
+    "j": 0.0189
+   },
+   {
+    "proposed": "dot-yggdrasil/aspects",
+    "nearest": "graph-rules",
+    "j": 0.1792
+   },
+   {
+    "proposed": "reference/relations",
+    "nearest": "cli/reference/relations/php",
+    "j": 0.1707
+   },
+   {
+    "proposed": "source/cli/scripts",
+    "nearest": "cli/config/quality",
+    "j": 0.2857
+   }
+  ],
+  "dropped": [
+   "dot-yggdrasil/aspects/diagnostic-logging",
+   "dot-yggdrasil/aspects/portal",
+   "dot-yggdrasil/aspects/reference",
+   "dot-yggdrasil/aspects/silent-missing-files",
+   "dot-yggdrasil/flows",
+   "dot-yggdrasil/model",
+   "dot-yggdrasil"
+  ],
+  "added": [
+   "cli/reference/relations",
+   "cli/tests/support",
+   "examples",
+   "graph-rules"
+  ],
+  "organizational": {
+   "proposed": 2,
+   "accepted": 34
+  },
+  "counts": {
+   "kept": 2,
+   "renamed": 26,
+   "remapped": 0,
+   "merged": 5,
+   "split": 30,
+   "recut": 8,
+   "dropped": 7,
+   "added": 4,
+   "organizational": {
+    "proposed": 2,
+    "accepted": 34
+   }
+  }
+ },
+ "relations": {
+  "added": [
+   {
+    "from": "cli/ast/runtime",
+    "to": "cli/ast/report"
+   },
+   {
+    "from": "cli/ast/runtime",
+    "to": "cli/utils"
+   },
+   {
+    "from": "cli/portal/engine-api",
+    "to": "cli/core/log"
+   },
+   {
+    "from": "cli/portal/engine-api",
+    "to": "cli/core/graph"
+   },
+   {
+    "from": "cli/portal/engine-api",
+    "to": "cli/ast/runtime"
+   },
+   {
+    "from": "cli/reference/llm-aspect-verdict-responses",
+    "to": "cli/tests/unit/llm/providers"
+   },
+   {
+    "from": "cli/structure",
+    "to": "cli/ast/runtime"
+   },
+   {
+    "from": "cli/tests/unit/ast/core",
+    "to": "cli/ast/runtime"
+   },
+   {
+    "from": "cli/tests/unit/helpers",
+    "to": "cli/ast/runtime"
+   },
+   {
+    "from": "cli/tests/unit/helpers",
+    "to": "cli/relations/extractors"
+   }
+  ],
+  "removed": [
+   {
+    "from": "cli/core/graph",
+    "to": "cli/relations/extractors"
+   },
+   {
+    "from": "cli/io/stores",
+    "to": "cli/formatters"
+   },
+   {
+    "from": "cli/core/migrations",
+    "to": "cli/io/stores"
+   },
+   {
+    "from": "cli/portal/engine-api",
+    "to": "cli/relations/extractors"
+   },
+   {
+    "from": "cli/portal/engine-api",
+    "to": "cli/ast/report"
+   },
+   {
+    "from": "cli/relations/extractors",
+    "to": "cli/io/stores"
+   },
+   {
+    "from": "cli/relations/extractors",
+    "to": "cli/utils"
+   },
+   {
+    "from": "cli/tests/unit/ast/core",
+    "to": "cli/utils"
+   },
+   {
+    "from": "cli/tests/unit/helpers",
+    "to": "cli/ast/report"
+   },
+   {
+    "from": "cli/tests/unit/structure/allowed-reads-and-runner",
+    "to": "cli/relations/extractors"
+   },
+   {
+    "from": "cli/tests/unit/structure/allowed-reads-and-runner",
+    "to": "cli/ast/report"
+   },
+   {
+    "from": "cli/tests/unit/support/templates",
+    "to": "cli/knowledge"
+   }
+  ],
+  "kept": 29,
+  "counts": {
+   "added": 10,
+   "removed": 12,
+   "kept": 29
+  }
+ },
+ "rules": {
+  "kept": [],
+  "dropped": [
+   "grain/examples/candidate-auto-dir3",
+   "grain/examples/emit-audit-returns-void",
+   "grain/examples/partition-modexport",
+   "grain/examples/partition-nameshape",
+   "grain/examples/partition-returns-void",
+   "grain/repo/candidate-auto-call-string",
+   "grain/repo/candidate-auto-dir3",
+   "grain/repo/candidate-auto-imp-node-path",
+   "grain/repo/candidate-auto-lex-semi",
+   "grain/repo/candidate-auto-nameshape",
+   "grain/repo/candidate-auto-varshape",
+   "grain/repo/partition-lex-indent",
+   "grain/repo/partition-nameshape",
+   "grain/scripts/candidate-auto-filenameshape",
+   "grain/scripts/candidate-auto-imp-node-child-process",
+   "grain/scripts/candidate-auto-imp-node-fs",
+   "grain/scripts/candidate-auto-imp-node-module",
+   "grain/scripts/candidate-auto-imp-node-path",
+   "grain/scripts/candidate-auto-lex-imports",
+   "grain/source-cli-src-cli/candidate-auto-imp-p",
+   "grain/source-cli-src-cli/candidate-auto-imp-source-cli-src-core-pairs",
+   "grain/source-cli-src-cli/candidate-auto-imp-source-cli-src-io-paths",
+   "grain/source-cli-src-cli/candidate-auto-lex-indent",
+   "grain/source-cli-src-cli/candidate-auto-nameshape",
+   "grain/source-cli-src-cli/candidate-auto-ptype-graph",
+   "grain/source-cli-src-cli/partition-lex-quote",
+   "grain/source-cli-src-cli/partition-modexport",
+   "grain/source-cli-src-cli/partition-nameshape",
+   "grain/source-cli-src-core/candidate-auto-filenameshape",
+   "grain/source-cli-src-core/candidate-auto-imp-p",
+   "grain/source-cli-src-core/candidate-auto-imp-source-cli-src-core-pairs",
+   "grain/source-cli-src-core/candidate-auto-imp-source-cli-src-model-lock",
+   "grain/source-cli-src-core/candidate-auto-returns-promise",
+   "grain/source-cli-src-core/candidate-auto-varshape",
+   "grain/source-cli-src-core/evaluate-clause-returns-boolean",
+   "grain/source-cli-src-core/load-returns-promise",
+   "grain/source-cli-src-core/nominations-call-hashevidence",
+   "grain/source-cli-src-core/nominations-returns-nomination",
+   "grain/source-cli-src-core/partition-lex-quote",
+   "grain/source-cli-src-core/partition-lex-semi",
+   "grain/source-cli-src-core/partition-modexport",
+   "grain/source-cli-src-core/partition-nameshape",
+   "grain/source-cli-src-io/candidate-auto-arity",
+   "grain/source-cli-src-io/candidate-auto-call-string",
+   "grain/source-cli-src-io/candidate-auto-imp-node-path",
+   "grain/source-cli-src-io/candidate-auto-imp-yaml",
+   "grain/source-cli-src-io/candidate-auto-lex-semi",
+   "grain/source-cli-src-io/candidate-auto-varshape",
+   "grain/source-cli-src-io/partition-lex-quote",
+   "grain/source-cli-src-io/partition-modexport",
+   "grain/source-cli-src-io/partition-nameshape",
+   "grain/source-cli-src-llm/candidate-auto-call-fail",
+   "grain/source-cli-src-llm/candidate-auto-imp-source-cli-src-llm-api-utils",
+   "grain/source-cli-src-llm/candidate-auto-lex-decl",
+   "grain/source-cli-src-llm/candidate-auto-nameshape",
+   "grain/source-cli-src-llm/partition-nameshape",
+   "grain/source-cli-src-portal/candidate-auto-call-string",
+   "grain/source-cli-src-portal/candidate-auto-imp-a",
+   "grain/source-cli-src-portal/candidate-auto-lex-semi",
+   "grain/source-cli-src-portal/candidate-auto-ptype-graph",
+   "grain/source-cli-src-portal/candidate-auto-returns-promise",
+   "grain/source-cli-src-portal/candidate-auto-varshape",
+   "grain/source-cli-src-portal/partition-lex-quote",
+   "grain/source-cli-src-portal/partition-modexport",
+   "grain/source-cli-src-portal/partition-nameshape",
+   "grain/source-cli-src-relations/candidate-auto-call-emit",
+   "grain/source-cli-src-relations/candidate-auto-call-walk",
+   "grain/source-cli-src-relations/candidate-auto-lex-decl",
+   "grain/source-cli-src-relations/candidate-auto-nameshape",
+   "grain/source-cli-src-relations/candidate-auto-ptype-node",
+   "grain/source-cli-src-relations/candidate-auto-varshape",
+   "grain/source-cli-src-relations/declarations-call-node-childforfieldname",
+   "grain/source-cli-src-relations/declarations-ptype-parsedfile",
+   "grain/source-cli-src-relations/declarations-returns-declaredsymbol",
+   "grain/source-cli-src-relations/partition-call-node-childforfieldname",
+   "grain/source-cli-src-relations/partition-lex-quote",
+   "grain/source-cli-src-relations/partition-modexport",
+   "grain/source-cli-src-relations/partition-nameshape",
+   "grain/source-cli-src-structure/candidate-auto-filenameshape",
+   "grain/source-cli-src-structure/candidate-auto-imp-source-cli-src-structure-ctx-fs",
+   "grain/source-cli-src-structure/candidate-auto-lex-semi",
+   "grain/source-cli-src-structure/candidate-auto-nameshape",
+   "grain/source-cli-src-structure/candidate-auto-returns-void",
+   "grain/source-cli-src-structure/candidate-auto-varshape",
+   "grain/source-cli-src-structure/partition-nameshape",
+   "grain/source-cli-src-templates-portal/partition-lex-quote",
+   "grain/source-cli-src-utils/candidate-auto-call-execfilep",
+   "grain/source-cli-src-utils/candidate-auto-imp-source-cli-src-utils-posix",
+   "grain/source-cli-src-utils/candidate-auto-lex-decl",
+   "grain/source-cli-src-utils/candidate-auto-lex-semi",
+   "grain/source-cli-src-utils/candidate-auto-returns-promise",
+   "grain/source-cli-src-utils/candidate-auto-varshape",
+   "grain/source-cli-src-utils/is-returns-promise",
+   "grain/source-cli-tests-e2e/aspect-write-token-returns-void",
+   "grain/source-cli-tests-e2e/build-repo-varshape",
+   "grain/source-cli-tests-e2e/candidate-auto-call-path-join",
+   "grain/source-cli-tests-e2e/candidate-auto-call-run",
+   "grain/source-cli-tests-e2e/candidate-auto-call-writefilesync",
+   "grain/source-cli-tests-e2e/candidate-auto-imp-source-cli-tests-e2e-support-mock-reviewer",
+   "grain/source-cli-tests-e2e/candidate-auto-namesuffix",
+   "grain/source-cli-tests-e2e/candidate-auto-varshape",
+   "grain/source-cli-tests-e2e/file-orders-call-path-join",
+   "grain/source-cli-tests-e2e/kill-reviewer-call-readfilesync",
+   "grain/source-cli-tests-e2e/kill-reviewer-returns-void",
+   "grain/source-cli-tests-e2e/node-yaml-orders-call-path-join",
+   "grain/source-cli-tests-e2e/parity-runcheck-drift-call-run",
+   "grain/source-cli-tests-e2e/partition-call-expect",
+   "grain/source-cli-tests-e2e/partition-filenameshape",
+   "grain/source-cli-tests-e2e/partition-imp-node-path",
+   "grain/source-cli-tests-e2e/partition-lex-indent",
+   "grain/source-cli-tests-e2e/set-call-writefilesync",
+   "grain/source-cli-tests-e2e/set-returns-void",
+   "grain/source-cli-tests-e2e/write-file-call-writefilesync",
+   "grain/source-cli-tests-e2e/write-file-returns-void",
+   "grain/source-cli-tests-fixtures/candidate-auto-arity",
+   "grain/source-cli-tests-fixtures/candidate-auto-call-this-rows-push",
+   "grain/source-cli-tests-fixtures/candidate-auto-lex-decl",
+   "grain/source-cli-tests-fixtures/candidate-auto-nameshape",
+   "grain/source-cli-tests-fixtures/find-first-arity",
+   "grain/source-cli-tests-fixtures/partition-modexport",
+   "grain/source-cli-tests-fixtures/partition-nameshape",
+   "grain/source-cli-tests-integration/candidate-auto-call-writefilesync",
+   "grain/source-cli-tests-integration/candidate-auto-imp-i",
+   "grain/source-cli-tests-integration/candidate-auto-imp-node-path",
+   "grain/source-cli-tests-integration/candidate-auto-imp-source-cli-src-relations-extractors-registry",
+   "grain/source-cli-tests-integration/candidate-auto-imp-source-cli-src-relations-resolve-path",
+   "grain/source-cli-tests-integration/candidate-auto-varshape",
+   "grain/source-cli-tests-integration/extract-with-returns-promise",
+   "grain/source-cli-tests-integration/make-sandbox-call-string",
+   "grain/source-cli-tests-integration/make-sandbox-returns-record",
+   "grain/source-cli-tests-integration/partition-call-expect",
+   "grain/source-cli-tests-integration/partition-filenameshape",
+   "grain/source-cli-tests-integration/partition-imp-vitest",
+   "grain/source-cli-tests-integration/partition-lex-quote",
+   "grain/source-cli-tests-integration/write-node-arity",
+   "grain/source-cli-tests-integration/write-node-call-writefilesync",
+   "grain/source-cli-tests-integration/write-node-returns-void",
+   "grain/source-cli-tests-portal-e2e/candidate-auto-call-expect-panel-tohaveclass",
+   "grain/source-cli-tests-portal-e2e/candidate-auto-call-panel-locator",
+   "grain/source-cli-tests-portal-e2e/candidate-auto-call-spawnsync",
+   "grain/source-cli-tests-portal-e2e/candidate-auto-call-test",
+   "grain/source-cli-tests-portal-e2e/candidate-auto-imp-node-os",
+   "grain/source-cli-tests-portal-e2e/candidate-auto-ptype-teardown",
+   "grain/source-cli-tests-portal-e2e/partition-call-expect",
+   "grain/source-cli-tests-unit/candidate-auto-call-mkdir",
+   "grain/source-cli-tests-unit/candidate-auto-call-path-join",
+   "grain/source-cli-tests-unit/candidate-auto-call-rm",
+   "grain/source-cli-tests-unit/candidate-auto-call-writefile",
+   "grain/source-cli-tests-unit/candidate-auto-nameshape",
+   "grain/source-cli-tests-unit/candidate-auto-namesuffix",
+   "grain/source-cli-tests-unit/parse-with-call-expect",
+   "grain/source-cli-tests-unit/partition-call-expect",
+   "grain/source-cli-tests-unit/partition-imp-vitest",
+   "grain/source-cli-tests-unit/partition-lex-decl",
+   "grain/source-cli-tests-unit/partition-lex-indent",
+   "grain/source-cli-tests-unit/partition-lex-semi",
+   "grain/source-cli-tests-unit/partition-nameshape",
+   "grain/source-cli-tests-unit/setup-project-mods",
+   "grain/source-cli-tests-unit/setup-project-returns-promise",
+   "grain/yggdrasil-aspects/candidate-auto-call-node-namedchildren-find",
+   "grain/yggdrasil-aspects/candidate-auto-call-node-namedchildren-some",
+   "grain/yggdrasil-aspects/candidate-auto-call-t-slice",
+   "grain/yggdrasil-aspects/candidate-auto-lex-decl",
+   "grain/yggdrasil-aspects/candidate-auto-namesuffix",
+   "grain/yggdrasil-aspects/candidate-auto-varshape",
+   "grain/yggdrasil-aspects/config-default-returns-config",
+   "grain/yggdrasil-aspects/group-returns-void",
+   "grain/yggdrasil-aspects/partition-lex-indent",
+   "grain/yggdrasil-aspects/partition-lex-quote/drills/violates-yggdrasil-aspects-migration-idempotent-yg-aspect/.yggdrasil/aspects/migration-idempotent",
+   "grain/yggdrasil-aspects/partition-lex-quote/drills/violates-yggdrasil-aspects-posix-paths-output-yg-aspect/.yggdrasil/aspects/posix-paths-output",
+   "grain/yggdrasil-aspects/partition-lex-quote",
+   "grain/yggdrasil-aspects/partition-modexport",
+   "grain/yggdrasil-aspects/partition-nameshape"
+  ],
+  "added": [
+   "atomic-write-contract",
+   "ci-actions-pinned",
+   "cli-command-contract",
+   "command-contract-shape",
+   "command-error-via-buildissuemessage",
+   "command-exit-codes",
+   "deterministic",
+   "diagnostic-logging",
+   "docs-internal-links",
+   "e2e-public-surface",
+   "events-reader-boundary",
+   "example-self-contained",
+   "instrument-import-fence",
+   "migration-bumps-version",
+   "migration-idempotent",
+   "no-buildissuemessage-in-engine",
+   "no-direct-console",
+   "no-direct-fs",
+   "no-direct-minimatch",
+   "no-nondeterminism-direct",
+   "no-shell-injection",
+   "no-side-effects-on-import",
+   "owner-resolution-single-source",
+   "parser-contract",
+   "parser-yaml-guard",
+   "portal/approve-shells-cli-only",
+   "portal/count-parity-via-reuse",
+   "portal/every-spec-uses-playwright-chromium",
+   "portal/every-surface-has-e2e",
+   "portal/focused-file-exports",
+   "portal/focused-file-size",
+   "portal/honest-state-anchor",
+   "portal/honest-state-never-collapsed",
+   "portal/loadgraph-nosecrets-flag",
+   "portal/loopback-only",
+   "portal/no-cdn-no-network",
+   "portal/no-lock-writer-import",
+   "portal/no-network-egress",
+   "portal/no-node-imports-in-frontend",
+   "portal/no-secrets-import",
+   "portal/no-secrets-strings",
+   "portal/worklist-mirrors-groups",
+   "posix-paths-output",
+   "posix-paths-source",
+   "progressive-tier-partition",
+   "prototype-safe-registry-lookup",
+   "provider-redaction",
+   "provider-redaction-cascade",
+   "provider-retry-contract",
+   "read-or-default-via-helper",
+   "reference/doc-shape",
+   "reference/layout",
+   "reference/relations/case-has-test",
+   "reference/relations/case-is-tested",
+   "reference/section-body",
+   "repo-check-gate-steps",
+   "reviewer-secrets-not-from-flags",
+   "rules-artifact-names-single-source",
+   "runcheck-injected-input-parity",
+   "schema-bump-bookkeeping",
+   "self-contained-references",
+   "sibling-test-file",
+   "silent-missing-files",
+   "single-source-graph-queries",
+   "source-hygiene",
+   "source-no-raw-control-chars",
+   "test-deterministic",
+   "top-level-error-handler",
+   "wasm-tree-lifecycle",
+   "what-why-next"
+  ],
+  "promoted": [],
+  "demoted": [],
+  "edited": [],
+  "counts": {
+   "kept": 0,
+   "dropped": 173,
+   "added": 70,
+   "promoted": 0,
+   "demoted": 0,
+   "edited": 0
+  }
+ },
+ "ports": {
+  "accepted": 1,
+  "proposed": 0
+ }
+}

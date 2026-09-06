@@ -530,6 +530,14 @@ export async function main(argv) {
     }
     return 0;
   }
+  // `oracle` runs before the index is ever touched, like `version`: it reads two graphs and a file list, not the
+  // convention model, and an adopter recording the correction they just made to a proposal should not be made to
+  // wait for a rebuild of something the command never reads.
+  if (cmd === 'oracle') {
+    const { cmdOracle } = await import('./oracle.mjs');
+    console.log((await cmdOracle({ root, isGit, args, opts })).join('\n'));
+    return 0;
+  }
   if (cmd === 'version') {
     if (args.length) throw new Error('usage: grain version — takes no arguments');
     console.log(`grain ${ENGINE_VERSION} · extractor ${EXTR_V} · grammars ${GRAMMARS.join(', ')}`);
