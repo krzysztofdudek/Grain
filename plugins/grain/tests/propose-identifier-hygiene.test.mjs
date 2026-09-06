@@ -176,34 +176,76 @@ test('class 2: a generic type parameter read as a domain type is dropped (`retur
 });
 
 // ==================================================================================================
-// Class 2, escape hatch, at the `buildAspects` unit level (same precedent as `propose.test.mjs`'s content-
-// predicate and node-charter tests): a name shaped exactly like a type parameter (`M`, single uppercase letter)
-// but DECLARED as a real type somewhere this export saw keeps its rule.
+// Class 2, at the `buildAspects` unit level (same precedent as `propose.test.mjs`'s content-predicate and
+// node-charter tests). Ticket 123 / issue 125: the name-shape guess (a bare uppercase letter, `T<Word>`, tested
+// against a GLOBAL census of declared type names) is gone. The test is now exact and PER ROW — its own host
+// site's `tparams` (or, for a member with none of its own, its owner's, via `own`) — so shape carries no weight
+// at all any more: a single uppercase letter that is nobody's declared type parameter keeps its rule, and a
+// multi-letter name that genuinely IS one is still dropped.
 // ==================================================================================================
 function activeType(id, files) {
   const set = new Set(files);
   return { id, dir: id, files: set, selected: set, fidelity: 1, source: 'directory', levels: ['directory'], evidence: {}, aspectIds: [] };
 }
 
-test('class 2 escape hatch: a name declared as a real type anywhere in the export keeps its rule', () => {
+test('exact type-parameter fact: a row is dropped only when its OWN host site declares the identifier, never by shape', () => {
   const active = [activeType('src', Array.from({ length: 12 }, (_, i) => `src/f${i}.ts`))];
-  const exp = {
-    asOf: 'deadbeefcafebabe', indexedAt: '2026-01-01T00:00:00Z',
-    conventions: [],
-    // `M` is declared as a real type (`kind: 'type'`) inside a role group's own member list — one of the two
-    // places the export schema actually carries a scope's kind and name (the other is a certified convention's
-    // own sites/exemplars).
-    partitions: [{ name: 'src', groups: [{ id: 'r0', label: 'g', members: [{ rel: 'src/base.ts', kind: 'type', name: 'M' }] }] }],
-  };
-  const rowFor = (arg, n) => ({
+  const exp = { asOf: 'deadbeefcafebabe', indexedAt: '2026-01-01T00:00:00Z', conventions: [], partitions: [{ name: 'src', groups: [] }] };
+  const rowFor = (arg, n, extra = {}) => ({
     partition: 'src', cid: '_all:type', pid: `auto.extends:${arg}`, exp: 'true',
     share: 0.8, n, ne: Math.round(n * 0.8), bits: 5, isNorm: false, role: null, kind: 'type',
     deviants: Array.from({ length: n - Math.round(n * 0.8) }, (_, i) => `src/dev${i}.ts#Dev${i}`),
+    tparams: [], own: null,
+    ...extra,
   });
-  const sub = [rowFor('M', 10), rowFor('V', 10)];
+  const sub = [
+    rowFor('T', 10, { tparams: ['T'] }), // the row's own host site declares `T` in its header — dropped
+    rowFor('Widget', 10),                // multi-letter, no shape resemblance at all, but never declared either
+  ];
   const { aspects, skipped } = buildAspects(exp, active, sub, {});
-  assert.ok(aspects.some(a => a.argument === 'M'), 'a real declared type must keep its rule even though it LOOKS like a type parameter');
-  assert.ok(!aspects.some(a => a.argument === 'V'), '`V` is never declared anywhere in this export and must be dropped');
+  assert.ok(!aspects.some(a => a.argument === 'T'), '`T` is the host site\'s own declared type parameter and must be dropped');
+  assert.ok(aspects.some(a => a.argument === 'Widget'), 'a name nobody declared as a type parameter must keep its rule');
+  assert.equal(skipped.notARuleByReason['generic-type-parameter-as-domain-type'], 1);
+});
+
+test('exact type-parameter fact: a single uppercase letter that nobody declares as a type parameter keeps its rule', () => {
+  // The exact opposite of the old guess's blind spot: `V` looks EXACTLY like the shape the old regex fired on,
+  // but no site anywhere declares it — under the exact fact it is read as a real (if oddly named) domain type.
+  const active = [activeType('src', Array.from({ length: 12 }, (_, i) => `src/f${i}.ts`))];
+  const exp = { asOf: 'deadbeefcafebabe', indexedAt: '2026-01-01T00:00:00Z', conventions: [], partitions: [{ name: 'src', groups: [] }] };
+  const row = {
+    partition: 'src', cid: '_all:type', pid: 'auto.extends:V', exp: 'true',
+    share: 0.8, n: 10, ne: 8, bits: 5, isNorm: false, role: null, kind: 'type',
+    deviants: ['src/dev0.ts#Dev0', 'src/dev1.ts#Dev1'], tparams: [], own: null,
+  };
+  const { aspects, skipped } = buildAspects(exp, active, [row], {});
+  assert.ok(aspects.some(a => a.argument === 'V'), 'shape alone must never drop a row any more');
+  assert.equal(skipped.notARuleByReason['generic-type-parameter-as-domain-type'] || 0, 0);
+});
+
+test('exact type-parameter fact: a member with no header of its own reads its OWNER type\'s type parameters', () => {
+  const active = [activeType('src', Array.from({ length: 12 }, (_, i) => `src/f${i}.ts`))];
+  // `Box` is declared as a real type elsewhere in the export, carrying its own `<T>` — a certified convention's
+  // own site is one of the two places the export schema carries a scope's kind/name AND its tparams together.
+  const exp = {
+    asOf: 'deadbeefcafebabe', indexedAt: '2026-01-01T00:00:00Z',
+    conventions: [{
+      partition: 'src', context: { type: 'partition' }, kind: 'type',
+      feature: { enumerator: 'nameshape', argument: null }, expected: 'Ua', statement: 'types are named Ua',
+      established: 5, share: 0.9, bitsPerInstance: 1,
+      conformingSites: [{ rel: 'src/box.ts', kind: 'type', name: 'Box', tparams: ['T'], own: null }],
+      deviatingSites: [], exemplars: [],
+    }],
+    partitions: [{ name: 'src', groups: [] }],
+  };
+  const row = {
+    // the method's own header declares nothing (`tparams: []`) — only its receiver type `Box` declares `T`
+    partition: 'src', cid: '_all:method', pid: 'auto.returns:T', exp: 'true',
+    share: 0.8, n: 10, ne: 8, bits: 5, isNorm: false, role: null, kind: 'method',
+    deviants: ['src/dev0.ts#dev0', 'src/dev1.ts#dev1'], tparams: [], own: 'Box',
+  };
+  const { aspects, skipped } = buildAspects(exp, active, [row], {});
+  assert.ok(!aspects.some(a => a.argument === 'T'), 'a member with no tparams of its own must still read its owner\'s, via `own`');
   assert.equal(skipped.notARuleByReason['generic-type-parameter-as-domain-type'], 1);
 });
 
