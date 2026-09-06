@@ -77,13 +77,18 @@ node_types:
 
   cli-dispatch:
     description: >-
-      The query surface — plugins/grain/engine/grain.mjs. argv parsing, repo/store resolution,
+      The query surface — plugins/grain/engine/grain*.mjs. argv parsing, repo/store resolution,
       auto-refresh, the one `switch (cmd)` dispatcher, the six host hook verbs, and the freshness stamp
       every answer ends with. It is the ONLY module that may reach git for a query, and the only one
       that decides exit codes. It calls the engine; the engine never calls back.
+
+      Ticket 124 split it the way 117 split the mining core: `grain.mjs` keeps the doc header, the
+      imports and `main` — the dispatcher IS its identity here — and nine `grain-*.mjs` siblings carry
+      the store and the commands. The `when` is a prefix rather than a list so a command split out
+      tomorrow is classified the day it lands.
     enforce: strict
     when:
-      path: "plugins/grain/engine/grain.mjs"
+      path: "plugins/grain/engine/grain*.mjs"
     aspects:
       - source/no-raw-control-bytes
       - engine/no-runtime-dependencies
@@ -110,18 +115,20 @@ node_types:
 
       Until ticket 117 this was one file, `core.mjs`, and the `when` below was that one path. The split
       moved the same statements into thirty modules along the section boundaries the file already
-      carried, so the type now names the whole of `engine/` except the seven modules that are something
+      carried, so the type now names the whole of `engine/` except the seven things that are something
       else: the dispatcher, the constant table, the history walker, the proposal writer, the relation
       pass, the export serializer and the Yggdrasil-graph reader. Stated as a complement rather than a
-      list, so a module split out tomorrow is classified the day it lands.
+      list, so a module split out tomorrow is classified the day it lands — and after ticket 124 two of
+      those exclusions are prefixes (`grain*.mjs`, `propose*.mjs`) rather than single files, because the
+      dispatcher and the proposal writer are ten and seventeen modules now.
     enforce: strict
     when:
       all_of:
         - path: "plugins/grain/engine/*.mjs"
-        - not: { path: "plugins/grain/engine/grain.mjs" }
+        - not: { path: "plugins/grain/engine/grain*.mjs" }
         - not: { path: "plugins/grain/engine/config.mjs" }
         - not: { path: "plugins/grain/engine/history.mjs" }
-        - not: { path: "plugins/grain/engine/propose.mjs" }
+        - not: { path: "plugins/grain/engine/propose*.mjs" }
         - not: { path: "plugins/grain/engine/relations.mjs" }
         - not: { path: "plugins/grain/engine/export.mjs" }
         - not: { path: "plugins/grain/engine/yggdrasil-graph.mjs" }
@@ -217,14 +224,17 @@ node_types:
 
   proposal-writer:
     description: >-
-      The proposal writer — plugins/grain/engine/propose.mjs. It mines a PROPOSED architecture graph
+      The proposal writer — plugins/grain/engine/propose*.mjs. It mines a PROPOSED architecture graph
       into a staging directory and drills the rules it drafts, so unlike every other engine module it
       must spawn processes. It stays a product command rather than an instrument, which is why the
       Yggdrasil-graph reader it needs lives in `engine-module` and not under tests/: a product command
       may never sit downstream of a test instrument.
+
+      Ticket 124 made `propose.mjs` a facade over sixteen `propose-*.mjs` modules, one per seam the
+      file already had. Same prefix form as `cli-dispatch`, for the same reason.
     enforce: strict
     when:
-      path: "plugins/grain/engine/propose.mjs"
+      path: "plugins/grain/engine/propose*.mjs"
     aspects:
       - source/no-raw-control-bytes
       - engine/no-runtime-dependencies

@@ -28,8 +28,18 @@ modules directly, `mining-core` may now call its own type (the engine's modules 
 the one `Mining Core` node became four ownership-sized ones — `Engine Facade`, `Mining`, `Query
 Implementations`, `Model Assembly`. Nothing else moved: no aspect, no rule, no threshold, no verdict.
 
+**2026-09-06 — the ticket-124 split.** `plugins/grain/engine/propose.mjs` (265 284 characters) became a
+facade over sixteen `propose-*.mjs` modules, and `plugins/grain/engine/grain.mjs` (160 272) kept `main`
+and became the dispatcher alone beside nine `grain-*.mjs` modules. The graph followed the code the same
+way it did for 117: `proposal-writer` and `cli-dispatch` name their families by prefix
+(`plugins/grain/engine/propose*.mjs`, `.../grain*.mjs`) instead of one path each, `mining-core`'s
+complement excludes those two prefixes rather than two files, and the `Proposal Writer` and `Query
+Dispatcher` nodes map seventeen and ten files instead of one. The node count did not change: each of the
+two is still one owner, one charter, one context. No aspect, no rule, no threshold and no verdict moved —
+except that `engine/file-size-budget` now refuses nothing at all, and its description says so.
+
 **Every number below, and every number in the 108 measurement, was produced against the graph as of
-`3d249bf`** — before this update. They stay attributable to that graph; a re-measurement against the
+`3d249bf`** — before these updates. They stay attributable to that graph; a re-measurement against the
 updated one has not been run.
 
 ### What was read
@@ -159,9 +169,12 @@ and each aspect's own description says where it is violated and what the exit is
    module above it cannot be judged as a whole by anything. This is also why the reviewer ceiling in
    `yg-config.yaml` is set an order of magnitude above the default, and that comment points back here.
    The largest standing structural debt in the product.
-   **Partly paid (ticket 117, 2026-09-06):** the mining core is thirty modules now, every one of them
-   inside the budget, with grain's output byte-identical to what the single file produced. The
-   proposal writer (247 131) and the dispatcher (159 454) are still over — two refusals, not three.
+   **PAID IN FULL (tickets 117 and 124, 2026-09-06).** The mining core is thirty modules, the proposal
+   writer seventeen and the dispatcher ten, every one of them inside the budget and every split a pure
+   move with grain's output byte-identical to what the single files produced. This rule refuses nothing:
+   three refusals, then two, now zero. The exception list in `tests/engine-module-size-budget.test.mjs`
+   is empty and a test keeps it empty. What is left is a decision, not work: the rule could be promoted
+   from `advisory` to enforced at no cost.
 2. **`source/no-raw-control-bytes` — three files carry a raw control byte.** A literal SOH inside a
    comment in the mining core (the separator byte the original vendoring was meant to have escaped
    everywhere), and control bytes in two history test files. git treats such a file as binary, so it

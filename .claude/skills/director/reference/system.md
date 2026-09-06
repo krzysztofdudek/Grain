@@ -200,10 +200,28 @@ Warstwy, od dołu: `base` → `parse` → `extract` → `scopes` (ekstrakcja); `
 `report-facts`, `report`, `completeness`, `selftest` (odpowiedzi); `decisions`, `commit-log`, `learn` (model).
 Graf importów między nimi jest DAG-iem — **zero cykli**, i tak ma zostać.
 
-Poza fasadą stoją, jak stały: `grain.mjs` (dyspozytor), `config.mjs` (stałe i klucze wersji cache),
-`history.mjs` (jedyny moduł silnika, który wolno mu odpalić podproces), `relations.mjs`, `export.mjs`,
-`propose.mjs`, `yggdrasil-graph.mjs`. `grain.mjs` i `propose.mjs` wciąż przekraczają budżet — to reszta
-długu z wyroczni, wypisana w `KNOWN_OVER` tego testu.
+### Mapa dyspozytora i pisarza propozycji (od 124)
+
+Ten sam zabieg powtórzony na dwóch plikach, które 117 zostawiło nad budżetem. `engine/propose.mjs` (265 284
+znaków) jest teraz fasadą (6 933) nad szesnastoma modułami `propose-*`: `propose-base` (stałe, rozwiązanie
+CLI Yggdrasila, spacer po plikach, emiter YAML), `propose-levels`, `propose-types`, `propose-nodes`,
+`propose-lattice`, `propose-checks`, `propose-classify`, `propose-sizing`, `propose-drills`,
+`propose-aspects`, `propose-status`, `propose-family`, `propose-charters`, `propose-markdown`,
+`propose-report`, `propose-write`. `engine/grain.mjs` (160 272) został dyspozytorem i niczym więcej
+(40 750 — nagłówek, importy i `main`), a dziewięć modułów `grain-*` niesie resztę: `grain-context`
+(argv, repo i store, auto-odświeżanie, ziarna, porównanie worktree/HEAD), `grain-where`, `grain-what`,
+`grain-check`, `grain-seed`, `grain-export`, `grain-report`, `grain-session`, `grain-usage`.
+
+Nic nie zostało przemianowane i żadna instrukcja się nie zmieniła: obie fasady eksportują dokładnie te
+nazwy co przedtem, więc `bin/grain.mjs`, `bin/grain-mcp.mjs`, `tests/stress/propose.mjs` i testy
+importują to samo. Bramka bajt-w-bajt na każdym etapie: 2474 artefakty (całe 445-plikowe drzewo
+propozycji, `proposal.json`, `sizing.json`, raporty, `grain export --json` na trzech korpusach i
+kilkadziesiąt odpowiedzi tekstowych i `--json`) identyczne z drzewem sprzed podziału.
+
+Poza fasadami stoją, jak stały: `config.mjs` (stałe i klucze wersji cache), `history.mjs` (jedyny moduł
+silnika, który wolno mu odpalić podproces), `relations.mjs`, `export.mjs`, `yggdrasil-graph.mjs`. **Żaden
+pierwszoplanowy moduł silnika nie przekracza już budżetu 50 000 znaków** — lista `KNOWN_OVER` w teście
+jest pusta i osobna asercja pilnuje, żeby pusta została.
 
 ---
 
