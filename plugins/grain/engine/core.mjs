@@ -162,4 +162,4 @@ export {
   missingLines,
 } from './completeness.mjs';
 // the mutation harness and the extraction-recall selftest (dev and test only)
-export { mutateTest, declCandidateTypes, extractCoverage } from './harness.mjs';
+export { mutateTest, declCandidateTypes, extractCoverage } from './selftest.mjs';

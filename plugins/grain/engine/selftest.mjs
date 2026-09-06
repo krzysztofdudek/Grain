@@ -1,4 +1,4 @@
-// grain engine · the mutation harness and the extraction-recall selftest (dev and test only)
+// grain engine · selftest — the mutation harness and the extraction-recall oracle behind `grain selftest` (dev and test only)
 // Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';

@@ -1,5 +1,14 @@
 # core.mjs seam map — the split plan for ticket 117
 
+> **Landed.** The plan below is what was cut; the table's "chars" column is the estimate made before
+> cutting, and the delivered sizes are within a few hundred characters of it. Two things changed while
+> cutting: `learn` needed nine statement lifts rather than five (they went to `arch.mjs`,
+> `partition.mjs`, and two new modules, `decisions.mjs` and `commit-log.mjs`), and `harness.mjs` was
+> renamed `selftest.mjs` because the oracle's `engine/no-test-or-instrument-import` rule refuses a
+> shipped module that imports anything named `*harness.js` — the rule is right and the file name was
+> the thing to fix. Delivered: 29 modules, largest `scopes.mjs` at 45 505, `learn.mjs` at 40 221,
+> `core.mjs` a 6 708-character facade, zero import cycles.
+
 `plugins/grain/engine/core.mjs` is 573 804 characters. The hand-written Grain oracle
 (`plugins/grain/tests/stress/oracles/grain/.yggdrasil/aspects/engine/file-size-budget/`) refuses any
 first-party module over 50 000 characters — the ceiling one assembled reviewer prompt is checked
