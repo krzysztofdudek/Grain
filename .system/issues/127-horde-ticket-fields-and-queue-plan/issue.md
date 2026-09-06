@@ -1,6 +1,6 @@
 # 127 · Horde: Files/Consumes/Produces/Evidence on the ticket, `queue plan` derives the DAG, premerge scope by declared files
 
-**Status:** OPEN
+**Status:** LANDED — merged 25ca1e2 on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push

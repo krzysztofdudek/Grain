@@ -5159,3 +5159,4 @@ note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a):
 - 2026-09-06 Karta misji: .system/research/mission-one-system.md. Fala A: Yggdrasil 130→132→133 (jeden Opus, szeregowo), Grain 131 (Opus), Horde 126/127 (Opus), 128 (Sonnet), 129 (Opus) w worktree. Fale B i C: bilety 134–145 założone, czekają na A.
 - 2026-09-06 merged: 128 4529fe1
 - 2026-09-06 merged: 126 865d247
+- 2026-09-06 merged: 127 25ca1e2

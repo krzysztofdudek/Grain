@@ -955,9 +955,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/127-ticket-fields-plan",
-      "state": "running",
-      "note": "Horde worktree",
-      "updated": "2026-09-06 15:24"
+      "state": "merged",
+      "note": "412/412 on merged tree; Files/Consumes/Produces/Evidence, queue plan (layers, critical path, components, locks, hubs, uncovered evidence, cost), item 3 by declared Files, consumer approval slots",
+      "updated": "2026-09-06 16:11",
+      "sha": "25ca1e2"
     },
     {
       "id": 90,
