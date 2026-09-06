@@ -41,1096 +41,50 @@
 // tracked file) out of the process that then renders. `core.mjs` is imported dynamically, only when the sub-gate
 // lattice is actually computed. Verifying against Yggdrasil (`yg drill`) runs the built CLI as a subprocess over
 // a throwaway copy of this renderer's own output, exactly as `tests/propose.test.mjs` already does.
+//
+// The split of this file (ticket 124) is in progress: the seams already cut live in the sibling
+// modules re-exported at the bottom, and every name this file exported before the split is still
+// exported here.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { dirname, join, resolve, sep } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './yggdrasil-graph.mjs';
-// Read-only: two version constants, the same ones `grain export`'s own `proposal.json`-equivalent
-// (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
-// without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
-import { ENGINE_VERSION, EXTR_V, HARD_EXCL, MARKER_STEMS_BY_EXT, isLanguageMarkerFile, EXT2GRAMMAR, GRAMMAR_DIR } from './config.mjs';
-// Read-only, and only these two: the vocabulary grain ALREADY uses to put a measured value into words — a name
-// shape (`(Ua)+` -> "PascalCase") and a lexical surface (`quote`,`single` -> "quote strings with single
-// quotes"). §7-bis below words a lattice row with them rather than with a private copy, so a proposal and
-// grain's own report can never drift into two names for one thing. Everything else this renderer needs from
-// `core.mjs` still comes through the dynamic import in `partitionLattice`, which is where the model is read.
+import { cpSync, existsSync, lstatSync, mkdirSync, readFileSync, rmSync, statSync } from 'node:fs';
+import { join, resolve, sep } from 'node:path';
+import { readGraph, expandMapping, jaccard, intersectSize } from './yggdrasil-graph.mjs';
+import {
+  ENGINE_VERSION,
+  EXTR_V,
+  MARKER_STEMS_BY_EXT,
+  isLanguageMarkerFile,
+  EXT2GRAMMAR,
+  GRAMMAR_DIR,
+} from './config.mjs';
 import { shapeWords, lexWords } from './core.mjs';
-
-const here = dirname(fileURLToPath(import.meta.url));
-const BIN = resolve(here, '..', 'bin', 'grain.mjs');
-const CORE = resolve(here, 'core.mjs');
-
-// ==================================================================================================
-// 0. The constants, and where each comes from.
-//
-// Every number below is either the repository's own interpretable constant (mathematics.md) or a stated
-// admission floor whose sensitivity the report measures. None is tuned against the pattern repo's answer.
-// ==================================================================================================
-
-// mathematics.md, "The honest residue": the two-thirds supermajority is ONE interpretable share already behind a
-// marker's established value, a value container's certified population and a structural twin's shared core. A
-// sub-gate row at or above it is a practice a maintainer would recognise; below it, it is a coincidence.
-export const SUPERMAJORITY = 2 / 3;
-// λ = 8 ⇒ the certification bound (n+½)/(n_total+K/2) ≥ 1 − 1/λ = 0.875. A row at or above this that grain did
-// NOT certify failed on population, not on share, and is not what "below the gate" means; the sub-gate band is
-// therefore [SUPERMAJORITY, LAMBDA_BOUND).
-export const LAMBDA_BOUND = 1 - 1 / 8;
-// The same support-floor family as `cochangeMinSup` (8 commits): below it a single small cell fabricates a rule.
-export const MIN_SUPPORT = 8;
-// A directory card is promoted to its own type only from this many files up — below it the split is noise a
-// maintainer would immediately merge back.
-export const MIN_PROMOTE_FILES = 3;
-// A role group is proposed as a content-predicated type only from this many members up (the same floor grain's
-// own `buildCards` uses to publish a group at all).
-export const MIN_GROUP_MEMBERS = 3;
-// A drafted `when` must actually select the set it was drafted from. Below this the draft is demoted to an
-// alternative rather than shipped as an active type — this is the renderer checking its own work.
-export const MIN_WHEN_FIDELITY = 0.5;
-// A convention is drafted as an aspect only once this many sites carry it.
-export const MIN_CONVENTION_SITES = 5;
-// FAMILY-WITHOUT-LAW FLOOR (ticket 100). Yggdrasil's own offline miner (`scripts/family-without-law.mjs`)
-// requires 5 members before a structurally-tight cluster is a "family" worth naming rather than an anecdote
-// (`MIN_CLUSTER_SIZE`); the adapter below reuses that SAME number rather than inventing a second one for the
-// identical concept. Stated here, not hidden, per ruling `instrument-floors-allowed-if-stated-and-measured` —
-// the seam test measures how many of grain's own role groups clear it on the pattern repo.
-export const FAMILY_MIN_MEMBERS = 5;
-// Per partition, at most this many sub-gate candidates are drafted; the rest go to the backlog. A cap on how
-// much a maintainer is asked to read, not on what is measured.
-export const SUBGATE_PER_PARTITION = 6;
-
-const SCHEMA_VERSION = '5.2.0'; // CLI_SUPPORTED_SCHEMA in Yggdrasil's core/graph-loader.ts
-
-// Where the Yggdrasil CLI is: an explicit `ygBin` option first (the stress instrument passes its own default
-// there, so its runs are unchanged), then the `YG_BIN` environment variable, then a plain `yg` on PATH. A
-// PRODUCT command may not carry a machine path, so there is no fourth fallback: when none of the three resolves,
-// `promoteEnforceableAspects` below skips verification entirely and every aspect ships `status: draft`,
-// unverified — and the command says so in its report rather than pretending the drafts were judged.
-//
-// The two forms differ in how they are spawned, so resolution returns the whole invocation rather than a path:
-// a FILE is run as `node <file> …` (a built `dist/bin.js` is not executable on its own), a PATH entry is run as
-// `yg …` (it is already a launcher).
-export function resolveYg(explicit) {
-  const path = explicit || process.env.YG_BIN || null;
-  if (path) return { have: existsSync(path), label: path, cmd: 'node', pre: [path] };
-  const which = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['yg'], { encoding: 'utf8' });
-  const found = which.status === 0 && (which.stdout || '').trim().split(/\r?\n/)[0];
-  return found
-    ? { have: true, label: found + ' (on PATH)', cmd: found, pre: [] }
-    : { have: false, label: null, cmd: null, pre: [] };
-}
-// A type is a GROUP of files: one file is a member, not a group. This is the definition of the object being cut, not an
-// admission threshold — ticket 101 §5 measured that 1 vs 2 changed no count on 17 repos, which is why the former
-// MIN_TYPE_FILES knob was removed (ruling `root-fix-accepted-min-type-files-goes`).
-const GROUP_MIN = 2;
-
-// ==================================================================================================
-// 1. Small helpers.
-// ==================================================================================================
-
-const say = (opts, m) => { if (!opts.quiet) process.stderr.write(`[propose] ${m}\n`); };
-const uniq = a => [...new Set(a)];
-const pct = x => `${(x * 100).toFixed(0)}%`;
-
-// The tracked files. `git ls-files` where there is a git repository; a worktree walk where there is not.
-//
-// A DIRECTORY OF CODE WITH NO `.git` IS NOT AN ERROR (ticket 101). `grain export` itself handles it — it stamps
-// its answer `no-git` and reports "extracted 154 files (worktree — no git)" — and `edge-cases.mjs` has a case
-// for exactly that shape. This renderer used to call `git ls-files` unconditionally and died with
-// `fatal: not a git repository`, exit 128, on the one hostile repository whose whole point is the absence of
-// git. The fallback walks the worktree instead, skipping the state directories no proposal should ever describe.
-// It is a WEAKER file set than `git ls-files`, and knowingly so: with no git there is no `.gitignore` resolution,
-// so build output a git repo would have hidden is visible here. That is a degradation, which is the contract,
-// rather than a crash, which is not.
-const WALK_SKIP = new Set(['.git', '.grain', '.yggdrasil', '.yggdrasil-proposal', 'node_modules']);
-function walkWorktree(root, rel = '', out = []) {
-  let entries;
-  try { entries = readdirSync(join(root, rel), { withFileTypes: true }); } catch { return out; }
-  for (const e of entries) {
-    if (WALK_SKIP.has(e.name)) continue;
-    const p = rel ? `${rel}/${e.name}` : e.name;
-    if (e.isDirectory()) walkWorktree(root, p, out);
-    else if (e.isFile()) out.push(p);
-  }
-  return out;
-}
-function gitFiles(repo) {
-  // THE FALLBACK IS A DEGRADATION, SO IT HAS TO SAY IT HAPPENED. Two very different things used to arrive at
-  // the same silent `walkWorktree`: a directory with no git at all (the documented, expected case — `grain
-  // export` handles it too and stamps its answer `no-git`), and a repository where git IS there and the call
-  // FAILED — a corrupt index, a permission the process does not have, an `ls-files` output past `maxBuffer`
-  // on a very large repository. The second one silently mines a WEAKER file set: with no git there is no
-  // `.gitignore` resolution, so build output a git repo would have hidden is proposed on as if it were source.
-  // The reason is returned and disclosed; the answer is still produced, because a degraded proposal an adopter
-  // can see the caveat on beats a crash.
-  try {
-    // `-s` so the mode is visible: a SUBMODULE is listed by `git ls-files` as a single entry with mode 160000
-    // (a gitlink), and it is a directory on disk, not a file. Rendered as a file it becomes a node mapping that
-    // names a directory the type's `when` cannot satisfy — measured on leveldb, whose `third_party` gitlink
-    // produced a `type-when-mismatch` error. Yggdrasil already excludes a subtree carrying its own `.git` from
-    // coverage by default, so dropping the gitlink here agrees with what the graph loader does anyway.
-    const out = execFileSync('git', ['-C', repo, 'ls-files', '-s', '-z'], { encoding: 'utf8', maxBuffer: 1 << 28, stdio: ['ignore', 'pipe', 'pipe'] });
-    const files = [];
-    for (const rec of out.split('\0')) {
-      if (!rec) continue;
-      const m = /^(\d{6}) [0-9a-f]+ \d+\t(.*)$/s.exec(rec);
-      if (!m) continue;
-      if (m[1] === '160000') continue; // gitlink: a nested checkout, not a file of this repository
-      // The path is taken VERBATIM. `-z` output is never quoted and git stores `/` as the separator on every
-      // platform, Windows included, so there is no separator here to normalise — and a `\` in the record is a
-      // filename character, legal on POSIX. Folding it to `/` could only corrupt such a path, and did:
-      // `src/we\ird.ts` became `src/we/ird.ts`, a file mapped into a directory that does not exist, sized at
-      // zero bytes because nothing on disk answers to it, and named by a node mapping `yg check` cannot resolve.
-      // GRAIN'S OWN STATE IS NOT THE REPOSITORY'S CODE, EVEN WHEN IT IS TRACKED. `grain export` has always
-      // filtered it (`HARD_EXCL`), and this list — which decides which files become types, nodes, mappings and
-      // the uncovered remainder — did not, so the filter held for what grain MINED and not for what it
-      // PROPOSED. Invisible until a repository commits `.grain/`, which grain's own `.grain/.gitignore` tells
-      // it to ("everything else in .grain/ is meant to be committed"): measured, `.grain` then arrives as a
-      // node type of the adopter's architecture. Same filter, same reason, in both places.
-      if (HARD_EXCL.test(m[2])) continue;
-      files.push(m[2]);
-    }
-    return { files, degraded: null };
-  } catch (e) {
-    return {
-      files: walkWorktree(repo).sort(),
-      degraded: existsSync(join(repo, '.git'))
-        ? `\`git ls-files\` failed in a repository that HAS git (${String(e.message || e).split('\n')[0].slice(0, 200)}), so the file set below comes from walking the worktree instead: build output and anything else \`.gitignore\` would have hidden is in it`
-        : null,
-    };
-  }
-}
-
-// THE BRANCH A CHANGE IS MEASURED AGAINST (ticket 118).
-//
-// Ticket 109 measured what an earned `enforced` actually costs on delivery: all 21 enforced rules across the
-// 17-repo corpus block between 1 and 18 EXISTING files at the first `yg check`. The drill that earned the
-// status proves the CHECK correct; neither it nor ruling `enforced-requires-certified-origin` asks whether the
-// repository is green today. Yggdrasil's answer is progressive mode — `progressive: { reference: <ref> }` in
-// `yg-config.yaml` (`yg schemas read config`): with it set, a plain `yg check` blocks only on what the current
-// change reaches, everything inherited from that ref is listed and counted as a non-blocking warning, and
-// `yg check --full` blocks on all of it again. Status is NOT lowered by it — the rule stays enforced and blocks
-// the moment a change reaches it — which is exactly what the ruling requires.
-//
-// The reference is DERIVED from the repository, never guessed, and in the order an adopter's own CI resolves it:
-//
-//   1. `origin/HEAD` — the default branch of the remote this repository was cloned from. This is what a pull
-//      request is opened against, so it is what a change is accountable against.
-//   2. failing that, the branch HEAD is on, as the remote has it (`origin/<branch>`) if that ref exists locally,
-//      and otherwise the local branch name — a repository with no remote at all still has something to compare
-//      against, and Yggdrasil resolves a plain branch name the same way.
-//   3. failing both (a detached HEAD with no `origin/HEAD`, or no git at all) — NOTHING. The block is left out
-//      and the report prints the one-line instruction instead. A `progressive` block that names no reference is
-//      a hard `config-progressive-missing-reference` error, and a reference naming a ref that does not exist
-//      makes every run answer for the whole project while the config reads as though it did not: both are worse
-//      than saying plainly that this repository gave the renderer nothing to derive.
-export function progressiveReference(repo) {
-  const git = (...args) => {
-    try { return execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim(); } catch { return ''; }
-  };
-  const head = git('symbolic-ref', '--quiet', 'refs/remotes/origin/HEAD');
-  if (head.startsWith('refs/remotes/')) {
-    const ref = head.slice('refs/remotes/'.length);
-    return { reference: ref, why: `\`${ref}\` is the default branch of the remote this repository was cloned from, so it is what a change here is opened against` };
-  }
-  const branch = git('rev-parse', '--abbrev-ref', 'HEAD');
-  if (branch && branch !== 'HEAD') {
-    if (git('rev-parse', '--verify', '--quiet', `refs/remotes/origin/${branch}`)) {
-      return { reference: `origin/${branch}`, why: `this repository names no default branch, so the reference is the branch it is on (\`${branch}\`) as the remote has it` };
-    }
-    return { reference: branch, why: `this repository has no remote, so the reference is the branch it is on (\`${branch}\`)` };
-  }
-  return { reference: null, why: 'this repository names no default branch (no `origin/HEAD`) and its HEAD is not on a branch, so there is no ref here to measure a change against' };
-}
-
-// Repo-relative directory prefix -> the tracked files beneath it.
-const underDir = (files, dir) => new Set(files.filter(f => f === dir || f.startsWith(dir + '/')));
-
-// The deepest directory every one of these paths lies under, or null when they share none (a file at the
-// repository root leaves nothing to share). Whole path SEGMENTS only: `src/apple` and `src/apricot` share
-// `src`, never `src/ap`.
-const commonDir = paths => {
-  if (!paths.length) return null;
-  let pre = paths[0].split('/').slice(0, -1);
-  for (const p of paths.slice(1)) {
-    const q = p.split('/').slice(0, -1);
-    let i = 0;
-    while (i < pre.length && i < q.length && pre[i] === q[i]) i++;
-    pre = pre.slice(0, i);
-    if (!pre.length) return null;
-  }
-  return pre.length ? pre.join('/') : null;
-};
-
-// A YAML-safe id: lowercase, path separators and dots folded to dashes, collapsed.
-export function slug(s) {
-  const t = String(s).replace(/[^A-Za-z0-9]+/g, '-').replace(/^-+|-+$/g, '').toLowerCase();
-  return t || 'x';
-}
-
-// ---- a minimal YAML emitter (block style only; the shapes this renderer writes and nothing else) ----
-const NEEDS_QUOTE = /^(\s|$)|[:#\-?*&!|>'"%@`{}[\],]|\s$|^(true|false|null|yes|no|on|off|~)$|^-?\d/i;
-// YAML's printable set (1.2 §5.1) admits tab, line feed and carriage return and NOTHING else below U+0020, and
-// excludes DEL, the C1 range and unpaired surrogates. A repository path may hold any of them, and emitted bare
-// they are not YAML: a conforming parser rejects the WHOLE document, not just the scalar — measured, a path
-// containing U+0001 makes `yg-architecture.yaml` unreadable end to end. Such a scalar is therefore always
-// quoted — and, below, escaped, since the double-quoted form admits these characters only as `\uXXXX`.
-const NOT_PRINTABLE = /[\u0000-\u0008\u000b-\u001f\u007f-\u009f]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/;
-// QUOTING ALONE IS NOT ENOUGH. `JSON.stringify` escapes U+0000-U+001F and unpaired surrogates but leaves DEL
-// and the C1 range raw, and a conforming parser rejects those inside double quotes exactly as it does outside
-// them — measured. Everything the plain form may not carry is therefore escaped as `\uXXXX`, which YAML's
-// double-quoted form admits for every one of them.
-const NOT_PRINTABLE_G = new RegExp(NOT_PRINTABLE.source, 'g');
-const escapeNonPrintable = json => json.replace(/[\u007f-\u009f]/g, c => '\\u' + c.charCodeAt(0).toString(16).padStart(4, '0'));
-export function yq(v) {
-  if (v === null || v === undefined) return 'null';
-  if (typeof v === 'boolean' || typeof v === 'number') return String(v);
-  const s = String(v);
-  if (!s.length || NEEDS_QUOTE.test(s) || s.includes('\n') || NOT_PRINTABLE.test(s)) return escapeNonPrintable(JSON.stringify(s));
-  return s;
-}
-// A COMMENT VALUE IS THE REPOSITORY'S OWN PROSE, AND A REPOSITORY PATH MAY CONTAIN A LINE BREAK. Every emitted
-// element carries its evidence as a `#` comment naming the directories, identifiers and shares behind it.
-// Written as a single `# <text>` line, everything after a line break in that text LEFT the comment and landed
-// in the document as YAML: a directory named `ev<LF>injected: true` put a real `injected: true` key inside its
-// own node type in `yg-architecture.yaml` — confirmed both by this repository's own parser and by a conforming
-// one. Each line of the value now gets its own `#`, so a comment stays a comment however the value is spelled.
-// A COMMENT CANNOT ESCAPE ANYTHING — it is literal to the end of the line — so the characters YAML does not
-// admit at all (see NOT_PRINTABLE above) are replaced by U+FFFD here rather than escaped. One of them raw in a
-// comment is rejected by a conforming parser exactly as one in a scalar is, and takes the whole document with
-// it; the replacement character is the honest rendering of 'a character that cannot be written here'.
-const yamlComment = (v, pad) => String(v).split(/\r\n|\r|\n/).map(l => `${pad}# ${l.replace(NOT_PRINTABLE_G, '\ufffd')}\n`).join('');
-export function yamlEmit(value, indent = 0) {
-  const pad = ' '.repeat(indent);
-  if (Array.isArray(value)) {
-    if (!value.length) return `${pad}[]\n`;
-    let out = '';
-    for (const item of value) {
-      if (item && typeof item === 'object' && !Array.isArray(item)) {
-        const body = yamlEmit(item, indent + 2);
-        out += `${pad}- ${body.slice(indent + 2)}`;
-      } else out += `${pad}- ${yq(item)}\n`;
-    }
-    return out;
-  }
-  if (value && typeof value === 'object') {
-    let out = '';
-    for (const [k, v] of Object.entries(value)) {
-      if (v === undefined) continue;
-      if (k.startsWith('#')) { out += yamlComment(v, pad); continue; } // comment pseudo-key
-      if (Array.isArray(v)) {
-        if (!v.length) out += `${pad}${k}: []\n`;
-        else out += `${pad}${k}:\n${yamlEmit(v, indent + 2)}`;
-      } else if (v && typeof v === 'object') {
-        out += `${pad}${k}:\n${yamlEmit(v, indent + 2)}`;
-      } else out += `${pad}${k}: ${yq(v)}\n`;
-    }
-    return out;
-  }
-  return `${pad}${yq(value)}\n`;
-}
-
-const write = (p, text) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
-
-// ==================================================================================================
-// 2. The honest preamble.
-//
-// 093 §6 established the boundary of the whole approach, and it is stated where a human will read it rather than
-// buried in a report: a miner of what a repository DOES cannot see a rule about what it never does. On the
-// pattern repo, 6 of 57 deterministic rules were of exactly that shape. Nothing in this renderer can change that,
-// and a proposal that stayed quiet about it would be dishonest.
-// ==================================================================================================
-
-export const PREAMBLE = [
-  'PROPOSAL — written by grain from evidence in this repository. Nothing here is verified.',
-  '',
-  'Every element carries an `# evidence:` line naming the counts, paths and shares behind it. Read the',
-  'evidence, keep what is true, delete what is not. What this proposal CANNOT contain, by construction:',
-  '',
-  '  - A rule about an ABSENCE. Grain mines what the code does; a rule forbidding something the repository',
-  '    never does leaves no evidence to mine. Rules of that shape (no network egress, no secret strings, no',
-  '    direct filesystem access) have to be written by hand. On the one repository where this was measured,',
-  '    6 of 57 hand-written mechanical rules were of exactly that shape.',
-  '  - A rule with no identifier in it. A rule that asserts a SHAPE ("this file stays under 300 lines", "every',
-  '    command returns the same exit codes") names nothing a miner can match. 20 of those same 57 were of that',
-  '    shape.',
-  '  - Relations the code does not contain. `relations:` below come from resolved imports. On a repository',
-  '    whose CI already forbids an undeclared import they will look near-perfect; on one without such a gate',
-  '    they will be incomplete in proportion to how much of the dependency graph is dynamic, reflective, or in',
-  '    a language grain has no grammar for.',
-  '',
-  'And one thing it deliberately does NOT say: an established negative in the evidence ("this module is never',
-  'imported from that one") is a statement about what is PRACTICED, not about what is PERMITTED. It becomes a',
-  'line in the refactor backlog, never a `deny` that contradicts an import the code actually contains.',
-];
-const preambleComment = () => PREAMBLE.map(l => (l ? `# ${l}` : '#')).join('\n') + '\n\n';
-
-// ==================================================================================================
-// 3. Candidate localities: the three levels a type can be cut at.
-//
-// 093 §2 measured which level actually matches a hand-written node type. Partitions match where the partition is
-// a directory; role groups and directory cards hold seven more type-shaped sets that nothing surfaced. All three
-// levels are generated here, and section 4 decides which are ACTIVE and which are ALTERNATIVES.
-// ==================================================================================================
-
-export function localities(exp, cache, files) {
-  const out = { partitions: [], directories: [], groups: [] };
-  const byName = new Map();
-  for (const p of cache?.partitions || []) if (Array.isArray(p.files)) byName.set(p.name, new Set(p.files));
-  for (const p of exp.partitions || []) {
-    // Partition file sets come from the cache when it is there (grain's own answer); otherwise the partition
-    // name is a directory prefix and the tracked files beneath it are the set, minus anything a deeper
-    // partition claims. The residue partition `_repo` is not a locality at all — it is "everything else".
-    let set = byName.get(p.name);
-    if (!set) {
-      if (p.name === '_repo') set = new Set();
-      else {
-        set = underDir(files, p.name);
-        for (const q of exp.partitions) if (q.name !== p.name && q.name !== '_repo' && q.name.startsWith(p.name + '/')) for (const f of underDir(files, q.name)) set.delete(f);
-      }
-    }
-    out.partitions.push({ level: 'partition', name: p.name, part: p, files: new Set([...set].filter(f => files.includes(f))) });
-    for (const d of p.directories || []) {
-      if (!d.dir) continue;
-      out.directories.push({ level: 'directory', name: d.dir, part: p, card: d, files: underDir(files, d.dir) });
-    }
-    for (const g of p.groups || []) {
-      const s = new Set((g.members || []).map(m => m.rel));
-      if (s.size) out.groups.push({ level: 'group', name: `${p.name}::${g.id}`, part: p, group: g, files: new Set([...s].filter(f => files.includes(f))) });
-    }
-  }
-  // a directory card can be published by several partitions; keep one per path
-  const seen = new Set();
-  out.directories = out.directories.filter(d => (seen.has(d.name) ? false : (seen.add(d.name), true)));
-  return out;
-}
-
-// ==================================================================================================
-// 4. `node_types` — choosing the level, and showing the alternatives instead of hiding them.
-//
-// THE CUT. Active types form a NESTED family of path prefixes: any two are either disjoint or one contains the
-// other, and Yggdrasil's child precedence then hands every file to the deepest type that claims it. (It is NOT
-// an antichain — this header said it was and the code never was: the paragraph below on hollowing out a parent
-// is the whole reason both levels ship. Ticket 110 corrected the sentence, not the behaviour.)
-// It is built from four sources, in this order of evidence strength:
-//
-//   1. grain's partitions (its own certified cut of the directory tree — the level 093 §2 found agreeing with
-//      hand types wherever the hand type is a directory);
-//   2. nodes of the refined module graph;
-//   3. directory cards strictly BELOW a partition root (grain publishes a card only for a directory that
-//      carries scopes, so a published card is evidence of its own; this is the level that holds `portal-server`
-//      and `portal-engine-api` in 093 §2's class-a table);
-//   4. any FINER directory that beats the level above it on that level's own evidence (ticket 110, below), and
-//      then the top-level directory of any tracked file all of the above leave uncovered (no grain evidence at
-//      all, and the evidence line says so in those words).
-//
-// THE ALTERNATIVES. 093 §2 class c is the finding this section exists to answer: hand types are often ONE LEVEL
-// FINER than grain's cut, split by a `content:` predicate. So a role group whose file set is not already a
-// directory becomes a CANDIDATE SUB-TYPE with a drafted `content:` regex — and it is never silently substituted
-// for the coarse type. It is written to `alternatives.md` with its evidence, its drafted predicate, and the
-// exact count of tracked files that predicate selects, so the maintainer chooses the level rather than
-// discovering one was chosen for them.
-//
-// THE LEVEL IS PUBLISHED, AND THE CUT IS DERIVED FROM MEASURED NUMBERS (ticket 110)
-// ---------------------------------------------------------------------------------
-// Ticket 108 measured four hand-written oracles and found no single level wins: the module level recovers most
-// of express, the directory level most of spring-petclinic, the role group most of Yggdrasil and of grain
-// itself. So this renderer names the level every candidate came from, publishes the ones it did not activate
-// with the same intrinsic numbers the active ones carry, and derives WHICH candidates go active from those
-// numbers rather than from a preference.
-//
-// `TYPE_LEVELS` below is the whole vocabulary. Each is a cut of the same tree that grain already computes:
-//
-//   partition   grain's own MDL cut of the directory tree — the level 093 §2 found agreeing with hand types
-//               wherever the hand type is a directory.
-//   module      a node of the refined module graph — the unit the dependency graph is aggregated at.
-//   directory   a directory that carries declarations grain parsed. Usually a published directory card — grain
-//               publishes one only where it mined scopes — and otherwise a directory of parsed code that no
-//               card named, admitted by the policy below.
-//   domain      ticket 116's cut: a role group whose members all live under one directory below their host, so
-//               the membership is a `path:` glob rather than a guest list and a file added there joins by
-//               itself.
-//   role group  a structurally-uniform cluster INSIDE a partition. It is not a place in the layout, so it can
-//               only ever be offered with a `content:` predicate — never activated (see below).
-//   layout      a grouping the path is the only evidence for: the remainder nothing else claimed, or a
-//               directory grain parsed nothing in at all. The same evidence class the uncovered remainder has
-//               always used at the top level, available at any depth.
-//
-// WHY ONLY A PATH-SHAPED LEVEL MAY BE ACTIVE. Every active type is a path prefix, so any two of them are either
-// nested or disjoint, and Yggdrasil's child precedence then hands every file to exactly one owner. Two types
-// over the SAME directory separated by a `content:` predicate have no such order, and a file matching both
-// would have two owners. So `role group` is an alternatives-only level by construction, not by preference.
-//
-// THE SELECTION POLICY, MEASURED (ticket 110). Fourteen intrinsic-only policies were scored against all four
-// oracles at Jaccard >= 0.5, in both directions. Recall is MONOTONE in the candidate set — a finer type can
-// only add a match — so "maximise recall" alone selects "every directory", which is 418 types on Yggdrasil and
-// not a proposal anyone reads. The policy that wins on all four repositories without losing on any is a
-// comparison between two measured numbers and carries no cutoff:
-//
-//     a finer directory becomes a type of its own only where it BEATS THE LEVEL ABOVE IT ON THAT LEVEL'S OWN
-//     EVIDENCE — strictly more of its imports stay inside than the parent's do, or grain could read none of
-//     its files while it could read the parent's.
-//
-//   policy                 grain          petclinic      express        Yggdrasil     (recall · precision · types)
-//   default (before)       15/33 · 18/31  2/28 · 3/12    6/13 · 7/22    21/36 · 23/82
-//   unmined OR purer       16/33 · 21/35  6/28 · 7/16    7/13 · 8/29    23/36 · 25/106
-//   every directory        18/33 · 29/64  8/28 · 11/38   7/13 · 8/34    23/36 · 27/418   (the ceiling, refused)
-//
-// The second disjunct is the one that carries most of it: a directory of files grain parsed NONE of — Java
-// resources, Thymeleaf templates, test fixtures, shipped docs — is invisible to every other level, because a
-// directory card is published only where scopes were mined. That is where 9 of spring-petclinic's 28 hand
-// types live. The policy is FITTED ON THESE FOUR ORACLES and must be re-measured when a fifth arrives; the
-// sweep that produced the table is `.system/research/type-levels.md`.
-// ==================================================================================================
-
-// How many of a list fall at each key, in `TYPE_LEVELS` order — the shape `counts.typesByLevel` and
-// `counts.alternativesByLevel` take, so a reader gets the levels in one order everywhere.
-const countBy = (xs, key) => {
-  const out = {};
-  for (const l of TYPE_LEVELS) { const n = xs.filter(x => key(x) === l).length; if (n) out[l] = n; }
-  for (const x of xs) { const k = key(x); if (!(k in out) && !TYPE_LEVELS.includes(k)) out[k] = xs.filter(y => key(y) === k).length; }
-  return out;
-};
-
-// The levels, in the order a reader meets them: coarse cut first, then the finer ones, then the level with no
-// evidence but the path. `role group` never appears on an active type (see the header).
-export const TYPE_LEVELS = ['partition', 'module', 'directory', 'domain', 'role group', 'layout'];
-
-// INTRINSIC EVIDENCE FOR ONE CANDIDATE FILE SET — no oracle, no weights, no thresholds, raw counts only.
-//
-// Four numbers plus the rule count, each of which a maintainer can check by hand:
-//   - `importsInside` / `importsCrossing`: resolved imports with both endpoints in the set, against those with
-//     exactly one. This is the import boundary of the candidate, said as a match and a miss.
-//   - `cochangeInside` / `cochangeCrossing`: the same split over the export's co-change pairs.
-//   - `nameShape` / `nameShapeFiles`: the modal file-name shape over the set and how many files carry it.
-//   - `minedFiles`: how many of the set grain actually parsed. Zero is the interesting value — it means the
-//     only thing known about this directory is the path.
-//   - `rules`: mined conventions every one of whose sites lies inside the set, i.e. rules that could host here.
-export function typeEvidence(set, { edges, cochange, mined, ruleSites }) {
-  let importsInside = 0, importsCrossing = 0;
-  for (const e of edges) { const a = set.has(e.from), b = set.has(e.to); if (a && b) importsInside += (e.n || 1); else if (a || b) importsCrossing += (e.n || 1); }
-  let cochangeInside = 0, cochangeCrossing = 0;
-  for (const p of cochange) { const a = set.has(p.a), b = set.has(p.b); if (a && b) cochangeInside++; else if (a || b) cochangeCrossing++; }
-  const shapes = new Map();
-  for (const f of set) { const s = fileNameShape(f); shapes.set(s, (shapes.get(s) || 0) + 1); }
-  const modal = [...shapes].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0] || ['', 0];
-  return {
-    files: set.size,
-    importsInside, importsCrossing,
-    cochangeInside, cochangeCrossing,
-    nameShape: modal[0], nameShapeFiles: modal[1],
-    mined: [...set].filter(f => mined.has(f)).length,
-    rules: ruleSites.filter(rs => [...rs].every(f => set.has(f))).length,
-  };
-}
-
-// The three populations every candidate's evidence is measured against, read once per run: the resolved
-// imports between TRACKED files (an edge into a file git does not track cannot cross a boundary that exists),
-// the co-change pairs, the files grain actually parsed, and the site set of every mined convention.
-export function evidenceContext(exp, loc, files) {
-  const tracked = new Set(files);
-  const mined = new Set();
-  for (const p of loc.partitions || []) for (const f of p.files) mined.add(f);
-  const ruleSites = [];
-  for (const c of exp.conventions || []) {
-    const s = new Set([...(c.conformingSites || []), ...(c.deviatingSites || [])].map(x => x.rel).filter(Boolean));
-    if (s.size) ruleSites.push(s);
-  }
-  return {
-    edges: (exp.edges || []).filter(e => tracked.has(e.from) && tracked.has(e.to)),
-    cochange: (exp.cochange || []).filter(p => tracked.has(p.a) && tracked.has(p.b)),
-    mined, ruleSites,
-  };
-}
-
-// A file name in grain's own shape alphabet, extension included (`OwnerController.java` -> `Ua.a`,
-// `messages_de.properties` -> `a_a.a`): a run of uppercase is `U`, a run of lowercase or digits is `a`, and
-// `_ - $ .` stand for themselves. The same alphabet `nameShape` (core.mjs) uses on declaration names, applied
-// to the basename, so a reader of a card and a reader of this line are reading one vocabulary.
-const fileNameShape = f => f.slice(f.lastIndexOf('/') + 1).replace(/[A-Z]+/g, 'U').replace(/[a-z0-9]+/g, 'a').replace(/[^Ua_\-$.]/g, '?');
-
-// The import boundary as one number, or null where the candidate touches no resolved import at all (a directory
-// of Java resources has no imports either way, and reporting 0.00 there would read as "nothing stays inside").
-const purityOf = m => (m.importsInside + m.importsCrossing ? m.importsInside / (m.importsInside + m.importsCrossing) : null);
-
-// `a`, `a and b`, `a, b and c` — an English list, because a sentence a maintainer reads is not a join.
-const andList = xs => (xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
-
-// THE LEVEL AND THE NUMBERS BEHIND IT, IN ONE CLAUSE (ticket 110, worded under ticket 109's rules).
-//
-// Facts, in the order a maintainer needs them to decide whether this is the right cut: which level it came from
-// and which other levels agree, how big it is, how much of its dependency traffic it keeps inside, how much of
-// it grain could read at all, what its files are named like, how many mined rules could attach here — and last,
-// what finer cut is on offer instead. No coefficient, no hedge, and every number one this run counted.
-export function levelSentence(a, alternatives = []) {
-  const m = a.evidence;
-  if (!m) return null;
-  const levels = (a.levels && a.levels.length ? a.levels : [a.source]).filter(Boolean);
-  const others = levels.slice(1);
-  const head = others.length
-    ? `cut at the ${levels[0]} level, and the ${andList(others)} level${others.length === 1 ? '' : 's'} name${others.length === 1 ? 's' : ''} the same directory`
-    : `cut at the ${levels[0] || 'layout'} level`;
-  const parts = [`${m.files} file${m.files === 1 ? '' : 's'}`];
-  const touching = m.importsInside + m.importsCrossing;
-  parts.push(touching
-    ? `${m.importsInside} of ${touching} import${touching === 1 ? '' : 's'} that touch it stay inside`
-    : 'no resolved import touches it in either direction');
-  if (m.mined === 0) parts.push('grain parsed none of these files');
-  else if (m.mined < m.files) parts.push(`grain parsed ${m.mined} of them`);
-  const cc = m.cochangeInside + m.cochangeCrossing;
-  if (cc) parts.push(`${m.cochangeInside} of ${cc} co-change pair${cc === 1 ? ' stays' : 's stay'} inside`);
-  if (m.nameShapeFiles > 1) parts.push(`${m.nameShapeFiles} of them are named \`${m.nameShape}\``);
-  parts.push(`${m.rules} mined rule${m.rules === 1 ? '' : 's'} could attach here`);
-  const finer = alternatives.filter(x => x.of === a.id);
-  const byLevel = TYPE_LEVELS.filter(l => finer.some(x => x.level === l));
-  const tail = finer.length
-    ? `; ${finer.length} finer ${andList(byLevel)} cut${finer.length === 1 ? '' : 's'} offered in \`alternatives.md\` instead`
-    : '';
-  return `${head}: ${parts.join(', ')}${tail}`;
-}
-
-// Draft a `content:` regex for a role group from the group's own evidence, in descending order of how directly
-// the group names itself. Returns null when the group offers nothing to anchor on — which is an answer, not a
-// failure: a group with no marker, no shared name shape and no shared import is not a type.
-export function contentRegexFor(group) {
-  const esc = s => String(s).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const members = group.members || [];
-  const names = uniq(members.map(m => m.name).filter(n => n && n !== '<anon>'));
-  // (1) a marker — a decorator or supertype the members carry; the most direct thing a group says about itself.
-  for (const mk of group.markers || []) {
-    const nm = mk.name || mk.marker;
-    if (!nm || !/^[A-Za-z_][A-Za-z0-9_.]*$/.test(nm)) continue;
-    if (mk.type === 'decorator') return { regex: `@${esc(nm)}\\b`, why: `marker \`@${nm}\` (${(mk.carriers || []).length} carriers)`, sel: `carrying \`@${nm}\`` };
-    if (mk.type === 'supertype') return { regex: `\\b(extends|implements)\\s+${esc(nm)}\\b`, why: `marker \`extends ${nm}\` (${(mk.carriers || []).length} carriers)`, sel: `extending \`${nm}\`` };
-  }
-  // (2) the members' own name shape — the longest common prefix and suffix over the member names. This is what
-  //     a hand-written type does: `command` vs `command-support` in the pattern repo is literally "does this
-  //     file export register<X>Command", and that regex is exactly a common prefix plus a common suffix.
-  if (names.length >= MIN_GROUP_MEMBERS) {
-    const pre = commonAffix(names, 'prefix'), suf = commonAffix(names, 'suffix');
-    if (pre.length >= 3 && suf.length >= 3 && pre.length + suf.length < Math.min(...names.map(n => n.length)))
-      return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the prefix \`${pre}\` and the suffix \`${suf}\` (${names.length} names)`, sel: `declaring a name that starts with \`${pre}\` and ends in \`${suf}\`` };
-    if (pre.length >= 5) return { regex: `\\b${esc(pre)}[A-Za-z0-9_]*\\b`, why: `member names share the prefix \`${pre}\` (${names.length} names)`, sel: `declaring a name that starts with \`${pre}\`` };
-    if (suf.length >= 5) return { regex: `\\b[A-Za-z0-9_]*${esc(suf)}\\b`, why: `member names share the suffix \`${suf}\` (${names.length} names)`, sel: `declaring a name that ends in \`${suf}\`` };
-  }
-  // (3) a shared import — weaker (an import is a dependency, not an identity) but real, and anchored.
-  const imps = (group.imports || []).filter(i => i && i.length >= 4);
-  if (imps.length === 1) return { regex: esc(imps[0]), why: `every member's file imports \`${imps[0]}\``, sel: `importing \`${imps[0]}\`` };
-  // (4) a defining name token, when the group named itself one word.
-  //
-  // CASE. A `nameTokens` entry is a CASE-FOLDED subword out of grain's own vocabulary (`core.mjs`'s `tokenize`
-  // lowercases; the export publishes them as `tok:` features), NOT a literal that appears in the source. Every
-  // other branch above anchors on something spelled exactly as the code spells it — a decorator name, a
-  // supertype, a member identifier, an import specifier — so only this one has to be rendered case-tolerantly.
-  // Measured (ticket 101) on Yggdrasil's own planted-family fixtures: rendered case-sensitively, the token
-  // `first` selected 0 of the 5 `*Repository.ts` members of `family-planted-mono` (their subword is `findFirst`,
-  // capital F) and 0 of 6 on `family-planted-polyglot`, while selecting all 5 snake_case Python members
-  // (`find_first`) — i.e. the predicate silently worked in one casing convention and was vacuous in the other.
-  const toks = (group.nameTokens || []).filter(t => t && t.length >= 5);
-  if (toks.length) return { regex: `\\b[A-Za-z0-9_]*${caseTolerant(toks[0])}[A-Za-z0-9_]*\\b`, why: `group's defining name token \`${toks[0]}\``, sel: `mentioning \`${toks[0]}\`` };
-  return null;
-}
-
-// Render a case-folded token so it matches the source whatever casing convention the language uses, without
-// changing the flags of the regex it is embedded in (Yggdrasil's `content:` predicate takes a pattern, not
-// flags). A letter becomes `[Aa]`; every other character is escaped literally.
-export function caseTolerant(token) {
-  return [...String(token)].map(ch => {
-    const lo = ch.toLowerCase(), up = ch.toUpperCase();
-    if (lo !== up) return `[${up}${lo}]`;
-    return ch.replace(/[.*+?^${}()|[\]\\]/, '\\$&');
-  }).join('');
-}
-
-function commonAffix(names, which) {
-  const norm = which === 'prefix' ? (s => s) : (s => [...s].reverse().join(''));
-  const xs = names.map(norm);
-  let out = xs[0] || '';
-  for (const x of xs.slice(1)) { let i = 0; while (i < out.length && i < x.length && out[i] === x[i]) i++; out = out.slice(0, i); }
-  return which === 'prefix' ? out : [...out].reverse().join('');
-}
-
-export function buildTypes(exp, loc, files, ctx) {
-  // The 2-files-up admission floor for a directory-derived type used to be MIN_TYPE_FILES, a named, overridable
-  // constant (`--min-type-files`) — ruling `granularity-bounded-by-evidence-not-taste` asked for exactly that: it
-  // to be MEASURED as a floor to remove, not defended. Ticket 101 §5 ran 2 against 1 on three repositories and
-  // found it not load-bearing: types and nodes count differ by a few (every extra element is a one- or two-file
-  // directory nothing else claims), but aspects, pairs, refusals, drill outcomes and FALSE-ALARMs are
-  // byte-identical between the two runs — the floor gated no operability at all. Ruling
-  // `root-fix-accepted-min-type-files-goes` retires the knob; ticket 102 removes it. The number a directory
-  // needs to be classified is a bare `2` below, unowned by any named constant, because there is nothing left to
-  // measure by varying it.
-  const active = [];       // { id, dir, when, files, evidence, source }
-  const alternatives = []; // { id, of, when, selected, evidence, why }
-
-  // THE CUT IS NESTED, NOT AN ANTICHAIN, AND NO PARENT IS CARVED HOLLOW.
-  //
-  // The first version of this renderer took the deepest candidate and cut the parent's `when` down with `not:`
-  // exclusions. Measured against the pattern repo's hand graph it LOST recall (15/36 against a 19/36 baseline):
-  // the hand graph's `engine` type is the WHOLE of `source/cli/src/core`, and hollowing that type out to make
-  // room for three of its sub-directories destroyed the one type grain reproduces best. So both levels ship,
-  // both classify, and their overlap is stated rather than resolved. Yggdrasil permits it (only two `enforce:
-  // strict` types may not overlap, and this renderer sets `strict` on nothing) and it is the honest shape: grain
-  // measured two cuts of the same tree and has no basis for deleting either.
-  const cands = new Map(); // dir -> candidate (first source to name a directory keeps it)
-  // The first source keeps the candidate, exactly as before — but every LATER source that names the same
-  // directory is recorded on it (ticket 110). Three levels agreeing on one cut is evidence about that cut, and
-  // it used to be discarded because the second source found the key already taken.
-  const put = c => {
-    const k = c.dir ?? `\0${c.id}`;
-    const have = cands.get(k);
-    if (have) { if (!have.levels.includes(c.src)) have.levels.push(c.src); return; }
-    cands.set(k, { ...c, levels: [c.src] });
-  };
-  for (const p of loc.partitions) {
-    if (p.name === '_repo' || !p.files.size) continue;
-    // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH. `_repo` is the residue bucket (excluded above
-    // by name, since it is "everything else" rather than a locality) and `_root` is the repository-root bucket:
-    // its files are real, but no directory called `_root` exists. Rendered as a directory the way every other
-    // partition is, it produces a `when` of `_root/**` that selects nothing, a node whose `mapping` names a path
-    // that is not there, and aspects scoped to `_root/**` that can never produce a pair. Measured (ticket 101):
-    // 4 of 17 corpus repositories carried such a partition, 168 drafted aspects were scoped to `_root/**`
-    // (17 of them deterministic) and every one produced ZERO pairs — which is the whole reason `leveldb` and
-    // `kotlin-datetime` scored 0% before this. The test is DERIVED, not a list of names: if no tracked file
-    // lives under the name, the name is not a directory.
-    if (!underDir(files, p.name).size) {
-      // Its files are real. When they all sit at the repository root, that is exactly the shape the root-glob
-      // type already models (`when: { path: '*' }`); anything else has no path expression and is disclosed as
-      // an alternative rather than guessed at.
-      if ([...p.files].every(f => !f.includes('/'))) {
-        put({ dir: null, id: slug(p.name), rootGlob: true, files: p.files, src: 'partition', why: `${p.part.files} of them group together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind}) — and no directory of that name exists: every one of them sits at the repository root, so the type is drafted as the root glob rather than as a path prefix` });
-      }
-      continue;
-    }
-    put({ dir: p.name, files: p.files, src: 'partition', why: `${p.part.files} of them group together by the conventions they share (${p.part.scopes} declarations, ${p.part.groups.length} role cluster${p.part.groups.length === 1 ? '' : 's'}, ${p.part.kind})` });
-  }
-  const partRoots = new Set([...cands.keys()]);
-  // grain's OTHER cut of the same tree: the refined module graph. It is coarser than the partition set in some
-  // places and finer in others, and both were in the candidate set the reconstruction measured against.
-  for (const m of exp.moduleGraph?.nodes || []) {
-    const s = underDir(files, m.id);
-    if (s.size < GROUP_MIN) continue;
-    put({ dir: m.id, files: s, src: 'module', why: `${m.files} of them ${m.files === 1 ? 'is code grain parsed and grouped' : 'are code grain parsed and grouped'} as one unit of the dependency graph, at layer ${m.layer} above its leaves` });
-  }
-  // directory cards ONE LEVEL below a partition root. Grain publishes a card only for a directory that carries
-  // scopes, so a published card is evidence of its own; one level is where a hand architecture actually splits
-  // (`portal/api`, `portal/server` in the pattern repo), and deeper cards are drill corpora and fixture trees.
-  for (const d of loc.directories) {
-    // the level is recorded on whatever candidate already holds this directory, even where the card itself is
-    // not promoted (ticket 110) — a published card is evidence about the cut whether or not it makes the cut
-    if (cands.has(d.name)) { put({ dir: d.name, src: 'directory' }); continue; }
-    if (d.files.size < MIN_PROMOTE_FILES) continue;
-    const owner = [...partRoots].filter(r => d.name.startsWith(r + '/')).sort((a, b) => b.length - a.length)[0];
-    const depth = owner ? d.name.slice(owner.length + 1).split('/').length : null;
-    if (depth !== 1) continue;
-    put({ dir: d.name, files: d.files, src: 'directory', why: `${d.card.files} of them ${d.card.files === 1 ? 'is code grain parsed' : 'are code grain parsed'} (${d.card.scopes} declarations) in a directory one level below \`${owner}\`` });
-  }
-  // ticket 116's domain cut, as a LEVEL on the candidate it lands on: a role group all of whose members live
-  // under one directory names that directory, and where the directory is already a candidate that agreement is
-  // recorded here. Where it is not, the group is offered as an alternative further down, unchanged.
-  for (const g of loc.groups) {
-    if (g.files.size < GROUP_MIN) continue;
-    const shared = commonDir([...g.files].sort());
-    if (shared && cands.has(shared)) put({ dir: shared, src: 'domain' });
-  }
-  for (const c of [...cands.values()].sort((a, b) => (String(a.dir) < String(b.dir) ? -1 : 1))) {
-    if (c.files.size < GROUP_MIN) continue;
-    active.push({ id: c.id || slug(c.dir), dir: c.dir, files: c.files, source: c.src, levels: c.levels, why: c.why, ...(c.rootGlob ? { rootGlob: true } : {}) });
-  }
-
-  // ------------------------------------------------------------------------------------------------
-  // THE FINER LEVEL, ADMITTED BY THE MEASURED POLICY (ticket 110 — see this section's header for the table).
-  //
-  // Every directory of tracked files that no level above has claimed is a candidate here. It becomes a type of
-  // its own only where it beats the level above it on that level's own evidence, which is a comparison between
-  // two numbers this run measured and not a threshold:
-  //
-  //   - grain could read NONE of its files while it could read its parent's — the directory whose only evidence
-  //     is the path, which is where the resources, templates, fixtures and shipped docs of a repository live
-  //     and which no other level can see, because a directory card is published only where scopes were mined;
-  //   - or strictly more of its imports stay inside it than stay inside its parent — a tighter boundary than
-  //     the cut it is being carved out of, said in the same two counts the evidence line carries.
-  //
-  // Candidates are decided shallowest-first and an accepted one becomes the parent of its own children, so the
-  // shallowest directory that clears the comparison wins and the cut does not run away down the tree.
-  const evCtx = evidenceContext(exp, loc, files);
-  const setOf = a => (a.rootGlob ? a.files : underDir(files, a.dir));
-  for (const a of active) a.evidence = typeEvidence(setOf(a), evCtx);
-  const claimed = new Set(active.map(a => a.dir).filter(Boolean));
-  const finerDirs = new Map();
-  for (const f of files) {
-    const segs = f.split('/');
-    for (let k = 1; k < segs.length; k++) {
-      const d = segs.slice(0, k).join('/');
-      if (claimed.has(d) || finerDirs.has(d)) continue;
-      const s = underDir(files, d);
-      if (s.size >= MIN_PROMOTE_FILES) finerDirs.set(d, s);
-    }
-  }
-  const domainDirs = new Set();
-  for (const g of loc.groups) { if (g.files.size < GROUP_MIN) continue; const s = commonDir([...g.files].sort()); if (s) domainDirs.add(s); }
-  // What the cut above already classifies. A candidate with no active type ABOVE it is not refining anything,
-  // so it may only join when it brings files nothing else claims — `src/main/scss` on spring-petclinic, whose
-  // four files would otherwise fall into the top-level remainder. Without this a repository grain mined nothing
-  // in (no partitions, so every directory reads as unparsed) grew a wrapper type over directories that were
-  // already fully classified: a node that owns no file of its own once its children take theirs, which is a
-  // node no rule can ever attach to and no charter can describe.
-  const claimedFiles = new Set();
-  for (const a of active) for (const f of setOf(a)) claimedFiles.add(f);
-  const promoted = [];
-  for (const [dir, set] of [...finerDirs].sort((a, b) => a[0].split('/').length - b[0].split('/').length || (a[0] < b[0] ? -1 : 1))) {
-    const parent = [...active, ...promoted].filter(a => a.dir && dir.startsWith(a.dir + '/')).sort((a, b) => b.dir.length - a.dir.length)[0] || null;
-    if (!parent && [...set].every(f => claimedFiles.has(f))) continue;
-    const m = typeEvidence(set, evCtx);
-    const p = parent ? parent.evidence : null;
-    const unread = m.mined === 0 && (!p || p.mined > 0);
-    // A boundary is only ever TIGHTER THAN something. With no level above it there is nothing to beat, so the
-    // comparison does not fire — without this the top of every tree (`source/`, `plugins/`) was promoted for
-    // having imports at all, which is a type covering half the repository and saying nothing.
-    const mine = purityOf(m), theirs = p ? purityOf(p) : null;
-    const tighter = mine != null && theirs != null && mine > theirs;
-    if (!unread && !tighter) continue;
-    // The level is what the directory IS, not which half of the policy admitted it: a role group naming it
-    // makes it the domain level, code grain parsed in it makes it the directory level (a published card, or a
-    // directory that carries declarations grain read but published no card for), and nothing read at all makes
-    // it the layout level, where the path is the only evidence there is.
-    const level = domainDirs.has(dir) ? 'domain' : m.mined > 0 ? 'directory' : 'layout';
-    const why = unread
-      ? `\`${dir}\` holds ${set.size} tracked files and grain parsed none of them — the path is the only evidence there is, and ${parent ? `the level above it (\`${parent.dir}\`) does carry code grain read, so this is a different kind of place` : 'no level above it claims them at all'}`
-      : `${m.importsInside} of the ${m.importsInside + m.importsCrossing} resolved imports that touch \`${dir}\` stay inside it, a tighter boundary than \`${parent.dir}\`'s ${p.importsInside} of ${p.importsInside + p.importsCrossing}`;
-    const id = slug(dir);
-    // Two different directories can slug to one id (`a/b` and `a-b`), and a duplicate id is a silently
-    // overwritten key in `yg-architecture.yaml`. A finer cut is an offer, so a colliding one is dropped rather
-    // than allowed to overwrite a type that was already earned.
-    if (active.some(a => a.id === id) || promoted.some(a => a.id === id)) continue;
-    promoted.push({ id, dir, files: set, source: level, levels: [level], why, evidence: m });
-  }
-  for (const a of promoted) active.push(a);
-
-  // the uncovered remainder, by top-level directory. No grain evidence — and the evidence line says so.
-  const covered = new Set();
-  for (const a of active) for (const f of a.files) covered.add(f);
-  const rest = new Map();
-  for (const f of files) {
-    if (covered.has(f)) continue;
-    const top = f.includes('/') ? f.slice(0, f.indexOf('/')) : '.';
-    (rest.get(top) || rest.set(top, new Set()).get(top)).add(f);
-  }
-  for (const [top, set] of [...rest].sort((a, b) => b[1].size - a[1].size)) {
-    if (set.size < GROUP_MIN || top === '.' || cands.has(top) || active.some(a => a.dir === top)) continue;
-    active.push({ id: slug(top), dir: top, files: underDir(files, top), source: 'layout', levels: ['layout'], why: `\`${top}\` holds ${set.size} tracked files nothing else in this proposal claims — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
-  }
-  const rootFiles = rest.get('.');
-  if (rootFiles && rootFiles.size >= GROUP_MIN && !active.some(a => a.rootGlob)) active.push({ id: 'repo-root-file', dir: null, files: rootFiles, source: 'layout', levels: ['layout'], rootGlob: true, why: `${rootFiles.size} tracked files sit at the repository root and nothing else in this proposal claims them — grouped from the layout alone, with no evidence behind the grouping beyond the path` });
-  // the remainder types are measured with the same instrument as everything above them
-  for (const a of active) if (!a.evidence) a.evidence = typeEvidence(setOf(a), evCtx);
-
-  for (const a of active) {
-    a.when = a.rootGlob ? { path: '*' } : { path: `${a.dir}/**` };
-    a.selected = expandWhen(a.when, files, ctx);
-    a.fidelity = jaccard(a.files, a.selected);
-    a.contains = active.filter(b => b.dir && a.dir && b.dir !== a.dir && b.dir.startsWith(a.dir + '/')).map(b => b.id);
-  }
-
-  // WHICH TYPE HOSTS A PARTITION WHOSE NAME IS A LABEL RATHER THAN A PATH (ticket 119).
-  //
-  // `mdlCuts` returns `['.']` for a repository it finds no reason to split, and every file's partition is then
-  // named `_root` — the whole repository in one bucket, with no directory of that name anywhere on disk;
-  // `_repo` is the same kind of name for the merged small-package residue. Downstream, `buildAspects` resolves
-  // an aspect's host TYPE by matching the partition name against a type's directory, so a row mined in such a
-  // partition used to find no host and be DROPPED, in silence, with nothing in the proposal saying a rule had
-  // been discarded. Measured across the corpus at four of seventeen repositories, two of them totally:
-  // `leveldb` (134 files, one `_root` partition) and `kotlin-datetime` (251) proposed ZERO aspects for this
-  // reason alone.
-  //
-  // The test is DERIVED, exactly as the candidate loop's is above: if no tracked file lives under the name, the
-  // name is not a directory, and the partition is resolved instead to the emitted type that actually HOLDS its
-  // files — by counting the overlap, deepest and then lowest-id on a tie. That is a real answer where one
-  // exists (`repo-root-file` when the partition's files all sit at the root, the covering source type when they
-  // do not) and no answer where none does — a type that holds none of the partition's files never hosts it, and
-  // the row is then still dropped, but for a reason the aspect renderer can state.
-  for (const p of loc.partitions) {
-    if (!p.files.size || underDir(files, p.name).size) continue;
-    const ranked = active
-      .map(a => ({ a, held: [...p.files].filter(f => a.files.has(f)).length }))
-      .filter(x => x.held > 0)
-      .sort((x, y) => y.held - x.held || (y.a.dir || '').length - (x.a.dir || '').length || (x.a.id < y.a.id ? -1 : 1));
-    if (!ranked.length) continue;
-    const { a, held } = ranked[0];
-    (a.labelPartitions ||= []).push({ name: p.name, held, total: p.files.size });
-  }
-
-  // THE ALTERNATIVES: the level 093 §2 class (a) named as the cheapest recall available anywhere — sets grain
-  // already holds inside a role group or an unpromoted directory card, which the hand graph turned into a node
-  // type and which nothing surfaced as a type candidate.
-  //
-  // Each candidate is offered in BOTH forms a hand-written architecture actually uses, because they fail
-  // differently and only the maintainer knows which failure is acceptable:
-  //
-  //   - `-content`: a `path` + `content` predicate drafted from the group's own marker or name shape. It
-  //     GENERALISES — a new file that matches joins the type by itself — and it may over- or under-select. This
-  //     is the shape 093 §2 class (c) says the hand graph reaches for (`command` vs `command-support` is
-  //     literally a `content:` regex over an exported symbol name).
-  //   - `-list`: the membership frozen as an `any_of` of explicit paths. It is EXACT today and DEAD tomorrow —
-  //     it classifies no file grain did not already see. Yggdrasil's own architecture uses this shape where a
-  //     type is a fixed set rather than a rule.
-  const seenAlt = new Set();
-  // Each alternative carries the LEVEL it is a cut at and the same intrinsic numbers an active type carries
-  // (ticket 110), measured over the set its own predicate selects — so `alternatives.md` can group them by
-  // level and a maintainer comparing a candidate against the active type above it is comparing like with like.
-  // A directory card is the `directory` level whatever form it is offered in; a role group is `domain` when
-  // ticket 116 could turn its membership into a path glob, and `role group` when it can only be a `content:`
-  // predicate or a guest list.
-  const altLevel = a => (a.kind === 'directory card' ? 'directory' : a.form === 'path' ? 'domain' : 'role group');
-  const addAlt = (a, set) => {
-    if (seenAlt.has(a.id)) return;
-    seenAlt.add(a.id);
-    alternatives.push({ ...a, level: altLevel(a), evidence: typeEvidence(set, evCtx) });
-  };
-  const finer = [
-    // `groupId`/`partKind` ride along ONLY so a downstream family-without-law adapter (ticket 100) can name a
-    // stable id and a language stratum for a role-group alternative without re-deriving either from `label` —
-    // they change nothing about which alternatives are offered or how.
-    ...loc.groups.map(g => ({ set: g.files, label: g.group.label || g.group.id, group: g.group, groupId: g.group.id, partKind: g.part.kind, part: g.part.name, kind: 'role group' })),
-    ...loc.directories.filter(d => !active.some(a => a.dir === d.name)).map(d => ({ set: d.files, label: d.name, group: null, groupId: null, partKind: d.part.kind, part: d.part.name, kind: 'directory card' })),
-  ];
-  for (const f of finer) {
-    if (f.set.size < GROUP_MIN) continue;
-    const host = active.filter(a => a.dir && [...f.set].every(x => x.startsWith(a.dir + '/') || x === a.dir)).sort((a, b) => b.dir.length - a.dir.length)[0];
-    if (!host) continue;
-    if (jaccard(f.set, host.files) >= 0.9) continue; // the candidate IS the host — nothing finer on offer
-    const base = `${host.id}-${slug(f.label)}`.slice(0, 100);
-    const cr = f.group ? contentRegexFor(f.group) : null;
-    if (cr) {
-      const when = { all_of: [{ path: `${host.dir}/**` }, { content: cr.regex }] };
-      let selected = null;
-      try { selected = expandWhen(when, files, ctx); } catch { /* a predicate that will not compile is itself a finding */ }
-      if (selected) {
-        const j = jaccard(f.set, selected);
-        addAlt({ id: `${base}-content`, of: host.id, form: 'content', when, groupFiles: f.set.size, selected: selected.size, fidelity: +j.toFixed(3), viable: j >= MIN_WHEN_FIDELITY,
-          kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: [...f.set].sort(),
-          why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: ${f.set.size} files; generalising predicate from ${cr.why}; selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` }, selected);
-      }
-    }
-    // THE MEMBERSHIP, AS A PREDICATE WHERE THE PATHS ALLOW ONE AND AS A LIST WHERE THEY DO NOT (ticket 116).
-    //
-    // A domain cut is almost always a directory: on spring-petclinic the `owner`, `vet` and `model` groups each
-    // live entirely under one package. Frozen as an `any_of` of explicit paths that cut is EXACT today and dead
-    // tomorrow — it classifies no file grain has not already seen, so an ecosystem cannot cut a second node and
-    // a second owner out of it, and every file added to the domain lands outside its own type. Where the members
-    // share a directory below the host, the same membership is a `path:` glob over that directory: a file added
-    // there joins the type by itself. Where they do NOT share one there is no path expression to offer and the
-    // list is the honest answer, so the list stays — for exactly those candidates, and it says so.
-    const paths = [...f.set].sort();
-    const shared = commonDir(paths);
-    const finerThanHost = shared && shared !== host.dir && shared.startsWith(host.dir + '/');
-    let asPath = null;
-    if (finerThanHost) {
-      const when = { path: `${shared}/**` };
-      let selected = null;
-      try { selected = expandWhen(when, files, ctx); } catch { /* a predicate that will not compile is itself a finding */ }
-      if (selected) {
-        const j = jaccard(f.set, selected);
-        asPath = { id: `${base}-path`, of: host.id, form: 'path', when, groupFiles: f.set.size, selected: selected.size, fidelity: +j.toFixed(3), viable: j >= MIN_WHEN_FIDELITY,
-          kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
-          why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: all ${f.set.size} files share the directory \`${shared}\`, so the membership is offered as the path predicate \`${shared}/**\` rather than as a list — it GENERALISES, and a file added under that directory is classified here without grain being run again; it selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` };
-      }
-    }
-    if (asPath) addAlt(asPath, expandWhen(asPath.when, files, ctx));
-    else addAlt({ id: `${base}-list`, of: host.id, form: 'list', when: { any_of: paths.map(p => ({ path: p })) }, groupFiles: f.set.size, selected: f.set.size, fidelity: 1, viable: true,
-      kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
-      why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the ${f.set.size} files grain grouped share no directory below \`${host.dir}\`${shared ? ` (the deepest they all share is \`${shared}\`, which is not finer than the host)` : ''}, so there is no path predicate to offer and the membership is frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` }, f.set);
-  }
-  alternatives.sort((a, b) => b.fidelity - a.fidelity || b.groupFiles - a.groupFiles || (a.id < b.id ? -1 : 1));
-  return { active, alternatives };
-}
-
-// ==================================================================================================
-// 5. Relations, and the one thing an established negative may NOT become.
-//
-// Allow-lists are aggregated from resolved file->file imports, mapped through each file's owning node to its
-// type. Only `uses` is populated: grain's edge kinds on a typed repository are imports, and an import is a use,
-// never necessarily a call — writing `calls:` from an import would assert something the evidence does not say.
-//
-// `default: deny` (093 §4). Grain's `archNorms exp:"false"` rows are established NEGATIVES — "this module does
-// not reach that one, and the absence itself compresses". The architecture's `deny` is a statement about what is
-// PERMITTED. On the pattern repo one of the two published negatives (`relations -> core`, share 0.941) sits on a
-// pair the hand architecture explicitly ALLOWS: both statements are true about different things. So a negative
-// is turned into `default: deny` only when it is not contradicted by anything observed — the source type has no
-// resolved outgoing edge at all — and otherwise it becomes a backlog line, never a deny.
-// ==================================================================================================
-
-export function buildRelations(exp, typeOfFile, active) {
-  const pairs = new Map(); // "from|to" -> n
-  for (const e of exp.edges || []) {
-    const a = typeOfFile.get(e.from), b = typeOfFile.get(e.to);
-    if (!a || !b || a === b) continue;
-    const k = a + '|' + b;
-    pairs.set(k, (pairs.get(k) || 0) + (e.n || 1));
-  }
-  const uses = new Map(); // type -> Map(target -> n)
-  for (const [k, n] of pairs) {
-    const [a, b] = k.split('|');
-    (uses.get(a) || uses.set(a, new Map()).get(a)).set(b, n);
-  }
-  // established negatives, split into the two things they can become
-  const denies = [], backlog = [];
-  const dirOfType = new Map(active.filter(a => a.dir).map(a => [a.dir, a.id]));
-  for (const an of exp.archNorms || []) {
-    if (an.exp !== 'false' || an.fromKind !== 'module') continue;
-    const fromT = dirOfType.get(an.from), toT = dirOfType.get(an.to);
-    const rec = { from: an.from, to: an.to, fromType: fromT || null, toType: toT || null, share: an.share, ne: an.ne, neff: an.neff, bits: an.bits };
-    const observed = fromT && uses.get(fromT) && uses.get(fromT).size;
-    if (fromT && !observed) { denies.push(rec); rec.becomes = 'default: deny'; }
-    else { rec.becomes = 'backlog only'; rec.whyNot = observed ? `type \`${fromT}\` has ${uses.get(fromT).size} observed outgoing dependencies — a deny here would contradict imports the code contains` : `\`${an.from}\` is not a proposed type, so there is nothing to deny on`; backlog.push(rec); }
-  }
-  return { uses, denies, backlog, pairs };
-}
-
-// ==================================================================================================
-// 6. Nodes — the COARSE cut, deliberately.
-//
-// 093 §3: the pattern repo's hand graph has 250 nodes that map exactly ONE file. Imitating that would be
-// imitating a granularity choice, not recovering evidence — a one-file node is a decision about how finely to
-// review, and grain has nothing to say about it. So one node per active type, mapping that type's directory,
-// nested in `model/` so a child node's directory sits under its parent's. Every finer candidate grain does hold
-// (role groups, deeper directory cards) is listed in `alternatives.md` as a node the maintainer may split out.
-// ==================================================================================================
-
-// A node's path in the graph IS its directory under `model/`, so a repository directory whose name starts with
-// a dot cannot be one verbatim — Yggdrasil's model walker does not descend into it. The mapping still names the
-// real path; only the node's own address is rewritten.
-export const nodePathFor = dir => (dir ? dir.split('/').map(s => (s.startsWith('.') ? 'dot-' + s.slice(1) : s)).join('/') : 'repo-root');
-
-// The path glob a type classifies by — its own `when`, said once. A dir-less (root-glob) type globs `*`, and
-// building `${a.dir}/**` for one produces the literal string `null/**`: a predicate that selects nothing, in a
-// sentence that names a directory called `null`. One expression, so a reader of a scope glob and a reader of
-// `yg-architecture.yaml` are looking at the same thing.
-export const typeGlob = a => (a.rootGlob ? '*' : `${a.dir}/**`);
-
-// A subtree that carries its own `.yggdrasil/` is a SEPARATE PROJECT, and every Yggdrasil check skips it. Grain
-// has no such notion — those files are tracked, so they are mined — and the first version of this renderer duly
-// gave each of them a node. Measured on the pattern repo that produced 11 `mapping-path-missing` errors reading
-// "resolves only to excluded files". The TYPES stay (a `when` predicate over a subtree costs nothing and is
-// still true); only the nodes are withheld, since a node whose whole mapping is invisible to the checker is a
-// node that can never carry a verdict.
-export const nestedProjectRoots = files => {
-  const roots = new Set();
-  for (const f of files) {
-    const i = f.indexOf('/.yggdrasil/');
-    if (i > 0) roots.add(f.slice(0, i));
-  }
-  return [...roots];
-};
-
-export function buildNodes(active, exp, nestedRoots = []) {
-  const live = f => !nestedRoots.some(r => f.startsWith(r + '/'));
-  const nodes = active.map(a => ({
-    id: nodePathFor(a.dir),
-    type: a.id,
-    dir: a.dir,
-    files: new Set([...a.files].filter(live)),
-    why: a.why,
-  })).filter(n => n.files.size > 0);
-  // Yggdrasil loads a node only where a `yg-node.yaml` sits, and reads the hierarchy from the directory chain
-  // under `model/`. A gap in that chain (a `model/source/` with no node between `model/` and
-  // `model/source/cli/src/core/`) silently loses the whole subtree — measured: 82 nodes written, 12 loaded.
-  // So every missing intermediate segment gets an ORGANIZATIONAL node (`type: module`, no mapping), which is
-  // what a hand-written graph does at the same places and what the schema's "parent-only" type is for.
-  const have = new Set(nodes.map(n => n.id));
-  for (const n of [...nodes]) {
-    const segs = n.id.split('/');
-    for (let k = 1; k < segs.length; k++) {
-      const id = segs.slice(0, k).join('/');
-      if (have.has(id)) continue;
-      have.add(id);
-      nodes.push({ id, type: 'module', dir: null, files: new Set(), organizational: true, why: `organizational node: \`model/${id}/\` is a step in the hierarchy between nodes that do carry a mapping, and Yggdrasil reads the hierarchy from that directory chain` });
-    }
-  }
-  nodes.sort((a, b) => (a.id < b.id ? -1 : 1));
-  const nodeOfFile = new Map();
-  for (const n of [...nodes].sort((a, b) => (a.dir || '').split('/').length - (b.dir || '').split('/').length)) for (const f of n.files) nodeOfFile.set(f, n.id);
-  const rel = new Map();
-  for (const e of exp.edges || []) {
-    const a = nodeOfFile.get(e.from), b = nodeOfFile.get(e.to);
-    if (!a || !b || a === b) continue;
-    const m = rel.get(a) || rel.set(a, new Map()).get(a);
-    m.set(b, (m.get(b) || 0) + (e.n || 1));
-  }
-  for (const n of nodes) n.relations = [...(rel.get(n.id) || new Map())].sort((x, y) => y[1] - x[1]).map(([t, n2]) => ({ target: t, n: n2 }));
-
-  // mapping form, and (for the explicit form) the files this node owns after every descendant has taken its own
-  for (const n of nodes) {
-    n.useDir = !!n.dir && !nestedRoots.some(r => r === n.dir || r.startsWith(n.dir + '/'));
-    const kids = nodes.filter(m => m !== n && m.id.startsWith(n.id + '/'));
-    n.ownFiles = new Set([...n.files].filter(f => !kids.some(k => k.files.has(f))));
-  }
-
-  // A CYCLE IN THE CODE IS NOT EXPRESSIBLE IN THE GRAPH, AND THE PROPOSAL SAYS SO RATHER THAN HIDING IT.
-  //
-  // Yggdrasil refuses a graph whose node relations form a loop (`structural-cycle`, blocking). Grain measures
-  // real loops in the pattern repo's imports — the same two `yg advise` nominates independently. An earlier
-  // version of this renderer broke each loop at its weakest edge to make the proposal green. MEASURED, that
-  // trade was bad: dropping 8 edges turned one `structural-cycle` error, which names the real defect and the
-  // real fix, into 4 `relation-undeclared-dependency` errors whose suggested fix is to put the edges back. So
-  // every resolved edge is declared, the loops are found and reported here and at the top of the refactor
-  // backlog, and the proposal is honestly RED on a repository whose imports form a cycle. That is not a
-  // renderer defect; it is the finding.
-  const dropped = [];
-  const outgoing = () => new Map(nodes.map(n => [n.id, n.relations.filter(r => !r._masked).map(r => r.target)]));
-  for (let guard = 0; guard < 500; guard++) {
-    const adj = outgoing();
-    const colour = new Map(), stack = [];
-    let loop = null;
-    const dfs = id => {
-      if (loop) return;
-      colour.set(id, 1); stack.push(id);
-      for (const t of adj.get(id) || []) {
-        if (loop) return;
-        if (colour.get(t) === 1) { loop = stack.slice(stack.indexOf(t)).concat(t); return; }
-        if (!colour.has(t)) dfs(t);
-      }
-      colour.set(id, 2); stack.pop();
-    };
-    for (const n of nodes) if (!colour.has(n.id) && !loop) dfs(n.id);
-    if (!loop) break;
-    let weakest = null;
-    for (let i = 0; i < loop.length - 1; i++) {
-      const from = nodes.find(n => n.id === loop[i]);
-      const edge = from.relations.find(r => r.target === loop[i + 1]);
-      if (edge && (!weakest || edge.n < weakest.edge.n)) weakest = { from, edge };
-    }
-    if (!weakest) break;
-    // recorded, NOT removed — but the edge is masked for this scan so the next loop can be found
-    weakest.from.relations = weakest.from.relations.map(r => (r === weakest.edge ? { ...r, _masked: true } : r));
-    dropped.push({ from: weakest.from.id, to: weakest.edge.target, n: weakest.edge.n, cycle: loop });
-  }
-  for (const n of nodes) n.relations = n.relations.map(r => { const { _masked, ...rest } = r; void _masked; return rest; });
-  return { nodes, cycles: dropped, nodeOfFile };
-}
-
-// ==================================================================================================
-// 7. Aspect drafts — from the certified set AND from the sub-gate lattice.
-//
-// (i) A CERTIFIED convention is a claim grain is willing to make: its statement becomes the rule and its
-//     superposition template (the group's anti-unified skeleton) becomes "what passing looks like".
-//
-// (ii) The SUB-GATE lattice is the other half, and `sub-gate-rows-are-the-product` is why it exists: the real
-//     house rules of the pattern repo sit BELOW the λ gate as low-share candidates (`catch -> abortOnUnexpected
-//     Error`, practised in 22% of places). For an agent mid-edit, refusing to certify those is correct. For a
-//     maintainer drafting aspects, the sub-gate row IS the draft plus its own refactor backlog.
-//
-//     THE SURFACE THAT ALREADY EXPOSES THEM is `grain explain <file>` (alias `spectrum`) — its `[obs ]` rows,
-//     as against `[NORM]` rows, are exactly the below-gate cells (`spectrum()` in `engine/core.mjs`). But
-//     `explain` conditions its cells on ONE file's roles and directory chain and then keeps only rows that file
-//     has, so it is a per-file debug dump, not a maintainer surface. THE AGGREGATION NEEDED (ticket 095) is:
-//     the same cells, built once per PARTITION over all its scopes, with `_all:<kind>` and `r<role>:<kind>`
-//     cell ids, ranked by adoption share, and each row carrying the sites that do NOT conform. That is what
-//     `partitionLattice` below computes, from the engine's own vocabulary and codelength, read-only.
-// ==================================================================================================
+import {
+  BIN,
+  CORE,
+  FAMILY_MIN_MEMBERS,
+  LAMBDA_BOUND,
+  MIN_CONVENTION_SITES,
+  MIN_SUPPORT,
+  PREAMBLE,
+  SCHEMA_VERSION,
+  SUBGATE_PER_PARTITION,
+  SUPERMAJORITY,
+  gitFiles,
+  pct,
+  preambleComment,
+  progressiveReference,
+  resolveYg,
+  say,
+  slug,
+  uniq,
+  write,
+  yamlEmit,
+} from './propose-base.mjs';
+import { TYPE_LEVELS, contentRegexFor, countBy, levelSentence, localities } from './propose-levels.mjs';
+import { buildNodes, buildRelations, nestedProjectRoots, typeGlob } from './propose-nodes.mjs';
+import { buildTypes } from './propose-types.mjs';
 
 const CELL_SEP = '\u0001'; // the same cell-key separator `core.mjs` uses; a pid can contain spaces, so ' ' would truncate it
-
 export async function partitionLattice(repo) {
   const modelPath = join(repo, '.grain', 'cache', 'model.json');
   const treePath = join(repo, '.grain', 'cache', 'tree.json');
@@ -1199,13 +153,11 @@ export async function partitionLattice(repo) {
   }
   return { rows, reason: null };
 }
-
 // The sub-gate band: practised by a supermajority but below the certification bound, with real support. These
 // are the rows a maintainer reads as "a house rule that has not finished spreading".
 export const subGate = rows => rows
   .filter(r => !r.isNorm && r.n >= MIN_SUPPORT && r.share >= SUPERMAJORITY && r.share < LAMBDA_BOUND)
   .sort((a, b) => b.share - a.share || b.n - a.n || (a.pid < b.pid ? -1 : 1));
-
 // The identifier a lattice pid or a convention feature is ABOUT — what an aspect draft names, and the thing a
 // comparison against a hand-written mechanical rule can match on.
 export const identifierOf = pid => {
@@ -1228,7 +180,6 @@ export const identifierOf = pid => {
 // Grain and Yggdrasil parse with the same tree-sitter grammars, so a rendered check reads the same tree grain
 // counted. Where a language's grammar names a field differently the check sees no evidence and stays silent —
 // again, under.
-
 // grain's name-shape alphabet (`nameShape`, engine/core.mjs): `U` a run of uppercase, `a` a run of
 // lowercase/digits, `_ - $ .` themselves, `?` anything else, and `(XY)+` a repeated pair. A shape compiles to
 // an anchored regex mechanically; a shape carrying `?` does not compile at all (that is an answer, not a gap).
@@ -1247,7 +198,6 @@ export function shapeToRegex(shape) {
   }
   return `^${out}$`;
 }
-
 // The node types each language's grammar uses for the construct a template needs. Deliberately a REGEX over
 // node-type names rather than a per-language table: the shipped grammars agree on the words, and a grammar that
 // does not match simply yields no evidence (under).
@@ -1260,7 +210,6 @@ const NT = {
   typeDecl: '/^(class_declaration|class_definition|class_specifier|interface_declaration|type_alias_declaration|enum_declaration|enum_specifier|enum_item|struct_item|struct_specifier|trait_item|record_declaration|object_declaration|type_declaration|type_item)$/',
   funcDecl: '/^(function_declaration|function_definition|function_item|function_signature|method_definition|method_declaration|method_signature)$/',
 };
-
 // The header's second paragraph states the aspect's STATUS, and every check is written before its status is
 // known — a drill has not run yet. `promoteEnforceableAspects` rewrites this paragraph in place when a drill
 // earns `enforced` or `advisory`, so the sentence a maintainer reads at the top of the file is never the
@@ -1268,7 +217,6 @@ const NT = {
 // in all three and is kept out of the swapped text.
 export const DRAFT_NOTE = `// DRAFT: this aspect is \`status: draft\`, so the runner never executes this check. Read it, decide whether the
 // rule is real, then promote it.`;
-
 export const statusNote = status => (status === 'enforced'
   ? `// ENFORCED: a real \`yg drill\` on this repository's own code caught a violation with this check and raised no
 // false alarm, and its convention cleared grain's certification bound, so \`yg check\` runs it and a refusal blocks.`
@@ -1277,14 +225,12 @@ export const statusNote = status => (status === 'enforced'
 // false alarm, but its convention sits BELOW grain's certification bound, so \`yg check\` runs it and a refusal
 // warns without blocking. Whether it should become law is the maintainer's refactor decision.`
     : DRAFT_NOTE);
-
 const PROVENANCE = p => `// PROVENANCE — grain measured this, it did not decide it.
 //   ${p.replace(/\n/g, '\n//   ')}
 //
 ${DRAFT_NOTE}
 // \`errs: under\` is the contract this template keeps: it reports only where the
 // syntax tree proves the negation, and stays silent where the language gives it nothing to read.`;
-
 // Every template shares one skeleton so the contract (sync, Violation[], guard on file.ast) is identical.
 const wrap = (prov, body, helpers = '') => `import { walk, report } from '@chrisdudek/yg/ast';
 
@@ -1298,7 +244,6 @@ ${body}
   return violations;
 }
 `;
-
 export function renderCheck(spec) {
   const { enumerator, argument, expected, provenance } = spec;
   const A = JSON.stringify(String(argument ?? ''));
@@ -1474,11 +419,9 @@ export function check(ctx) {
       return null;
   }
 }
-
 // The classes that render, and — for everything else — the reason it does not, stated in the aspect itself
 // rather than approximated into a check that would be wrong.
 export const RENDERABLE = new Set(['imp', 'call', 'deco', 'extends', 'returns', 'nameshape', 'filenameshape', 'lex']);
-
 // WHICH DIRECTION AN `errs: under` CHECK MAY RENDER AT ALL — measured, not assumed.
 //
 // A drill sweep of the first version over the pattern repo: 86 rendered checks, 423 cases, 314 pass, 56 MISS,
@@ -1491,7 +434,6 @@ export const RENDERABLE = new Set(['imp', 'call', 'deco', 'extends', 'returns', 
 // import, a file name, a lexical layer, or a name shape the whole partition shares. A NEGATIVE rule ("nothing
 // here does X") renders in every class, because it fires only on evidence it can see and never on absence.
 const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
-
 // WHICH CLASSES SPELL "DOES NOT USE X" WITH `expected: false` (ticket 115) — and so cannot state a prohibition
 // from a majority. For every one of these the enumerator names a THING (an import specifier, a callee, a
 // marker, a supertype, a declared return type, a syntactic construct, a parameter type) and `false` says only
@@ -1591,7 +533,6 @@ export const WHY_PROSE = {
 // claim about what ratio predicts owner success — that is the bet ecosystem-design-2026-09-05.md §6 names, and
 // sizing.json is deliberately just the two numbers a ratio needs, not the ratio's verdict.
 // ==================================================================================================
-
 function scopeCountsFromTreeCache(repo) {
   const treePath = join(repo, '.grain', 'cache', 'tree.json');
   if (!existsSync(treePath)) return null;
@@ -1605,7 +546,6 @@ function scopeCountsFromTreeCache(repo) {
   }
   return byFile;
 }
-
 export function computeSizing(repo, nodes, handGraph, handFiles) {
   const scopesByFile = scopeCountsFromTreeCache(repo);
   const bytesOf = rel => { try { return statSync(join(repo, rel)).size; } catch { return 0; } };
@@ -1649,7 +589,6 @@ export function computeSizing(repo, nodes, handGraph, handFiles) {
 // as one page of interleaved writes. Every body is unchanged, and `ev` — the one shared piece of state, the
 // evidence recorder — is passed in rather than closed over, so each function's whole effect is in its
 // signature: the directory it writes into, what it needs, and the counts it hands back.
-
 // The inputs: the tracked files, the export (reused when the caller already has one, spawned otherwise), the
 // model cache when there is one, and the predicate-expansion context every `when` is measured against.
 function loadInputs(repo, opts) {
@@ -1674,7 +613,6 @@ function loadInputs(repo, opts) {
   const ctx = { root: repo, pathCache: new Map(), contentCache: new Map(), headCache: new Map(), unknownWhenKeys: new Set(), parsed: new Set(cache?.filesAll || []) };
   return { files, exp, cache, ctx, degraded };
 }
-
 // `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
 function writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, progressive }) {
   // yg-config.yaml — require nothing. A proposal that turns every unmapped file into a blocking error on day one
@@ -1756,7 +694,6 @@ function writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, 
   }
   write(join(ygg, 'yg-architecture.yaml'), preambleComment() + yamlEmit({ node_types: nodeTypes }));
 }
-
 // `model/<node>/yg-node.yaml`: one per node, mapping and relations.
 function writeNodeFiles(ygg, nodes, ev) {
   for (const n of nodes) {
@@ -1778,7 +715,6 @@ function writeNodeFiles(ygg, nodes, ev) {
     }));
   }
 }
-
 // aspects/<id>/ — yg-aspect.yaml, the rule source (check.mjs or content.md), and a drill corpus.
 //
 // `status` is written TWICE. Every aspect ships `draft` here, first — `yg drill` is not gated by status
@@ -1821,7 +757,6 @@ function writeAspectFiles(ygg, repo, aspects, opts, ev) {
   }
   return { drillCases, drillDropped };
 }
-
 // charter.md — one per proposed node, beside its yg-node.yaml (ticket 100, §7c above). Written here, AFTER
 // sizing.json, so every charter can quote its own node's sizing row instead of recomputing it.
 function writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev }) {
@@ -1841,7 +776,6 @@ function writeCharters(ygg, { nodes, aspects, sizing, exp, nodeOfFile, repo, ev 
   }
   return { chartersWritten, charterLines };
 }
-
 export async function propose(repo, outDir, opts = {}) {
   const { files, exp, cache, ctx, degraded } = loadInputs(repo, opts);
   if (degraded) say(opts, `WARNING: ${degraded}`);
@@ -2018,13 +952,11 @@ export async function propose(repo, outDir, opts = {}) {
 //   - It adds no hedge. "must" and "may not" are the whole point. A rule that says "should probably" is a rule
 //     the next session argues with, which is the failure this section exists to remove.
 // ==================================================================================================
-
 // The subject of an obligation is ONE thing, not a population: "Every method …", never "methods here …".
 // `unitOf` (core.mjs) is the plural half of the same table; nothing here renames a kind.
 const UNIT_ONE = { method: 'method', type: 'type', file: 'file', module: 'directory', catch: 'catch block', finally: 'finally block', case: 'named callback' };
 export const unitOne = kind => UNIT_ONE[kind] || kind || 'file';
 const A_OR_AN = w => (/^[aeiou]/i.test(String(w).replace(/^`/, '')) ? 'an' : 'a');
-
 // `are X` is the only verb form `verbalize` emits that is not already an infinitive; `do not X` folds to
 // `not X` so a sentence reads "must not X" and never "must do not X".
 const infinitive = pred => pred.replace(/^are /, 'be ').replace(/^do not /, 'not ');
@@ -2039,7 +971,6 @@ const affirmativeOf = pred => {
   if (pred.startsWith('do not ')) return pred.slice(7);
   return null;
 };
-
 // WHO must do WHAT, WHERE — one sentence, with the scope inside it. The scope is the aspect's own `scope:`
 // glob, written into the sentence rather than left in a yaml field three lines below: an agent that reads
 // "methods here" has no way at all to know where "here" is, and that is the single most common thing 101's
@@ -2058,7 +989,6 @@ export const obligationOfStatement = statement => {
   const pos = affirmativeOf(pred);
   return pos ? { phrase: pos, prohibited: true } : { phrase: infinitive(pred), prohibited: false };
 };
-
 // The mined predicate of a LATTICE ROW, in words. A wording table and nothing else: the row, its id, its
 // counts and the `check.mjs` rendered beside it are untouched by every line of it.
 //
@@ -2099,12 +1029,10 @@ export const describeRow = (pid, exp) => {
     default: return /^dir\d*$/.test(String(fam)) ? `live under \`${v}/\`` : `satisfy \`${pid}\` = \`${v}\``;
   }
 };
-
 // The scope predicate, as a reader reads it rather than as a matcher matches it. `where` is the path glob the
 // sentence binds to; `which` is the relative clause a `content:` predicate becomes ("that mentions `counter`");
 // `plain` is the same thing as one noun phrase, for the evidence line.
 const scopeInWords = (glob, which) => `files under \`${glob}\`${which ? ` ${which}` : ''}`;
-
 // How many sites hold the rule and how many break it — the two numbers that decide whether a reader believes
 // the sentence, put where a reader meets them first. Same counts as before, read in the other direction:
 // "9 deviating" is the same fact as "9 break it today", and only the second one says what to do about it.
@@ -2114,9 +1042,7 @@ const holdsPhrase = (holds, breaks, unitPlural) => {
     ? `holds for all ${total} ${unitPlural} in scope — the repository has no exception to it today`
     : `holds for ${holds} of ${total} ${unitPlural} in scope; ${breaks} break it today`;
 };
-
 const NOT_A_RULE = new Set(['filebirth']);
-
 // EXEMPTING THE NAMES A LANGUAGE FIXES FROM A FILE-NAME RULE (ticket 116). `auto.filenameshape` is the one
 // enumerator whose subject is the file NAME, and a handful of names in most languages are not the project's to
 // choose: `package-info.java`, `__init__.py`, `index.ts`, `mod.rs`. Measured on spring-petclinic, five of the
@@ -2141,7 +1067,6 @@ const markerNote = (...groups) => {
   const n = groups.reduce((a, g) => a + g.exempted, 0);
   return n ? ` · ${n} language marker file${n === 1 ? '' : 's'} exempted (${names.map(x => `\`${x}\``).join(', ')}) — the language fixes ${names.length === 1 ? 'that name' : 'those names'}, so no naming convention of this repository can apply to ${n === 1 ? 'it' : 'them'}` : '';
 };
-
 // ==================================================================================================
 // IDENTIFIER HYGIENE (ticket 120, `.system/research/sense-iteration.md` §10). Four ways a mined row reads as
 // nonsense however it is worded — caught here, at render time, before it ever becomes an aspect draft.
@@ -2201,7 +1126,6 @@ const identifierUnderTest = (fam, argument, expected) => {
   if (argument) return argument;
   return expected != null && expected !== '' ? String(expected) : null;
 };
-
 // (2) A GENERIC TYPE PARAMETER READ AS A DOMAIN TYPE — `S`, `V`, `T`, `TResult` in a `ptype`/`returns`/`extends`
 // row. core.mjs's own callable-surface walk EXCLUDES `type_parameters` from what it records (`RESULT_EXCLUDE`),
 // and neither `fileSups` nor `fileTypeRefs` is exported at all (`export.mjs` schemaNotes) — so there is no
@@ -2216,7 +1140,6 @@ const CONVENTIONAL_TYPE_PARAM_RE = /^[A-Z]$|^T[A-Z][A-Za-z0-9]*$/;
 const TYPE_PARAM_FAMILIES = new Set(['ptype', 'returns', 'extends']);
 const looksLikeGenericTypeParam = (fam, identifier, declaredTypeNames) =>
   TYPE_PARAM_FAMILIES.has(fam) && !!identifier && CONVENTIONAL_TYPE_PARAM_RE.test(identifier) && !declaredTypeNames.has(identifier);
-
 export function buildAspects(exp, active, sub, opts = {}) {
   const out = [];
   const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, absence: 0, byClass: {}, notARuleByReason: {}, clusterNarrowerThanScope: 0 };
@@ -2481,7 +1404,6 @@ export function buildAspects(exp, active, sub, opts = {}) {
   // (opts is read above for the sub-gate reading cap)
   return { aspects: out, skipped };
 }
-
 // ==================================================================================================
 // 7a. `provenance.json` — one per rendered aspect (ticket 100 / law-loop-yggdrasil.md §1.2).
 //
@@ -2539,7 +1461,6 @@ export function provenanceFor(a, { asOf, repo }) {
     scopeApproximation: a.scopeApproximation ?? null,
   };
 }
-
 // WHAT THE STATUS DOES, IN ONE SENTENCE, BESIDE THE RULE (ticket 109). `status: advisory` is a word whose
 // consequence lives in a knowledge topic (`yg knowledge read aspect-status`) that a session reading one aspect
 // file has not opened. The three sentences below are that topic's own table, said in the place the decision is
@@ -2550,7 +1471,6 @@ const STATUS_MEANING = {
   advisory: 'This rule is advisory: `yg check` reports a file that breaks it as a warning and does not fail.',
   draft: 'This rule is not in force yet: `yg check` skips it entirely until someone promotes it out of `draft`.',
 };
-
 // The `yg-aspect.yaml` document, shared by the provisional (`draft`, before verification) and final write.
 function aspectYamlDoc(a, status) {
   return {
@@ -2561,7 +1481,6 @@ function aspectYamlDoc(a, status) {
     scope: a.scope,
   };
 }
-
 // ==================================================================================================
 // 7a-continued. Aspect status, earned rather than declared (ticket 102, sharpened by ticket 107's ruling
 // `enforced-requires-certified-origin`). Sits right after `provenanceFor` (§7a) rather than claiming its own
@@ -2619,7 +1538,6 @@ function aspectYamlDoc(a, status) {
 // that returned no verdict — and the count is disclosed in the report rather than folded in silently.
 export const SLOWEST_OBSERVED_DRILL_MS = 2148;
 export const DRILL_TIMEOUT_MS = SLOWEST_OBSERVED_DRILL_MS * 100;
-
 //
 // `drillTimeoutMs` exists so a test can prove the bound is actually enforced without waiting out the real one;
 // nothing in the product passes it, and the default IS `DRILL_TIMEOUT_MS`.
@@ -2687,7 +1605,6 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
   }
   return { haveYg, ygBin, verified, timedOut, drillTimeoutMs };
 }
-
 // ==================================================================================================
 // 7b. The `.family-candidates.json` adapter (ticket 100) — the seam to `yg advise`'s family-without-law class.
 //
@@ -2813,7 +1730,6 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
 // number or a path; a section with nothing to report says so rather than being omitted, so an owner reading it
 // cold knows the difference between "nothing found" and "not measured".
 // ==================================================================================================
-
 // Node-level co-change: `exp.cochange` pairs FILES; a node's own partners are the pairs whose two files land in
 // two DIFFERENT nodes, aggregated by summing `support` over every such pair — the same aggregation `whereCmd`'s
 // directory-level `cochangePartners` does at file granularity, done here at node granularity instead because a
@@ -2831,7 +1747,6 @@ export function nodeCochangePairs(exp, nodeOfFile, top = 5) {
   for (const [id, m] of agg) out.set(id, [...m].sort((x, y) => y[1] - x[1]).slice(0, top).map(([partner, support]) => ({ partner, support })));
   return out;
 }
-
 // ==================================================================================================
 // 7c-bis. THE CASCADE, AS YGGDRASIL RUNS IT (ticket 114).
 //
@@ -2862,7 +1777,6 @@ export function nodeCochangePairs(exp, nodeOfFile, top = 5) {
 const ancestorNodesOf = (n, nodes) => nodes
   .filter(p => p !== n && p.id !== n.id && n.id.startsWith(p.id + '/'))
   .sort((a, b) => a.id.split('/').length - b.id.split('/').length);
-
 export function effectiveAspectsForNode(n, nodes, aspects) {
   const ancestors = ancestorNodesOf(n, nodes);
   const byId = new Map(aspects.map(a => [a.id, a]));
@@ -2875,7 +1789,6 @@ export function effectiveAspectsForNode(n, nodes, aspects) {
   for (const p of ancestors) for (const a of aspects) if (a.host && a.host === p.type) take(a, inherited, `inherited from type \`${p.type}\`, on ancestor node \`${p.id}\``); // channel 4
   return { own, inherited };
 }
-
 // One rule, one line, in the words the report and the aspect file already use. `status` is the word Yggdrasil's
 // own `yg-aspect.yaml` carries (`yg schemas read aspect`), and the drill numbers are the ones the proposal's
 // report prints for the same rule — so a reader meeting a rule in the charter and again in the report meets one
@@ -2885,7 +1798,6 @@ const charterStatusOf = a => a.finalStatus || 'draft';
 // drill — "caught 0 of 0" reads as a failure and is not one.
 const charterDrillOf = a => (a.drill?.violates ? ` · drill: caught ${a.drill.catches} of ${a.drill.violates} · ${a.drill.falseAlarm} false alarm(s)` : '');
 const charterShareOf = a => (typeof a.share === 'number' ? a.share.toFixed(3) : String(a.share));
-
 export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByNode, asOf, repo }) {
   const L = [`# Charter — \`${n.id}\``, '', ...PREAMBLE.map(l => (l ? `> ${l}` : '>')), ''];
   // THE CHARTER OPENS WITH WHAT THE NODE OBLIGES, NOT WITH HOW IT WAS CUT (ticket 109). `n.why` is the
@@ -2982,7 +1894,6 @@ export function renderNodeCharter(n, { nodes, aspects, sizingByNode, cochangeByN
   L.push('## As of', '', `\`${asOf}\`${repo ? ` — ${repo}` : ''}`, '');
   return L.join('\n');
 }
-
 // ---- drills, cut from the export's own sites ----
 //
 // A drill case is one source FILE under a `satisfies-*` / `violates-*` directory (Yggdrasil's corpus layout).
@@ -3031,8 +1942,6 @@ export function cutDrills(repo, aspect, holdout, cap = 5) {
   }
   return { kept, dropped };
 }
-
-
 function contentMd(c, profile, evidenceLine, whyProse, name) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
@@ -3061,7 +1970,6 @@ function contentMd(c, profile, evidenceLine, whyProse, name) {
   L.push('## Before promoting this out of `draft`', '', 'Decide whether this is a RULE or merely a HABIT. Grain measured that the code does this; it cannot know', 'whether it should. If it is a habit, delete this aspect. If it is a rule, say WHY it is a rule here —', 'that sentence is the part no miner can write.', '');
   return L.join('\n');
 }
-
 function subGateMd(r, statement, evidenceLine, whyProse, absence = false) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
@@ -3089,7 +1997,6 @@ function subGateMd(r, statement, evidenceLine, whyProse, absence = false) {
   }
   return L.join('\n');
 }
-
 // ---- the human-readable documents ----
 function mdTable(head, rows) {
   if (!rows.length) return '_(none)_\n';
@@ -3097,7 +2004,6 @@ function mdTable(head, rows) {
   const line = cells => '| ' + cells.map((c, i) => String(c ?? '').padEnd(w[i])).join(' | ') + ' |';
   return [line(head), '|' + w.map(x => '-'.repeat(x + 2)).join('|') + '|', ...rows.map(line)].join('\n') + '\n';
 }
-
 function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts, typesWithNoLaw = [] }) {
   const L = [];
   const notARuleByReason = counts.aspectsSkippedNotARuleByReason || {};
@@ -3168,7 +2074,6 @@ function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspec
     typesWithNoLaw.length ? mdTable(['type', 'files'], typesWithNoLaw.map(a => [`\`${a.id}\``, a.files.size])) : '', '');
   return L.join('\n') + '\n';
 }
-
 function renderAlternativesMd({ alternatives }) {
   const L = ['# Finer type candidates — your choice, not grain\'s', '', ...PREAMBLE, '', '---', '',
     'Every candidate below is a cut of the same tree the active types cut, at a level this proposal did NOT',
@@ -3206,7 +2111,6 @@ function renderAlternativesMd({ alternatives }) {
   for (const a of alternatives) L.push(`### \`${a.id}\``, '', '```yaml', yamlEmit({ when: a.when }).trimEnd(), '```', '', `Level: ${a.level}. ${a.why}`, '');
   return L.join('\n') + '\n';
 }
-
 function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
   const L = ['# Refactor backlog', '', ...PREAMBLE, '', '---', '',
     'This is not part of the graph. It is the list of places where the repository disagrees with itself, ranked',
@@ -3263,7 +2167,6 @@ function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
     mdTable(['from', 'to', 'share', 'why it is not a deny'], rels.backlog.map(d => [`\`${d.from}\``, `\`${d.to}\``, d.share.toFixed(3), d.whyNot])), '');
   return L.join('\n') + '\n';
 }
-
 // ==================================================================================================
 // 11. The report — what `grain propose` prints, and what `--json` writes.
 //
@@ -3433,3 +2336,37 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   L.push(`next: read ${out}/PROPOSAL.md (per-element evidence: ${out}/proposal.json), then move ${ygg}/ to the repository root as .yggdrasil/ and run \`yg check\``);
   return { lines: L, json };
 }
+
+// ===== the seams already split out of this file =====
+// proposal writer · the admission constants, the Yggdrasil CLI resolution, the file walk and the YAML emitter
+export {
+  SUPERMAJORITY,
+  LAMBDA_BOUND,
+  MIN_SUPPORT,
+  MIN_PROMOTE_FILES,
+  MIN_GROUP_MEMBERS,
+  MIN_WHEN_FIDELITY,
+  MIN_CONVENTION_SITES,
+  FAMILY_MIN_MEMBERS,
+  SUBGATE_PER_PARTITION,
+  resolveYg,
+  progressiveReference,
+  slug,
+  yq,
+  yamlEmit,
+  PREAMBLE,
+} from './propose-base.mjs';
+// proposal writer · candidate localities and the words that describe a level
+export {
+  localities,
+  TYPE_LEVELS,
+  typeEvidence,
+  evidenceContext,
+  levelSentence,
+  contentRegexFor,
+  caseTolerant,
+} from './propose-levels.mjs';
+// proposal writer · node_types — choosing the level a type is cut at
+export { buildTypes } from './propose-types.mjs';
+// proposal writer · relations and the coarse node cut
+export { buildRelations, nodePathFor, typeGlob, nestedProjectRoots, buildNodes } from './propose-nodes.mjs';
