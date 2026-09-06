@@ -33,5 +33,15 @@ Relay the report as it stands — every line already carries a number or a path.
   violate, finer type alternatives) stays on disk and is summarised in one counted line; `--full` prints all of
   it.
 
+The "on disk, not above" line also names why a convention was skipped as not a rule at all — a value that is
+one of the grammar's own node type names rather than anything a developer wrote
+(`parser-node-type-as-identifier`), or one shaped like a generic type parameter (`S`, `V`, `TResult`) that is
+never declared as a real type anywhere this run saw (`generic-type-parameter-as-domain-type`) — and how many
+proposed types host no aspect and take part in no relation ("types with no law", also listed in `PROPOSAL.md`):
+real coverage, but nothing there is a rule yet. A row measured within a role-group cluster narrower than the
+directory it would otherwise enforce, and that cannot be scoped to that cluster exactly, shows up among the
+drafts as `cluster-narrower-than-scope` rather than being enforced against files the measurement never looked
+at.
+
 Do not edit any file, do not move the proposal into `.yggdrasil/`, and do not run `yg check --approve` unless
 the user asks. If the user wants the numbers as data, re-run with `--json <path>`.

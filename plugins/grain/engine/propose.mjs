@@ -49,7 +49,7 @@ import { readGraph, expandWhen, expandMapping, jaccard, intersectSize } from './
 // Read-only: two version constants, the same ones `grain export`'s own `proposal.json`-equivalent
 // (`grain-export/1`) stamps itself with — so a proposal names the engine/extractor build that produced it
 // without this renderer re-deriving or hardcoding either number (ticket 100, "the proposal contract").
-import { ENGINE_VERSION, EXTR_V, HARD_EXCL, MARKER_STEMS_BY_EXT, isLanguageMarkerFile } from './config.mjs';
+import { ENGINE_VERSION, EXTR_V, HARD_EXCL, MARKER_STEMS_BY_EXT, isLanguageMarkerFile, EXT2GRAMMAR, GRAMMAR_DIR } from './config.mjs';
 // Read-only, and only these two: the vocabulary grain ALREADY uses to put a measured value into words — a name
 // shape (`(Ua)+` -> "PascalCase") and a lexical surface (`quote`,`single` -> "quote strings with single
 // quotes"). §7-bis below words a lattice row with them rather than with a private copy, so a proposal and
@@ -1531,6 +1531,13 @@ export function renderableDirection(enumerator, expected, kind, ctxType) {
   return true; // filenameshape and lex: the file itself is the subject either way
 }
 export const WHY_PROSE = {
+  // ticket 120 §class 3: the row was measured within one role-group cluster narrower than the host type's own
+  // directory glob, and neither an explicit path list (the export's own member list for that group is truncated)
+  // nor a shared `content:` predicate (the group offers no marker, name shape or import to draft one from) can
+  // state the cluster's own scope exactly. Rendering a check against the wider glob would enforce a rule beyond
+  // the population it was ever measured on; rendering one against the WRONG narrower guess would be worse. So no
+  // check is rendered at all, and this row cannot be promoted (`draftReason: cluster-narrower-than-scope`).
+  _clusterNarrower: 'the convention was measured within one role-group cluster narrower than the scope a check would enforce, and no exact scope for that cluster (an explicit file list, or a shared `content:` predicate) could be derived from what grain exported about it.',
   _absence: 'the row reports an ABSENCE, not a prohibition. Its class spells "does not use X" with `expected: false`, and its origin is the sub-gate lattice — a band grain has by definition declined to certify — so all the row says is that most things here happen not to use the identifier today. The minority that do are usually the point (the files importing an entity annotation ARE the entities), so read this as a fact about the repository and decide for yourself whether it should become a rule.',
   stshape: 'the convention asserts a STATEMENT SHAPE — a subtree, not a name. There is no identifier to match and no way to phrase it as a tree query that holds across languages.',
   has: 'the convention asserts the PRESENCE OR ABSENCE of a syntactic construct. Rendering it would mean asserting the grammar\'s own vocabulary as a rule.',
@@ -1908,6 +1915,14 @@ export async function propose(repo, outDir, opts = {}) {
   // the documents a human actually reads
   const aspectsByDraftReason = {};
   for (const a of aspects) if (a.draftReason) aspectsByDraftReason[a.draftReason] = (aspectsByDraftReason[a.draftReason] || 0) + 1;
+  // §class 4 (ticket 120): "a type with nothing attached obliges nothing" — a proposed node type that hosts no
+  // aspect (`a.aspectIds`, set by `buildAspects` just above) AND is on neither side of any measured dependency
+  // edge (`rels.pairs`, the same edges `writeArchitecture` turns into the graph's own relations) is real coverage
+  // — the maintainer still needs the node to see the directory at all — but obliges the code inside it to
+  // nothing. Still emitted; only DISCLOSED, in `PROPOSAL.md` and in the report's on-disk line below.
+  const typesInRelations = new Set();
+  for (const k of rels.pairs.keys()) { const [a, b] = k.split('|'); typesInRelations.add(a); typesInRelations.add(b); }
+  const typesWithNoLaw = active.filter(a => (a.aspectIds || []).length === 0 && !typesInRelations.has(a.id));
   const counts = {
     types: active.length, alternatives: alternatives.length, nodes: nodes.length,
     // the cut, by the level each active type was cut at, and the candidates by the level each was offered at
@@ -1924,14 +1939,24 @@ export async function propose(repo, outDir, opts = {}) {
     aspectsDraft: aspects.filter(a => a.finalStatus === 'draft').length,
     aspectsByDraftReason,
     aspectsVerified: verify.verified, aspectsVerifiedAgainst: verify.haveYg ? verify.ygBin : null,
-    aspectsSkippedUnrenderableGroupScoped: skipped.unrenderableGroupScoped, aspectsSkippedNotARule: skipped.notARule, proseByClass: skipped.byClass,
+    aspectsSkippedUnrenderableGroupScoped: skipped.unrenderableGroupScoped, aspectsSkippedNotARule: skipped.notARule,
+    // ticket 120, additive: WHY a row was skipped as not-a-rule (`parser-node-type-as-identifier` |
+    // `generic-type-parameter-as-domain-type`), same shape as `proseByClass` beside it.
+    aspectsSkippedNotARuleByReason: skipped.notARuleByReason, proseByClass: skipped.byClass,
     aspectsAbsenceNotForbiddance: skipped.absence,
+    // ticket 120 §class 3, additive: sub-gate rows measured within a role-group cluster narrower than the scope
+    // a check would enforce, for which no exact scope (an explicit file list or a shared `content:` predicate)
+    // could be derived — these stay `draft`, `draftReason: cluster-narrower-than-scope`, forever unpromotable.
+    aspectsClusterNarrowerThanScope: skipped.clusterNarrowerThanScope,
     drillCases, drillHoldout: opts.holdout || null, drillDropped, nodeCycles: nodeCycles.length,
     latticeRows: lat.rows.length, subGate: sub.length, denies: rels.denies.length, denyBacklog: rels.backlog.length,
     sizingHandNodes: sizing.handNodes ? sizing.handNodes.length : null,
     charters: chartersWritten, charterAvgLines: chartersWritten ? +(charterLines / chartersWritten).toFixed(1) : null,
+    // ticket 120 §class 4, additive: a proposed node type with no aspect attached AND on neither side of any
+    // measured dependency edge — real coverage, but obliges nothing. See `typesWithNoLaw` below for the list.
+    typesWithNoLaw: typesWithNoLaw.length,
   };
-  write(join(outDir, 'PROPOSAL.md'), renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts }));
+  write(join(outDir, 'PROPOSAL.md'), renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts, typesWithNoLaw }));
   write(join(outDir, 'REFACTOR-BACKLOG.md'), renderBacklogMd({ exp, sub, rels, nodeCycles }));
   write(join(outDir, 'alternatives.md'), renderAlternativesMd({ alternatives }));
   // proposal.json — the published, versioned interface (ticket 100, "the proposal contract" in docs/reference.md).
@@ -2117,9 +2142,107 @@ const markerNote = (...groups) => {
   return n ? ` · ${n} language marker file${n === 1 ? '' : 's'} exempted (${names.map(x => `\`${x}\``).join(', ')}) — the language fixes ${names.length === 1 ? 'that name' : 'those names'}, so no naming convention of this repository can apply to ${n === 1 ? 'it' : 'them'}` : '';
 };
 
+// ==================================================================================================
+// IDENTIFIER HYGIENE (ticket 120, `.system/research/sense-iteration.md` §10). Four ways a mined row reads as
+// nonsense however it is worded — caught here, at render time, before it ever becomes an aspect draft.
+//
+// (1) A PARSER NODE TYPE AS THE IDENTIFIER — `call_expression`, `identifier`, `member_expression` appearing as
+// the thing "called"/"imported"/"extended", or (the `has`/`stshape`/`first1`/`ret` families) as the thing the
+// row was ALWAYS going to name, because those families measure the grammar's own vocabulary by construction
+// (core.mjs `auto.has:<node type>`, `auto.first1 = stmts[0].type`, `auto.stshape:<node type>(...)`). Detected
+// from the grammar's OWN `node-types.json` — never a hand list — so the set is exactly what the shipped grammar
+// says a node type is, per language.
+const NODE_TYPE_SETS = new Map(); // grammar name -> Set<node type name>, memoized process-wide (grammars are static)
+const nodeTypeNamesFor = grammarName => {
+  if (NODE_TYPE_SETS.has(grammarName)) return NODE_TYPE_SETS.get(grammarName);
+  const set = new Set();
+  try {
+    const raw = JSON.parse(readFileSync(join(GRAMMAR_DIR, `tree-sitter-${grammarName}.node-types.json`), 'utf8'));
+    for (const entry of raw) {
+      if (entry?.named && entry.type) set.add(entry.type);
+      for (const sub of entry?.subtypes || []) if (sub?.named && sub.type) set.add(sub.type);
+    }
+  } catch { /* grammar not shipped or unreadable — empty set, so it never false-positives */ }
+  NODE_TYPE_SETS.set(grammarName, set);
+  return set;
+};
+// The grammar(s) a set of tracked files is written in, from the SAME extension map `grain export` itself uses
+// to pick a parser (`config.mjs` EXT2GRAMMAR) — not re-derived, not a second copy of the per-language datum.
+const grammarsForFiles = fileIterable => {
+  const gs = new Set();
+  for (const rel of fileIterable) {
+    const m = /\.[A-Za-z0-9]+$/.exec(rel);
+    const g = m && EXT2GRAMMAR[m[0].toLowerCase()];
+    if (g) gs.add(g);
+  }
+  return gs;
+};
+const IDENTIFIER_TOKEN_RE = /[A-Za-z_][A-Za-z0-9_]*/g;
+// A bare identifier (`call_expression`) and a compound structural shape (`statement(assembly_statement(...))`,
+// `stshape`'s own wording) are both caught the same way: every word inside it must be one of the grammar's own
+// node type names, or this is silent. A real identifier a person wrote (`someHelperFunction`, `(Ua)+` name
+// shapes, `3+` arities) tokenizes to words no grammar's node-types.json contains, so it never matches.
+const isParserNodeTypeIdentifier = (identifier, grammars) => {
+  if (!identifier || !grammars || !grammars.size) return false;
+  const toks = String(identifier).match(IDENTIFIER_TOKEN_RE) || [];
+  if (!toks.length) return false;
+  for (const g of grammars) {
+    const set = nodeTypeNamesFor(g);
+    if (toks.every(t => set.has(t))) return true;
+  }
+  return false;
+};
+// The families whose value IS the identifier a class-1 check is about — either the pid's own `:argument` (the
+// colon-suffixed families) or, for the four bare-pid STRUCT_PID families that have no argument slot at all
+// (core.mjs `STRUCT_PID`), the row's established/expected value itself.
+const NODE_TYPE_IDENTIFIER_FAMILIES = new Set(['imp', 'call', 'deco', 'extends', 'has', 'returns', 'ptype', 'stshape', 'first1', 'ret', 'varshape']);
+const identifierUnderTest = (fam, argument, expected) => {
+  if (!NODE_TYPE_IDENTIFIER_FAMILIES.has(fam)) return null;
+  if (argument) return argument;
+  return expected != null && expected !== '' ? String(expected) : null;
+};
+
+// (2) A GENERIC TYPE PARAMETER READ AS A DOMAIN TYPE — `S`, `V`, `T`, `TResult` in a `ptype`/`returns`/`extends`
+// row. core.mjs's own callable-surface walk EXCLUDES `type_parameters` from what it records (`RESULT_EXCLUDE`),
+// and neither `fileSups` nor `fileTypeRefs` is exported at all (`export.mjs` schemaNotes) — so there is no
+// extracted fact this renderer can consult to know a name was DECLARED as a type parameter in scope. Logged as
+// an extractor gap for after ticket 117 (§ below); the honest signal available here instead is conventional
+// FORM (a bare single uppercase letter, or the `T<Word>` shape most languages spell a parameter with) narrowed
+// by the one fact the export corpus DOES carry: whether that exact name is ever declared as a real type
+// (`kind: 'type'`) anywhere in the repository's own scopes. A convention whose subject is never once a real
+// declaration and whose name is shaped like a type parameter is read as one; a repository that genuinely has a
+// class named `T` or `S` keeps its rule, because `declaredTypeNames` below will hold the name.
+const CONVENTIONAL_TYPE_PARAM_RE = /^[A-Z]$|^T[A-Z][A-Za-z0-9]*$/;
+const TYPE_PARAM_FAMILIES = new Set(['ptype', 'returns', 'extends']);
+const looksLikeGenericTypeParam = (fam, identifier, declaredTypeNames) =>
+  TYPE_PARAM_FAMILIES.has(fam) && !!identifier && CONVENTIONAL_TYPE_PARAM_RE.test(identifier) && !declaredTypeNames.has(identifier);
+
 export function buildAspects(exp, active, sub, opts = {}) {
   const out = [];
-  const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, absence: 0, byClass: {} };
+  const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, absence: 0, byClass: {}, notARuleByReason: {}, clusterNarrowerThanScope: 0 };
+  const bumpNotARule = reason => { skipped.notARule++; skipped.notARuleByReason[reason] = (skipped.notARuleByReason[reason] || 0) + 1; };
+  // The grammar(s) a host type's own files are written in, cached per host — computed once per type regardless
+  // of how many rows attach to it (§class 1 above needs it on every certified convention and every sub-gate row).
+  const grammarsByHostId = new Map();
+  const grammarsForHost = host => {
+    if (!host) return new Set();
+    if (!grammarsByHostId.has(host.id)) grammarsByHostId.set(host.id, grammarsForFiles(host.files || []));
+    return grammarsByHostId.get(host.id);
+  };
+  // §class 2's "declared anywhere in the repository's own declarations" census — every name this EXPORT records
+  // as a real type declaration (`kind: 'type'`), drawn from the two places the export schema actually carries
+  // scope names: every certified convention's own sites/exemplars, and every role group's member list. Neither
+  // is a full repo-wide symbol table (the export caps both), but both are real extracted facts, never invented.
+  const declaredTypeNames = new Set();
+  {
+    const addSite = s => { if (s && s.kind === 'type' && s.name) declaredTypeNames.add(s.name); };
+    for (const c of exp.conventions || []) {
+      for (const s of c.conformingSites || []) addSite(s);
+      for (const s of c.deviatingSites || []) addSite(s);
+      for (const s of c.exemplars || []) addSite(s);
+    }
+    for (const p of exp.partitions || []) for (const g of p.groups || []) for (const m of g.members || []) addSite(m);
+  }
   const asOf = (exp.asOf || '').slice(0, 8);
   const reviewBy = ((y) => `${y + 1}-01-15`)(new Date(exp.indexedAt || Date.now()).getUTCFullYear());
   // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH (ticket 119). The first two clauses are the
@@ -2155,9 +2278,49 @@ export function buildAspects(exp, active, sub, opts = {}) {
     return { pred: { per: 'file', files: { path: typeGlob(host) } }, why: `scoped to partition \`${c.partition}\``, glob: typeGlob(host) };
   };
 
+  // §class 3 (ticket 120): a sub-gate row measured within one ROLE-GROUP cluster is judged, by grain's own
+  // measurement, only over that cluster's members — but the scope every sub-gate row was rendered against
+  // (below, before this ticket) was unconditionally the WHOLE host type's directory glob. When the cluster
+  // covers fewer files than that glob selects, the sentence and the check disagree about what was measured.
+  // Fixed here, not by picking a threshold: either the cluster's own scope can be stated EXACTLY — an explicit
+  // path list, when the export's own (200-capped) member list is not itself truncated, or the same shared
+  // `content:` predicate a group-scoped CERTIFIED convention already uses (`scopeFor` above, `contentRegexFor`)
+  // — or it cannot, and `ok: false` tells the caller to ship no check at all rather than an approximate one.
+  // The STATEMENT keeps naming the host's own glob either way (same convention `scopeFor`'s group branch
+  // already follows for certified rows): `which` carries the qualifier a reader needs, the glob stays the
+  // sentence a human recognizes, and the evidence line already discloses the cluster (ticket 109).
+  const clusterScopeFor = (r, host) => {
+    const wholeGlob = typeGlob(host);
+    const whole = { pred: { per: 'file', files: { path: wholeGlob } }, glob: wholeGlob, which: null, ok: true };
+    if (r.role === null) return whole;
+    const g = (partOf(r.partition)?.groups || []).find(x => x.id === 'r' + r.role);
+    if (!g) return whole;
+    const memberRels = [...new Set((g.members || []).map(m => m.rel))].sort();
+    if (!memberRels.length || memberRels.length >= host.files.size) return whole; // the cluster IS the host's population
+    // The export caps a group's own `members` array at 200 even though `size` names the true count (export.mjs);
+    // an explicit list built from a TRUNCATED members array would silently under-scope the rule, which is worse
+    // than not narrowing it at all — so an explicit list is only offered when the export's list is complete.
+    const complete = (g.members || []).length >= Math.min(g.size, 200);
+    if (complete) {
+      const filesPred = memberRels.length === 1 ? { path: memberRels[0] } : { any_of: memberRels.map(p => ({ path: p })) };
+      return { pred: { per: 'file', files: filesPred }, glob: wholeGlob, which: `that belongs to role group \`${g.label || g.id}\``, ok: true };
+    }
+    const cr = contentRegexFor(g);
+    if (cr) return { pred: { per: 'file', files: { all_of: [{ path: wholeGlob }, { content: cr.regex }] } }, glob: wholeGlob, which: cr.sel, ok: true };
+    return { ...whole, ok: false }; // no exact scope on offer — the caller renders no check and stays draft
+  };
+
   // (i) the certified set
   for (const c of exp.conventions || []) {
     if (NOT_A_RULE.has(c.feature.enumerator)) { skipped.notARule++; continue; }
+    // §class 1/2 (ticket 120): an identifier that is the grammar's own vocabulary, or one shaped exactly like a
+    // generic type parameter and never a real declaration in this repository, is not a rule whatever else is
+    // true of it — checked before the floor and before any rendering, on the same identifier `describeRow` and
+    // `renderCheck` would otherwise word into a sentence and a check nobody could obey or nobody should.
+    const host0 = typeForPartition(c.partition);
+    const idUnderTest0 = identifierUnderTest(c.feature.enumerator, c.feature.argument, c.expected);
+    if (isParserNodeTypeIdentifier(idUnderTest0, grammarsForHost(host0))) { bumpNotARule('parser-node-type-as-identifier'); continue; }
+    if (looksLikeGenericTypeParam(c.feature.enumerator, idUnderTest0, declaredTypeNames)) { bumpNotARule('generic-type-parameter-as-domain-type'); continue; }
     // The names the language fixes leave the population BEFORE the floor is applied, so a convention that only
     // clears `MIN_CONVENTION_SITES` on the strength of files it may not govern does not clear it at all.
     const conf = exemptMarkers(c.feature.enumerator, c.conformingSites || []);
@@ -2165,7 +2328,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const exemptedConf = (c.conformingSites || []).length - conf.kept.length;
     const n = Math.max(0, (c.established || 0) - exemptedConf);
     if (n < MIN_CONVENTION_SITES) continue;
-    const host = typeForPartition(c.partition);
+    const host = host0;
     const scope = scopeFor(c, host);
     if (!scope) { skipped.unrenderableGroupScoped++; continue; }
     const dev = devi.kept.length;
@@ -2241,6 +2404,10 @@ export function buildAspects(exp, active, sub, opts = {}) {
     if (!fam || NOT_A_RULE.has(fam)) continue;
     const host = typeForPartition(r.partition);
     if (!host) continue;
+    // §class 1/2 (ticket 120) — same identifiers, same tests, as the certified branch above.
+    const idUnderTest = identifierUnderTest(fam, identifierOf(r.pid), r.exp);
+    if (isParserNodeTypeIdentifier(idUnderTest, grammarsForHost(host))) { bumpNotARule('parser-node-type-as-identifier'); continue; }
+    if (looksLikeGenericTypeParam(fam, idUnderTest, declaredTypeNames)) { bumpNotARule('generic-type-parameter-as-domain-type'); continue; }
     const id = `grain/${slug(r.partition)}/candidate-${slug(r.pid)}`.slice(0, 120);
     if (out.some(o => o.id === id)) continue;
     seen.push(id);
@@ -2249,7 +2416,11 @@ export function buildAspects(exp, active, sub, opts = {}) {
     // `Slim/Routing/**` — the WHOLE directory. A sentence that names a narrower subject than the check
     // enforces is a sentence a future session is right to argue with. The cluster is where grain MEASURED the
     // row and it says so in the evidence; the rule speaks about the scope it is actually judged over.
-    const glob = typeGlob(host);
+    // §class 3 (ticket 120): the scope actually ENFORCED is now narrowed to the cluster's own files wherever
+    // that can be said exactly (`cScope.ok`) — `glob` stays the host's own glob for the sentence, matching the
+    // certified group-scoped convention's own wording convention above.
+    const cScope = clusterScopeFor(r, host);
+    const glob = cScope.glob;
     const devi = exemptMarkers(fam, r.deviants);
     const deviants = devi.kept;
     const markers = markerNote({ names: devi.names, exempted: r.deviants.length - deviants.length });
@@ -2263,15 +2434,24 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const absence = isAbsenceRow(r);
     const statement = absence
       ? `${r.ne} of ${r.ne + deviants.length} ${unitOne(r.kind)}s under \`${glob}\` do not ${describeRow(r.pid, r.exp)} — an absence, not a rule.`
-      : obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob });
+      : obligationSentence({ unit: unitOne(r.kind), phrase: describeRow(r.pid, r.exp), prohibited: r.exp === 'false', where: glob, which: cScope.which });
     const provenance = `share ${r.share.toFixed(3)} · practised in ${r.ne} of ${r.ne + deviants.length} ${r.kind}s · ${deviants.length} sites do not · ${r.bits.toFixed(1)} bits · BELOW grain's certification bound (${LAMBDA_BOUND}) and above the repository's own two-thirds supermajority · asOf ${asOf}`;
-    const evidenceLine = `${holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}${labelHostingNote(host, r.partition)}${markers}`;
-    const check = !absence && renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
+    const evidenceLine = `${holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`)} — a rule with a backlog, not a clean record · applies to ${scopeInWords(glob, cScope.which)} · below grain's own certification bound (${LAMBDA_BOUND}), above the repository's own two-thirds supermajority, so grain proposes it and does not assert it · share ${r.share.toFixed(3)} · ${r.bits.toFixed(1)} bits · measured ${r.role !== null ? `within one role cluster (r${r.role}) of` : 'over'} \`${r.partition}\` at ${asOf}${labelHostingNote(host, r.partition)}${markers}`;
+    // §class 3: `cScope.ok === false` means no exact scope for the cluster could be stated — no check is ever
+    // rendered for such a row, whatever the family would otherwise support, so nothing can later promote it.
+    const check = !absence && cScope.ok && renderableDirection(fam, r.exp, r.kind, r.role !== null ? 'group' : 'partition')
       ? renderCheck({ enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind, provenance: `${statement}\n${provenance}` })
       : null;
-    const proseReason2 = check ? null : absence ? WHY_PROSE._absence : (BOOLEAN_CLASS.has(fam) || fam === 'nameshape' ? WHY_PROSE._scopeMismatch : (WHY_PROSE[fam] || `no template renders the \`${fam}\` class`));
+    const proseReason2 = check
+      ? null
+      : !cScope.ok
+        ? WHY_PROSE._clusterNarrower
+        : absence
+          ? WHY_PROSE._absence
+          : (BOOLEAN_CLASS.has(fam) || fam === 'nameshape' ? WHY_PROSE._scopeMismatch : (WHY_PROSE[fam] || `no template renders the \`${fam}\` class`));
     if (!check) {
-      if (absence) skipped.absence++;
+      if (!cScope.ok) skipped.clusterNarrowerThanScope++;
+      else if (absence) skipped.absence++;
       else { skipped.prose++; skipped.byClass[fam] = (skipped.byClass[fam] || 0) + 1; }
     }
     out.push({
@@ -2279,7 +2459,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
       // See the certified-convention branch above (ticket 106) — same fix, same reason.
       name: statement, holds: holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`),
       description: `${statement} It already ${holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`)}.`,
-      scope: { per: 'file', files: { path: glob } }, check,
+      scope: cScope.pred, check,
       whyProse: proseReason2,
       content: check ? null : subGateMd({ ...r, deviants }, statement, evidenceLine, proseReason2, absence),
       drills: { satisfies: [], violates: deviants.map(d => ({ rel: d.split('#')[0], name: d.split('#')[1] })) },
@@ -2292,6 +2472,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
       // Pre-set, and `promoteEnforceableAspects` keeps whatever reason an aspect already carries: verification
       // is where a status is EARNED, and this row is not eligible to earn one at all.
       ...(absence ? { direction: 'absence', draftReason: 'absence-not-forbiddance' } : {}),
+      ...(!absence && !cScope.ok ? { draftReason: 'cluster-narrower-than-scope' } : {}),
     });
   }
 
@@ -2917,15 +3098,18 @@ function mdTable(head, rows) {
   return [line(head), '|' + w.map(x => '-'.repeat(x + 2)).join('|') + '|', ...rows.map(line)].join('\n') + '\n';
 }
 
-function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts }) {
+function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts, typesWithNoLaw = [] }) {
   const L = [];
+  const notARuleByReason = counts.aspectsSkippedNotARuleByReason || {};
   L.push('# Proposed `.yggdrasil/` graph', '', ...PREAMBLE, '', '---', '',
     `Repository: \`${repo}\` at \`${(exp.asOf || '').slice(0, 8)}\` · ${files.length} tracked files · grain: ${(exp.partitions || []).length} partitions, ${(exp.moduleGraph?.nodes || []).length} modules, ${(exp.conventions || []).length} certified conventions, ${(exp.edges || []).length} resolved imports.`, '',
     `Proposed: **${active.length} node types**, **${nodes.length} nodes**, **${aspects.length} aspect drafts** (${counts.aspectsRenderedAsCheck} rendered as a deterministic \`check.mjs\`, ${counts.aspectsProse} as prose), **${counts.drillCases} drill cases**, **${alternatives.length} finer type alternatives** you choose between (see \`alternatives.md\`), and a refactor backlog (\`REFACTOR-BACKLOG.md\`).`, '',
     '## What this proposal does NOT contain, counted', '',
     mdTable(['left out', 'count', 'why'], [
       ['group-scoped conventions with no marker', counts.aspectsSkippedUnrenderableGroupScoped, 'the rule holds inside a role group, and the group offers no marker, name shape or shared import to turn into a `content:` predicate. There is no honest way to say WHERE the rule applies, so it is disclosed rather than approximated.'],
-      ['history facts that are not rules', counts.aspectsSkippedNotARule, '`filebirth` says "the code here is new". That is a fact about the repository, not about how a file should be written.'],
+      ['history facts that are not rules', notARuleByReason.filebirth || (counts.aspectsSkippedNotARule - Object.values(notARuleByReason).reduce((a, b) => a + b, 0)) || 0, '`filebirth` says "the code here is new". That is a fact about the repository, not about how a file should be written.'],
+      ['a parser node type as the identifier', notARuleByReason['parser-node-type-as-identifier'] || 0, 'the value mined is one of the grammar\'s own node type names (`call_expression`, `identifier`, …) — true, checkable, and not anything a developer wrote, so no agent could obey it.'],
+      ['a generic type parameter as a domain type', notARuleByReason['generic-type-parameter-as-domain-type'] || 0, 'the value looks like a type parameter (`S`, `V`, `TResult`) and is never declared as a real type anywhere in the repository this export saw — obeyable, but not a rule about the domain.'],
       ['rules about an ABSENCE', 'unknowable', 'a miner of practice leaves no trace of what a repository never does. These must be written by hand.'],
     ]), '',
     `Of the ${aspects.length} drafted, ${counts.aspectsProse} could not be rendered as a check because the convention asserts a SHAPE rather than a name` + (Object.keys(counts.proseByClass || {}).length ? ` — by class: ${Object.entries(counts.proseByClass).sort((a, b) => b[1] - a[1]).map(([k, v]) => `\`${k}\` ${v}`).join(', ')}` : '') + '. Each such aspect says so in its own `content.md`.', '',
@@ -2973,6 +3157,15 @@ function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspec
     'that contradicts the code.', '',
     mdTable(['from', 'to', 'share', 'became', 'why'],
       [...rels.denies, ...rels.backlog].map(d => [`\`${d.from}\``, `\`${d.to}\``, d.share.toFixed(3), d.becomes, d.whyNot || 'nothing observed contradicts it'])), '');
+  // §class 4 (ticket 120): a proposed type that hosts no aspect and is on neither side of any measured
+  // dependency edge obliges nothing — still emitted, since the maintainer needs the node to see the directory
+  // at all (coverage), but it is not law, and a reader of the graph alone cannot tell that from a type that
+  // simply has not been reviewed yet. Named here so they can.
+  L.push('## Types with no law', '',
+    typesWithNoLaw.length
+      ? 'These node types carry no aspect draft and appear on neither side of any measured dependency edge. They are still emitted — the directory needs a node to be reviewable at all — but nothing here obliges the code inside it to anything.'
+      : 'Every proposed type either hosts an aspect draft or takes part in a measured dependency edge — none is law-free.', '',
+    typesWithNoLaw.length ? mdTable(['type', 'files'], typesWithNoLaw.map(a => [`\`${a.id}\``, a.files.size])) : '', '');
   return L.join('\n') + '\n';
 }
 
@@ -3173,7 +3366,13 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     candidates: candidates.map(aspectJson),
     alternatives: c.alternatives,
     skippedNotARule: c.aspectsSkippedNotARule,
+    // ticket 120, additive: WHY (`parser-node-type-as-identifier` | `generic-type-parameter-as-domain-type` |
+    // absent for the pre-existing `filebirth` case), and the two other identifier-hygiene disclosures — a
+    // narrower-than-scope cluster that stayed draft, and a proposed type with no aspect and no relation.
+    skippedNotARuleByReason: c.aspectsSkippedNotARuleByReason || {},
     skippedUnrenderableGroupScoped: c.aspectsSkippedUnrenderableGroupScoped,
+    clusterNarrowerThanScope: c.aspectsClusterNarrowerThanScope || 0,
+    typesWithNoLaw: c.typesWithNoLaw || 0,
     paths: { proposal: `${out}/PROPOSAL.md`, evidence: `${out}/proposal.json`, backlog: `${out}/REFACTOR-BACKLOG.md`, alternatives: `${out}/alternatives.md`, sizing: `${out}/sizing.json`, graph: `${ygg}/` },
     ...(full ? { restAspects: rest.map(aspectJson) } : {}),
   };
@@ -3213,7 +3412,13 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     }
   }
   const byReason = Object.entries(restByReason).sort().map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
-  L.push(`on disk, not above: ${rest.length} more draft(s) (${byReason}) · ${c.alternatives} finer type alternative(s) · ${c.aspectsSkippedNotARule} convention(s) skipped as not a rule — ${out}/PROPOSAL.md`);
+  // ticket 120, additive: the "skipped as not a rule" count now names WHY, whenever a reason is known — the
+  // pre-existing `filebirth` case (no reason recorded) still folds into the bare number so the total agrees.
+  const notARuleByReason = c.aspectsSkippedNotARuleByReason || {};
+  const notARulePhrase = Object.keys(notARuleByReason).length
+    ? `${c.aspectsSkippedNotARule} convention(s) skipped as not a rule (${Object.entries(notARuleByReason).sort().map(([k, v]) => `${v} ${k}`).join(', ')})`
+    : `${c.aspectsSkippedNotARule} convention(s) skipped as not a rule`;
+  L.push(`on disk, not above: ${rest.length} more draft(s) (${byReason}) · ${c.alternatives} finer type alternative(s) · ${notARulePhrase} · ${c.typesWithNoLaw || 0} type(s) with no law attached (no aspect, no relation) — ${out}/PROPOSAL.md`);
   if (full) {
     L.push(`== the remaining ${rest.length} draft(s), by why each is one ==`);
     for (const reason of [...new Set(rest.map(a => a.draftReason || 'unverified'))].sort()) {
