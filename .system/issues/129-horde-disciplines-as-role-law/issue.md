@@ -1,6 +1,6 @@
 # 129 · Horde: disciplines modelled on Superpowers as role law rendered into briefs; drills that assert `.horde/` state; production as the corpus
 
-**Status:** OPEN
+**Status:** LANDED — merged 286e437 on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push

@@ -977,9 +977,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/129-disciplines",
-      "state": "running",
-      "note": "Horde worktree",
-      "updated": "2026-09-06 15:24"
+      "state": "merged",
+      "note": "437/437 on merged tree; five disciplines rendered as Law, drill.mjs list/check/run/record with violates/satisfies corpus, attribution",
+      "updated": "2026-09-06 16:24",
+      "sha": "286e437"
     }
   ]
 }
