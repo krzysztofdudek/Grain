@@ -794,10 +794,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/117-control-bytes",
-      "state": "running",
-      "updated": "2026-09-06 04:45",
-      "sha": "c8ce4cc",
-      "note": "premerge READY (2335/2335); 5 SOH bytes escaped, C0 guard test, run-corpus 21 tests, vendor 5/5 browser-only dead code; core.mjs size left (oracle refusals 12→8)"
+      "state": "merged",
+      "updated": "2026-09-06 08:34",
+      "sha": "195c584",
+      "note": "premerge READY (2394/2398, 4 skipped); core.mjs 573k → 29 modules ≤50k, 0 cycles, 23/23 artefacts byte-identical per stage; oracle: four ownership-sized engine nodes, type-strict-orphan 29→0; file-size-budget refusals 3→2 (grain.mjs, propose.mjs → 124); brittle 'yaml' assertion tightened by director"
     },
     {
       "id": 74,
