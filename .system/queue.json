@@ -885,6 +885,27 @@
       "updated": "2026-09-06 09:39",
       "sha": "31fc785",
       "note": "premerge READY (2405/2409, 4 skipped); tparams fact from grammar node-types across 7 grammars, EXTR_V g34, MODEL_V untouched (measured); Yggdrasil 6/3789 ptype, 2/2846 returns name a type parameter; propose.mjs follow-up logged for after 124"
+    },
+    {
+      "id": 82,
+      "ticket": "124",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/124-propose-grain-split",
+      "state": "merged",
+      "updated": "2026-09-06 12:01",
+      "sha": "427a136",
+      "note": "premerge READY (2406/2410, 4 skipped); propose.mjs 265k→7k façade + 16 modules, grain.mjs 160k→41k dispatcher + 9 modules, 0 cycles (62 files/291 edges), 2474 artefacts byte-identical per stage, file-size-budget 2→0, KNOWN_OVER empty and guarded"
+    },
+    {
+      "id": 83,
+      "ticket": "123",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/123-adopt-handshake",
+      "state": "running",
+      "note": "next line → yg adopt; oracle file-size-budget enforced + prompt ceiling 300k; 125 follow-up in classify",
+      "updated": "2026-09-06 12:01"
     }
   ]
 }
