@@ -1133,9 +1133,9 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/142",
-      "state": "running",
-      "note": "wave C, Horde worktree",
-      "updated": "2026-09-06 21:00"
+      "state": "merged",
+      "note": "557/557; family walk 19 s on real builds; fixed wave.mjs lastWaveSpan (audit after close invisible to done); Grain CLI is plugins/grain/bin/grain.mjs, not engine/grain.mjs",
+      "updated": "2026-09-06 21:43"
     }
   ]
 }
