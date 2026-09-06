@@ -873,6 +873,17 @@
       "note": "premerge READY (2391/2395, 4 skipped); 287 nonsense rows dropped across 4 repos (grain 195, Yggdrasil 51, express 37, petclinic 4); node-type sets from grammar files; extractor gap for type parameters logged for after 117",
       "updated": "2026-09-06 06:19",
       "sha": "0ff0a64"
+    },
+    {
+      "id": 81,
+      "ticket": "125",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/125-type-parameter-fact",
+      "state": "merged",
+      "updated": "2026-09-06 09:39",
+      "sha": "31fc785",
+      "note": "premerge READY (2405/2409, 4 skipped); tparams fact from grammar node-types across 7 grammars, EXTR_V g34, MODEL_V untouched (measured); Yggdrasil 6/3789 ptype, 2/2846 returns name a type parameter; propose.mjs follow-up logged for after 124"
     }
   ]
 }
