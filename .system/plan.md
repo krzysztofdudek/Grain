@@ -5143,3 +5143,4 @@ note: Scalone: 105, 108 (3 ślepe wyrocznie + pomiar), 109, 110, 111, 112, 113, 
 
 # Fala Fala 10 — prawo dociera do wykonawcy — start 2026-09-06
 - 2026-09-06 Użytkownik: eksperymenty na feature branchach we wszystkich trzech repo (Grain, Yggdrasil, Horde), push feature brancha. Cel fali: szwy z 112 — akceptacja grafu, reguły do wykonawcy, yg check w bramce Hordy; plus 117 core.mjs i 120.
+- 2026-09-06 122 Horde wylądowało na feature branchu (c226f73): prawo grafu dociera do node.mjs show (13 reguł ze statusami tam, gdzie próba fabryki widziała 0), czerwony graf = czerwona bramka premerge. Uwaga: yg context --json istnieje już w 5.8.0 — 121 item 1 do weryfikacji przez pracownika Yggdrasil.

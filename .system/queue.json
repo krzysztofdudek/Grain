@@ -848,9 +848,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "running",
-      "note": "repo Horde, feature branch, skill self-contained",
-      "updated": "2026-09-06 04:45"
+      "state": "landed",
+      "note": "Horde feature branch claude/grain-agent-tool-b89y0x pushed (7 commits): yg check in premerge gate, node.mjs show Rules block (yg context --node --json, file-reader fallback), testGlobs never silent, config set arrays, gates for 7 ecosystems, horde charter edit, one write per merge; petclinic re-run: premerge ✗ graph over green mvn gate, show lists 13 rules with statuses; 328/328",
+      "updated": "2026-09-06 05:46",
+      "sha": "c226f73"
     },
     {
       "id": 79,
