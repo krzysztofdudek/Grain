@@ -6,9 +6,9 @@ for the reasons in the second half of this page, then resumed on 2026-09-05 unde
 for a repository that has none, for a maintainer adopting [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil),
 not for an agent mid-edit. The section below is that objective's complete record, 093–107, every negative kept in.
 The section after it is the earlier record, kept because the agent-facing surface it measured still exists and
-still works — it is the second story now, not the first. The build itself did not change (still 0.3.0 — the
-internal research documents under `.system/research/` were written against that same build, and nothing in them was
-edited to match a release).
+still works — it is the second story now, not the first. The 093–107 measurements were made on the 0.3.0 build and the wave-9 ones
+(108–119) on the code that became 0.4.0 — the internal research documents under `.system/research/` name the exact
+commit each ran against, and nothing in them was edited to match a release.
 
 ## Brownfield-miner results (093–107), the current objective
 

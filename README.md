@@ -377,10 +377,10 @@ contracts.
 
 ## Status
 
-0.3.0. The interfaces are stable — the export schema established at 0.1.0 is unbroken, and every new convention
+0.4.0. The interfaces are stable — the export schema established at 0.1.0 is unbroken, and every new convention
 family added since flows through the same generic per-fact serialization, never a hand-listed schema addition — but
 the objective changed under it: `grain propose` and the brownfield-miner numbers in this file are new since
-2026-09-05, measured on top of the same 0.3.0 build. The agent-facing surface (`where`, `check`, `how`, the hooks)
+2026-09-05; 0.4.0 is the first build that ships them (`grain propose`, the proposal contract, the type levels, the JVM source-root relations). The agent-facing surface (`where`, `check`, `how`, the hooks)
 is the earlier objective, unchanged in behaviour, kept because it still works and nothing here has replaced it.
 
 ## The Yggdrasil family
