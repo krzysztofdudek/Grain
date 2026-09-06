@@ -1102,9 +1102,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "running",
-      "note": "Yggdrasil worker, after 147",
-      "updated": "2026-09-06 19:51"
+      "state": "merged",
+      "note": "yg advise import + --json (yg-advise/1), imported items ranked below the graph's own, provenance kept, idempotent; tests on the real grain advise document",
+      "updated": "2026-09-06 21:43",
+      "sha": "49ea51da"
     },
     {
       "id": 103,
@@ -1135,6 +1136,16 @@
       "branch": "horde/142",
       "state": "merged",
       "note": "557/557; family walk 19 s on real builds; fixed wave.mjs lastWaveSpan (audit after close invisible to done); Grain CLI is plugins/grain/bin/grain.mjs, not engine/grain.mjs",
+      "updated": "2026-09-06 21:43"
+    },
+    {
+      "id": 106,
+      "ticket": "145",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "running",
+      "note": "Yggdrasil worker, after 144",
       "updated": "2026-09-06 21:43"
     }
   ]
