@@ -45,7 +45,10 @@ short on purpose, and every line of it carries a number or a path:
 
 Everything else it drafted — the judgement calls, the rules nothing can be shown to violate, the finer cuts it
 did not take — stays on disk and is summarised in one counted line. `--full` prints all of it. The proposal is a
-proposal: a human reads it and moves it in.
+proposal: a human reads it and decides. Its last line names the actual acceptance — `yg adopt <out-dir>
+--dry-run` to preview, `yg adopt <out-dir>` to accept — and when a Yggdrasil CLI is on hand, `grain propose`
+runs that dry run itself and prints the preview right there: how many sites in your own code the new rules
+already refuse today, before you decide anything.
 
 ## What it can deduce, and what it can't
 

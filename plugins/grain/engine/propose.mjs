@@ -14,7 +14,8 @@
 // THREE RULES THIS MODULE OBEYS.
 //
 //   1. NEVER write into the repository's own `.yggdrasil/`. Everything lands under `<out-dir>/.yggdrasil/`, a
-//      directory the maintainer reads, edits and moves in by hand. The repository is untouched but for one
+//      directory the maintainer reads and edits, then accepts with `yg adopt <out-dir>` (ticket 123) rather
+//      than moving by hand. The repository is untouched but for one
 //      thing, named here rather than glossed over: the export this module spawns for itself is written to
 //      `.grain/cache/`, the disposable half of grain's own store, which `.grain/.gitignore` already ignores —
 //      so a run leaves the working tree clean, and nothing it wrote can be committed by accident.
