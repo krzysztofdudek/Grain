@@ -1065,9 +1065,20 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/138-audit-spc",
-      "state": "running",
-      "note": "Horde worktree, wave B tail; quality index via yg on a graph fixture",
-      "updated": "2026-09-06 17:14"
+      "state": "merged",
+      "note": "540/540; audit.json with adaptive rate + Wilson CI, escalate recurring → rule proposal, decisions per merged ticket, parallelism/keys transferred, quality index (text-parsed: 147 gives it yg check --json)",
+      "updated": "2026-09-06 18:06",
+      "sha": "94c4328"
+    },
+    {
+      "id": 100,
+      "ticket": "147",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "queued",
+      "note": "Yggdrasil worker, after 133, before 144",
+      "updated": "2026-09-06 18:06"
     }
   ]
 }

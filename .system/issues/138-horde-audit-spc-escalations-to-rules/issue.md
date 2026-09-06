@@ -1,6 +1,6 @@
 # 138 · Horde: audit as sampling with an adaptive rate and a published refutation rate; recurring rulings become rule proposals; decisions per merged ticket; quality index at wave close
 
-**Status:** OPEN
+**Status:** LANDED — merged 94c4328
 **Found by:** director, 2026-09-06
 **Severity:** medium
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
