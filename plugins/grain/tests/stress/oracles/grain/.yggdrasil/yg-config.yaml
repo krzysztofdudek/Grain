@@ -31,14 +31,15 @@ reviewer:
       # at their own reviewer through a gitignored yg-secrets.yaml without invalidating a baseline.
       provider: claude-code
       consensus: 1
-      # Deliberately far above the 50 000 default. A prose rule is assembled over a whole NODE, so this
-      # ceiling is set by the largest node, not the largest file. It was 572 KB when the mining core
-      # was one file; since the ticket-117 split the largest node is the query implementations at
-      # roughly 265 000 characters, so the number is now loose rather than binding. It is left where it
-      # is on purpose — moving a check parameter is the maintainer's call, not a refactor's side
-      # effect — and `engine/file-size-budget` remains the standing request that ends with this line
-      # going away entirely.
-      max_prompt_chars: 600000
+      # Above the 50 000 default. A prose rule is assembled over a whole NODE, so this ceiling is set by
+      # the largest node, not the largest file. It was 572 KB when the mining core was one file, and
+      # 600 000 from the ticket-117/124 splits, both set by files that no longer exist. Ticket 123
+      # measured the actual assembled prompt for every node carrying a prose aspect (README.md, dated
+      # note): the largest today is `plugin/engine/mining` at 279 770 characters. 300 000 is the
+      # smallest round ceiling above that, with headroom (~7%) rather than a number pinned to the exact
+      # measurement — moving it further is the maintainer's call, made with a fresh measurement, not a
+      # refactor's side effect.
+      max_prompt_chars: 300000
       config:
         model: sonnet
         temperature: 0
