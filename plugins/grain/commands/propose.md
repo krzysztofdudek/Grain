@@ -1,5 +1,5 @@
 ---
-description: Mine a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository — nodes, relations and rules with evidence — into a staging directory for a human to review and move in
+description: Mine a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository — nodes, relations and rules with evidence — into a staging directory for a human to accept with `yg adopt`
 argument-hint: [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>]
 allowed-tools: Bash(node:*)
 ---
@@ -9,9 +9,11 @@ allowed-tools: Bash(node:*)
 
 The run above wrote a **proposal**, never a graph: everything lands in `<out-dir>` (default
 `.yggdrasil-proposal/`, self-ignoring so it can never be committed by accident) and the repository's own
-`.yggdrasil/` is never touched. Moving it in is the human's decision.
+`.yggdrasil/` is never touched. Accepting it is `yg adopt`'s job (`yg adopt <out-dir> --dry-run` previews it,
+`yg adopt <out-dir>` installs it) and the human's decision, never something to run unasked.
 
-Relay the report as it stands — every line already carries a number or a path. Its three parts:
+Relay the report as it stands — every line through `next:` already carries a number or a path. Its three
+parts, then the handshake:
 
 - **architecture** — node types, nodes, relations and dependency cycles. This is the part that loads; a cycle
   count above zero is declared on purpose, and `REFACTOR-BACKLOG.md` lists them. The node-type count is broken
@@ -32,16 +34,23 @@ Relay the report as it stands — every line already carries a number or a path.
   held back anyway. Strongest evidence first within each group. Everything else (prose rules, rules nothing can
   violate, finer type alternatives) stays on disk and is summarised in one counted line; `--full` prints all of
   it.
+- **the handshake** — the `next:` line names the real transaction: `yg adopt <out-dir> --dry-run` to preview,
+  `yg adopt <out-dir>` to accept. When a Yggdrasil CLI resolved, everything printed after `next:` is Yggdrasil's
+  own dry-run summary, verbatim — components, rules by status, and **"Already broken N sites"**, the cost of
+  accepting today. Relay that block as-is too; it is not grain's prose to paraphrase. When no CLI resolved, the
+  line there instead says what `yg adopt` would report once one does.
 
 The "on disk, not above" line also names why a convention was skipped as not a rule at all — a value that is
 one of the grammar's own node type names rather than anything a developer wrote
-(`parser-node-type-as-identifier`), or one shaped like a generic type parameter (`S`, `V`, `TResult`) that is
-never declared as a real type anywhere this run saw (`generic-type-parameter-as-domain-type`) — and how many
+(`parser-node-type-as-identifier`), or one that IS a real declared type parameter of the site it was measured
+on — not a domain type at all (`generic-type-parameter-as-domain-type`) — and how many
 proposed types host no aspect and take part in no relation ("types with no law", also listed in `PROPOSAL.md`):
 real coverage, but nothing there is a rule yet. A row measured within a role-group cluster narrower than the
 directory it would otherwise enforce, and that cannot be scoped to that cluster exactly, shows up among the
 drafts as `cluster-narrower-than-scope` rather than being enforced against files the measurement never looked
 at.
 
-Do not edit any file, do not move the proposal into `.yggdrasil/`, and do not run `yg check --approve` unless
-the user asks. If the user wants the numbers as data, re-run with `--json <path>`.
+Do not edit any file, do not run `yg adopt` (dry-run or real) or `yg check --approve` yourself, unless the user
+asks — the run above may already have shown a real `yg adopt --dry-run` preview, which is read-only and writes
+nothing, but accepting a proposal for real is the user's decision alone. If the user wants the numbers as data,
+re-run with `--json <path>`.

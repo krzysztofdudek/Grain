@@ -38,6 +38,22 @@ Dispatcher` nodes map seventeen and ten files instead of one. The node count did
 two is still one owner, one charter, one context. No aspect, no rule, no threshold and no verdict moved —
 except that `engine/file-size-budget` now refuses nothing at all, and its description says so.
 
+**2026-09-06 — ticket 123: `engine/file-size-budget` promoted, `max_prompt_chars` measured down.** With
+the debt 117/124 paid and `engine/file-size-budget` costing nothing to satisfy, its `status` moved
+`advisory` → `enforced` — nothing else about the rule changed, and a staged `yg check --approve
+--only-deterministic` before and after is byte-identical output. Separately, `reviewer.tiers.standard.
+max_prompt_chars` (600 000, set by a 572 KB file that no longer exists) was re-measured against the
+CURRENT graph: `buildPairPrompt`'s own assembly (`source/cli/src/llm/prompt.ts`), replicated exactly
+over every node carrying a prose aspect and its real mapped files, gives 279 770 characters for
+`plugin/engine/mining` + `engine/no-language-name-lists` — the largest of the nine (node, aspect) pairs
+measured, ahead of `plugin/engine/queries` (274 928) and `plugin/engine/model` (64 814); `plugin/dispatch`
+(166 656 bytes of source across its ten files) cannot beat either. `max_prompt_chars` is set to 300 000 —
+the smallest round ceiling above the measurement, not the measurement itself, so an ordinary file edit
+does not require re-touching this config. (A staged `yg check --approve` was tried first to read the
+figure back off a real fill's recorded `promptChars`; it aborted before any reviewer call — a pre-existing
+`repo/docs` deterministic refusal unrelated to this ticket — which is why the number here comes from
+reproducing the assembly function directly instead.)
+
 **Every number below, and every number in the 108 measurement, was produced against the graph as of
 `3d249bf`** — before these updates. They stay attributable to that graph; a re-measurement against the
 updated one has not been run.
@@ -86,7 +102,7 @@ about command reachability. Both informed rules below. Neither came from the min
 | Ports | **1** — `constants` on the constant table, carrying one rule to all nine of its consumers |
 | Flows | 0 |
 | Aspects | **30** — 22 deterministic (`check.mjs`), 8 prose (`content.md`) |
-| Aspect status | 22 enforced · 7 advisory · 1 draft |
+| Aspect status | 23 enforced · 6 advisory · 1 draft |
 | Drills | 11 aspects ship a `drills/` corpus, 30 cases in total — 30 pass, 0 miss, 0 false alarm |
 | Dependency cycles | **0** in the product, by construction and confirmed by the structural-cycle validator |
 
@@ -126,7 +142,7 @@ Deterministic (22) — free, keyless, and what a push could gate on today:
 | `engine/no-subprocess-in-analysis-layer` | enforced | under | yes |
 | `engine/constants-only-in-config` | enforced | under | yes |
 | `engine/no-test-or-instrument-import` | enforced | under | yes |
-| `engine/file-size-budget` | **advisory** | exact | **no — 3 modules over** |
+| `engine/file-size-budget` | enforced | exact | yes (since 124; promoted 123) |
 | `source/no-raw-control-bytes` | **advisory** | under | **no — 3 files** |
 | `vendor/generated-banner` | enforced | under | yes |
 | `vendor/network-calls-are-browser-only` | **advisory** | over | 5 sites, all browser-only |

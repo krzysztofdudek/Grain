@@ -2,7 +2,7 @@
 // attribute chain (`class Foo(pkg.sub.Type):`) recorded ONE supertype claim PER NESTING LEVEL — `pkg`,
 // `pkg.sub`, AND `pkg.sub.Type` — instead of collapsing to the single real base, `Type`. Confirmed on flask/
 // flask (tests/test_views.py:201): `class BaseView(flask.views.MethodView):` alone produced claims against
-// `flask`, `flask.views`, AND `flask.views.MethodView`, none of which match `declaredTypeNames` or
+// `flask`, `flask.views`, AND `flask.views.MethodView`, none of which match a real declared type or
 // `importTargets` — even though the bare `MethodView` would resolve correctly. Heritage-claim fabrication
 // rate on flask: 78/158 = 49.4%, all of this shape.
 //
@@ -51,8 +51,8 @@ test('§082: `class Foo(pkg.sub.Type)` records exactly ONE supertype, the resolv
 
 test('§082: the flask shape — `class BaseView(flask.views.MethodView)` — records only `MethodView`', async () => {
   // The exact reported reproduction (tests/test_views.py:201 in flask/flask), reduced to a standalone fixture:
-  // a locally-declared MethodView so the correctly-resolved leaf is also independently checkable against
-  // declaredTypeNames — the fabricated versions (`flask`, `flask.views`, `flask.views.MethodView`) never are.
+  // a locally-declared MethodView so the correctly-resolved leaf is also independently checkable as a real
+  // declared type — the fabricated versions (`flask`, `flask.views`, `flask.views.MethodView`) never are.
   const scopes = await typeScopes(`class MethodView:
     pass
 

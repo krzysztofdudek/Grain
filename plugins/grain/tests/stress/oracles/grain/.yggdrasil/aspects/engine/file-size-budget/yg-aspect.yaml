@@ -14,16 +14,16 @@ description: >-
 
   ALL THREE ARE PAID. Ticket 117 split the mining core into thirty modules; ticket 124 split the proposal
   writer into seventeen and the dispatcher into ten. Every first-party module in the product now fits,
-  the largest at about 45 000 characters, and the exception list in
+  the largest at about 46 000 characters, and the exception list in
   `tests/engine-module-size-budget.test.mjs` is empty with a test of its own keeping it empty. Each split
   was a pure move gated on byte-identical output, so nothing the tool answers changed.
 
-  The status stays `advisory` here rather than being promoted on the back of this work: turning a rule on
-  is a maintainer's decision, not a refactor's side effect, and it can be made now that the rule costs
-  nothing to satisfy. The exit, when a module grows past the line again, is a split along a seam the code
-  already has — never a raised ceiling.
+  PROMOTED to `enforced` by ticket 123: with the debt paid and the exception list empty and guarded, the
+  rule now costs nothing to satisfy and there is nothing left to decide — a maintainer turning it on
+  would find every file already passing. The exit, when a module grows past the line again, stays a
+  split along a seam the code already has — never a raised ceiling.
 errs: exact
-status: advisory
+status: enforced
 review_by: 2026-12-01
 scope:
   per: file

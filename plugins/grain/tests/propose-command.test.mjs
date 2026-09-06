@@ -91,8 +91,12 @@ test('the default report carries the architecture, what earned enforcement, and 
   assert.ok(line(/^on disk, not above:/), `no summary line for what stayed on disk:\n${run.stdout}`);
   assert.ok(line(/^next:/), `no next line:\n${run.stdout}`);
 
-  // every line of the default report carries a number or a path — that is the whole contract of "quiet"
-  for (const l of run.stdout.split('\n').filter(Boolean).filter(l => !/^as of /.test(l)))
+  // every line of the default report carries a number or a path — that is the whole contract of "quiet".
+  // Scoped to `proposeReport`'s OWN lines, through `next:` — ticket 123's `yg adopt --dry-run` block printed
+  // after it is Yggdrasil's verbatim output, not grain's prose, and is exempt by design (see the handshake
+  // tests below): the whole point is showing the real preview untouched, not grain's own wording of it.
+  const nextIdx = run.stdout.split('\n').findIndex(l => /^next:/.test(l));
+  for (const l of run.stdout.split('\n').slice(0, nextIdx + 1).filter(Boolean).filter(l => !/^as of /.test(l)))
     assert.ok(/\d/.test(l) || /[\w.-]+\//.test(l), `report line carries neither a number nor a path: ${l}`);
 });
 
@@ -149,6 +153,46 @@ test('with no Yggdrasil CLI resolvable, nothing is enforced and the report says 
   assert.equal(j.candidates.length, 0);
   // the architecture is still there — that half of the proposal never needed a reviewer
   assert.ok(j.architecture.nodes >= 1, 'the architecture is proposed whether or not a drill can run');
+});
+
+// ---------- 5. the acceptance handshake (ticket 123): `next:` names `yg adopt`, and — when a Yggdrasil CLI
+// resolves — the command runs its own `--dry-run` on the very proposal it just wrote and prints the summary
+// verbatim under that line, so the adopter sees "Already broken N sites" before deciding anything.
+// ---------- 5. the acceptance handshake (ticket 123) ----------
+test('next: names the yg adopt transaction, dry-run first', () => {
+  const next = line(/^next:/);
+  assert.ok(next, `no next line:\n${run.stdout}`);
+  assert.match(next, /`yg adopt \.yggdrasil-proposal --dry-run`/, next);
+  assert.match(next, /`yg adopt \.yggdrasil-proposal`/, next);
+  assert.doesNotMatch(next, /move .* to the repository root/, 'the old mv instruction must be gone');
+});
+
+test('with a real Yggdrasil, the report runs `yg adopt --dry-run` on its own output and prints the summary verbatim', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const idx = run.stdout.split('\n').findIndex(l => /^next:/.test(l));
+  assert.ok(idx >= 0, 'no next: line to anchor the dry-run block on');
+  const after = run.stdout.split('\n').slice(idx + 1).join('\n');
+  assert.match(after, /yg adopt: would accept\s+\S*\.yggdrasil-proposal → \.yggdrasil\/\s*$/m, after.slice(0, 400));
+  assert.match(after, /^\s*Graph\s+\d+ components? · \d+ rules? /m, after);
+  assert.match(after, /^\s*Origin\s+mined from this repository by Grain \(grain-proposal\/1\)/m, after);
+  // "Already broken" is the one number nothing else in the report gives — a rule earns its status from how
+  // the code is USUALLY written, never from a check that this repository is clean today.
+  assert.match(after, /^\s*Already broken\s+/m, after);
+  assert.match(after, /^\s*Blocks on\s+/m, after);
+  assert.match(after, /Nothing was written\. Re-run without --dry-run to accept\./, after);
+  assert.ok(!existsSync(join(repo, '.yggdrasil')), 'the dry run must not have installed anything into the repository');
+});
+
+test('with no Yggdrasil CLI resolvable, the report says what `yg adopt` would tell the adopter once one resolves', () => {
+  const r = grain(['propose', join(tmp, 'no-yg-adopt'), '--json', join(tmp, 'no-yg-adopt.json')], { YG_BIN: join(tmp, 'no-such-yg.js') });
+  assert.equal(r.status, 0, r.stderr);
+  const idx = r.stdout.split('\n').findIndex(l => /^next:/.test(l));
+  assert.ok(idx >= 0, `no next: line:\n${r.stdout}`);
+  const after = r.stdout.split('\n').slice(idx + 1).join('\n');
+  assert.match(after, /yg adopt is not available to preview this run/, after);
+  assert.match(after, /YG_BIN/, 'must name how to make it resolve');
+  assert.match(after, /`yg adopt .*no-yg-adopt --dry-run`/, after);
+  assert.match(after, /already refuse today/, 'must say what yg adopt would eventually report, not just that it cannot run now');
+  assert.doesNotMatch(after, /yg adopt: would accept/, 'no real dry-run block without a resolvable CLI');
 });
 
 // ---------- 4. reachability (§081) ----------

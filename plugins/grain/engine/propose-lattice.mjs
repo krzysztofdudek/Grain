@@ -31,7 +31,11 @@ export async function partitionLattice(repo) {
       const k = cid + CELL_SEP + pid;
       const c = cells.get(k) || cells.set(k, Object.create(null)).get(k);
       c[v] = (c[v] || 0) + 1;
-      (sites.get(k) || sites.set(k, []).get(k)).push({ rel: s.rel, kind: s.kind, name: s.name, line: s.line, v });
+      // `tparams`/`own` (ticket 123, issue 125's follow-up): carried through from the hydrated scope so a row's
+      // eventual classifier can test its identifier against the ACTUAL declaring site's type parameters instead
+      // of guessing from name shape — the same fact `export.mjs`'s `site()` already exposes on a certified
+      // convention's own sites.
+      (sites.get(k) || sites.set(k, []).get(k)).push({ rel: s.rel, kind: s.kind, name: s.name, line: s.line, v, tparams: s.tparams || [], own: s.own || null });
     };
     for (const s of ps) {
       const r = roleOf(s);
@@ -64,9 +68,15 @@ export async function partitionLattice(repo) {
       if (bl && exp === 'false') { const tot = allN; if (!tot || (allC?.['true'] || 0) / tot < 0.2) continue; }
       const share = ne / n;
       const isNorm = factKey.has(cid + CELL_SEP + pid + CELL_SEP + exp);
+      // The row's own host site (ticket 123): the first site among this cell's OWN majority-value population,
+      // carrying the exact fact `buildAspects` tests an identifier against — never a re-derived guess. A row
+      // with no majority-side site left (should not happen; `ne` counted at least one) falls back to `[]`/`null`,
+      // the same "nothing declared" shape a hand-built test row already gets when it omits these fields.
+      const hostSite = (sites.get(key) || []).find(s => s.v === exp) || null;
       rows.push({
         partition: part.name, cid, pid, exp, share, n, ne, bits: +bits.toFixed(1), isNorm,
         role: /^r(\d+):/.exec(cid)?.[1] ?? null, kind,
+        tparams: hostSite?.tparams || [], own: hostSite?.own || null,
         deviants: (sites.get(key) || []).filter(s => s.v !== exp).map(s => `${s.rel}#${s.name}`),
       });
     }

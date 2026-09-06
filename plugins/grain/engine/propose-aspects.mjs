@@ -193,19 +193,24 @@ const identifierUnderTest = (fam, argument, expected) => {
   return expected != null && expected !== '' ? String(expected) : null;
 };
 // (2) A GENERIC TYPE PARAMETER READ AS A DOMAIN TYPE — `S`, `V`, `T`, `TResult` in a `ptype`/`returns`/`extends`
-// row. core.mjs's own callable-surface walk EXCLUDES `type_parameters` from what it records (`RESULT_EXCLUDE`),
-// and neither `fileSups` nor `fileTypeRefs` is exported at all (`export.mjs` schemaNotes) — so there is no
-// extracted fact this renderer can consult to know a name was DECLARED as a type parameter in scope. Logged as
-// an extractor gap for after ticket 117 (§ below); the honest signal available here instead is conventional
-// FORM (a bare single uppercase letter, or the `T<Word>` shape most languages spell a parameter with) narrowed
-// by the one fact the export corpus DOES carry: whether that exact name is ever declared as a real type
-// (`kind: 'type'`) anywhere in the repository's own scopes. A convention whose subject is never once a real
-// declaration and whose name is shaped like a type parameter is read as one; a repository that genuinely has a
-// class named `T` or `S` keeps its rule, because `declaredTypeNames` below will hold the name.
-const CONVENTIONAL_TYPE_PARAM_RE = /^[A-Z]$|^T[A-Z][A-Za-z0-9]*$/;
+// row. Ticket 120 had no extracted fact to consult here at all (core.mjs's callable-surface walk excluded
+// `type_parameters` from what it recorded) and fell back to a name-shape GUESS: a bare uppercase letter or a
+// `T<Word>` shape, narrowed only by whether that exact name was ever a real type declaration anywhere the
+// export happened to see one. Issue 125 closed the gap the guess was standing in for: every scope now records
+// its OWN `tparams` (`export.mjs` schemaNotes), so the question is no longer "does this look like a type
+// parameter and never a declared type" but "IS this identifier one of the declaring site's own type
+// parameters" — exact, not guessed, and no longer contingent on some OTHER unrelated convention happening to
+// carry the real type's declaration in its sites. A member whose own header declares nothing (Java's
+// `<T> T getById(...)` aside — that one DOES carry its own `<T>`) reads its OWNER's `tparams` instead, via the
+// site's own `own` field (`export.mjs` schemaNotes) — set only where the grammar exposes a detached receiver
+// (Go, Rust `impl<T>`); everywhere else a member's `own` is `null` and only its own header is asked.
 const TYPE_PARAM_FAMILIES = new Set(['ptype', 'returns', 'extends']);
-const looksLikeGenericTypeParam = (fam, identifier, declaredTypeNames) =>
-  TYPE_PARAM_FAMILIES.has(fam) && !!identifier && CONVENTIONAL_TYPE_PARAM_RE.test(identifier) && !declaredTypeNames.has(identifier);
+const isDeclaredTypeParam = (fam, identifier, site, typeTparamsByName) => {
+  if (!TYPE_PARAM_FAMILIES.has(fam) || !identifier || !site) return false;
+  if ((site.tparams || []).includes(identifier)) return true;
+  if (site.kind !== 'method' || !site.own) return false;
+  return (typeTparamsByName.get(site.own) || []).includes(identifier);
+};
 export function buildAspects(exp, active, sub, opts = {}) {
   const out = [];
   const skipped = { unrenderableGroupScoped: 0, notARule: 0, prose: 0, absence: 0, byClass: {}, notARuleByReason: {}, clusterNarrowerThanScope: 0 };
@@ -218,13 +223,15 @@ export function buildAspects(exp, active, sub, opts = {}) {
     if (!grammarsByHostId.has(host.id)) grammarsByHostId.set(host.id, grammarsForFiles(host.files || []));
     return grammarsByHostId.get(host.id);
   };
-  // §class 2's "declared anywhere in the repository's own declarations" census — every name this EXPORT records
-  // as a real type declaration (`kind: 'type'`), drawn from the two places the export schema actually carries
-  // scope names: every certified convention's own sites/exemplars, and every role group's member list. Neither
-  // is a full repo-wide symbol table (the export caps both), but both are real extracted facts, never invented.
-  const declaredTypeNames = new Set();
+  // §class 2's OWNER lookup (ticket 123/issue 125): the type parameters a `type`-kind scope declares in its OWN
+  // header, keyed by name, so a member whose site names an owner (`site.own`, set only where the grammar exposes
+  // a detached receiver) can be tested against that owner's `tparams` rather than its own empty one. Drawn from
+  // the two places the export schema carries a scope's kind/name/tparams together: every certified convention's
+  // own sites, and every role group's member list (whose entries carry no `tparams` at all — recorded with `[]`,
+  // which contributes nothing to a match but keeps the name itself in the map for whichever source saw it first).
+  const typeTparamsByName = new Map();
   {
-    const addSite = s => { if (s && s.kind === 'type' && s.name) declaredTypeNames.add(s.name); };
+    const addSite = s => { if (s && s.kind === 'type' && s.name && !typeTparamsByName.has(s.name)) typeTparamsByName.set(s.name, s.tparams || []); };
     for (const c of exp.conventions || []) {
       for (const s of c.conformingSites || []) addSite(s);
       for (const s of c.deviatingSites || []) addSite(s);
@@ -309,7 +316,11 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const host0 = typeForPartition(c.partition);
     const idUnderTest0 = identifierUnderTest(c.feature.enumerator, c.feature.argument, c.expected);
     if (isParserNodeTypeIdentifier(idUnderTest0, grammarsForHost(host0))) { bumpNotARule('parser-node-type-as-identifier'); continue; }
-    if (looksLikeGenericTypeParam(c.feature.enumerator, idUnderTest0, declaredTypeNames)) { bumpNotARule('generic-type-parameter-as-domain-type'); continue; }
+    // The row's own host site (ticket 123): the first site the export actually measured this convention on —
+    // exemplars are render-only and never carry `tparams`, so `conformingSites`/`deviatingSites` (which do) are
+    // read first and exemplars are the fallback only when neither is populated.
+    const hostSite0 = (c.conformingSites && c.conformingSites[0]) || (c.deviatingSites && c.deviatingSites[0]) || (c.exemplars && c.exemplars[0]) || null;
+    if (isDeclaredTypeParam(c.feature.enumerator, idUnderTest0, hostSite0, typeTparamsByName)) { bumpNotARule('generic-type-parameter-as-domain-type'); continue; }
     // The names the language fixes leave the population BEFORE the floor is applied, so a convention that only
     // clears `MIN_CONVENTION_SITES` on the strength of files it may not govern does not clear it at all.
     const conf = exemptMarkers(c.feature.enumerator, c.conformingSites || []);
@@ -396,7 +407,10 @@ export function buildAspects(exp, active, sub, opts = {}) {
     // §class 1/2 (ticket 120) — same identifiers, same tests, as the certified branch above.
     const idUnderTest = identifierUnderTest(fam, identifierOf(r.pid), r.exp);
     if (isParserNodeTypeIdentifier(idUnderTest, grammarsForHost(host))) { bumpNotARule('parser-node-type-as-identifier'); continue; }
-    if (looksLikeGenericTypeParam(fam, idUnderTest, declaredTypeNames)) { bumpNotARule('generic-type-parameter-as-domain-type'); continue; }
+    // `r.tparams`/`r.own` (ticket 123): the sub-gate lattice's own row now carries the same host-site fact a
+    // certified convention's sites do (`propose-lattice.mjs`), read off the majority-side scope the row was cut
+    // from — a hand-built test row that omits them reads as "declares nothing", same as any other absent fact.
+    if (isDeclaredTypeParam(fam, idUnderTest, { kind: r.kind, tparams: r.tparams, own: r.own }, typeTparamsByName)) { bumpNotARule('generic-type-parameter-as-domain-type'); continue; }
     const id = `grain/${slug(r.partition)}/candidate-${slug(r.pid)}`.slice(0, 120);
     if (out.some(o => o.id === id)) continue;
     seen.push(id);

@@ -358,11 +358,27 @@ that file, even when `review`'s own text collapses several such files into one a
 `<out-dir>/proposal.json` prints `schema: "grain-proposal/1"`.
 
 **The out-dir defaults to `.yggdrasil-proposal/` at the repository root and is never the repository's own
-`.yggdrasil/`** — the command refuses that path outright. A proposal is a staging tree a human reads, edits and
-moves in; nothing installs it. The directory is written with its own ignore file (`*`, the same self-ignoring
-form `.grain/`'s own uses for the cache) the first time it appears, so a proposal under review never shows up as
-an untracked change and can never be committed by accident. Naming `.yggdrasil-proposal/` in the repository's
-top-level ignore list as well is fine; nothing in grain requires it.
+`.yggdrasil/`** — the command refuses that path outright. A proposal is a staging tree a human reads and edits;
+accepting it is `yg adopt`'s job, never a manual move. The directory is written with its own ignore file (`*`,
+the same self-ignoring form `.grain/`'s own uses for the cache) the first time it appears, so a proposal under
+review never shows up as an untracked change and can never be committed by accident. Naming
+`.yggdrasil-proposal/` in the repository's top-level ignore list as well is fine; nothing in grain requires it.
+
+**The acceptance handshake (ticket 123).** The report's final `next:` line names the actual transaction —
+`yg adopt <out-dir> --dry-run` to preview, `yg adopt <out-dir>` to accept — dry-run named first because it
+writes nothing. When a Yggdrasil CLI resolves (`YG_BIN`, or `yg` on PATH — the same resolution the drill step
+above already uses), the command goes further: it runs that `--dry-run` on the very proposal it just wrote and
+prints Yggdrasil's own summary block VERBATIM beneath the `next:` line — components, rules by status, origin,
+and above all **"Already broken N sites"**, the one number nothing else in either report can give, since a
+mined rule earns its status from how the code is usually written, never from a check that the repository is
+clean today. The adopter sees the real cost of accepting before deciding, not a promise that a command exists.
+When no CLI resolves, the line that would have carried the dry-run block instead says what `yg adopt` would
+report once one does, and how to make it resolve — the same honest-negative discipline the rest of this report
+already follows. Nothing here writes a real graph: only `--dry-run` ever runs, and only when a maintainer runs
+`yg adopt` for real, on their own, does a graph get installed. `proposal.json` and each aspect's own
+`provenance.json` already carry every field `yg adopt`'s own preview reads (`schema`, `engine`, `asOf`, `files`
+at the top level; `existingViolations` per aspect) — see "The proposal contract" fields below and
+`schemaNotes.provenance`.
 
 The same renderer is also driven by the measurement instrument `node tests/stress/propose.mjs <repo> <out-dir>`,
 which adds `--score <repo>` (compare against a hand-written graph, both directions) and `--family-candidates

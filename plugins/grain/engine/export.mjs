@@ -215,7 +215,9 @@ export function exportModel({
       applicableNodeTypes:
         'null = the enumerator is not domain-restricted (any scope of the kind is decidable); an array = only these node types can carry the surface.',
       tparams:
-        "(issue 125) a site's own `tparams`: the type parameters that SITE declares in its own header (`<T>`, `[T, +U]`), never a domain type — `[]` for a site with no generics of its own, and, in every language this covers, for a member whose enclosing type is generic but which redeclares nothing new itself (its own header carries none; the enclosing type's site carries `T`). Read this before treating a `ptype`/`returns`/`extends` argument as a real type name: an argument equal to one of a scope's own `tparams` (or, for a member, its OWNER's) names a type parameter, not a type in the repository's domain.",
+        "(issue 125) a site's own `tparams`: the type parameters that SITE declares in its own header (`<T>`, `[T, +U]`), never a domain type — `[]` for a site with no generics of its own, and, in every language this covers, for a member whose enclosing type is generic but which redeclares nothing new itself (its own header carries none; the enclosing type's site carries `T`). Read this before treating a `ptype`/`returns`/`extends` argument as a real type name: an argument equal to one of a scope's own `tparams` (or, for a member, its OWNER's) names a type parameter, not a type in the repository's domain. Present on every site (`conformingSites`/`deviatingSites`, and the sub-gate lattice's own row), including `exemplars`, which carry it too where the underlying scope had one.",
+      own:
+        "(issue 123) a `method`-kind site's own receiver/owner type NAME where the grammar exposes one structurally (Go's `func (b Box[T]) …`, Rust's `impl<T> Box<T>`) — `null` everywhere else, including every nested member in a language whose methods sit inside a class body rather than declaring a detached receiver (Java/TS/C#/Kotlin: the enclosing type is never named on the member's own site at all). Look this NAME up among the repository's own `type`-kind sites to read the owner's `tparams` — grain does not resolve it for you, because the site that names the owner and the site that declares its type parameters are not always the same one this export ever saw together.",
       calibration:
         'available only when the history holds >= calibMinEv value-transition events inside the horizon — rare on ordinary repos; trend/lifecycle do not depend on it.',
       waivers:
@@ -301,6 +303,7 @@ export function exportModel({
       grammar: s.g || null,
       nodeType: s.nt || null,
       tparams: s.tparams || [],
+      own: s.own || null,
     });
     const lifecycleOf = key => {
       const L = lcOf(key);
@@ -478,6 +481,12 @@ export function exportModel({
           endLine: st.endLine,
           grammar: st.grammar,
           nodeType: st.nodeType,
+          // issue 125/123: carried through unchanged from `site()` so a consumer deciding whether an argument
+          // names a real type or a type parameter (schemaNotes.tparams) never has to re-derive it from a
+          // separate site — `conformingSites`/`deviatingSites` are the one place this fact travels with the row
+          // it was measured on.
+          tparams: st.tparams || [],
+          own: st.own || null,
           focus,
           lifecycle: lc,
         };

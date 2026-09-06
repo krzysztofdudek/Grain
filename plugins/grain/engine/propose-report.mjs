@@ -169,6 +169,10 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     L.push(`== ${c.alternatives} finer type alternative(s), not cut as types${altLevels ? ` (${altLevels})` : ''} — ${out}/alternatives.md ==`);
     for (const alt of r.alternatives) L.push(`  ${alt.id} [${alt.level}] — ${alt.why}`);
   }
-  L.push(`next: read ${out}/PROPOSAL.md (per-element evidence: ${out}/proposal.json), then move ${ygg}/ to the repository root as .yggdrasil/ and run \`yg check\``);
+  // ticket 123: the acceptance is now a named TRANSACTION (`yg adopt`), not a manual `mv` — it refuses to
+  // merge over an existing graph, checks the proposal loads before moving anything, and baselines every
+  // deterministic verdict for free the moment it lands. `--dry-run` previews all of that (including how
+  // many sites already break each new rule) and writes nothing, which is why it is named FIRST.
+  L.push(`next: read ${out}/PROPOSAL.md (per-element evidence: ${out}/proposal.json), then \`yg adopt ${out} --dry-run\` to preview accepting it, and \`yg adopt ${out}\` to accept it`);
   return { lines: L, json };
 }
