@@ -838,9 +838,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "running",
-      "note": "repo Yggdrasil, feature branch, repo-check.sh gate",
-      "updated": "2026-09-06 04:45"
+      "state": "landed",
+      "note": "Yggdrasil feature branch pushed (5 commits): yg context --json (new, not duplicate — Horde's finding came from the rebuilt branch binary), yg adopt (refuses existing graph unless --replace, validates load, baselines deterministic, log entry with provenance; existingViolations counted from nested grain ids after a fix), noise-floor line, coverage.required hint; repo-check 15/17 — pack-smoke (npm resolver) and 7 root-user tests are environmental, nothing weakened",
+      "updated": "2026-09-06 10:46",
+      "sha": "acd9114a"
     },
     {
       "id": 78,
