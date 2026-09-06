@@ -45,10 +45,17 @@ function buildFixture(root) {
   mkdirSync(root, { recursive: true });
   const w = (rel, content) => { const p = join(root, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
   for (const p of PKGS) for (const k of KINDS) {
-    w(`src/main/java/app/${p}/${cap(p)}${k}.java`,
-      `package app.${p};\n\nimport java.util.List;\n\npublic class ${cap(p)}${k} {\n` +
-      `  public List<String> all() {\n    return List.of("${p}");\n  }\n` +
-      `  public String one() {\n    return "${p}";\n  }\n}\n`);
+    // ONE ROLE SPANS EVERY PACKAGE AND CARRIES ITS OWN MARKER. The repository role is deliberately not a
+    // directory: its members sit one per package, so no path predicate can select them and the candidate can
+    // only ever be offered at the `role group` level. That matters for what this fixture has to keep proving —
+    // see the grouping test below.
+    w(`src/main/java/app/${p}/${cap(p)}${k}.java`, k === 'Repository'
+      ? `package app.${p};\n\nimport java.util.List;\n\npublic class ${cap(p)}${k} extends BaseRepository {\n` +
+        `  @Transactional\n  public List<String> findAll() {\n    return List.of("${p}");\n  }\n` +
+        `  @Transactional\n  public String findOne(String id) {\n    return id;\n  }\n}\n`
+      : `package app.${p};\n\nimport java.util.List;\n\npublic class ${cap(p)}${k} {\n` +
+        `  public List<String> all() {\n    return List.of("${p}");\n  }\n` +
+        `  public String one() {\n    return "${p}";\n  }\n}\n`);
   }
   // the directories grain parses NONE of, under one it does
   for (const n of ['index', 'detail', 'list', 'error', 'owners']) w(`src/main/resources/templates/${n}.html`, `<!doctype html>\n<h1>${n}</h1>\n`);
@@ -199,6 +206,14 @@ test('every alternative is a row of the audit trail, with its level and the same
 });
 
 test('alternatives.md is grouped by level and every group carries the intrinsic columns', () => {
+  // The fixture must actually OFFER something, or this asserts nothing. It is built to keep doing so under a
+  // finer cut of the code: the repository role spans every package, so it is not a place in the layout and can
+  // only ever be a `role group` candidate — the one level that is alternatives-only by construction. An earlier
+  // version of this fixture offered five per-package domain candidates instead, and ticket 113's Java package
+  // module cut promoted every one of them to an active type, leaving this file empty and the assertion vacuous.
+  assert.ok(sidecar.counts.alternatives > 0, 'the fixture offers no alternatives, so this test proves nothing');
+  assert.ok(sidecar.counts.alternativesByLevel['role group'] > 0,
+    `the durable level is gone; alternatives are now ${JSON.stringify(sidecar.counts.alternativesByLevel)}`);
   const levels = [...alternativesMd.matchAll(/^## Level: (.+?) \((\d+)\)$/gm)].map(m => [m[1], Number(m[2])]);
   assert.ok(levels.length > 0, 'alternatives.md is not grouped by level');
   const seen = Object.fromEntries(levels);
