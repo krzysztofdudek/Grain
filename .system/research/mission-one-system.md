@@ -1,6 +1,6 @@
 # Misja: jeden zgrany system — Yggdrasil, Grain, Horda
 
-**Status:** w toku od 2026-09-06. Dyrektor działa z pełnej autoryzacji użytkownika: rozstrzyga sam, operuje na
+**Status:** ZAMKNIĘTA 2026-09-06 (fala 11; wynik w §10). Zaczęta tego samego dnia. Dyrektor działa z pełnej autoryzacji użytkownika: rozstrzyga sam, operuje na
 gałęziach `claude/grain-agent-tool-b89y0x` w trzech repozytoriach (Grain, Yggdrasil, Horde), wypycha te
 gałęzie, nigdy main. Rozstrzygnięcia są w `.system/decisions.md` (slugi niżej); ten plik jest kartą misji.
 Analiza, z której misja wynika: `one-system-design.md` (mechanika Hordy i Superpowers, pomiar patch-id).
