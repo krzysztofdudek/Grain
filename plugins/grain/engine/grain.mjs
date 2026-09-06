@@ -42,6 +42,7 @@ import {
 import { loadHistory, headSha, headTree, readHistoryState } from './history.mjs';
 import { createHash } from 'node:crypto';
 import { partitionFor, DIRTY_TREE_NOTE } from './core.mjs';
+import { cmdAdvise } from './grain-advise.mjs';
 import { cmdCheck, cmdReview, reviewFileList } from './grain-check.mjs';
 import {
   canonicalize,
@@ -586,6 +587,9 @@ export async function main(argv) {
       break;
     case 'propose':
       lines = await cmdPropose(ctx);
+      break;
+    case 'advise':
+      lines = await cmdAdvise(ctx);
       break;
     case 'decide':
     case 'seed':

@@ -23,6 +23,11 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
                                           .yggdrasil-proposal/, never over your own .yggdrasil/) for you to read and move in. The report
                                           names the architecture, the rules a real \`yg drill\` proved, and the candidates; \`--full\` adds
                                           every draft it kept back
+  advise [--json] [--graph <dir>]         read the architecture graph this repository ALREADY has (never a proposed one) and report
+                                          what its own history and imports say about it: places a finer cut of their own files beats,
+                                          which is advice — and, as data rather than advice, places that change together with nothing
+                                          in the graph connecting them, counted and disclosed here, listed only under \`--json\`.
+                                          \`--graph\` reads a graph held beside the repository instead of inside it
   decide steer <path>#<name> --surfaces <pid,…> [--instead-of <pid,…>] [--author <who>] --note "…"   promote a value repo-wide (.grain/seeds.jsonl, committed)
   decide boundary <from> --never-imports <to> --note "…"     an architecture decision: new imports crossing it are flagged
   decide waive <path>#<name> --on <pid> --note "…"           excuse ONE scope from ONE convention: check calls its departure deliberate, the counts still report it

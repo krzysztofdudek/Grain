@@ -55,6 +55,7 @@ export function parseArgv(argv) {
           'on',
           'last',
           'holdout',
+          'graph',
         ].includes(k) &&
         argv[i + 1] !== undefined &&
         !argv[i + 1].startsWith('--')

@@ -21,6 +21,14 @@ would be worth nothing.
 
 ### Updated since
 
+**2026-09-06 — ticket 131: one new dispatcher module.** `grain advise` landed as
+`plugins/grain/engine/grain-advise.mjs`, an eleventh module of the query surface. The `cli-dispatch`
+type's `when` is a prefix (`plugins/grain/engine/grain*.mjs`), so it classified the file the day it was
+written and nothing about the type moved; the `Query Dispatcher` node's `mapping` is an explicit list, so
+the one path was added to it the way a maintainer adds a path — a file with a type and no owning node is
+a graph that contradicts itself. Its charter sentence went from ten files to eleven. No type, aspect,
+rule, threshold, relation or verdict moved.
+
 **2026-09-06 — the ticket-117 split (`87de53a`).** `plugins/grain/engine/core.mjs` was split into thirty
 modules, so the graph was updated the way a maintainer updates a graph when files move: the
 `mining-core` type's `when` names the whole engine instead of one path, `engine-module` names its three

@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2387 tests under engine 0.4.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2429 tests under engine 0.4.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -283,6 +283,49 @@ run surfaced a HIGH-severity, grammar-specific defect not yet fixed.
 `082`/`083`/`084`/`086` are filed and open; none is fixed by this ticket (measurement + triage only, no engine
 changes). `085` is queued for further diagnosis. Once `082`/`083`/`084` are fixed and re-measured clean, Python,
 Kotlin and Rust move to validated on the same bar the other 16 code grammars already clear.
+
+## Node-level co-change: measured on four hand-written graphs, and mostly not shipped as advice
+
+`grain advise` reads the architecture graph a repository already has and reports two things about it. One of the
+two ships as advice; the other does not, and the reason is a measurement, not a preference. The full record with
+every table is [`.system/research/node-cochange-measurement.md`](../.system/research/node-cochange-measurement.md);
+the headline is here because it is the second time this project measured co-change as a lever and the second time
+the numbers said no.
+
+**The change-together side.** Node pairs are aggregated from grain's scope-level co-change — a pair of NAMED
+DECLARATIONS, not files — mapped to the nodes that own them, gated on liveness at HEAD, the existing support floor
+of 8 commits, and MUTUAL confidence (both directions at or above 1/3). Across four hand-written graphs — this
+repository's own oracle, express, spring-petclinic, and Yggdrasil's live `.yggdrasil/` — it emits **two pairs in
+total, both of them connections those graphs already declare, and none undeclared**:
+
+| oracle | nodes owning files | pairs | declared | undeclared | concentration | control (declared rate over all node pairs) |
+|---|---|---|---|---|---|---|
+| grain | 38 of 45 | 0 | 0 | 0 | — | 8.4% |
+| express | 15 of 20 | 0 | 0 | 0 | — | 14.3% |
+| spring-petclinic | 20 of 27 | 0 | 0 | 0 | — | 18.4% |
+| Yggdrasil | 400 of 434 | 2 | 2 | 0 | 50% | 2.2% |
+
+The gate is not what empties this. Cross-FILE scope pairs above the support floor are 0 of 25 (grain), 36 of
+28 534 (express), 0 of 0 (spring-petclinic) and 4 of 5 (Yggdrasil): two named declarations in different files
+must be edited together in eight or more commits before a pair exists at all. And express's 36 are one fact —
+`lib/response.js#send` against thirty-four anonymous blocks of `test/res.send.js` — which is exactly the
+"corroboration selects for hubs" finding that killed the file-level lever
+([`where-cochange-promotion.md`](../.system/research/where-cochange-promotion.md) §3), arriving from the other
+side. Loosening the gate does not rescue it: the file-level, one-way form — the rejected lever's own shape lifted
+to nodes — gives 6/9/6/57 pairs with **67%/56%/50%/61%** of them touching a single node, and that node is the
+repository's churn centre every time (the changelog and the package manifest, on Yggdrasil). Five undeclared pairs
+from the looser variants were spot-checked by reading the code: three real, two artefacts of a release ritual and
+a repository-wide sweep.
+
+So the pairs ship as `--json` data with a disclosed weak-signal line, and the text surface prints their count, the
+concentration and the two rates instead of the pairs themselves — recomputed on every run, so a repository where
+this does not hold says so in its own output.
+
+**The split side does ship as advice**, on the same four graphs: it names `Project State` on grain (327 files, 286
+of them ticket directories), `Examples` on express (80 files, nine independent programs and template directories),
+`Test Fixtures` and `Docs Site Config` on Yggdrasil — and **nothing at all** on spring-petclinic, whose nodes are
+already the size of one thing. That last row is what makes the other four worth reading, and both answers are
+pinned by tests against the real oracles.
 
 ## Known boundaries
 

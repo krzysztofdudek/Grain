@@ -89,8 +89,8 @@ jobs:
           YGG_DIR: ${{ github.workspace }}/yggdrasil
           HORDE_DIR: ${{ github.workspace }}/horde
         run: node --test tests/seams.test.mjs
-      - name: run the reconstruction guard against the hand oracles
+      - name: run the reconstruction and advice guards against the hand oracles
         working-directory: grain/plugins/grain
         env:
           GRAIN_CORPUS_CLONES: ${{ github.workspace }}/corpus
-        run: node --test tests/reconstruct.test.mjs
+        run: node --test tests/reconstruct.test.mjs tests/advise-command.test.mjs

@@ -230,6 +230,7 @@ The full command surface:
 | `grain status` / `grain report` | model size, a signal verdict ("a sparse model — expect placement, not shape"), freshness, history, the top conventions with trends, deviant counts and age. |
 | `grain rules [--out <file>]` | the same top conventions `report` prints, generated as a standalone Markdown document with its own staleness header naming the commit it was computed from — for a maintainer or a coding tool with no terminal and no grain plugin installed. No `--out` prints it to stdout, so `grain rules > CONVENTIONS.md` already works. |
 | `grain decide steer <path>#<name> --surfaces <pid,…> --note "why"` | a **maintainer decision**, recorded in the committed `.grain/decisions.jsonl`: promote one property of one exemplar. It mutes the retired majority or sharpens the chosen one — capped at half the real population, so it cannot invent a convention nobody has written — and prints on `where` cards and in `check` as `decision steer (who when)`, beside how far practice has caught up. `decide list` / `decide rm <id>`. |
+| `grain advise` | for a repository that already HAS an architecture graph: what its own history and imports say about it — places a finer cut of their own files beats on their own evidence, and (as `--json` data, not as advice) places that change together with nothing in the graph connecting them. Measured on four hand-written graphs before it shipped, which is why one half of it is advice and the other half is a number with a disclosure attached. |
 | `grain export --out model.json` | the whole model as data: every convention with its context, evidence, trend, lifecycle, every conforming and deviating site (with the lines where the convention manifests and the nearest conforming exemplar), a machine check per convention, groups with their templates, markers, directories, co-change and the commit-message affinity. The schema is a published interface with a downstream consumer (a fine-tuning pipeline cuts training samples from the anchor lines): it changes deliberately or not at all. `where`, `check`, `report` and `status` take `--json` too. |
 
 `how`, `what`, `map`, `obligation`, `explain` and `selftest` round out the surface — a past-commit search, a concept
@@ -375,7 +376,7 @@ Four documents carry the depth this file only gestures at: [docs/results.md](doc
 record — the brownfield-miner numbers first, the earlier agent-facing results after; [docs/mathematics.md](docs/mathematics.md),
 the single objective and its special cases with the honest residue; [docs/validation.md](docs/validation.md), every
 measurement with its method, the corpus tables and the known boundaries; [docs/reference.md](docs/reference.md),
-commands, hooks, the store, environment switches, cache version keys, and both the export and the proposal schema
+commands, hooks, the store, environment switches, cache version keys, and the export, proposal and advice schema
 contracts.
 
 ## Status
@@ -383,7 +384,7 @@ contracts.
 0.4.0. The interfaces are stable — the export schema established at 0.1.0 is unbroken, and every new convention
 family added since flows through the same generic per-fact serialization, never a hand-listed schema addition — but
 the objective changed under it: `grain propose` and the brownfield-miner numbers in this file are new since
-2026-09-05; 0.4.0 is the first build that ships them (`grain propose`, the proposal contract, the type levels, the JVM source-root relations). The agent-facing surface (`where`, `check`, `how`, the hooks)
+2026-09-05; 0.4.0 is the first build that ships them (`grain propose`, the proposal contract, the type levels, the JVM source-root relations, and `grain advise` over a graph that already exists). The agent-facing surface (`where`, `check`, `how`, the hooks)
 is the earlier objective, unchanged in behaviour, kept because it still works and nothing here has replaced it.
 
 ## The Yggdrasil family
