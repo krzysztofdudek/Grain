@@ -1091,9 +1091,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/135-requires-yggdrasil",
-      "state": "running",
-      "note": "Horde worktree, wave B tail; against the pushed Yggdrasil build",
-      "updated": "2026-09-06 19:20"
+      "state": "merged",
+      "note": "545/545; nodeSource/graphDir/node.json/YAML parser/contracts.md/stamps retired; init creates the graph via yg (+grain); prose rules via yg verdict in the verifier brief",
+      "updated": "2026-09-06 21:00",
+      "sha": "fc73b16"
     },
     {
       "id": 102,
@@ -1111,9 +1112,29 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/148-quality-index-json",
-      "state": "queued",
+      "state": "running",
       "note": "after 135",
-      "updated": "2026-09-06 19:51"
+      "updated": "2026-09-06 21:00"
+    },
+    {
+      "id": 104,
+      "ticket": "141",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/141",
+      "state": "running",
+      "note": "wave C, Horde worktree",
+      "updated": "2026-09-06 21:00"
+    },
+    {
+      "id": 105,
+      "ticket": "142",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/142",
+      "state": "running",
+      "note": "wave C, Horde worktree",
+      "updated": "2026-09-06 21:00"
     }
   ]
 }

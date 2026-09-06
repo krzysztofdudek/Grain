@@ -1,6 +1,6 @@
 # 135 · Horde: the manual node map is retired; `init` creates the graph through `yg` (and Grain when present); contracts are ports; the graph is read only through `yg`
 
-**Status:** OPEN
+**Status:** LANDED — merged fc73b16
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
