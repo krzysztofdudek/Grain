@@ -102,15 +102,29 @@ node_types:
 
   mining-core:
     description: >-
-      The mining engine — plugins/grain/engine/core.mjs. Generic binding derived from each grammar's
-      node-types.json, extraction, the lexical layer, superposition, clustering, roles, MDL/λ mining,
-      history weighting, partitioning, learn, check, placement, spectrum, where, report, and the
-      mutation harness. Pure analysis: no subprocess, no network, no first-party dependency except the
-      relation pass, the constants and the parser runtime. Nothing about a language, a framework or a
-      role may be written down here by NAME.
+      The mining engine. Generic binding derived from each grammar's node-types.json, extraction, the
+      lexical layer, superposition, clustering, roles, MDL/λ mining, history weighting, partitioning,
+      learn, check, placement, spectrum, where, report, and the mutation harness. Pure analysis: no
+      subprocess, no network, no first-party dependency except the relation pass, the constants and the
+      parser runtime. Nothing about a language, a framework or a role may be written down here by NAME.
+
+      Until ticket 117 this was one file, `core.mjs`, and the `when` below was that one path. The split
+      moved the same statements into thirty modules along the section boundaries the file already
+      carried, so the type now names the whole of `engine/` except the seven modules that are something
+      else: the dispatcher, the constant table, the history walker, the proposal writer, the relation
+      pass, the export serializer and the Yggdrasil-graph reader. Stated as a complement rather than a
+      list, so a module split out tomorrow is classified the day it lands.
     enforce: strict
     when:
-      path: "plugins/grain/engine/core.mjs"
+      all_of:
+        - path: "plugins/grain/engine/*.mjs"
+        - not: { path: "plugins/grain/engine/grain.mjs" }
+        - not: { path: "plugins/grain/engine/config.mjs" }
+        - not: { path: "plugins/grain/engine/history.mjs" }
+        - not: { path: "plugins/grain/engine/propose.mjs" }
+        - not: { path: "plugins/grain/engine/relations.mjs" }
+        - not: { path: "plugins/grain/engine/export.mjs" }
+        - not: { path: "plugins/grain/engine/yggdrasil-graph.mjs" }
     aspects:
       - source/no-raw-control-bytes
       - engine/no-runtime-dependencies
@@ -123,7 +137,10 @@ node_types:
       - answers/never-invent-authority
     parents: [project, area]
     relations:
-      calls: [engine-module, engine-config, vendored-runtime]
+      # `mining-core` appears in its own list because the engine is several modules now: the facade
+      # calls the layers, the layers call each other, and every one of those edges is between two
+      # nodes of this type.
+      calls: [mining-core, engine-module, engine-config, vendored-runtime]
       default: deny
 
   engine-config:
@@ -175,15 +192,17 @@ node_types:
       envelope as the mining core: no subprocess, no network, no runtime dependency, no reach into a
       test or an instrument. Distinguished from the core only by size and subject; distinguished from
       `engine-history` by having no business with a child process at all.
+
+      Named as a list of three rather than as a complement, because that is what the type IS: the three
+      modules of the engine that are neither the mining engine nor one of its four named exceptions.
+      Before ticket 117 the complement form was the shorter one; now that the mining engine is thirty
+      modules, this one is.
     enforce: strict
     when:
-      all_of:
-        - path: "plugins/grain/engine/*.mjs"
-        - not: { path: "plugins/grain/engine/grain.mjs" }
-        - not: { path: "plugins/grain/engine/core.mjs" }
-        - not: { path: "plugins/grain/engine/config.mjs" }
-        - not: { path: "plugins/grain/engine/history.mjs" }
-        - not: { path: "plugins/grain/engine/propose.mjs" }
+      any_of:
+        - path: "plugins/grain/engine/relations.mjs"
+        - path: "plugins/grain/engine/export.mjs"
+        - path: "plugins/grain/engine/yggdrasil-graph.mjs"
     aspects:
       - source/no-raw-control-bytes
       - engine/no-runtime-dependencies

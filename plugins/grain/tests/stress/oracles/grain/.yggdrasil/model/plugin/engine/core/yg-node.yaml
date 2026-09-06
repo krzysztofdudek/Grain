@@ -1,20 +1,21 @@
-name: Mining Core
+name: Engine Facade
 type: mining-core
 description: >-
-  The convention engine. It derives every language binding from each grammar's own node-type metadata,
-  extracts scopes and features generically from syntax trees and paths, induces groups of similar code
-  rather than reading them off a list, weights every instance by how long it survived in history and who
-  wrote it, and accepts a claim only when stating it compresses the repository. One loss constant
-  decides whether it speaks at all. It also holds the query implementations the dispatcher calls, the
-  placement and check verdicts, and the mutation harness the suite uses to measure its own detection
-  rate. It is a single 572 KB module, which is the largest standing structural debt in the product.
+  The engine's front door. Until ticket 117 this file WAS the engine — one 572 KB module, the largest
+  standing structural debt in the product. It is now a facade and nothing else: comments and
+  `export … from` lines, one per module, which makes it the map of the engine as well as its surface.
+
+  Every name the engine exported before the split is still exported from here under the same name, so
+  the dispatcher, the export serializer, the proposal writer, the history layer, the instruments and
+  the tests all import exactly what they did. That is the point of keeping it: the split moved
+  statements between files and changed none of them, and this file is what made that invisible to
+  every caller.
 relations:
-  - target: plugin/engine/relations
+  - target: plugin/engine/mining
     type: calls
-  - target: plugin/engine/vendor-runtime
+  - target: plugin/engine/queries
     type: calls
-  - target: plugin/engine/config
+  - target: plugin/engine/model
     type: calls
-    consumes: [constants]
 mapping:
   - plugins/grain/engine/core.mjs
