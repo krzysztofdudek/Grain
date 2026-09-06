@@ -6,9 +6,11 @@ import { basename, dirname, extname } from 'node:path/posix';
 import { SUP, TOPK, EXCL, HARD_EXCL } from './config.mjs';
 import { relFactsFor } from './relations.mjs';
 import { S, toPosix } from './base.mjs';
+import { stem0 } from './extract.mjs';
 import { BODY_KINDS } from './facts.mjs';
-import { bindingFor, nameShape, parseFile } from './parse.mjs';
+import { tokenize, bindingFor, nameShape, parseFile } from './parse.mjs';
 import { extractScopes } from './scopes.mjs';
+import { twinsOf } from './superposition.mjs';
 
 // ===== CURRENT-TREE EXTRACTION + PARTITIONING (shared by learn and spectrum) =====
 const PKG_ROOT_RE =
@@ -371,3 +373,155 @@ export const hydrateScope = r => ({
   shapes: new Set(r.shapes),
   preds: { ...r.preds },
 });
+// implications per group: what a new member COMES WITH — a same-stem companion file (whatever dotted suffix the repo
+// pairs these files with: `*.test.tsx`, `*.stories.tsx`, `*.module.ts`), and the file that registers/imports the
+// members (DI registration, a barrel) — raw path + edge evidence, no name semantics
+export function applyGroupImplications(model, files) {
+  const sufChain = rel => {
+    const parts = basename(rel).split('.');
+    return parts.length >= 2 ? '*.' + parts.slice(1).join('.') : null;
+  };
+  const byStem = new Map();
+  for (const f2 of model.pathsAll || files)
+    (byStem.get(stem0(f2)) || byStem.set(stem0(f2), []).get(stem0(f2))).push(f2);
+  const inEdges = new Map();
+  for (const e of model.edges || []) (inEdges.get(e.to) || inEdges.set(e.to, []).get(e.to)).push(e.from);
+  const impliedOf = fileList => {
+    const mf = [...new Set(fileList)];
+    if (mf.length < 4) return null;
+    const fset = new Set(mf);
+    const compCnt = new Map();
+    const compEx = new Map();
+    let withComp = 0;
+    for (const f2 of mf) {
+      const all2 = byStem.get(stem0(f2)) || [];
+      if (all2.length > 6) continue; // `index`-like stems pair everything with everything — no evidence
+      const sibs = all2.filter(s2 => s2 !== f2 && !fset.has(s2) && sufChain(s2) !== sufChain(f2));
+      if (!sibs.length) continue;
+      withComp++;
+      for (const sfx of new Set(sibs.map(sufChain).filter(Boolean))) {
+        compCnt.set(sfx, (compCnt.get(sfx) || 0) + 1);
+        if (!compEx.has(sfx))
+          compEx.set(
+            sfx,
+            sibs.find(s2 => sufChain(s2) === sfx)
+          );
+      }
+    }
+    const topComp = [...compCnt].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
+    const imp = new Map();
+    for (const f2 of mf)
+      for (const src2 of inEdges.get(f2) || [])
+        if (!fset.has(src2)) imp.set(src2, (imp.get(src2) || 0) + 1);
+    const topImp = [...imp].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
+    const out2 = {};
+    if (topComp && topComp[1] / mf.length >= 0.6)
+      out2.companion = {
+        pattern: topComp[0],
+        share: +(topComp[1] / mf.length).toFixed(2),
+        n: mf.length,
+        example: compEx.get(topComp[0]),
+      };
+    if (topImp && topImp[1] / mf.length >= 0.6 && topImp[1] >= 4)
+      out2.importedBy = { file: topImp[0], n: topImp[1], of: mf.length };
+    else {
+      const suffixOf = f3 => {
+        const parts = basename(f3).split('.');
+        return parts.length >= 3 ? '*.' + parts.slice(-2).join('.') : null;
+      };
+      const cnt2 = new Map();
+      for (const f3 of mf) {
+        const sufs = new Set(
+          (inEdges.get(f3) || [])
+            .filter(s3 => !fset.has(s3))
+            .map(suffixOf)
+            .filter(Boolean)
+        );
+        for (const sf3 of sufs) cnt2.set(sf3, (cnt2.get(sf3) || 0) + 1);
+      }
+      const top2 = [...cnt2].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
+      if (top2 && top2[1] / mf.length >= 0.6 && top2[1] >= 4)
+        out2.importedByPattern = { pattern: top2[0], n: top2[1], of: mf.length };
+    }
+    return Object.keys(out2).length ? out2 : null;
+  };
+  for (const part2 of model.partitions) {
+    for (const [mk, fl] of Object.entries(part2.markerImplied || {})) {
+      const r2 = impliedOf(fl);
+      if (r2) part2.markerImplied[mk] = r2;
+      else delete part2.markerImplied[mk];
+    }
+    part2.groupImplied = {};
+    const byRole2 = new Map();
+    for (const [k, r2] of Object.entries(part2.assignments)) {
+      if (r2 === -1) continue;
+      (byRole2.get(r2) || byRole2.set(r2, new Set()).get(r2)).add(k.split('#')[0]);
+    }
+    for (const [r2, fset] of byRole2) {
+      const r3 = impliedOf([...fset]);
+      if (r3) part2.groupImplied[r2] = r3;
+    }
+    // (§J3.2, the "name stem" half) which OTHER role group of this partition group A's members are paired with by
+    // `stem0` — accepted on a RAW SHARE, impliedOf.companion's own >= 0.6 over n >= 4 just above, and deliberately
+    // NOT an MDL/lambda test: the two halves of a `kin:` line rest on different categories of evidence, and this one's
+    // standing precedent is companion/importedBy, which already speaks through `recipe:` from the same block.
+    part2.groupKin = {};
+    const roleFiles = [...byRole2].map(([r2, fset]) => [r2, [...fset].sort()]);
+    for (const [rA, fa] of roleFiles) {
+      if (fa.length < 4) continue;
+      const aStems = fa.map(stem0);
+      let best = null;
+      for (const [rB, fb] of roleFiles) {
+        if (rB === rA) continue;
+        const bStems = new Set(fb.map(stem0));
+        let n2 = 0;
+        for (const st2 of aStems) if (bStems.has(st2)) n2++;
+        if (!best || n2 > best.n || (n2 === best.n && rB < best.role)) best = { role: rB, n: n2 };
+      }
+      if (!best || best.n / fa.length < 0.6) continue;
+      part2.groupKin[rA] = {
+        role: best.role,
+        label: part2.medoids[best.role]?.label || 'group',
+        n: best.n,
+        of: fa.length,
+        share: +(best.n / fa.length).toFixed(2),
+      };
+    }
+  }
+}
+// structural twins (H4, §J3.4): one entry per (partition, role) with a certified profile, dominant name suffix
+// computed alongside (the same majority-vote shape J3.2's groupKin already uses for role membership) so a twin
+// pair can report `namedDifferently` without a second pass over `assignments`.
+export function applyStructuralTwins(model, log) {
+  const pool = [];
+  const twinMeta = new Map();
+  for (const part2 of model.partitions)
+    for (const [r, pf] of Object.entries(part2.profiles || {})) {
+      if (!pf || !pf._tpl) continue;
+      const role = +r;
+      const label = part2.medoids[role]?.label || 'group';
+      const key = part2.name + '#' + r;
+      const sufCnt = new Map();
+      for (const [mk, rr] of Object.entries(part2.assignments || {})) {
+        if (rr !== role) continue;
+        const toks = tokenize(mk.split('#')[2]);
+        if (!toks.length) continue;
+        const suf = toks[toks.length - 1];
+        sufCnt.set(suf, (sufCnt.get(suf) || 0) + 1);
+      }
+      const topSuf = [...sufCnt].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))[0];
+      pool.push({ key, part: part2.name, role, label, tpl: pf._tpl, shared: pf.shared });
+      twinMeta.set(key, { part: part2.name, role, label, suffix: topSuf ? topSuf[0] : null });
+    }
+  model.twins = twinsOf(pool, log).map(pr => {
+    const A = twinMeta.get(pr.a),
+      B = twinMeta.get(pr.b);
+    const twin = {
+      a: { part: A.part, role: A.role, label: A.label },
+      b: { part: B.part, role: B.role, label: B.label },
+      sim: pr.coverage,
+    };
+    if (A.suffix && B.suffix && A.suffix !== B.suffix) twin.namedDifferently = [A.suffix, B.suffix];
+    return twin;
+  });
+}

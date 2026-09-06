@@ -1,10 +1,25 @@
 // grain engine · the measured architecture: dependency norms, architecture hits, and the relation layer of a learn pass
 // Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
-import { CFG } from './config.mjs';
-import { refineModOf, hydrateTable, makeEdgeResolver } from './relations.mjs';
-import { S } from './base.mjs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { basename, dirname, join as pjoin, normalize as pnormalize } from 'node:path/posix';
+import { EXCL, HARD_EXCL, CFG } from './config.mjs';
+import {
+  buildEdges,
+  compactDecls,
+  moduleGraph,
+  parseJsonc,
+  parsePsr4,
+  sourceRootsOf,
+  tableFrom,
+  refineModOf,
+  hydrateTable,
+  makeEdgeResolver,
+} from './relations.mjs';
+import { toPosix, S } from './base.mjs';
 import { kt, part } from './facts.mjs';
 import { voice } from './mine.mjs';
+import { readCargoCrateName } from './verbalize.mjs';
 
 // established layering norms: a (source module, target module) pair is a cell exactly like a `_all`-scoped predicate
 // cell in mine() (§9.4a in mathematics.md) — counts = { true: files in A that reach B, false: files in A that don't },
@@ -229,4 +244,196 @@ export function computeArchHits({ model, root, effRel, relFact }) {
     }
   }
   return archHits;
+}
+// the relation layer: file→file edges bound by the tri-state resolver, and their module-level aggregation — the measured
+// architecture (which modules exist, who depends on whom, where the cycles are)
+export function applyRelationLayer(model, { root, files, pkgs, tree, relFacts, log }) {
+  try {
+    const fileSet2 = new Set(files);
+    // workspace members: each is discovered from ITS OWN manifest, never a hardcoded name ("kod to kod") — an npm
+    // package (name + resolvable entry file) and/or a Cargo crate (name + src/ dir) can both live at the same `d`,
+    // so a directory contributes 0, 1 or 2 entries. §017: the Cargo half feeds the Rust branch of wsResolverFor's
+    // cross-crate `use crate_name::...` resolution (relations.mjs) exactly the way the npm half already feeds its
+    // bare-specifier branch — the same mechanism, not a new one.
+    const workspaces = pkgs
+      .filter(d => d !== '.')
+      .flatMap(d => {
+        const out = [];
+        try {
+          const pj = JSON.parse(readFileSync(join(root, d, 'package.json'), 'utf8'));
+          if (pj.name) {
+            const cand = [
+              typeof pj.main === 'string' ? d + '/' + pj.main.replace(/^\.\//, '') : null,
+              d + '/src/index.ts',
+              d + '/src/index.tsx',
+              d + '/src/index.js',
+              d + '/index.ts',
+              d + '/index.js',
+              d + '/src/main.ts',
+            ].filter(Boolean);
+            const entry =
+              cand.find(c => fileSet2.has(c)) ??
+              cand.find(c => fileSet2.has(c.replace(/\.js$/, '.ts'))) ??
+              null;
+            if (entry) out.push({ name: pj.name, dir: d, entry });
+          }
+        } catch {
+          /* no package.json at d — fine, it may still be a Cargo crate below */
+        }
+        try {
+          const name = readCargoCrateName(readFileSync(join(root, d, 'Cargo.toml'), 'utf8'));
+          if (name) out.push({ name, dir: d, srcDir: d + '/src' });
+        } catch {
+          /* no Cargo.toml at d */
+        }
+        return out;
+      });
+    // tsconfig/jsconfig path aliases (`@/*` → `src/*`): read every config in the tree (extends followed, JSONC
+    // tolerated), targets pre-resolved to root-relative — the resolver, and `check` from the model, never re-read them
+    const tsAliases = [];
+    try {
+      const cfgDirs = new Map(); // dir → config name; tsconfig.json wins over a sibling jsconfig.json
+      const addCfg = (dd, name) => {
+        if (name === 'tsconfig.json' || !cfgDirs.has(dd)) cfgDirs.set(dd, name);
+      };
+      if (tree && tree.allPaths) {
+        for (const rel2 of tree.allPaths) {
+          const bn2 = basename(rel2);
+          if ((bn2 === 'tsconfig.json' || bn2 === 'jsconfig.json') && !HARD_EXCL.test(rel2))
+            addCfg(dirname(rel2), bn2);
+        }
+      } else
+        (function fc(d) {
+          let es;
+          try {
+            es = readdirSync(d, { withFileTypes: true });
+          } catch {
+            return;
+          }
+          for (const e of es) {
+            const full = join(d, e.name);
+            if (EXCL.test(toPosix(relative(root, full)) + '/')) continue;
+            if (e.isDirectory()) fc(full);
+            else if (e.name === 'tsconfig.json' || e.name === 'jsconfig.json')
+              addCfg(toPosix(relative(root, d)) || '.', e.name);
+          }
+        })(root);
+      const readCfg = (cfgRel, depth) => {
+        if (depth > 3) return null;
+        let j;
+        try {
+          j = parseJsonc(readFileSync(join(root, cfgRel), 'utf8'));
+        } catch {
+          return null;
+        }
+        const dir = dirname(cfgRel);
+        const norm = q => pnormalize(pjoin(dir, q)).replace(/\/+$/, '') || '.';
+        const parent =
+          typeof j.extends === 'string' && j.extends.startsWith('.') // a package-name extends stays external
+            ? readCfg(norm(/\.json$/.test(j.extends) ? j.extends : j.extends + '.json'), depth + 1)
+            : null;
+        const co = j.compilerOptions || {};
+        const base = co.baseUrl !== undefined ? norm(co.baseUrl) : (parent?.base ?? null);
+        const tbase = co.baseUrl !== undefined ? norm(co.baseUrl) : dir; // targets: relative to the DECLARING config's baseUrl, else its dir (tsc ≥4.4)
+        const patterns = co.paths
+          ? Object.entries(co.paths).map(([pat, ts2]) => [
+              pat,
+              (Array.isArray(ts2) ? ts2 : [ts2]).map(t => pnormalize(pjoin(tbase, t))),
+            ])
+          : (parent?.patterns ?? null); // child `paths` REPLACES the parent's wholesale, as tsc merges
+        return { base, patterns };
+      };
+      for (const [dd, name] of [...cfgDirs].sort()) {
+        if (tsAliases.length >= 200) break;
+        const c = readCfg(dd === '.' ? name : dd + '/' + name, 0);
+        if (c && ((c.patterns && c.patterns.length) || c.base != null))
+          tsAliases.push({ dir: dd, base: c.base, patterns: c.patterns || [] });
+      }
+    } catch {
+      /* aliases are an extra channel, never a reason to fail the pass */
+    }
+    // issue 059: PHP monorepos (Symfony's src/Symfony/Component/Xxx/, one composer.json per component) declare
+    // PSR-4 autoload PER COMPONENT — there is no single repo-root composer.json a `use` into a sibling component
+    // could walk up to. Read every composer.json in the tree ONCE here (same allPaths/EXCL scan as tsconfig above)
+    // and merge every prefix's base dirs into one repo-wide map; `phpAutoloadResolverFor` (relations.mjs) then
+    // resolves a cross-component `use` against that union when the per-file (nearest-ancestor composer.json)
+    // resolution above already came up empty.
+    const phpAutoload = [];
+    try {
+      const merged = new Map();
+      const addComposer = composerRel => {
+        let text;
+        try {
+          text = readFileSync(join(root, composerRel), 'utf8');
+        } catch {
+          return;
+        }
+        const dir = dirname(composerRel);
+        for (const [prefix, dirs] of parsePsr4(text, dir === '.' ? '' : dir)) {
+          const arr = merged.get(prefix) || (merged.set(prefix, []).get(prefix));
+          for (const d of dirs) if (!arr.includes(d)) arr.push(d);
+        }
+      };
+      if (tree && tree.allPaths) {
+        for (const rel2 of tree.allPaths)
+          if (basename(rel2) === 'composer.json' && !HARD_EXCL.test(rel2)) addComposer(rel2);
+      } else
+        (function fc(d) {
+          let es;
+          try {
+            es = readdirSync(d, { withFileTypes: true });
+          } catch {
+            return;
+          }
+          for (const e of es) {
+            const full = join(d, e.name);
+            if (EXCL.test(toPosix(relative(root, full)) + '/')) continue;
+            if (e.isDirectory()) fc(full);
+            else if (e.name === 'composer.json') addComposer(toPosix(relative(root, full)));
+          }
+        })(root);
+      for (const [prefix, dirs] of merged) phpAutoload.push({ prefix, dirs });
+    } catch {
+      /* an extra channel, never a reason to fail the pass */
+    }
+    // JVM-family source roots (§113): where a package hierarchy starts on disk, from the `package` declaration
+    // the extractor already read and from the Maven/Gradle standard layout. Stored on the model because the
+    // single-file `check` path has no relFacts for the whole tree and must resolve the SAME way this pass did.
+    const srcRoots = sourceRootsOf(files, relFacts);
+    const relStats = {};
+    const edges = buildEdges({ root, files, relFacts, workspaces, pkgs, srcRoots, tsAliases, phpAutoload, stats: relStats });
+    model.edges = edges.slice(0, 30000);
+    model.edgesTruncated = Math.max(0, edges.length - 30000);
+    model.srcRoots = srcRoots;
+    model.moduleGraph = moduleGraph(edges, files, pkgs, srcRoots);
+    // §113: the three stages a dependency passes through before it can become a law, so a graph with no relations
+    // can say WHERE they were lost instead of printing a bare zero. `seen` counts every reference the extractors
+    // emitted (internal and external alike — which of them is internal is not knowable before resolution),
+    // `resolved` the file→file edges bound to a file in the indexed tree, `crossing` those joining two modules.
+    {
+      const mOf = refineModOf(files, pkgs, srcRoots);
+      let crossing = 0;
+      for (const e of edges) if (mOf(e.from) !== mOf(e.to)) crossing++;
+      model.relStages = { seen: relStats.seen || 0, resolved: edges.length, crossing };
+    }
+    // what the single-file `check` path needs to resolve an EDITED file's references against the accepted tree
+    model.relDecls = compactDecls(files, relFacts);
+    model.workspaces = workspaces;
+    model.tsAliases = tsAliases;
+    model.phpAutoload = phpAutoload;
+    model.csGlobal = tableFrom(files, relFacts).csGlobal;
+    model.filesAll = files;
+    // every tracked path, not only the code-parseable ones: placement advice and companion-file facts are pure
+    // path/stem mechanics, so a doc, migration or config is as valid a candidate as a source file (tracked ⇒ code
+    // ruling, config.mjs) — code-only `files` stays the extraction/edge universe, unchanged
+    model.pathsAll = tree && tree.allPaths ? tree.allPaths.filter(p => !HARD_EXCL.test(p)) : files;
+    model.archNorms = architectureNorms(model);
+  } catch (e) {
+    log('relation pass failed: ' + (e?.message || e));
+    model.edges = [];
+    model.edgesTruncated = 0;
+    model.moduleGraph = { nodes: [], edges: [], cycles: [] };
+    model.relDecls = null;
+    model.archNorms = [];
+  }
 }
