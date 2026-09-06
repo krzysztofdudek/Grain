@@ -1080,9 +1080,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "running",
-      "note": "Yggdrasil worker, after 133, before 144",
-      "updated": "2026-09-06 19:20"
+      "state": "merged",
+      "note": "yg-check/1 pure projection of CheckResult, unverified vs stale separated, judges array; yg-aspects/1; repo-check green except the two env failures",
+      "updated": "2026-09-06 19:51",
+      "sha": "b36f24e3"
     },
     {
       "id": 101,
@@ -1093,6 +1094,26 @@
       "state": "running",
       "note": "Horde worktree, wave B tail; against the pushed Yggdrasil build",
       "updated": "2026-09-06 19:20"
+    },
+    {
+      "id": 102,
+      "ticket": "144",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "running",
+      "note": "Yggdrasil worker, after 147",
+      "updated": "2026-09-06 19:51"
+    },
+    {
+      "id": 103,
+      "ticket": "148",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "horde/148-quality-index-json",
+      "state": "queued",
+      "note": "after 135",
+      "updated": "2026-09-06 19:51"
     }
   ]
 }
