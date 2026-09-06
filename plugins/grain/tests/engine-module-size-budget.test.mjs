@@ -10,10 +10,10 @@
 // single definition: change it there and this test changes with it. It runs that check over every
 // first-party engine module and fails naming each one over the line.
 //
-// KNOWN_OVER is a shrinking list, not an exemption. Two modules are still over the budget and both are
-// named in the oracle's own backlog; they are listed here so the rule can be enforced on everything else
-// today instead of waiting for them. A module may only leave this list, never join it: adding a file
-// here would be turning the rule off for it, and the test says so when the list and reality disagree.
+// KNOWN_OVER is a shrinking list, not an exemption. One module is still over the budget and it is named
+// in the oracle's own backlog; it is listed here so the rule can be enforced on everything else today
+// instead of waiting for it. A module may only leave this list, never join it: adding a file here would
+// be turning the rule off for it, and the test says so when the list and reality disagree.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -26,9 +26,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..'); // plugins/grain
 const ENGINE = join(ROOT, 'engine');
 
-// Still over the budget, both recorded in the oracle's refactor backlog. Remove an entry when its module
-// is split; never add one.
-const KNOWN_OVER = new Set(['grain.mjs', 'propose.mjs']);
+// Still over the budget, recorded in the oracle's refactor backlog. Remove an entry when its module is
+// split; never add one. `propose.mjs` left this list in ticket 124 when it became a facade over sixteen
+// modules.
+const KNOWN_OVER = new Set(['grain.mjs']);
 
 // `engine/vendor/**` is third-party code taken as shipped — not ours to reshape, and deliberately outside
 // the source-shape rules the first-party engine carries (the oracle's own `vendored-runtime` and
