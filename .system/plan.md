@@ -5180,3 +5180,4 @@ note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a):
 - 2026-09-06 Horde 135 scalone (fc73b16, 545/545): Horda wymaga Yggdrasila. Rozdane 141, 142 (Opus), 148 (Sonnet).
 - 2026-09-06 merged: 148 461d006
 - 2026-09-06 merged: 144 49ea51da
+- 2026-09-06 merged: 141 744689c

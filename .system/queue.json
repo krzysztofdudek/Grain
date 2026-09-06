@@ -1124,9 +1124,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/141",
-      "state": "running",
-      "note": "wave C, Horde worktree",
-      "updated": "2026-09-06 21:00"
+      "state": "merged",
+      "note": "567/567 on branch; quality policy, node.mjs promote on drill evidence + two clean waves, demote refused without --by user, quality tickets from grain-advice/1, wave-close quality block with veto; composed with 148 (its comment/README wins, 141's exception paragraph kept)",
+      "updated": "2026-09-06 21:48",
+      "sha": "744689c"
     },
     {
       "id": 105,

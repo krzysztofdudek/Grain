@@ -1,6 +1,6 @@
 # 141 · Horde: quality policy in the charter; the status ladder is climbed on drill evidence without a human; quality tickets from Grain advisories are queued without a ruling; lowering needs the user
 
-**Status:** OPEN
+**Status:** LANDED — merged 744689c
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
