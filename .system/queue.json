@@ -934,9 +934,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "fix/131-grain-advise",
-      "state": "running",
-      "note": "Grain worktree; measurement on four oracles decides advisory or nothing",
-      "updated": "2026-09-06 15:24"
+      "state": "merged",
+      "note": "premerge READY 2429/2429; grain advise: relation kind is --json-only data with weak-signal line (2 pairs on 4 oracles, both declared), split kind is advice; escalations 22/23 filed",
+      "updated": "2026-09-06 16:47",
+      "sha": "786f161"
     },
     {
       "id": 88,
