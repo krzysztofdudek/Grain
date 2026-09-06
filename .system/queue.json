@@ -1044,9 +1044,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "fix/146-cochange-cap-split",
-      "state": "running",
-      "note": "wave C; from escalation 23",
-      "updated": "2026-09-06 16:48"
+      "state": "merged",
+      "note": "premerge READY 2433/2433; two-population cap, MODEL_V m27, no consumer precision drop on four oracles, advise relation verdict unchanged",
+      "updated": "2026-09-06 17:58",
+      "sha": "179fde7"
     },
     {
       "id": 98,
