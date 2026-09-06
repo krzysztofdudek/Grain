@@ -1112,9 +1112,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/148-quality-index-json",
-      "state": "running",
-      "note": "after 135",
-      "updated": "2026-09-06 21:00"
+      "state": "merged",
+      "note": "546/546; quality index from yg-check/1 and yg-aspects/1, older CLI refused with the version line",
+      "updated": "2026-09-06 21:35",
+      "sha": "461d006"
     },
     {
       "id": 104,

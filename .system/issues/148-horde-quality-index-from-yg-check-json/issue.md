@@ -1,6 +1,6 @@
 # 148 · Horde: the quality index at wave close reads `yg check --json` (`yg-check/1`) and refuses a CLI that does not emit it
 
-**Status:** OPEN
+**Status:** LANDED — merged 461d006
 **Found by:** director, 2026-09-06 (follow-up of 138 and 147)
 **Severity:** medium
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push · after 135 landed
