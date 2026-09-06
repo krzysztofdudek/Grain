@@ -3,8 +3,8 @@
 import { CFG } from './config.mjs';
 import { refineModOf } from './relations.mjs';
 import { S } from './base.mjs';
-import { sufOf } from './core.mjs';
 import { clearsOwnRate, currentPathOf, kt } from './facts.mjs';
+import { sufOf } from './placement.mjs';
 
 // ===== BIRTH OBLIGATIONS (ticket 073) =====
 // What a NEW file under a (module, suffix) class has historically come with — "add tests/libtest/*.c" implying
