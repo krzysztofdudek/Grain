@@ -627,10 +627,40 @@ export async function learn({
       const i = k.indexOf('#');
       return i < 0 ? k : currentOfScope(k.slice(0, i)) + k.slice(i);
     };
-    model.scopeCochange = H.scopeCochange
+    const bySup = (a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1);
+    const remapped = H.scopeCochange
       .map(p => ({ ...p, a: remapScopeKey(p.a), b: remapScopeKey(p.b) }))
-      .sort((a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1))
-      .slice(0, 5000);
+      .sort(bySup);
+    // TWO POPULATIONS, ONE BUDGET (ticket 146, escalation 23). A single descending-support cut over the whole
+    // list is saturated by WITHIN-file pairs on any repository with large files: two scopes in one file are
+    // touched together whenever that file is touched, so their support rises with the file's own commit count,
+    // while a cross-file pair needs the SAME two named declarations edited together eight or more times. On
+    // express all 5000 pairs a single cut retained were inside one file and all 36 cross-file pairs the store
+    // held were dropped before any consumer saw them — the surface was 100% within-file by construction, and
+    // every cross-file consumer was starved upstream of its own gate. So the two populations are cut
+    // SEPARATELY, each by its own descending support, out of the SAME total budget: each is entitled to half,
+    // and whatever half one does not use goes to the other. No new threshold — the entitlement is the existing
+    // budget divided by the number of populations, and the support floor (CFG.cochangeMinSup, applied in
+    // history.mjs) stays the same for both, which is what escalation 22's ruling requires. The NUMBER of pairs
+    // retained is unchanged (min(budget, total)); only WHICH pairs, and only on a repository that overflows.
+    // Classification is on CURRENT paths — after the rename remap above — because that is what a consumer sees.
+    const budget = 5000;
+    const fileOfScope = k => {
+      const i = k.indexOf('#');
+      return i < 0 ? k : k.slice(0, i);
+    };
+    const within = [],
+      cross = [];
+    for (const p of remapped) (fileOfScope(p.a) === fileOfScope(p.b) ? within : cross).push(p);
+    const half = Math.floor(budget / 2);
+    let keepWithin = Math.min(within.length, half),
+      keepCross = Math.min(cross.length, half);
+    let spare = budget - keepWithin - keepCross; // > 0 only when a population came in under its own half
+    const extraWithin = Math.min(within.length - keepWithin, spare);
+    keepWithin += extraWithin;
+    spare -= extraWithin;
+    keepCross += Math.min(cross.length - keepCross, spare);
+    model.scopeCochange = [...within.slice(0, keepWithin), ...cross.slice(0, keepCross)].sort(bySup);
   }
   applyMsgAffinity(model, H, files);
   applyConcepts(model, H);
