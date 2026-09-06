@@ -8,13 +8,13 @@ import { relFactsFor } from './relations.mjs';
 import { computeArchHits } from './arch.mjs';
 import { UNSEEN } from './base.mjs';
 import { practicedBy } from './cards.mjs';
-import { lexTally, quoteFlags, roleExemplar } from './core.mjs';
 import { applyVocab, isBool, isDefiningFact, kt, part, ptr, scopeLabel, skeyR } from './facts.mjs';
 import { lexicalPreds } from './lexical.mjs';
 import { assignAll, factNotes, skipLineNote, voice } from './mine.mjs';
 import { bindingFor, parseFile } from './parse.mjs';
 import { normalizeCR, partitionFor } from './partition.mjs';
 import { placementHit } from './placement.mjs';
+import { lexTally, quoteFlags, roleExemplar } from './report-facts.mjs';
 import { extractScopes } from './scopes.mjs';
 import { sigCounts } from './superposition.mjs';
 import {
