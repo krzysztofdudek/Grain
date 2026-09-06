@@ -5154,3 +5154,6 @@ note: Scalone: 105, 108 (3 ślepe wyrocznie + pomiar), 109, 110, 111, 112, 113, 
 # Fala Fala 10 — prawo dociera do wykonawcy — close 2026-09-06
 suite: 2415
 note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a): yg adopt, yg context --json, linia o podłodze szumu, podpowiedź coverage.required. Horde (122, c226f73): yg check w bramce premerge, node.mjs show z regułami ze statusami, testGlobs nigdy po cichu, bramki 7 ekosystemów, horde charter edit. Grain: 117 core.mjs → 29 modułów, 124 propose.mjs+grain.mjs → 25 modułów (engine 62 plików, 0 cykli, budżet 50k egzekwowany), 120 higiena (287 wierszy), 125 fakt parametrów typu (g34), 123 uścisk dłoni z yg adopt. Łańcuch klon → graf → przyjęcie → praca agentów pod grafem istnieje i jest przetestowany na petclinic.
+
+# Fala 11 — jeden system, fala A — start 2026-09-06
+- 2026-09-06 Karta misji: .system/research/mission-one-system.md. Fala A: Yggdrasil 130→132→133 (jeden Opus, szeregowo), Grain 131 (Opus), Horde 126/127 (Opus), 128 (Sonnet), 129 (Opus) w worktree. Fale B i C: bilety 134–145 założone, czekają na A.

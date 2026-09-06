@@ -855,16 +855,6 @@
       "sha": "c226f73"
     },
     {
-      "id": 79,
-      "ticket": "117",
-      "kind": "fix",
-      "agent": "opus",
-      "branch": "fix/117-core-split",
-      "state": "queued",
-      "note": "core.mjs 569k → split under Grain's own oracle file-size-budget; export byte-identity gate",
-      "updated": "2026-09-06 04:45"
-    },
-    {
       "id": 80,
       "ticket": "120",
       "kind": "fix",
@@ -907,6 +897,86 @@
       "note": "premerge READY (2411/2415, 4 skipped); next: line → yg adopt with live --dry-run block; oracle file-size-budget enforced, max_prompt_chars 300000 (largest node 279 770 measured); tparams fact in classifier, 0 vs 0 disagreements on Yggdrasil",
       "updated": "2026-09-06 13:47",
       "sha": "a8f52c6"
+    },
+    {
+      "id": 84,
+      "ticket": "130",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "queued",
+      "note": "Yggdrasil worker, direct on branch; then 132, 133 in sequence",
+      "updated": "2026-09-06 15:22"
+    },
+    {
+      "id": 85,
+      "ticket": "132",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "queued",
+      "note": "after 130, same worker",
+      "updated": "2026-09-06 15:22"
+    },
+    {
+      "id": 86,
+      "ticket": "133",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "queued",
+      "note": "after 132, same worker",
+      "updated": "2026-09-06 15:22"
+    },
+    {
+      "id": 87,
+      "ticket": "131",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "fix/131-grain-advise",
+      "state": "queued",
+      "note": "Grain worktree; measurement on four oracles decides advisory or nothing",
+      "updated": "2026-09-06 15:22"
+    },
+    {
+      "id": 88,
+      "ticket": "126",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/126-patch-id-keys",
+      "state": "queued",
+      "note": "Horde worktree",
+      "updated": "2026-09-06 15:22"
+    },
+    {
+      "id": 89,
+      "ticket": "127",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/127-ticket-fields-plan",
+      "state": "queued",
+      "note": "Horde worktree",
+      "updated": "2026-09-06 15:22"
+    },
+    {
+      "id": 90,
+      "ticket": "128",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "horde/128-fix-loop",
+      "state": "queued",
+      "note": "Horde worktree",
+      "updated": "2026-09-06 15:22"
+    },
+    {
+      "id": 91,
+      "ticket": "129",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/129-disciplines",
+      "state": "queued",
+      "note": "Horde worktree",
+      "updated": "2026-09-06 15:22"
     }
   ]
 }

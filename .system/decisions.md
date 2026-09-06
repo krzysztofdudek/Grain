@@ -364,3 +364,51 @@ Ręczna wyrocznia Graina (tests/stress/oracles/grain) jest żywym grafem Graina,
 
 ## 2026-09-06 · file-size-budget-enforced-and-prompt-ceiling · ticket 124 · class D
 Po 117 i 124 żaden plik engine/ nie przekracza budżetu 50 000 znaków z ręcznej wyroczni Graina, a lista wyjątków testu CI jest pusta i strzeżona. Aspekt engine/file-size-budget w wyroczni Graina przechodzi z advisory na enforced (zero kosztu dziś, zapadka na jutro) — do zrobienia w bilecie 123 razem z uściskiem dłoni, bo dotyka tej samej wyroczni. reviewer.tiers.standard.max_prompt_chars=600000 był ustawiony przez plik 572 KB, którego już nie ma; największy węzeł ma ~265 000 — schodzi do 300 000 w tym samym bilecie, jako świadoma zmiana parametru z pomiarem (największy węzeł po 124), nie w przelocie.
+
+## 2026-09-06 · layered-family · class G
+Rodzina jest warstwowa: Yggdrasil stoi sam (graf i prawo); Grain dokłada się do Yggdrasila (prawda o kodzie, pisze tylko obiekty Yggdrasila); Horda siedzi na czubku (praca wielu rąk, czyta graf tylko przez yg). Niższa warstwa nigdy nie zna wyższej; każdy ruch między warstwami to wersjonowany dokument maszynowy (yg-context/1, yg-impact/1, yg-node/1, grain-proposal/1, grain-advice/1). Test całości mieszka na czubku, każda warstwa testuje kontrakt warstwy pod sobą.
+
+## 2026-09-06 · horde-requires-yggdrasil · class G
+Horda wymaga Yggdrasila. Tryb ręczny (własny graph.json z węzłami, kontraktami i stemplami) jest drugim grafem i idzie do kosza; horde init na repozytorium bez grafu tworzy go przez yg init, a z Grainem przez grain propose + yg adopt. Obietnica README 'works with or without Yggdrasil' zmienia się na 'creates the graph if missing'. Rozstrzygnięte przez dyrektora z pełnej autoryzacji użytkownika (2026-09-06).
+
+## 2026-09-06 · port-is-contract · class G
+Port = kontrakt = interfejs. Jeden obiekt w grafie Yggdrasila: port ma wersję i test; relacja konsumuje port przez consumes. Kontrakty Hordy to porty; bilet produkuje i konsumuje węzeł/port@wersja; krawędzie planu to wersje portów; zmiana testu portu bez podbicia wersji to odmowa yg check. Pole test/version na porcie jest addytywne i opcjonalne; wersja schematu grafu rośnie tylko, jeśli stare grafy przestałyby się ładować (pracownik ma to wywieść z historii repo, nie zakładać).
+
+## 2026-09-06 · keys-bind-to-patch-id · class G
+Werdykt jest związany z tym, co osądził: klucze właściciela i weryfikatora z patch-id diffu biletu (git diff parent...branch | git patch-id --stable, kontekst -U3, pokrętło config.keyContext), bramka z sha drzewa. Doganianie bazy poza kontekstem hunka przenosi klucze; zmiana patch-id daje re-recenzję zakresową przez git range-diff; konflikt wraca do autora. Zmierzone 2026-09-06 (git 2.43): inny plik i ten sam plik poza kontekstem zachowują id; linia w kontekście zmienia; sąsiednia konfliktuje. -U0 odrzucone jako za luźne.
+
+## 2026-09-06 · evidence-is-the-plan · class G
+Planem jest katalog dowodów w karcie misji; bilety są środkiem; plan jest widokiem wyprowadzonym (queue plan), nigdy źródłem. Gotowe = każdy wiersz dowodu odtworzony przez weryfikatora scalonego biletu + bramka pełna zielona na czubku trunka + audyt czysty + koszt zapisany; bramka końcowa odmawia i wypisuje, co stoi na przeszkodzie. Plan wypisuje wiersze bez biletu; status pokazuje pokrycie (bez biletu, w kolejce, w toku, scalony, odtworzony); usunięcie wiersza z karty po pierwszej fali to eskalacja z uzasadnieniem w logu.
+
+## 2026-09-06 · disciplines-are-rules · class G
+Dyscypliny wzorowane na Superpowers (MIT, obra/superpowers) są prawem ról, nie skillami: teksty raz w reference/discipline/, brief.mjs renderuje je do briefu roli, premerge egzekwuje to, co mechaniczne; drille w formacie violates/satisfies jak yg drill, asercje na plikach .horde/, nie na prozie agenta. Test-first nie jest regułą: test rewersji dowodzi nośności testów i to jest to, co ma znaczenie. Bez hooka SessionStart; wejściem jest misja.
+
+## 2026-09-06 · production-is-the-corpus · class G
+Produkcja jest korpusem testów: incydent złapany przez weryfikatora staje się przypadkiem violates w korpusie drilla reguły (plik w tym sha); stan .horde/ z trudnej chwili plus brief roli staje się drillem roli; różnica między propozycją Graina a grafem przyjętym po poprawkach adoptera staje się wyrocznią (za zgodą). Miara: udział przypadków drilli pochodzących z produkcji.
+
+## 2026-09-06 · escalations-become-rules · class G
+Eskalacje są źródłem prawa: trzecia odpowiedź człowieka tego samego rodzaju w tym samym węźle to propozycja reguły (yg advise) z rulingami jako dowodem. KPI uczenia się systemu: liczba decyzji człowieka na scalony bilet, ma spadać z fali na falę.
+
+## 2026-09-06 · audit-is-spc · class G
+Audyt jest próbą losową, nie rytuałem: częstość dostosowuje się (odrzucenie w ostatnich pięciu próbach podwaja, długi ciąg czystych zmniejsza), a odsetek odrzuceń z przedziałem jest publikowany na każdym zamknięciu fali jako liczba zaufania.
+
+## 2026-09-06 · stacked-tickets · class G
+Bilet może startować od czubka niescalonej zależności (stos): premerge liczy diff i świeżość względem rodzica ze stosu, dopóki zależność nie jest scalona, potem względem zespołu; klucze na patch-id przenoszą się przy lądowaniu rodzica. Kolejność scalania dalej pilnuje dependsOn.
+
+## 2026-09-06 · horde-blame · class G
+Każda linia scalona przez hordę ma łańcuch pochodzenia: git blame → commit → bilet → klucze (autor, weryfikator, klasa) → wiersze dowodu → werdykty reguł przy tym hashu. Komenda horde blame plik:linia; jedno złączenie istniejących plików.
+
+## 2026-09-06 · node-lease-across-hordes · class G
+Własność węzła jest wyłączna między żywymi hordami na jednym repozytorium: dzierżawa zapisana w stanie; horde init i node bind odmawiają przecięcia z żywą hordą, chyba że jej dzierżawa wygasła.
+
+## 2026-09-06 · verifier-is-yggdrasil-reviewer · class G
+Sędzią reguł prozą w hordzie jest weryfikator (świeży kontekst, klasa nie niższa niż bilet). Yggdrasil dostaje kanał zewnętrznego recenzenta: pobranie pakietu recenzji dla pary aspekt/plik i zapis werdyktu pod nazwą sędziego, związanego z tymi samymi hashami; CI odtwarza go jak każdy werdykt; yg check pokazuje, kto sądził. premerge Hordy uruchamia yg check --only-deterministic, a reguły prozą sądzi weryfikator tym kanałem.
+
+## 2026-09-06 · horde-of-one-deferred · class G
+Horda jednego (mała misja jako jeden bilet z weryfikatorem) jest odłożona do pomiaru kosztu weryfikatora na małych biletach; w tej misji wchodzi tylko reguła siedzenia aprobaty: gdy autor jest właścicielem i nie ma architekta, aprobatę trzyma świeży weryfikator i jest to zapisane w kluczach jako takie.
+
+## 2026-09-06 · flake-is-an-incident · class G
+Weryfikator powtarza nieudane odtworzenie raz; dwa różne wyniki to flake; flake to incydent (yg incident) i bilet wraca z poleceniem uczynienia testu deterministycznym; nigdy eskalacja numer siedem za pierwszym razem.
+
+## 2026-09-06 · quality-always-authorised · class G
+Horda podnosi jakość wszędzie, gdzie pracuje, bez pytania: lepszy graf, nowe lub podniesione aspekty, normalizacja, porządek po zielonym. Prawo decyzyjne: to, co podnosi lub utrzymuje egzekucję i jakość, jest autonomiczne (dodanie reguły, podniesienie statusu draft→advisory→enforced na dowodzie z drilli i czystych fal, dodanie relacji lub portu, normalizujący bilet); to, co ją obniża (suppress, retire, obniżenie statusu, zmiana review_by, usunięcie wiersza dowodu, yg-architecture.yaml w stronę luźniejszą), wymaga człowieka. Zakres biletu zostaje ścisły: poprawa poza biletem to osobny bilet jakości, zakładany przez właściciela z advisories Graina i kolejkowany przez stewarda bez rulingu, w wolnej równoległości, najniższym priorytetem, w limicie kosztu. Domyślnie włączone; wyłączenie jawne: pole karty quality: only-the-work albo bilet --no-quality. Człowiek widzi zmiany grafu przy zamknięciu fali i może zawetować. Miara: indeks jakości na zamknięciu fali (reguły enforced, advisory bez naruszeń, linia bazowa naruszeń, podłoga szumu, pokrycie) ma być niemalejący.

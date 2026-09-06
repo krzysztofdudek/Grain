@@ -1,8 +1,8 @@
 {
-  "at": "2026-09-06T13:47:56.668Z",
+  "at": "2026-09-06T15:22:37.939Z",
   "by": "director",
-  "head": "claude/grain-agent-tool-b89y0x@a8f52c6",
-  "summary": "Fala 10 ZAMKNIĘTA (suita 2415/2415). Feature branche wypchnięte: Grain claude/grain-agent-tool-b89y0x, Yggdrasil claude/grain-agent-tool-b89y0x (5 commitów, repo-check 15/17 środowiskowo), Horde claude/grain-agent-tool-b89y0x (7 commitów, 328/328). Brak otwartych pracowników i worktree'ów.",
+  "head": "claude/grain-agent-tool-b89y0x@fbb6407",
+  "summary": "Misja 'jeden zgrany system' zapisana: karta .system/research/mission-one-system.md (warstwy, kontrakty JSON, inwarianty, katalog dowodów E1–E20, fale A/B/C, bilety 126–145), 16 rulingów w decisions.md (layered-family … quality-always-authorised). Fala A rozdana: Yggdrasil 130→132→133 (jeden Opus, szeregowo, bezpośrednio na gałęzi), Grain 131 (Opus, worktree), Horde 126/127/129 (Opus) i 128 (Sonnet) w worktree. Dyrektor scala po testach i wypycha feature branche.",
   "inFlight": [],
   "pendingDecisions": [
     {
@@ -39,8 +39,6 @@
     }
   ],
   "lastActions": [
-    "- 2026-09-06 122 Horde wylądowało na feature branchu (c226f73): prawo grafu dociera do node.mjs show (13 reguł ze statusami tam, gdzie próba fabryki widziała 0), czerwony graf = czerwona bramka premerge. Uwaga: yg context --json istnieje już w 5.8.0 — 121 item 1 do weryfikacji przez pracownika Yggdrasil.",
-    "- 2026-09-06 merged: 120 0ff0a64",
     "- 2026-09-06 merged: 117 195c584",
     "- 2026-09-06 merged: 125 31fc785",
     "- 2026-09-06 121 Yggdrasil wylądowało (acd9114a, pushed): rodzina ma transakcję przyjęcia grafu. yg adopt --dry-run na propozycji Graina dla Hordy: 8 komponentów, 6 reguł (0/3/3), 268 miejsc już złamanych — czyli propozycja dla Hordy jest w większości szumem kraty (call-join 91, call-fail 88) i to jest kolejny dowód na 115/120 po stronie kandydatów advisory.",
@@ -48,12 +46,15 @@
     "- 2026-09-06 merged: 123 a8f52c6",
     "# Fala Fala 10 — prawo dociera do wykonawcy — close 2026-09-06",
     "suite: 2415",
-    "note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a): yg adopt, yg context --json, linia o podłodze szumu, podpowiedź coverage.required. Horde (122, c226f73): yg check w bramce premerge, node.mjs show z regułami ze statusami, testGlobs nigdy po cichu, bramki 7 ekosystemów, horde charter edit. Grain: 117 core.mjs → 29 modułów, 124 propose.mjs+grain.mjs → 25 modułów (engine 62 plików, 0 cykli, budżet 50k egzekwowany), 120 higiena (287 wierszy), 125 fakt parametrów typu (g34), 123 uścisk dłoni z yg adopt. Łańcuch klon → graf → przyjęcie → praca agentów pod grafem istnieje i jest przetestowany na petclinic."
+    "note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a): yg adopt, yg context --json, linia o podłodze szumu, podpowiedź coverage.required. Horde (122, c226f73): yg check w bramce premerge, node.mjs show z regułami ze statusami, testGlobs nigdy po cichu, bramki 7 ekosystemów, horde charter edit. Grain: 117 core.mjs → 29 modułów, 124 propose.mjs+grain.mjs → 25 modułów (engine 62 plików, 0 cykli, budżet 50k egzekwowany), 120 higiena (287 wierszy), 125 fakt parametrów typu (g34), 123 uścisk dłoni z yg adopt. Łańcuch klon → graf → przyjęcie → praca agentów pod grafem istnieje i jest przetestowany na petclinic.",
+    "# Fala 11 — jeden system, fala A — start 2026-09-06",
+    "- 2026-09-06 Karta misji: .system/research/mission-one-system.md. Fala A: Yggdrasil 130→132→133 (jeden Opus, szeregowo), Grain 131 (Opus), Horde 126/127 (Opus), 128 (Sonnet), 129 (Opus) w worktree. Fale B i C: bilety 134–145 założone, czekają na A."
   ],
   "nextActions": [
-    "Kandydaci fali 11 (decyzja użytkownika): (a) wymaganie → reguła/karta misji (kompilator intencji — jedyny brakujący koniec łańcucha), (b) incydent → graf (rejestr incydentów karmiony przez verifier Hordy), (c) kandydaci advisory z wieloma istniejącymi naruszeniami niżej w raporcie (Horde: 268 miejsc z 2 reguł na 66 plikach), (d) piąta wyrocznia z prywatnego repo, (e) release 0.4.0 Graina i PR-y z feature branchy Yggdrasil/Horde do właściciela."
+    "Po lądowaniu fali A: fala B (134–140, 144, 145) — napisać treści biletów z §7 karty i rulingów, rozdać; potem fala C (141–143).",
+    "Wypychać feature branche po każdym scaleniu; nigdy main."
   ],
   "notes": [
-    "Worktree agenta powstaje w repo bieżącego cwd — zawsze cd /home/user/Grain przed spawnem."
+    "Worktree agenta powstaje w repo bieżącego cwd: cd /home/user/horde przed spawnem agentów Hordy, cd /home/user/Grain przed 131."
   ]
 }
