@@ -2,7 +2,7 @@
 
 Everything an operator or an integrator needs in one place: commands and flags, the voice rule every printed claim
 follows, the `missing:` sources, the hooks and their payloads, the store on disk, the environment switches, the
-cache version keys, and the export schema contract.
+cache version keys, and the export, proposal and advice contracts.
 
 ## Commands
 
@@ -28,6 +28,7 @@ worktree.
 | `rules` | `--out <file>`, `--top N` | a generated Markdown document of established conventions over the same data `report` prints, stamped with the commit; no `--out` prints it to stdout (so `grain rules > CONVENTIONS.md` works) — for a reader with no terminal and no grain plugin |
 | `export` | `--out <file>`, `--max-sites N`, `--compact`, `--no-anchors` | the whole model as data; see the schema contract below |
 | `propose [<out-dir>]` | `--full`, `--json <path>`, `--holdout <YYYY-MM-DD>` | a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository, written to `<out-dir>` (default `.yggdrasil-proposal/`); the report names the architecture, the rules a real `yg drill` proved, and the candidates, with `--full` for every draft it kept back; see the proposal contract below |
+| `advise` | `--json`, `--graph <dir>` | what this repository's own history and imports say about the architecture graph it ALREADY has (never a proposed one): places that change together with nothing in the graph connecting them, and places a finer cut of their own files beats on their own evidence. The change-together side is not advice and is not listed on the text surface — see the measurement below; the split side is. `--graph` reads a hand-written graph held beside the repository instead of inside it. Emits `grain-advice/1` |
 | `decide steer <path>#<name>` | `--surfaces <pid,…>`, `--instead-of <pid,…>`, `--note`, `--topic`, `--weight`, `--author` | record a maintainer decision; without `--surfaces` it refuses and lists the exemplar's properties (alias `seed add`) |
 | `decide boundary <from>` | `--never-imports <to>`, `--note`, `--author` | an architecture decision; new imports crossing it are flagged at edit time (alias `seed add-boundary`) |
 | `decide waive <path>#<name>` | `--on <pid>`, `--note`, `--author` | excuse one named scope from one convention; `check` reports the departure as deliberate, the counts still count it non-conforming |
@@ -659,3 +660,59 @@ alternative offered. Dropping the file into an existing `.yggdrasil/` at `.famil
 `yg advise` there makes Yggdrasil nominate the family with zero code changes on Yggdrasil's side —
 `plugins/grain/tests/seams.test.mjs` proves this against a real `yg` binary and against Yggdrasil's own
 planted-family precision fixtures.
+
+## The advice contract
+
+`grain advise [--json] [--graph <dir>]` reads the architecture graph a repository **already has** — never a
+proposed one — and reports what the repository's own history and imports say about it. `--json` emits a
+`grain-advice/1` document; the layer above (Yggdrasil's `yg advise`) is its consumer, and the fields listed here
+are fixed. A producer may add fields; a consumer reads only these.
+
+```json
+{
+  "schema": "grain-advice/1", "repo": ".", "at": "<40-char HEAD sha>",
+  "items": [
+    { "kind": "relation", "nodes": ["orders", "billing"], "confidence": 0.41,
+      "evidence": { "coChanged": 31, "ofA": 0.31, "ofB": 0.40, "declared": false }, "text": "…" },
+    { "kind": "split", "nodes": ["orders"], "candidates": ["orders/pricing"],
+      "evidence": { "node": { "…": "…" }, "candidates": [ { "…": "…" } ] }, "text": "…" }
+  ]
+}
+```
+
+`kind` is one of `relation | port | split | rule`. **`port` and `rule` are reserved and never emitted** — grain
+does not fabricate an item kind it has no evidence for, and a test asserts that only `relation` and `split` ever
+appear.
+
+**`kind: relation`** — two nodes whose code changes together. `nodes` are graph node paths, sorted.
+`confidence` is the MUTUAL confidence, `min(ofA, ofB)`, and both directions must reach 1/3 — the same
+single-subject floor `completeness` applies, required of both sides, which is what makes this an anti-hub test
+rather than a hub detector. `evidence.coChanged` is the commit count of the single strongest witness — a pair of
+named declarations, given as `witnessA`/`witnessB` with the `commitsA`/`commitsB` behind the two rates — never a
+sum over witnesses: several declarations in one file naming the same partner is one fact, not several.
+`evidence.declared` says whether the graph already joins the two nodes, and `evidence.declaredVia` says how:
+`relation` (one names the other), `ancestor-relation` (an ancestor of one names an ancestor of the other), or
+`containment` (one is inside the other).
+
+**`kind: split`** — a node a finer cut of its own files beats on the node's own evidence. `candidates` are
+directory paths; the policy is ticket 110's, applied with the node's mapped file set as the parent instead of a
+proposed type (see *The level a type was cut at* above), so a candidate is offered only where strictly more of
+the imports touching it stay inside than the parent's do, or grain could read none of its files while it could
+read the parent's. `evidence.candidates[].reason` is `tighter` or `unread` accordingly.
+
+A non-contract `survey` block carries the counts a measurement reads — pairs, declared/undeclared, the share of
+pairs touching the hottest node, the declared rate over every pair of nodes that owns a file, and the split
+count. It is not part of the contract and a consumer must not read it.
+
+**What the text surface says, and why it is not the same.** `.system/research/node-cochange-measurement.md`
+measured this on four hand-written graphs: the change-together side named two node pairs in total, both of them
+connections those graphs already declared, and every looser reading of the same evidence concentrates on
+whichever place the repository changes most — the finding `where`'s file-level co-change lever was rejected on.
+So the pairs are **data, not advice**: the text surface prints their count, how many are undeclared, the
+concentration and the declared rates, and leaves the pairs themselves to `--json`. Those numbers are recomputed
+on every run, so a repository where the finding does not hold says so in its own output. The split side was
+measured on the same four graphs, named a place holding a pile the evidence separates on three of them and
+nothing on the fourth, and **is** printed as advice.
+
+With no `.yggdrasil/` to read, the command says so and points at `grain propose`; the document is still a
+`grain-advice/1` with an empty `items` and a `note`.

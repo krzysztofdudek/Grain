@@ -212,6 +212,15 @@ same records, same effect.
   everything else is on disk and summarised in one counted line, with `--full` to print it. With no Yggdrasil
   CLI (`YG_BIN`, or `yg` on PATH) nothing can be drilled, so nothing is enforced and the report says so. It is
   a proposal: a human reviews it and moves it in. Never move it in, and never run `yg check --approve`, unbidden.
+- **`advise [--json] [--graph <dir>]`** — the other direction from `propose`: for a repository that ALREADY has
+  a `.yggdrasil/`, what its own history and imports say about it. Two findings, at very different weights. A
+  place a finer cut beats on its own evidence **is** advice: one node owns a pile that is not one thing, and
+  the report names the node, its size and the directories on offer. Places that change together are **not**
+  advice and are deliberately not listed — measured on four hand-written graphs, that evidence names almost
+  nothing and what it names the graph usually already connects, so the report prints the count, how many are
+  unconnected, how concentrated they are, and what share of all pairs of places are connected anyway. Relay
+  those as numbers; never turn one into "add a relation here". `--json` hands over the whole document if the
+  user wants the data. It writes nothing and never touches the graph.
 - **`refresh [--full]`** — rebuild the index now (every query already auto-refreshes).
 - **`completeness <file…>`** — ask about files BEFORE editing them, or check several files against each other at
   once: the other files this repo's own commit history shows reliably co-changing with the ones given. This is the
