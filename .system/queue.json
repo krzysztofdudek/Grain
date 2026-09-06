@@ -794,8 +794,8 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/117-control-bytes",
-      "state": "merged",
-      "updated": "2026-09-05 22:06",
+      "state": "running",
+      "updated": "2026-09-06 04:45",
       "sha": "c8ce4cc",
       "note": "premerge READY (2335/2335); 5 SOH bytes escaped, C0 guard test, run-corpus 21 tests, vendor 5/5 browser-only dead code; core.mjs size left (oracle refusals 12→8)"
     },
@@ -831,6 +831,46 @@
       "updated": "2026-09-05 23:49",
       "sha": "d94d05c",
       "note": "premerge READY (2370/2372, 2 skipped); source roots from package declarations + Maven layout, same-package refs, static receivers; petclinic recall .114→.829 (25/25 miner misses recovered, 6 left = oracle debt/undecidable), precision .725 vs oracle debt; express/Yggdrasil edges byte-identical; EXTR_V g33, MODEL_V m26 (director); 116 test accepts owner as active type"
+    },
+    {
+      "id": 77,
+      "ticket": "121",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "running",
+      "note": "repo Yggdrasil, feature branch, repo-check.sh gate",
+      "updated": "2026-09-06 04:45"
+    },
+    {
+      "id": 78,
+      "ticket": "122",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "running",
+      "note": "repo Horde, feature branch, skill self-contained",
+      "updated": "2026-09-06 04:45"
+    },
+    {
+      "id": 79,
+      "ticket": "117",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "fix/117-core-split",
+      "state": "queued",
+      "note": "core.mjs 569k → split under Grain's own oracle file-size-budget; export byte-identity gate",
+      "updated": "2026-09-06 04:45"
+    },
+    {
+      "id": 80,
+      "ticket": "120",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "fix/120-identifier-hygiene",
+      "state": "running",
+      "note": "render-side only; core.mjs owned by 117",
+      "updated": "2026-09-06 04:45"
     }
   ]
 }
