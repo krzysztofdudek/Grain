@@ -1,6 +1,6 @@
 # Handoff
 
-at: 2026-09-06T16:47:09.162Z
+at: 2026-09-06T16:48:58.730Z
 by: director
 head: claude/grain-agent-tool-b89y0x@fbb6407
 
@@ -9,6 +9,8 @@ Misja 'jeden zgrany system' zapisana: karta .system/research/mission-one-system.
 
 ## In flight
 - yggdrasil-130-132-133 — Yggdrasil: yg impact/node --json, port version+test, external reviewer channel; direct on branch, sequential (since 2026-09-06T15:24:35.877Z, reports to director)
+- grain-143 — Grain: adoption correction as oracle (worktree) (since 2026-09-06T16:48:58.575Z, reports to director)
+- grain-146 — Grain: scope co-change cap split, re-measured (worktree) (since 2026-09-06T16:48:58.731Z, reports to director)
 
 ## Pending decisions
 - [d1] Czy podbić ENGINE_VERSION/package.json 0.3.0→0.4.0 za nową komendę propose (precedens wave-close-versions-0-4-0), i czy scalić przepisany README/docs pod nowy cel (bilet 105, klasa 6)? — 104 scalone; wersje nietknięte; 105 czeka na zatwierdzenie użytkownika przed dispatchem

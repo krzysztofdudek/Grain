@@ -1039,8 +1039,18 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "fix/146-cochange-cap-split",
-      "state": "queued",
+      "state": "running",
       "note": "wave C; from escalation 23",
+      "updated": "2026-09-06 16:48"
+    },
+    {
+      "id": 98,
+      "ticket": "143",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "fix/143-oracle-record",
+      "state": "running",
+      "note": "wave C, Grain worktree",
       "updated": "2026-09-06 16:48"
     }
   ]
