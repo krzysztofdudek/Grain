@@ -552,6 +552,44 @@ that false-alarmed or caught nothing, every check nobody has verified yet — is
 not worth trusting sight unseen. Adopting a proposal means reviewing the drafts (and the advisory rules), not
 merely running `yg check --approve` on the enforced set and calling the rest done.
 
+### Identifier hygiene (ticket 120)
+
+A mined row can be true, checkable, and still not a rule anyone should read as one. Four such shapes are caught
+at render time, before the row ever becomes an aspect draft — `.system/research/sense-iteration.md` §10 names
+them; here is what `propose` does about each:
+
+- **A parser node type as the identifier.** `call_expression`, `identifier`, `member_expression` — a value that
+  belongs to tree-sitter's grammar rather than to the language a person writes, appearing as the thing
+  "called"/"imported"/"extended" (a mining artifact) or as the whole POINT of a `has`/`stshape`/`first1`/`ret`
+  row (these four families measure the grammar's own vocabulary by construction — a `has` row's identifier IS a
+  node type every time). Detected by tokenizing the value and checking every token against the SHIPPED
+  grammar's own `node-types.json` for the host type's files (`engine/grammars/tree-sitter-<g>.node-types.json`,
+  read directly — never a hand list of node type names, so a grammar gains or loses coverage exactly when its
+  `node-types.json` does). Such a row is not rendered as an aspect at all: it is counted in
+  `counts.aspectsSkippedNotARule` and broken down in `counts.aspectsSkippedNotARuleByReason["parser-node-type-as-identifier"]`,
+  and the report's "skipped as not a rule" line names the reason.
+- **A generic type parameter read as a domain type.** `S`, `V`, `T`, `TResult` in a `ptype`/`returns`/`extends`
+  row — obeyable, but not a statement about the domain. There is no extracted fact this renderer can consult to
+  know a name was DECLARED as a type parameter in scope (core.mjs's callable-surface walk explicitly excludes
+  `type_parameters`, and neither `fileSups` nor `fileTypeRefs` is part of the export schema at all — a real
+  extractor fix is tracked as a gap, not done here), so the render-side test uses the honest signal the export
+  DOES carry: the identifier is shaped like a type parameter (a bare uppercase letter, or the `T<Word>` form) AND
+  is never found declared as a real type (`kind: "type"`) anywhere this export saw. A repository with an actual
+  class named `T` or `S` keeps its rule — the second half of the test is what makes the first honest. Skipped the
+  same way as above, reason `"generic-type-parameter-as-domain-type"`.
+- **A rule measured in one role-group cluster, enforced over the whole directory.** A sub-gate row's evidence
+  already names the cluster it was measured in (ticket 109); until now the check it rendered still enforced the
+  WHOLE host type's directory regardless. Now the scope is narrowed to the cluster's own files wherever that can
+  be said EXACTLY — an explicit file list (only when the export's own group-member list is not itself truncated)
+  or the same shared `content:` predicate a group-scoped certified convention already drafts from a marker, name
+  shape or import. There is no threshold: when neither is exact, the row renders no check at all and stays
+  `status: draft`, `draftReason: "cluster-narrower-than-scope"`, permanently — `counts.aspectsClusterNarrowerThanScope`
+  counts these.
+- **A type with nothing attached obliges nothing.** A proposed node type that hosts no aspect draft (empty
+  `aspectIds`) and appears on neither side of any measured dependency edge is still emitted — the directory needs
+  a node to be reviewable at all, and coverage depends on that — but it is not law. `PROPOSAL.md`'s "Types with no
+  law" section lists them, and `counts.typesWithNoLaw` carries the count.
+
 **Per-aspect `provenance.json`** — `.yggdrasil/aspects/<id>/provenance.json`, one per rendered aspect, same
 field set as the law-loop measurement's own (ticket 097): `aspectId, conventionId, origin, enumeratorClass,
 identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note`. A live
@@ -564,8 +602,9 @@ provenance, which describes a held-out cut rather than a live run with a real `.
 `"active"` | `"draft"` pair; adding a value to an existing field is additive, not a shape change, so this needed
 no `grain-proposal/2` — the SAME three values Yggdrasil's own `yg-aspect.yaml` `status:` field takes, written
 here verbatim rather than through a separate Grain-internal word translated at write time),
-`draftReason` (one of `"prose-unenforceable-keyless"` | `"file-scope-approximation-fa"` | `"no-catch"`, or `null`
-when `status` is `"enforced"`/`"advisory"` or the aspect was never verified this run), and `scopeApproximation`
+`draftReason` (one of `"prose-unenforceable-keyless"` | `"file-scope-approximation-fa"` | `"no-catch"` |
+`"absence-not-forbiddance"` (ticket 115) | `"cluster-narrower-than-scope"` (ticket 120, see "Identifier hygiene"
+below), or `null` when `status` is `"enforced"`/`"advisory"` or the aspect was never verified this run), and `scopeApproximation`
 (`"file-from-symbol"` when the convention's own subject — `a.kind`, grain's `unitOf` domain: `method` | `type` |
 `catch` | `finally` | `case` — is a symbol living inside a file rather than the file itself, `null` for a
 file/module-level convention where the check's unit and the convention's subject are the same thing). This flag
