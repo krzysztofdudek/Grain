@@ -1055,9 +1055,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "fix/143-oracle-record",
-      "state": "running",
-      "note": "wave C, Grain worktree",
-      "updated": "2026-09-06 16:48"
+      "state": "merged",
+      "note": "premerge READY 2446/2446; grain oracle record (consent, no code stored) + score; Yggdrasil recorded as oracle 5: types recall .639/precision .234, relations .744/.707 on the shared 44 nodes — calibration of the instrument",
+      "updated": "2026-09-06 18:26",
+      "sha": "1856d72"
     },
     {
       "id": 99,

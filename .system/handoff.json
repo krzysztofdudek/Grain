@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-06T18:06:48.960Z",
+  "at": "2026-09-06T18:26:18.877Z",
   "by": "director",
   "head": "claude/grain-agent-tool-b89y0x@0e94b2a",
   "summary": "Misja 'jeden zgrany system' w toku. Scalone i wypchnięte: Horde 126,127,128,129 (fala A) + 134,136,137,138,139,140 (fala B) = 10 biletów, 540/540, czubek 94c4328; Grain 131 (grain advise: relacje = dane, podział = porada), 146 (cięcie budżetu współzmian, m27), 2433/2433, czubek 179fde7. Yggdrasil: 130 zacommitowane lokalnie (3a351e16, yg impact/node --json), 132 w pracy, potem 133, 147, 144, 145 — jeden pracownik Opus; nie wypchnięte do czasu przeglądu. W toku także Grain 143 (wyrocznia z korekty adoptera). Czekają: Horde 135 (wymaga Yggdrasila 130/132/133), 141 i 142 (po 135), Horde follow-up po 147 (indeks jakości z yg check --json).",

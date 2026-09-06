@@ -1,6 +1,6 @@
 # 143 · Grain: the difference between a proposal and the graph the adopter accepted becomes an oracle, with precision and recall against it
 
-**Status:** OPEN
+**Status:** LANDED — merged 1856d72
 **Found by:** director, 2026-09-06
 **Severity:** medium
 **Repo:** /home/user/Grain · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
