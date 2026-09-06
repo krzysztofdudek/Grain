@@ -1,6 +1,6 @@
 # 128 · Horde: fix-loop breaker, flake as an incident, the approval seat when the author owns the node
 
-**Status:** OPEN
+**Status:** LANDED — merged 4529fe1 on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** medium
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push

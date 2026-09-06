@@ -1,5 +1,5 @@
 {
-  "at": "2026-09-06T15:24:36.165Z",
+  "at": "2026-09-06T15:53:18.934Z",
   "by": "director",
   "head": "claude/grain-agent-tool-b89y0x@fbb6407",
   "summary": "Misja 'jeden zgrany system' zapisana: karta .system/research/mission-one-system.md (warstwy, kontrakty JSON, inwarianty, katalog dowodów E1–E20, fale A/B/C, bilety 126–145), 16 rulingów w decisions.md (layered-family … quality-always-authorised). Fala A rozdana: Yggdrasil 130→132→133 (jeden Opus, szeregowo, bezpośrednio na gałęzi), Grain 131 (Opus, worktree), Horde 126/127/129 (Opus) i 128 (Sonnet) w worktree. Dyrektor scala po testach i wypycha feature branche.",
@@ -20,12 +20,6 @@
       "name": "horde-127",
       "task": "Horde: ticket fields, queue plan, premerge scope by Files (worktree)",
       "since": "2026-09-06T15:24:35.986Z",
-      "reportsTo": "director"
-    },
-    {
-      "name": "horde-128",
-      "task": "Horde: fix-loop breaker, flake incident, approval seat (worktree, sonnet)",
-      "since": "2026-09-06T15:24:36.039Z",
       "reportsTo": "director"
     },
     {

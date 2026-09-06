@@ -1,6 +1,6 @@
 # Handoff
 
-at: 2026-09-06T15:24:36.165Z
+at: 2026-09-06T15:53:18.934Z
 by: director
 head: claude/grain-agent-tool-b89y0x@fbb6407
 
@@ -11,7 +11,6 @@ Misja 'jeden zgrany system' zapisana: karta .system/research/mission-one-system.
 - yggdrasil-130-132-133 — Yggdrasil: yg impact/node --json, port version+test, external reviewer channel; direct on branch, sequential (since 2026-09-06T15:24:35.877Z, reports to director)
 - horde-126 — Horde: patch-id keys, range-diff, scoped re-review (worktree) (since 2026-09-06T15:24:35.934Z, reports to director)
 - horde-127 — Horde: ticket fields, queue plan, premerge scope by Files (worktree) (since 2026-09-06T15:24:35.986Z, reports to director)
-- horde-128 — Horde: fix-loop breaker, flake incident, approval seat (worktree, sonnet) (since 2026-09-06T15:24:36.039Z, reports to director)
 - horde-129 — Horde: disciplines as role law, drill.mjs (worktree) (since 2026-09-06T15:24:36.105Z, reports to director)
 - grain-131 — Grain: grain advise + four-oracle measurement (worktree) (since 2026-09-06T15:24:36.166Z, reports to director)
 

@@ -964,9 +964,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/128-fix-loop",
-      "state": "running",
-      "note": "Horde worktree",
-      "updated": "2026-09-06 15:24"
+      "state": "merged",
+      "note": "premerge: 351/351 on the worktree; merged --no-ff into Horde feature branch; rounds resume 3 + fresh 2, flaky verdict, verifier seat",
+      "updated": "2026-09-06 15:53",
+      "sha": "4529fe1"
     },
     {
       "id": 91,
