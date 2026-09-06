@@ -7,8 +7,15 @@
 // live under one directory, and then the same membership is a `path:` glob over that directory — a predicate
 // that generalises.
 //
-// This test takes the offer at its word: it ACTIVATES one in a staged copy of the repository, adds a file grain
-// has never seen under the domain directory, and asks the real Yggdrasil CLI who owns it.
+// This test takes the offer at its word: it puts the domain to work in a staged copy of the repository, adds a
+// file grain has never seen under the domain directory, and asks the real Yggdrasil CLI who owns it.
+//
+// The domain has TWO places it can land, and ticket 116 is about the SHAPE of the membership, which has to be a
+// path predicate in either. It is a finer-type CANDIDATE in `alternatives.md` when the domain directory is not a
+// module of its own — the case the ticket was written from. It is an ACTIVE node type in `yg-architecture.yaml`
+// when it is: a JVM source root (§113) cuts modules at the package, so a Java package IS a module and grain
+// publishes it directly, already carrying the `path:` predicate. Then there is nothing to activate — which is
+// the same guarantee, arrived at one step earlier — and this test asks the same question of the active type.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -16,6 +23,7 @@ import { existsSync, cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROPOSE = join(here, 'stress', 'propose.mjs');
@@ -58,20 +66,40 @@ before(() => {
 });
 after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
 
-// The one candidate this test drives: the `owner` domain, whose members all live under one package.
-const ownerAlt = () => {
+// The one domain this test drives: `owner`, whose members all live under one package. Read wherever grain put
+// it — an active node type first, a finer-type candidate otherwise — and report which, so the assertions below
+// can hold the right form to account without either shape being able to pass by silently disappearing.
+const DOMAIN_DIR = 'src/main/java/app/owner';
+const DOMAIN_GLOB = `${DOMAIN_DIR}/**`;
+
+const ownerDomain = () => {
+  const archText = readFileSync(join(out, '.yggdrasil', 'yg-architecture.yaml'), 'utf8');
+  const arch = parseYaml(archText);
+  for (const [id, t] of Object.entries(arch.node_types || {})) {
+    if (!t || !t.when || t.when.path !== DOMAIN_GLOB) continue;
+    // the `# evidence:` comment grain writes directly under the type id
+    const ev = new RegExp(`^  ${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}:\\n\\s*# ([^\\n]*)`, 'm').exec(archText);
+    return { form: 'active', id, when: t.when, why: ev ? ev[1] : '' };
+  }
   const md = readFileSync(join(out, 'alternatives.md'), 'utf8');
   const alts = [...md.matchAll(/^### `([^`]+)`\n\n```yaml\n([\s\S]*?)\n```\n\n([^\n]+)/gm)]
     .map(m => ({ id: m[1], yaml: m[2], why: m[3] }));
   const of = id => (new RegExp(`^\\|\\s*\`${id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\`\\s*\\|\\s*\`([^\`]+)\``, 'm').exec(md) || [])[1];
   // the MEMBERSHIP candidate (the `-path`/`-list` pair this ticket is about), not the `-content` regex form
   const a = alts.find(x => /owner/.test(x.id) && !/-content$/.test(x.id));
-  assert.ok(a, `no candidate for the \`owner\` domain among ${alts.map(x => x.id).join(', ')}`);
-  return { ...a, of: of(a.id) };
+  assert.ok(a, `the \`owner\` domain is neither an active type with a \`${DOMAIN_GLOB}\` predicate nor a candidate; candidates: ${alts.map(x => x.id).join(', ') || '(none)'}`);
+  return { form: 'candidate', ...a, of: of(a.id) };
 };
 
-test('a domain whose members share a directory is offered as a path predicate, and says why', () => {
-  const a = ownerAlt();
+test('a domain whose members share a directory is a path predicate, not a file list, and says why', () => {
+  const a = ownerDomain();
+  if (a.form === 'active') {
+    // published as a type in its own right: the predicate is already law, and its evidence is the measured
+    // selection — the same guarantee the candidate below only offers
+    assert.deepEqual(a.when, { path: DOMAIN_GLOB }, JSON.stringify(a.when));
+    assert.match(a.why, new RegExp('`' + DOMAIN_GLOB.replace(/[*/]/g, ch => '\\' + ch) + '` selects \\d+ of \\d+ tracked files'), a.why);
+    return;
+  }
   assert.match(a.yaml, /path: "?src\/main\/java\/app\/owner\/\*\*"?/, a.yaml);
   assert.ok(!/any_of/.test(a.yaml), `the domain is still frozen as a file list:\n${a.yaml}`);
   assert.match(a.why, /all \d+ files share the directory `src\/main\/java\/app\/owner`/, a.why);
@@ -102,7 +130,7 @@ test('a domain whose members share no directory below the host is still offered 
   assert.deepEqual(dom.when, { path: 'src/dom/**' });
 });
 
-test('activated, the predicate classifies a file grain never saw', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+test('the predicate classifies a file grain never saw', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
   const stage = join(tmp, 'stage');
   mkdirSync(stage, { recursive: true });
   for (const rel of execFileSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean)) {
@@ -112,35 +140,42 @@ test('activated, the predicate classifies a file grain never saw', { skip: HAVE_
   }
   cpSync(join(out, '.yggdrasil'), join(stage, '.yggdrasil'), { recursive: true });
 
-  // ACTIVATE the candidate exactly as alternatives.md tells a maintainer to: paste its `when` in as a new type
-  // under the host, and give it a node.
-  const a = ownerAlt();
-  const archPath = join(stage, '.yggdrasil', 'yg-architecture.yaml');
-  const arch = readFileSync(archPath, 'utf8');
-  const host = a.of;
-  assert.ok(host, `could not read the candidate's host type from alternatives.md`);
-  writeFileSync(archPath, arch +
-    '\n  owner-domain:\n' +
-    '    description: "The owner domain — activated from a grain candidate. A file placed here is classified here."\n' +
-    `    ${a.yaml.replace(/\n/g, '\n    ')}\n` +
-    `    parents: ["project", "module", "${host}"]\n`);
-  const nodeDir = join(stage, '.yggdrasil', 'model', 'owner-domain');
-  mkdirSync(nodeDir, { recursive: true });
-  writeFileSync(join(nodeDir, 'yg-node.yaml'),
-    'name: owner-domain\ntype: owner-domain\ndescription: "The owner domain, cut from grain\'s own candidate."\n' +
-    'mapping:\n  - "src/main/java/app/owner/"\n');
+  const a = ownerDomain();
+  // The type whose name must come back for the fresh file. When the domain is already an ACTIVE type there is
+  // nothing to activate — the staged graph is used exactly as grain wrote it, which is the same guarantee one
+  // step earlier. When it is a CANDIDATE, activate it exactly as alternatives.md tells a maintainer to: paste
+  // its `when` in as a new type under the host, and give it a node.
+  let expectType = a.id;
+  if (a.form === 'candidate') {
+    expectType = 'owner-domain';
+    const archPath = join(stage, '.yggdrasil', 'yg-architecture.yaml');
+    const arch = readFileSync(archPath, 'utf8');
+    const host = a.of;
+    assert.ok(host, `could not read the candidate's host type from alternatives.md`);
+    writeFileSync(archPath, arch +
+      '\n  owner-domain:\n' +
+      '    description: "The owner domain — activated from a grain candidate. A file placed here is classified here."\n' +
+      `    ${a.yaml.replace(/\n/g, '\n    ')}\n` +
+      `    parents: ["project", "module", "${host}"]\n`);
+    const nodeDir = join(stage, '.yggdrasil', 'model', 'owner-domain');
+    mkdirSync(nodeDir, { recursive: true });
+    writeFileSync(join(nodeDir, 'yg-node.yaml'),
+      'name: owner-domain\ntype: owner-domain\ndescription: "The owner domain, cut from grain\'s own candidate."\n' +
+      `mapping:\n  - "${DOMAIN_DIR}/"\n`);
+  }
 
   // a file grain has NEVER seen, in the domain
-  const fresh = 'src/main/java/app/owner/OwnerScheduler.java';
+  const fresh = `${DOMAIN_DIR}/OwnerScheduler.java`;
   writeFileSync(join(stage, fresh), javaClass('owner', 'OwnerScheduler'));
 
   const r = spawnSync('node', [YG_BIN, 'check'], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
   const text = (r.stdout || '') + (r.stderr || '');
   assert.match(text, /yg check: \w+[^\n]*?\d+ nodes/, `the graph did not load:\n${text.slice(0, 3000)}`);
   assert.ok(!/architecture-invalid|type-when-mismatch|node-invalid|yaml|schema/.test(text),
-    `activating the candidate broke the graph:\n${text}`);
+    `the domain type broke the graph:\n${text}`);
 
   const c = spawnSync('node', [YG_BIN, 'context', '--file', fresh], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
   const ctext = (c.stdout || '') + (c.stderr || '');
-  assert.match(ctext, /owner-domain/, `a new file under the domain was not classified by it:\n${ctext.slice(0, 3000)}`);
+  assert.ok(ctext.includes(expectType),
+    `a new file under the domain was not classified by \`${expectType}\` (${a.form}):\n${ctext.slice(0, 3000)}`);
 });

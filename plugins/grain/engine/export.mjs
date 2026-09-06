@@ -232,6 +232,8 @@ export function exportModel({
         'certified value concordance (§mathematics, "Value concordance"): one entry per container (an enum, or a positionally-identified string set) whose members were found to travel together above the acceptance floor. `members` names every surviving sibling value; `norm` (present only when the co-travel itself cleared the KT/lambda test) gives the population/evidence a `kin:` gap is measured against. The raw per-value place index this is built from (`model.valueIndex` — every indexed value and everywhere it occurs, not only ones with a sibling) is NOT exported: it is internal working data on the order of `summary.valueIndexSize` entries, most of them singletons with no concordance to report; `valueSiblings`/its `norm` are the certified, bounded facts that raw index would otherwise duplicate less usefully.',
       relCoverage:
         'how much of the indexed file set the relation/architecture layer (edges/moduleGraph) can even see (§G21, same fact `report`/`status` print as the "resolution does not cover N files (...)" line): `n` files sit in a grammar that is either missing a resolution extractor entirely, or (issue 041) registered but structurally limited to a literal `#include`-style path — never a real symbol reference, so it resolves close to nothing on a repo whose headers are not addressed relative to the including file\'s own directory; `grammars` names which. Those files still carry conventions-layer facts, only file/module edges are silent or near-silent for them. Without this, "N modules · 0 directed dependencies" and a real, measured "this code imports nothing" are indistinguishable from the export alone. `n: 0, grammars: []` is the honest complete-coverage shape — read it as "no gap", never as "field not populated".',
+      relStages:
+        'the three stages a dependency passes on its way from source text to the architecture graph, counted over this run (§113): `seen` is every reference the language extractors emitted — imports, heritage, type references, internal and external alike, since which of them is internal is not knowable before resolution; `resolved` is how many bound to a file inside the indexed tree; `crossing` how many of THOSE join two different modules and so reach `moduleGraph.edges`. A graph with no relations is three different situations — nothing was read, nothing resolved, or everything resolved inside one module — and only these numbers tell them apart. Reported for every repository, not only empty ones.',
     },
     indexedAt: meta?.builtAt || null,
     history: model.historyStats
@@ -255,6 +257,7 @@ export function exportModel({
     edgesTruncated: model.edgesTruncated || 0,
     moduleGraph: model.moduleGraph || { nodes: [], edges: [], cycles: [] },
     relCoverage: relCoverageData(model),
+    relStages: model.relStages || { seen: 0, resolved: (model.edges || []).length, crossing: (model.moduleGraph?.edges || []).length },
     archNorms: (model.archNorms || []).filter(n => n.fromKind !== 'group'),
     changeArchetypes: model.changeArchetypes || [],
     twins: model.twins || [],

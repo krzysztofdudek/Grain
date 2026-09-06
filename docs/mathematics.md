@@ -54,6 +54,17 @@ holds by construction, and only the tool's own store (`.grain/`, `.git/`) is inv
 gitignore to consult. Package manifests (`package.json`, `go.mod`, `tsconfig.json`) are read for *resolution*, that
 is workspaces, path aliases and the module graph, never as a statistical prior.
 
+On the JVM the same role is played by the *source root*, and it is read from the language rather than from a manifest:
+a file's package declaration must be its directory path (JLS §7.2.1), so the directory with that path removed as a
+suffix is where the package hierarchy starts; the Maven and Gradle standard layout, `src/<sourceSet>/<language>`,
+says the same thing from the build side. A reference resolves against every source root of the repository, not only
+the ancestors of the file making it, which is what lets a test under `src/test/java` reach the production type it
+imports. And the module cut is taken below the source root, advanced through its non-branching prefix: a package
+opens with a reverse-domain name the spec requires and every file shares, so cutting there would put a whole source
+tree in one module. Within a package, Java needs no import at all — a simple type name binds to the sibling that
+declares it — so those references are read from the syntax directly and resolve only when the package really
+declares that type.
+
 ## Partitions from compression
 
 The populations a file is judged against are cut from the directory tree by a post order dynamic program: a directory
