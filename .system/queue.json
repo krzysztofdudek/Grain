@@ -999,9 +999,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/136-next",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "447/447; file locks, critical path, node-disjoint, quality last, --why",
+      "updated": "2026-09-06 16:59",
+      "sha": "101067d"
     },
     {
       "id": 94,
@@ -1009,9 +1010,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/137-evidence-done",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "452/452 on branch; evidence block in status, horde done gate, row drop after wave 1 needs a ruled escalation",
+      "updated": "2026-09-06 16:59",
+      "sha": "c6c03b8"
     },
     {
       "id": 95,
@@ -1019,9 +1021,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/139-blame",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "442/442 on branch; blame.mjs custody chain, pre-horde line reported",
+      "updated": "2026-09-06 16:59",
+      "sha": "37293ba"
     },
     {
       "id": 96,
