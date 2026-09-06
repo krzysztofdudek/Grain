@@ -1,6 +1,6 @@
 # 126 · Horde: keys bound to the ticket's diff (patch-id), scoped re-review by range-diff
 
-**Status:** OPEN
+**Status:** LANDED — merged 865d247 on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push

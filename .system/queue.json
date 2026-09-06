@@ -944,9 +944,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/126-patch-id-keys",
-      "state": "running",
-      "note": "Horde worktree",
-      "updated": "2026-09-06 15:24"
+      "state": "merged",
+      "note": "375/375 on merged tree; keys name@sha+patch-id, verifier-seat composed with 128, range-diff scoped re-review, keyContext",
+      "updated": "2026-09-06 16:04",
+      "sha": "865d247"
     },
     {
       "id": 89,
