@@ -1,6 +1,6 @@
 # 130 · Yggdrasil: `yg impact --json` (`yg-impact/1`) and `yg node --json` (`yg-node/1`) — the graph as machine documents for the layers above
 
-**Status:** OPEN
+**Status:** LANDED — committed 3a351e16 on Yggdrasil feature branch, pushed
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · work directly on the branch (single worker), commit, do not push

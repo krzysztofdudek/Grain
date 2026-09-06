@@ -1,6 +1,6 @@
 # 132 · Yggdrasil: a port carries `version` and `test`; changing the port's test without bumping the version is refused by `yg check`
 
-**Status:** OPEN
+**Status:** LANDED — committed b31c900a on Yggdrasil feature branch, pushed
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · same worker as 130, after 130 lands on the branch

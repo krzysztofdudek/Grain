@@ -904,9 +904,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "running",
-      "note": "Yggdrasil worker, direct on branch; then 132, 133 in sequence",
-      "updated": "2026-09-06 15:24"
+      "state": "merged",
+      "note": "yg impact --json (yg-impact/1), yg node --json (yg-node/1); E1 reproduced by the director on the build",
+      "updated": "2026-09-06 19:20",
+      "sha": "3a351e16"
     },
     {
       "id": 85,
@@ -914,9 +915,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "queued",
-      "note": "after 130, same worker",
-      "updated": "2026-09-06 15:22"
+      "state": "merged",
+      "note": "port version+test, test change without version bump refused (deterministic, in the lock); no schema bump — derived from history",
+      "updated": "2026-09-06 19:20",
+      "sha": "b31c900a"
     },
     {
       "id": 86,
@@ -924,9 +926,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "queued",
-      "note": "after 132, same worker",
-      "updated": "2026-09-06 15:22"
+      "state": "merged",
+      "note": "yg verdict package/record/read — external judge, hash-bound, judge visible in yg check text and yg verdict read --json",
+      "updated": "2026-09-06 19:20",
+      "sha": "4bc0173f"
     },
     {
       "id": 87,
@@ -1077,9 +1080,19 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "claude/grain-agent-tool-b89y0x",
-      "state": "queued",
+      "state": "running",
       "note": "Yggdrasil worker, after 133, before 144",
-      "updated": "2026-09-06 18:06"
+      "updated": "2026-09-06 19:20"
+    },
+    {
+      "id": 101,
+      "ticket": "135",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/135-requires-yggdrasil",
+      "state": "running",
+      "note": "Horde worktree, wave B tail; against the pushed Yggdrasil build",
+      "updated": "2026-09-06 19:20"
     }
   ]
 }

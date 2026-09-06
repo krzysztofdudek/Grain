@@ -5171,3 +5171,7 @@ note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a):
 - 2026-09-06 merged: 146 179fde7
 - 2026-09-06 merged: 138 94c4328
 - 2026-09-06 merged: 143 1856d72
+- 2026-09-06 merged: 130 3a351e16
+- 2026-09-06 merged: 132 b31c900a
+- 2026-09-06 merged: 133 4bc0173f
+- 2026-09-06 Yggdrasil 130/132/133 wypchnięte (4bc0173f); pracownik idzie z 147 → 144 → 145. Horde 135 rozdane.
