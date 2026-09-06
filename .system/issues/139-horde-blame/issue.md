@@ -1,6 +1,6 @@
 # 139 · Horde: `horde blame file:line` prints the chain of custody from git to ticket, keys, evidence and rule verdicts
 
-**Status:** OPEN
+**Status:** LANDED — merged on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** medium
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push

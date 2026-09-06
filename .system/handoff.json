@@ -1,14 +1,22 @@
 {
-  "at": "2026-09-06T16:47:09.162Z",
+  "at": "2026-09-06T18:06:48.960Z",
   "by": "director",
-  "head": "claude/grain-agent-tool-b89y0x@fbb6407",
-  "summary": "Misja 'jeden zgrany system' zapisana: karta .system/research/mission-one-system.md (warstwy, kontrakty JSON, inwarianty, katalog dowodów E1–E20, fale A/B/C, bilety 126–145), 16 rulingów w decisions.md (layered-family … quality-always-authorised). Fala A rozdana: Yggdrasil 130→132→133 (jeden Opus, szeregowo, bezpośrednio na gałęzi), Grain 131 (Opus, worktree), Horde 126/127/129 (Opus) i 128 (Sonnet) w worktree. Dyrektor scala po testach i wypycha feature branche.",
+  "head": "claude/grain-agent-tool-b89y0x@0e94b2a",
+  "summary": "Misja 'jeden zgrany system' w toku. Scalone i wypchnięte: Horde 126,127,128,129 (fala A) + 134,136,137,138,139,140 (fala B) = 10 biletów, 540/540, czubek 94c4328; Grain 131 (grain advise: relacje = dane, podział = porada), 146 (cięcie budżetu współzmian, m27), 2433/2433, czubek 179fde7. Yggdrasil: 130 zacommitowane lokalnie (3a351e16, yg impact/node --json), 132 w pracy, potem 133, 147, 144, 145 — jeden pracownik Opus; nie wypchnięte do czasu przeglądu. W toku także Grain 143 (wyrocznia z korekty adoptera). Czekają: Horde 135 (wymaga Yggdrasila 130/132/133), 141 i 142 (po 135), Horde follow-up po 147 (indeks jakości z yg check --json).",
   "inFlight": [
     {
-      "name": "yggdrasil-130-132-133",
-      "task": "Yggdrasil: yg impact/node --json, port version+test, external reviewer channel; direct on branch, sequential",
-      "since": "2026-09-06T15:24:35.877Z",
-      "reportsTo": "director"
+      "name": 84,
+      "task": "",
+      "since": "2026-09-06T18:06:48.969Z",
+      "reportsTo": "lead",
+      "branch": "claude/grain-agent-tool-b89y0x"
+    },
+    {
+      "name": 98,
+      "task": "",
+      "since": "2026-09-06T18:06:48.969Z",
+      "reportsTo": "lead",
+      "branch": "fix/143-oracle-record"
     }
   ],
   "pendingDecisions": [
@@ -46,22 +54,23 @@
     }
   ],
   "lastActions": [
-    "- 2026-09-06 merged: 117 195c584",
-    "- 2026-09-06 merged: 125 31fc785",
-    "- 2026-09-06 121 Yggdrasil wylądowało (acd9114a, pushed): rodzina ma transakcję przyjęcia grafu. yg adopt --dry-run na propozycji Graina dla Hordy: 8 komponentów, 6 reguł (0/3/3), 268 miejsc już złamanych — czyli propozycja dla Hordy jest w większości szumem kraty (call-join 91, call-fail 88) i to jest kolejny dowód na 115/120 po stronie kandydatów advisory.",
-    "- 2026-09-06 merged: 124 427a136",
-    "- 2026-09-06 merged: 123 a8f52c6",
-    "# Fala Fala 10 — prawo dociera do wykonawcy — close 2026-09-06",
-    "suite: 2415",
-    "note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a): yg adopt, yg context --json, linia o podłodze szumu, podpowiedź coverage.required. Horde (122, c226f73): yg check w bramce premerge, node.mjs show z regułami ze statusami, testGlobs nigdy po cichu, bramki 7 ekosystemów, horde charter edit. Grain: 117 core.mjs → 29 modułów, 124 propose.mjs+grain.mjs → 25 modułów (engine 62 plików, 0 cykli, budżet 50k egzekwowany), 120 higiena (287 wierszy), 125 fakt parametrów typu (g34), 123 uścisk dłoni z yg adopt. Łańcuch klon → graf → przyjęcie → praca agentów pod grafem istnieje i jest przetestowany na petclinic.",
-    "# Fala 11 — jeden system, fala A — start 2026-09-06",
-    "- 2026-09-06 Karta misji: .system/research/mission-one-system.md. Fala A: Yggdrasil 130→132→133 (jeden Opus, szeregowo), Grain 131 (Opus), Horde 126/127 (Opus), 128 (Sonnet), 129 (Opus) w worktree. Fale B i C: bilety 134–145 założone, czekają na A."
+    "- 2026-09-06 merged: 129 286e437",
+    "- 2026-09-06 Horde fala A zamknięta na gałęzi: 128 → 126 → 127 → 129, 437/437, wypchnięte 286e437. Otwarte: Yggdrasil 130/132/133, Grain 131.",
+    "- 2026-09-06 Fala B Hordy rozdana: 134 (Opus), 136/137/139/140 (Sonnet) w worktree od 286e437.",
+    "- 2026-09-06 merged: 131 786f161",
+    "- 2026-09-06 Horde fala B: 136 101067d, 137 c6c03b8, 139 37293ba scalone, 467/467, wypchnięte; 134 i 140 rozwiązują konflikty.",
+    "- 2026-09-06 merged: 140 fc06c61",
+    "- 2026-09-06 merged: 134 31a9f6c",
+    "- 2026-09-06 Horde fala B zamknięta na gałęzi: 134/136/137/139/140, 515/515, wypchnięte 31a9f6c. Otwarte: Yggdrasil 130→132→133, Grain 143/146; Horde 135/138 czekają na Yggdrasil, 141/142 na 135.",
+    "- 2026-09-06 merged: 146 179fde7",
+    "- 2026-09-06 merged: 138 94c4328"
   ],
   "nextActions": [
-    "Po lądowaniu fali A: fala B (134–140, 144, 145) — napisać treści biletów z §7 karty i rulingów, rozdać; potem fala C (141–143).",
-    "Wypychać feature branche po każdym scaleniu; nigdy main."
+    "Po raporcie Yggdrasila o 132/133: przejrzeć repo-check, wypchnąć gałąź Yggdrasila, rozdać Horde 135 (Opus) z cwd=/home/user/horde.",
+    "Po 135: rozdać 141 i 142; po 147: mały bilet Hordy na indeks jakości z yg-check/1.",
+    "Na końcu misji: horde done-style przegląd katalogu dowodów E1–E20 w karcie, wave close 11, raport dla użytkownika."
   ],
   "notes": [
-    "Worktree agenta powstaje w repo bieżącego cwd: cd /home/user/horde przed spawnem agentów Hordy, cd /home/user/Grain przed 131."
+    "Worktree agenta powstaje w repo bieżącego cwd — błąd popełniony raz przy 138 (worktree w Grainie); zawsze cd do właściwego repo w OSOBNYM poleceniu przed spawnem."
   ]
 }

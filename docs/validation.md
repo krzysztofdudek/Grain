@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2442 tests under engine 0.4.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2446 tests under engine 0.4.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -320,6 +320,17 @@ a repository-wide sweep.
 So the pairs ship as `--json` data with a disclosed weak-signal line, and the text surface prints their count, the
 concentration and the two rates instead of the pairs themselves — recomputed on every run, so a repository where
 this does not hold says so in its own output.
+
+**One bias the measurement turned up has since been removed.** Scope co-change is held to a fixed budget of
+pairs, and until it was re-cut that budget was one ranking by how often a pair changed together — which pairs of
+declarations inside a single large file win outright, because they move whenever the file does. On express that
+was total: the budget was spent entirely inside one file and all 36 pairs spanning two files were dropped before
+any command could see them. The budget is now shared between the two kinds, each ranked against its own kind, so
+a repository with large files can no longer starve the cross-file half. Re-measured before the change shipped, on
+all four graphs: the number of pairs kept is the same, every command that already read this evidence answers
+identically (0 lines gained or lost anywhere, and its precision against held-out commits is unchanged to four
+decimals), and `grain advise` emits the same two pairs it did before — express's 36 now reach the gate and are
+still rejected by it, on their own merits. The record is §9 of the same memo.
 
 **The split side does ship as advice**, on the same four graphs: it names `Project State` on grain (327 files, 286
 of them ticket directories), `Examples` on express (80 files, nine independent programs and template directories),

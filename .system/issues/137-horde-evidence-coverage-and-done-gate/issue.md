@@ -1,6 +1,6 @@
 # 137 · Horde: `status` shows evidence coverage in five states; `horde done` refuses with what stands in the way; dropping a row after wave 1 escalates
 
-**Status:** OPEN
+**Status:** LANDED — merged on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push

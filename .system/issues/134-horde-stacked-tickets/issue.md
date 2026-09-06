@@ -1,6 +1,6 @@
 # 134 · Horde: a dependent ticket starts from its unmerged dependency's tip (a stack); keys transfer when the parent lands
 
-**Status:** OPEN
+**Status:** LANDED — merged 31a9f6c
 **Found by:** director, 2026-09-06
 **Severity:** high
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push

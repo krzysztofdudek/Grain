@@ -1,6 +1,6 @@
 # 140 · Horde: node ownership is exclusive across live hordes on one repository; init and bind refuse an overlap
 
-**Status:** OPEN
+**Status:** LANDED — merged fc06c61
 **Found by:** director, 2026-09-06
 **Severity:** medium
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push

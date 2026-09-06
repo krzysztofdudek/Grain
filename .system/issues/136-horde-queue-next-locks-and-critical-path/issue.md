@@ -1,6 +1,6 @@
 # 136 · Horde: `queue next` honours file locks, prefers node-disjoint tickets, orders by remaining critical path; quality tickets last
 
-**Status:** OPEN
+**Status:** LANDED — merged on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** medium
 **Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push

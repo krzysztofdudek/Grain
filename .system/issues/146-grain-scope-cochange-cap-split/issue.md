@@ -1,6 +1,6 @@
 # 146 · Grain: the scope co-change cap keeps within-file and cross-file pairs in separate budgets; existing consumers re-measured before merge
 
-**Status:** OPEN
+**Status:** LANDED — merged 179fde7
 **Found by:** director, 2026-09-06 (from escalation 23, ticket 131)
 **Severity:** medium
 **Repo:** /home/user/Grain · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push

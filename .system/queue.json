@@ -989,9 +989,10 @@
       "kind": "fix",
       "agent": "opus",
       "branch": "horde/134-stack",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "515/515; queue set --on, next --stack in 136's ranking, one parent-resolution function, merge order enforced, stack cleared on merge",
+      "updated": "2026-09-06 17:13",
+      "sha": "31a9f6c"
     },
     {
       "id": 93,
@@ -999,9 +1000,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/136-next",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "447/447; file locks, critical path, node-disjoint, quality last, --why",
+      "updated": "2026-09-06 16:59",
+      "sha": "101067d"
     },
     {
       "id": 94,
@@ -1009,9 +1011,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/137-evidence-done",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "452/452 on branch; evidence block in status, horde done gate, row drop after wave 1 needs a ruled escalation",
+      "updated": "2026-09-06 16:59",
+      "sha": "c6c03b8"
     },
     {
       "id": 95,
@@ -1019,9 +1022,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/139-blame",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "442/442 on branch; blame.mjs custody chain, pre-horde line reported",
+      "updated": "2026-09-06 16:59",
+      "sha": "37293ba"
     },
     {
       "id": 96,
@@ -1029,9 +1033,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/140-lease",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "489/489; leases.json, bind/init refuse overlap, --take with ruled escalation, archive releases",
+      "updated": "2026-09-06 17:06",
+      "sha": "fc06c61"
     },
     {
       "id": 97,
@@ -1039,9 +1044,41 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "fix/146-cochange-cap-split",
-      "state": "queued",
-      "note": "wave C; from escalation 23",
+      "state": "merged",
+      "note": "premerge READY 2433/2433; two-population cap, MODEL_V m27, no consumer precision drop on four oracles, advise relation verdict unchanged",
+      "updated": "2026-09-06 17:58",
+      "sha": "179fde7"
+    },
+    {
+      "id": 98,
+      "ticket": "143",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "fix/143-oracle-record",
+      "state": "running",
+      "note": "wave C, Grain worktree",
       "updated": "2026-09-06 16:48"
+    },
+    {
+      "id": 99,
+      "ticket": "138",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/138-audit-spc",
+      "state": "merged",
+      "note": "540/540; audit.json with adaptive rate + Wilson CI, escalate recurring → rule proposal, decisions per merged ticket, parallelism/keys transferred, quality index (text-parsed: 147 gives it yg check --json)",
+      "updated": "2026-09-06 18:06",
+      "sha": "94c4328"
+    },
+    {
+      "id": 100,
+      "ticket": "147",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "claude/grain-agent-tool-b89y0x",
+      "state": "queued",
+      "note": "Yggdrasil worker, after 133, before 144",
+      "updated": "2026-09-06 18:06"
     }
   ]
 }

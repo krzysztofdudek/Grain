@@ -115,7 +115,8 @@ that budget on any repository with large files. On express all 5000 retained pai
 retained support floor is 14, and all 36 cross-file pairs are dropped before any consumer sees them — the
 model's scope co-change there is 100% within-file by construction. The verdict does not turn on it (the uncapped
 store gives the same zero under the mutual gate), but any later reader of this surface should know it. Filed as
-**escalation 23**; changing what the cap keeps changes acceptance, so it was not changed.
+**escalation 23**; changing what the cap keeps changes acceptance, so it was not changed. **It has since been
+changed — §9 below is the re-measurement, and the numbers in this section are the pre-146 surface.**
 
 ## 4. The variant sweep — what looser gates buy, and what they cost
 
@@ -204,3 +205,110 @@ somewhere else, so the graph is read from beside the tree rather than inside it.
 `--graph` — that repository carries its own `.yggdrasil/`. The variant sweep of §4 and the cross-file listings of
 §3 are throwaway readers over the same two stores (`model.json` and the history store) and are not committed;
 each is fifty lines over `readNodeGraph`/`declaredVia`, which `engine/grain-advise.mjs` exports for exactly this.
+
+---
+
+## 9. The cap, re-cut over two populations — and what it cost the consumers that were already reading it
+
+**Ticket 146, escalation 23's ruling.** The 5000-pair budget on `model.scopeCochange` is no longer one
+descending-support cut over the whole list. Within-file pairs and cross-file pairs are now cut **separately**,
+each by its own descending support, out of the **same** total budget: each population is entitled to half, and
+whatever half one does not use goes to the other. **No constant was added and no floor moved** —
+`CFG.cochangeMinSup` is still 8 for both populations, which is what escalation 22's ruling requires — and the
+number of pairs retained is unchanged at `min(budget, total)`. Only *which* pairs, and only on a repository whose
+store overflows.
+
+Why half-and-half rather than a share proportional to the two populations' sizes: proportional is the policy that
+produces the bias. On express the cross-file population is 0.13% of the store, so a proportional share is 6 pairs
+of 36 — the budget would still be spent almost entirely on the population that saturates it, which is the thing
+escalation 23 objected to. An equal entitlement with spill-over is the only rule that (a) needs no number that is
+not already there, (b) costs nothing when a population is under its half — which is every repository but one
+here — and (c) leaves the total retention exactly as it was.
+
+### 9a. What the cut now keeps
+
+| oracle | store (`sup ≥ 8`) | cross in store | retained before · of which cross | retained after · of which cross | weakest retained support |
+|---|---|---|---|---|---|
+| grain | 25 | 0 | 25 · 0 | 25 · 0 | 8 → 8 |
+| express | 28 534 | 36 | **5000 · 0** | **5000 · 36** | 14 → **8** |
+| spring-petclinic | 0 | 0 | 0 · 0 | 0 · 0 | — |
+| Yggdrasil | 5 | 4 | 5 · 4 | 5 · 4 | 8 → 8 |
+
+Express is the only repository of the four that overflows, and it is the whole change: **0 → 36 cross-file pairs
+reach a consumer**, paid for by the 36 weakest within-file pairs (support 14, at the bottom of a population of
+28 498). The other three are under budget and byte-identical, order included.
+
+### 9b. The condition on the ruling: every existing consumer, re-measured, before merge
+
+Three consumers, on the same four repositories, each run twice over the same store — once with the old single
+cut, once with the split — so the two arms differ in nothing but the cut.
+
+| oracle | `check`'s scope co-change lines (files · lines) before → after | lines lost | lines gained | `where`'s partners differing | `what`'s tested-by differing | `completeness` differing |
+|---|---|---|---|---|---|---|
+| grain | 2 · 7 → 2 · 7 | 0 | 0 | 0 of 2026 | 0 of 2026 | 0 of 2026 |
+| express | 10 · 31 → 10 · 31 | 0 | 0 | 0 of 213 | 0 of 213 | 0 of 213 |
+| spring-petclinic | 0 · 0 → 0 · 0 | 0 | 0 | 0 of 132 | 0 of 132 | 0 of 132 |
+| Yggdrasil | 1 · 1 → 1 · 1 | 0 | 0 | 0 of 3047 | 0 of 3047 | 0 of 3047 |
+
+Two facts explain the zeros, and both are worth stating because neither is luck.
+
+- **`where`'s partners and `what`'s tested-by never read this surface at all.** Both are built on
+  `model.cochange` — FILE pairs — which this ticket does not touch. They were re-run anyway, over every live
+  file of all four repositories, because "it cannot be affected" is an argument and 5418 files is a measurement.
+- **`check`'s scope co-change lines are gated at `CFG.cochangeMinConf` = 0.75**, and the 36 express pairs that
+  newly arrive have confidences of 0.22–0.59 (§3). They enter the model and are then rejected by the consumer's
+  own gate, which is exactly the order escalation 22's ruling asks for: remove the upstream bias first, let the
+  gate decide afterwards. The 36 within-file pairs that leave were at the bottom of their file's top-5 and none
+  of them was on a rendered line.
+
+**Precision, leave-one-out.** A past commit is a recorded answer. For each of the last 200 commits of each
+repository the scope-pair table is rebuilt **without that commit** — its own contribution subtracted from the
+accumulator, both support and per-scope commit counts — the cut is applied under each policy, and the consumer
+is asked about the files that commit touched. A line is **correct** when the partner declaration it named was in
+fact touched by that same commit.
+
+| oracle | held-out commits | commits where a line fired | lines emitted before → after | precision before → after |
+|---|---|---|---|---|
+| grain | 200 | 48 | 198 → 198 | **0.1212 → 0.1212** |
+| express | 200 | 42 | 315 → 315 | **0.1778 → 0.1778** |
+| spring-petclinic | 200 | 0 | 0 → 0 | — (never speaks) |
+| Yggdrasil | 200 | 6 | 6 → 6 | **0.8333 → 0.8333** |
+
+Identical in every arm, to four decimals, on every repository. **No consumer's precision drops, so the split
+ships.** (The absolute values are a property of the consumer, not of this change: this instrument's only claim is
+that the two policies are indistinguishable to it. The three-way spread — 0.12 on grain, 0.18 on express, 0.83 on
+Yggdrasil off six lines — is itself worth a ticket, and is not this one.)
+
+### 9c. `grain advise`, re-run at the same mutual gate and the same floor
+
+Same command, same `--graph`, same `MUTUAL_CONF_FLOOR` of 1/3, same `CFG.cochangeMinSup` of 8. The only input
+that changed is which pairs the cut kept.
+
+| oracle | pairs before → after | declared | undeclared | concentration | control | splits |
+|---|---|---|---|---|---|---|
+| grain | 0 → **0** | 0 | 0 | — | 59/703 = 8.4% | 1 |
+| express | 0 → **0** | 0 | 0 | — | 15/105 = 14.3% | 1 |
+| spring-petclinic | 0 → **0** | 0 | 0 | — | 35/190 = 18.4% | 0 |
+| Yggdrasil | 2 → **2** | **2** | **0** | 1 of 2 = 50% | 1769/79800 = 2.2% | 2 |
+
+Unchanged, pair for pair — the two Yggdrasil pairs are the same two declarations, the same supports and the same
+`declared: relation`. Express's 36 newly-retained cross-file pairs still emit nothing, and §3 already said why:
+every one of them is `lib/response.js`'s `send` (or `redirect`) against one anonymous block of its own test file,
+and `send`'s 45 commits dwarf any one block's 17, so the mutual gate rejects each on its own merits. **This is the
+row §4's V1b variant predicted from the uncapped store, now arrived at through the shipped cut instead of a
+throwaway reader.**
+
+**The verdict of §1 therefore stands unchanged: the change-together half is data, not advice, and the disclosure
+line is not touched.** What has changed is that it is now data drawn from a surface that is not biased by
+construction — a repository with large files can no longer starve every cross-file consumer upstream of its own
+gate — and a future measurement of that half will be measuring the gate rather than the cap.
+
+### 9d. How to re-run §9
+
+Same recipe as §8. The two policies are compared over one already-built store rather than by rebuilding twice:
+`model.json` and the history store are read once per repository, `model.scopeCochange` is recomputed under each
+policy from `H.scopeCochange`, and the consumers are called on the two resulting models. The leave-one-out arm
+reads `scopePairSup`/`scopeCommits` out of the persisted replay state and subtracts one commit's own footprint
+(`H.fps[*].scopes`) at a time. It is fifty lines over exports the engine already has and is not committed; what
+is committed is `plugins/grain/tests/scope-cochange-cap-split.test.mjs`, which pins the overflow case, the
+retention total, the under-budget no-op, and express's own 36 pairs end to end.
