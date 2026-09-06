@@ -1032,6 +1032,16 @@
       "state": "running",
       "note": "Horde worktree, wave B",
       "updated": "2026-09-06 16:24"
+    },
+    {
+      "id": 97,
+      "ticket": "146",
+      "kind": "measure",
+      "agent": "opus",
+      "branch": "fix/146-cochange-cap-split",
+      "state": "queued",
+      "note": "wave C; from escalation 23",
+      "updated": "2026-09-06 16:48"
     }
   ]
 }
