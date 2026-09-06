@@ -1057,6 +1057,16 @@
       "state": "running",
       "note": "wave C, Grain worktree",
       "updated": "2026-09-06 16:48"
+    },
+    {
+      "id": 99,
+      "ticket": "138",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/138-audit-spc",
+      "state": "running",
+      "note": "Horde worktree, wave B tail; quality index via yg on a graph fixture",
+      "updated": "2026-09-06 17:14"
     }
   ]
 }
