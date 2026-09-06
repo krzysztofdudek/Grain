@@ -62,7 +62,7 @@ ranked answer with none of the honesty the text answer next to it already carrie
 score high while the text run, on the identical query, was disclosing that the real text lives in a file grain has
 no grammar for at all. Nothing existing changed shape; a command with no matching caveat carries an empty array,
 never an absent key. `check`/`review`'s `disclosures[]` deliberately does not attempt every hedge line either
-renders (see their own §089 comments in `grain.mjs`) — only the caveats backed by a flag the JSON already carried
+renders (see their own §089 comments in `engine/grain-check.mjs`) — only the caveats backed by a flag the JSON already carried
 as a boolean (`noGrammar`, `noPartition`, `parseFailed`, `hasError`), so text and JSON are guaranteed to speak from
 the identical fact, never two hand-synced copies of one sentence.
 
@@ -108,7 +108,7 @@ therefore gets none of the per-edit hooks below. All hooks are silent on any fai
 build or refresh an index — a stale or missing model/history cache is silence, not an error, resolved by the next
 real query.
 
-Five hooks share `hook-seen.json` (`seenGate(store, key, sigText)`, `grain.mjs`) under five keys (`check:<rel>`,
+Five hooks share `hook-seen.json` (`seenGate(store, key, sigText)`, `engine/grain-session.mjs`) under five keys (`check:<rel>`,
 `how:<hash>`, `read:<rel>`, `commit:<hash>`, and `cochange:<rel>` — shared by check-hook's own post-edit co-change
 line and edit-hook's pre-edit one, so whichever fires first in a turn suppresses the other) so they never overwrite
 each other's suppression state, and each repeats an identical finding no more often than once per
@@ -366,8 +366,9 @@ top-level ignore list as well is fine; nothing in grain requires it.
 
 The same renderer is also driven by the measurement instrument `node tests/stress/propose.mjs <repo> <out-dir>`,
 which adds `--score <repo>` (compare against a hand-written graph, both directions) and `--family-candidates
-<out.json>`. The instrument and the command write byte-identical trees — the renderer lives in
-`plugins/grain/engine/propose.mjs` and neither surface has a rendering path of its own.
+<out.json>`. The instrument and the command write byte-identical trees — the renderer lives behind the
+`plugins/grain/engine/propose.mjs` facade, in the sixteen `engine/propose-*.mjs` modules it re-exports, and
+neither surface has a rendering path of its own.
 
 **What the command prints** is deliberately short (ruling `propose-default-is-quiet`), and every line of it
 carries a number or a path: the architecture (node types, nodes, relations, dependency cycles), the aspects that
@@ -625,7 +626,7 @@ Horde's `node.mjs show <node>` reads this file verbatim — no schema of its own
 path".
 
 **`sizing.json`** (ticket 098) is unchanged by this contract — see its own header comment in
-`plugins/grain/engine/propose.mjs` for the field-by-field explanation; every `charter.md` quotes its own node's row from
+`plugins/grain/engine/propose-sizing.mjs` for the field-by-field explanation; every `charter.md` quotes its own node's row from
 it rather than duplicating the numbers.
 
 **The `.family-candidates.json` adapter** — the instrument's `--family-candidates <out.json>` writes a SEPARATE file
@@ -635,7 +636,7 @@ scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `ts` MUST be a parseabl
 freshness gate runs `Date.parse` on it and silently drops the whole file otherwise) — grain's own `asOf` is a git
 sha, so this adapter uses the export's `indexedAt` instead. A "family without a law" in grain's own terms is a
 role group (093/094's structural cluster within a partition) that clears the same size floor Yggdrasil's own
-offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `plugins/grain/engine/propose.mjs`) and carries no certified
+offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `plugins/grain/engine/propose-base.mjs`) and carries no certified
 convention of its own — whether that group ended up as a finer `-content` alternative (a subset of its host
 type) or, when the group coincides with its whole host type, was cut directly as an active type with no
 alternative offered. Dropping the file into an existing `.yggdrasil/` at `.family-candidates.json` and running

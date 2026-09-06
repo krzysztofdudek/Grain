@@ -6,6 +6,10 @@ description: >-
   ends with. It owns the two promises a user feels directly: an answer always says which commit it was
   computed from, and a hook never blocks. Uncommitted work never feeds the norm — only the file a
   check-shaped command was asked about is ever read from the worktree.
+
+  Ten files since ticket 124, not one: `grain.mjs` is the doc header, the imports and `main` — the single
+  command switch — and nine siblings carry the store and the commands it dispatches to. One owner, one
+  charter, one context; the split moved statements between files and changed none of them.
 relations:
   - target: plugin/engine/core
     type: calls
@@ -20,3 +24,12 @@ relations:
     consumes: [constants]
 mapping:
   - plugins/grain/engine/grain.mjs
+  - plugins/grain/engine/grain-context.mjs
+  - plugins/grain/engine/grain-where.mjs
+  - plugins/grain/engine/grain-what.mjs
+  - plugins/grain/engine/grain-check.mjs
+  - plugins/grain/engine/grain-seed.mjs
+  - plugins/grain/engine/grain-export.mjs
+  - plugins/grain/engine/grain-report.mjs
+  - plugins/grain/engine/grain-session.mjs
+  - plugins/grain/engine/grain-usage.mjs
