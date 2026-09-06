@@ -410,3 +410,45 @@ export function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
   }
   return out;
 }
+
+// issue 125 — the type parameters a SCOPE ITSELF declares (`<T>`, `[T, +U]`), distinct from a domain type
+// reference: `bindingFor`'s `b.tparamDecl`/`b.tparamContainer` name which node types this grammar uses for one
+// declaration and for the list holding several; this walks a scope's own header (never its body — a nested
+// generic use elsewhere is not a declaration) to read the names out. A declaring node's own identifier is read
+// off its `name` FIELD where node-types.json gives it one (TS/Rust/C#/Go/Scala's variant nodes) — `multiple`
+// fields (Go's `[T, U any]` shares one `type_constraint`) come back as more than one child, every one collected —
+// and, where a grammar declares no field at all for it (Java/Groovy/Kotlin: the identifier is one more unnamed
+// child alongside annotations/bounds/modifiers), the first NAMED child whose OWN type says "identifier" or "name"
+// as a whole word (the same word-bounded technique `bindingFor`'s own `DECO_NAME_RE` already uses for a
+// decoration's name). Scala's plain (unwrapped, no-variance) parameters sit directly as the CONTAINER's own
+// `name` field rather than a nested declaring node, so the container is read the same way before its children
+// are walked — never double-counted, since a name reached that way is never ALSO one of the container's declaring
+// children. Never resolves inherited scope: a member method's own `<T>` is never the enclosing type's.
+const TPARAM_LEAF_RE = wordBounded(['identifier', 'name']);
+const tparamNamesFromNode = node => {
+  const named = node.childrenForFieldName('name').filter(c => c && c.isNamed);
+  if (named.length) return named.map(c => c.text);
+  const leaf = node.namedChildren.find(c => TPARAM_LEAF_RE.test(c.type));
+  return leaf ? [leaf.text] : [];
+};
+export function declaredTypeParams(ch, b) {
+  if (!b.tparamContainer.size && !b.tparamDecl.size) return [];
+  const container =
+    ch.childForFieldName('type_parameters') ||
+    ch.namedChildren.find(c => b.tparamContainer.has(c.type) || b.tparamDecl.has(c.type));
+  if (!container) return [];
+  const out = [];
+  const add = names => {
+    for (const nm of names) if (nm && !out.includes(nm)) out.push(nm);
+  };
+  const walk = node => {
+    if (b.tparamDecl.has(node.type)) {
+      add(tparamNamesFromNode(node));
+      return;
+    }
+    add(tparamNamesFromNode(node)); // the container's own `name` field (Scala's plain, unwrapped parameters)
+    for (const c of node.namedChildren) if (b.tparamDecl.has(c.type) || b.tparamContainer.has(c.type)) walk(c);
+  };
+  walk(container);
+  return out;
+}

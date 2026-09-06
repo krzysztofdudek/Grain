@@ -15,6 +15,7 @@ import {
   VAL_CAP,
   VAL_SCAN_CAP,
   declaratorChain,
+  declaredTypeParams,
   hasPrimaryCtor,
   heritageNamesOf,
   isKeyNode,
@@ -380,6 +381,12 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
       if (decoLits.length)
         for (const t of docTokens(decoLits.slice(0, 12).join(' '))) if (!doc.includes(t)) doc.push(t);
       const mods = modifiersOf(ch, b);
+      // issue 125 — the type parameters THIS scope itself declares (`<T>`, `[T, +U]`), read off the scope's own
+      // header only (never its body): a method's `ptype`/`returns` and a type's `extends` can name one of these
+      // instead of a real domain type, and until now nothing distinguished the two (§120's class-2 guard could
+      // only guess by name shape). Kept on every scope kind, not just `method`/`type` — a `noBody` interface
+      // method still declares its own `<T>` in several grammars.
+      const tparams = declaredTypeParams(ch, b);
       if (noBody) {
         scopes.push({
           kind,
@@ -395,6 +402,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
           supKind,
           decos: [...new Set(decos)],
           rets,
+          tparams,
           calls: new Set(),
           seen: new Set(),
           shapes: new Set(),
@@ -489,6 +497,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         decos: [...new Set(decos)],
         rets,
         ptypes,
+        tparams,
         calls,
         seen,
         shapes,

@@ -214,6 +214,8 @@ export function exportModel({
         'the line(s) inside a site where the convention manifests. For `negated`/absence conventions there is no positive occurrence: focus is the declaration line by construction.',
       applicableNodeTypes:
         'null = the enumerator is not domain-restricted (any scope of the kind is decidable); an array = only these node types can carry the surface.',
+      tparams:
+        "(issue 125) a site's own `tparams`: the type parameters that SITE declares in its own header (`<T>`, `[T, +U]`), never a domain type — `[]` for a site with no generics of its own, and, in every language this covers, for a member whose enclosing type is generic but which redeclares nothing new itself (its own header carries none; the enclosing type's site carries `T`). Read this before treating a `ptype`/`returns`/`extends` argument as a real type name: an argument equal to one of a scope's own `tparams` (or, for a member, its OWNER's) names a type parameter, not a type in the repository's domain.",
       calibration:
         'available only when the history holds >= calibMinEv value-transition events inside the horizon — rare on ordinary repos; trend/lifecycle do not depend on it.',
       waivers:
@@ -298,6 +300,7 @@ export function exportModel({
       endLine: s.endLine || s.line,
       grammar: s.g || null,
       nodeType: s.nt || null,
+      tparams: s.tparams || [],
     });
     const lifecycleOf = key => {
       const L = lcOf(key);
