@@ -761,9 +761,10 @@
       "kind": "measure",
       "agent": "opus",
       "branch": "research/110-types",
-      "state": "queued",
-      "note": "po 108",
-      "updated": "2026-09-05 19:52"
+      "state": "merged",
+      "note": "premerge READY (2383/2387, 4 skipped w/o clones); 6 type levels published; policy 'finer directory only where it beats its parent on its own evidence' wins recall 4/4 oracles: 15→16/33, 2→6/28, 6→7/13, 21→23/36; director completed the 113 merge, worker fixed the fixture non-vacuously",
+      "updated": "2026-09-06 00:38",
+      "sha": "d0d04a1"
     },
     {
       "id": 71,
