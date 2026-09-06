@@ -14,7 +14,11 @@ The run above wrote a **proposal**, never a graph: everything lands in `<out-dir
 Relay the report as it stands — every line already carries a number or a path. Its three parts:
 
 - **architecture** — node types, nodes, relations and dependency cycles. This is the part that loads; a cycle
-  count above zero is declared on purpose, and `REFACTOR-BACKLOG.md` lists them.
+  count above zero is declared on purpose, and `REFACTOR-BACKLOG.md` lists them. The node-type count is broken
+  down by the LEVEL each cut came from, because no single level is right everywhere: a partition, a module, a
+  directory, a domain directory, or the layout alone. Every candidate at a level this run did not activate is
+  in `alternatives.md`, grouped by level and carrying the same numbers, so the user can choose a different
+  level for one subtree without re-running anything.
 - **enforced** — the rules a real `yg drill` proved on this repository's own code (zero false alarms, at least
   one caught violation each) AND that came from a convention grain itself certified. Nothing stands between the
   maintainer and turning these on. Each one says how many sites already break it today, and the proposal sets

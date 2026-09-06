@@ -32,7 +32,9 @@ It writes a whole staging tree to `.yggdrasil-proposal/` — node types, nodes, 
 with the evidence that produced each one — and never touches the repository's own graph. What it prints back is
 short on purpose, and every line of it carries a number or a path:
 
-- the **architecture**: node types, nodes, relations, dependency cycles;
+- the **architecture**: node types, nodes, relations, dependency cycles — with the node types split by the LEVEL
+  each cut came from, and every finer cut it weighed but did not take listed beside them with the same numbers,
+  so choosing a different level for one subtree is a decision you make rather than one made for you;
 - the rules that **earned enforcement** — each one drilled against this repository's own code, kept only on zero
   false alarms and at least one caught violation, with those numbers beside the practice it was mined from, and
   beside how many places already break it today: the proposal names the branch your changes are measured
