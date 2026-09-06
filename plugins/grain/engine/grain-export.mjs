@@ -1,0 +1,92 @@
+// grain engine · query surface · `export` and `propose`
+// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+import { existsSync, writeFileSync } from 'node:fs';
+import { join, resolve, isAbsolute, sep } from 'node:path';
+import { loadHistory } from './history.mjs';
+import { exportModel } from './export.mjs';
+import { atomicWrite, canonicalize, loadScopes, log } from './grain-context.mjs';
+
+// the whole model as data — see export.mjs
+export async function cmdExport({ model, meta, head, root, isGit, args, opts, stamp, store }) {
+  if (args.length)
+    throw new Error(
+      'usage: grain export [--out <file>] [--max-sites N] [--compact] [--no-anchors] — takes no arguments'
+    );
+  const scopesAll = await loadScopes({ root, isGit, store, opts });
+  let H = null;
+  if (isGit && !opts['no-history']) {
+    try {
+      H = (await loadHistory({ gitdir: root, store, log })).H;
+    } catch (e) {
+      log('history unavailable for export: ' + e.message);
+    }
+  }
+  const dump = exportModel({
+    model,
+    root,
+    scopesAll,
+    H,
+    meta,
+    head,
+    maxSites: opts['max-sites'] !== undefined ? +opts['max-sites'] : 300,
+    anchors: !opts['no-anchors'],
+  });
+  const text = JSON.stringify(dump, null, opts.compact ? 0 : 1);
+  if (opts.out) {
+    const p = isAbsolute(opts.out) ? opts.out : resolve(process.cwd(), opts.out);
+    atomicWrite(p, text);
+    return [
+      `export ${p} — ${dump.summary.conventions} conventions · ${dump.summary.groups} groups · ${dump.summary.deviations} deviating sites · ${dump.cochange.length} co-change pairs · ${(text.length / 1048576).toFixed(1)} MB`,
+      stamp(),
+    ];
+  }
+  console.error('[grain] ' + stamp());
+  return [text];
+}
+// ----- propose: one command from `git clone` to a loadable `.yggdrasil/` architecture graph -----
+//
+// The staging tree is written to `<repo>/.yggdrasil-proposal/` by default and NEVER to `<repo>/.yggdrasil/`: a
+// proposal is read, edited and moved in by a human, not installed by a script. The out-dir gets its own
+// `.gitignore` (`*`, the same trick `.grain/.gitignore` uses for the cache) the first time it is written, so a
+// staging tree can never be committed by accident while the maintainer reads it.
+//
+// Everything the command prints comes from `proposeReport` (engine/propose.mjs), which builds the text lines and
+// the `--json` document in one pass so the two cannot disagree. The default is deliberately quiet — see that
+// function's header for what is in it and why.
+export async function cmdPropose({ root, args, opts, stamp }) {
+  if (args.length > 1)
+    throw new Error('usage: grain propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] — at most one out-dir');
+  if (opts.json === true)
+    throw new Error('usage: grain propose --json <path> — `--json` names the file to write the report to; the text report always goes to stdout');
+  if (opts.holdout !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(opts.holdout)))
+    throw new Error('usage: grain propose --holdout <YYYY-MM-DD> — a calendar date, so drill corpora keep only sites first seen after it');
+  const outDir = args[0]
+    ? isAbsolute(args[0]) ? args[0] : resolve(process.cwd(), args[0])
+    : join(root, '.yggdrasil-proposal');
+  // CANONICAL PATHS, NOT RESOLVED STRINGS. `resolve()` folds `.` and `..` and never touches the filesystem, so
+  // an out-dir that is a SYMLINK to the repository compares unequal to it, walks past this guard, and the
+  // renderer's `rmSync(<out-dir>/.yggdrasil)` then deletes the hand-written graph the guard exists to protect —
+  // measured, exit code 0, no warning. `canonicalize` (above) resolves symlinks through the deepest existing
+  // ancestor, so it works on an out-dir that does not exist yet, which is the ordinary case.
+  const outReal = canonicalize(outDir), rootReal = canonicalize(root), yggReal = canonicalize(join(root, '.yggdrasil'));
+  if (outReal === rootReal || outReal === yggReal || outReal.startsWith(yggReal + sep))
+    throw new Error(
+      `refusing to write a proposal into ${outReal}: that is the repository itself or its own .yggdrasil/.\n` +
+        'A proposal is a staging tree a human reads, edits and moves in — writing it over a live graph destroys the graph already there.\n' +
+        `Run \`grain propose\` with no argument (it writes ${join(root, '.yggdrasil-proposal')}), or name a directory outside .yggdrasil/.`
+    );
+  const { propose, proposeReport } = await import('./propose.mjs');
+  const r = await propose(root, outDir, { noHistory: !!opts['no-history'], holdout: opts.holdout });
+  // `*` ignores the staging tree including this file — the same self-ignoring form `.grain/.gitignore` uses, so
+  // an adopter reading a proposal for a week never has it show up in `git status`.
+  const gi = join(outDir, '.gitignore');
+  if (!existsSync(gi))
+    writeFileSync(gi, '# generated by grain — a proposal is a staging tree you read and move in, never a commit\n*\n');
+  const { lines, json } = proposeReport(r, { outDir, root, full: !!opts.full });
+  if (opts.json) {
+    const p = isAbsolute(opts.json) ? opts.json : resolve(process.cwd(), opts.json);
+    atomicWrite(p, JSON.stringify(json, null, 1) + '\n');
+    lines.push(`report as JSON: ${p}`);
+  }
+  return [...lines, stamp()];
+}

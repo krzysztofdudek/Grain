@@ -10,10 +10,11 @@
 // single definition: change it there and this test changes with it. It runs that check over every
 // first-party engine module and fails naming each one over the line.
 //
-// KNOWN_OVER is a shrinking list, not an exemption. One module is still over the budget and it is named
-// in the oracle's own backlog; it is listed here so the rule can be enforced on everything else today
-// instead of waiting for it. A module may only leave this list, never join it: adding a file here would
-// be turning the rule off for it, and the test says so when the list and reality disagree.
+// KNOWN_OVER was a shrinking list, and it has shrunk to nothing: ticket 117 split the mining core and
+// ticket 124 the proposal writer and the dispatcher, so the rule now holds for every first-party engine
+// module with no exception at all. The list stays in the file, empty, with a test of its own asserting
+// it is empty — because an exception list that is gone is easy to re-introduce, and one that is present
+// and provably empty is not.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync, readdirSync } from 'node:fs';
@@ -26,10 +27,10 @@ const here = dirname(fileURLToPath(import.meta.url));
 const ROOT = join(here, '..'); // plugins/grain
 const ENGINE = join(ROOT, 'engine');
 
-// Still over the budget, recorded in the oracle's refactor backlog. Remove an entry when its module is
-// split; never add one. `propose.mjs` left this list in ticket 124 when it became a facade over sixteen
-// modules.
-const KNOWN_OVER = new Set(['grain.mjs']);
+// EMPTY, AND IT STAYS EMPTY. Nothing may be added here: a name in this set turns the budget rule off
+// for that file. `core.mjs` left it in ticket 117; `propose.mjs` and `grain.mjs` left it in ticket 124,
+// when each became a facade over the modules that had been inside it.
+const KNOWN_OVER = new Set();
 
 // `engine/vendor/**` is third-party code taken as shipped — not ours to reshape, and deliberately outside
 // the source-shape rules the first-party engine carries (the oracle's own `vendored-runtime` and
@@ -84,6 +85,16 @@ test('every first-party engine module fits inside the reviewer budget', () => {
     [],
     `these modules are no longer over the budget: ${fixed.join(', ')} — remove them from KNOWN_OVER so the ` +
       'rule keeps holding for them.'
+  );
+});
+
+test('the budget has no exception list left — every engine module answers for itself', () => {
+  assert.deepEqual(
+    [...KNOWN_OVER],
+    [],
+    'KNOWN_OVER is empty and must stay empty: every first-party engine module is inside the 50 000-character\n' +
+      'reviewer budget today. Adding a name here turns the rule off for that file. If a module has grown past\n' +
+      'the line, split it along a seam it already has — the way core.mjs, propose.mjs and grain.mjs were split.'
   );
 });
 
