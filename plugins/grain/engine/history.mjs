@@ -44,6 +44,26 @@ export function headSha(gitdir) {
     return null;
   }
 }
+// EVERY tracked path, not just the code ones `headTree` keeps: a Yggdrasil graph maps yaml, markdown and
+// config as readily as source, so a consumer comparing graphs (engine/oracle.mjs) needs the whole index. It
+// lives here, with the other git argv, because this is the one analysis-layer module allowed to spawn one
+// (`engine/no-subprocess-in-analysis-layer` is a type default, not an exception list).
+export function trackedFiles(gitdir) {
+  try {
+    return git(gitdir, ['ls-files']).split('\n').filter(Boolean);
+  } catch {
+    return null;
+  }
+}
+// The remote a checkout came from — the only durable name a recorded artifact can carry for the repository it
+// describes, since a local path means nothing to whoever reads it later. `null` when there is no origin.
+export function originUrl(gitdir) {
+  try {
+    return git(gitdir, ['remote', 'get-url', 'origin']).trim() || null;
+  } catch {
+    return null;
+  }
+}
 export function headTs(gitdir) {
   try {
     return +git(gitdir, ['log', '-1', '--format=%ct', 'HEAD']).trim() || 0;

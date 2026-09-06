@@ -25,6 +25,7 @@ import {
 
 const here = dirname(fileURLToPath(import.meta.url));
 const RECON = join(here, 'stress', 'reconstruct.mjs');
+const BIN = join(here, '..', 'bin', 'grain.mjs');   // the recorded oracles below are scored through the product command, not through this instrument
 
 // ---------- the fixture: a real git repo, 6 files, a .yggdrasil/ with exactly 2 classifying types ----------
 // Two identical copies: `repo` is where a real `grain export` runs (and leaves a .grain/ cache behind), while
@@ -254,6 +255,57 @@ for (const [name, F] of Object.entries(ORACLE_FACTS)) {
     assert.ok(o.relations.nodeLevel.matched <= Math.min(o.relations.nodeLevel.declaredPairs, o.relations.nodeLevel.grainPairs));
     const t = o.types.disagreementClasses;
     assert.equal(o.types.ge50 + t.a + t.b + t.c, o.types.classifyingTypes);
+  });
+}
+
+// ---------- 1d. the RECORDED oracles — an adopter's correction, scored the same way ----------
+// A fifth kind of oracle (ticket 143): not a graph written by hand for the instrument, but the difference
+// between what `grain propose` wrote for a repository and the graph its maintainer accepted. `grain oracle
+// record` stores it as five documents including the file set every predicate selected, so the score needs no
+// checkout at all — which is why this runs unconditionally where the three graph oracles above skip without one.
+// What is asserted is the ACCEPTED side (the denominators, facts about a committed record) and that the score's
+// tallies close. Grain's own hit counts are the measurement, not the guard, and are reported in
+// `.system/research/oracle-5-yggdrasil.md`.
+const RECORDED = {
+  yggdrasil: { files: 3056, acceptedTypes: 36, acceptedNodes: 436, acceptedRelations: 1298, acceptedRules: 70, acceptedPorts: 1 },
+};
+for (const [name, F] of Object.entries(RECORDED)) {
+  test(`the recorded ${name} oracle scores from its own record, with no checkout of the repository`, () => {
+    const dir = join(ORACLES, name);
+    const manifest = JSON.parse(readFileSync(join(dir, 'oracle.json'), 'utf8'));
+    assert.equal(manifest.schema, 'grain-oracle/1');
+    assert.equal(manifest.target.files, F.files);
+    assert.equal(manifest.counts.acceptedTypes, F.acceptedTypes);
+    assert.equal(manifest.counts.acceptedNodes, F.acceptedNodes);
+    assert.equal(manifest.counts.acceptedRelations, F.acceptedRelations);
+    assert.equal(manifest.counts.acceptedRules, F.acceptedRules);
+    assert.equal(manifest.counts.acceptedPorts, F.acceptedPorts);
+
+    // every path index in the record resolves against the recorded file list
+    const files = JSON.parse(readFileSync(join(dir, 'files.json'), 'utf8')).files;
+    assert.equal(files.length, F.files);
+    const accepted = JSON.parse(readFileSync(join(dir, 'accepted.json'), 'utf8'));
+    for (const n of accepted.nodes) for (const i of n.files) assert.ok(files[i], `${name}: node ${n.id} names a path index the record does not have`);
+
+    const r = spawnSync('node', [BIN, 'oracle', 'score', dir, '--json'], { encoding: 'utf8', maxBuffer: 1 << 28 });
+    assert.equal(r.status, 0, r.stderr);
+    const s = JSON.parse(r.stdout);
+    assert.equal(s.schema, 'grain-oracle-score/1');
+    // the tallies have to close: a hit is a row at J >= 0.5, in both directions and at both granularities
+    for (const d of [s.types.recall, s.types.recallWithAlternatives, s.types.precision, s.nodes.recall, s.nodes.precision]) {
+      assert.equal(d.n, d.rows.length, d.label);
+      assert.equal(d.hit, d.rows.filter(x => x.best >= 0.5).length, d.label);
+      assert.ok(d.hit8 <= d.hit, d.label);
+    }
+    assert.ok(s.types.recallWithAlternatives.hit >= s.types.recall.hit, 'the alternatives stratum is a ceiling, never a discount');
+    assert.equal(s.types.recall.n, accepted.types.filter(t => t.classifying && t.files.length).length);
+    assert.ok(s.relations.matched <= Math.min(s.relations.acceptedPairs, s.relations.proposedPairs));
+    assert.equal(s.relations.acceptedDeclared, F.acceptedRelations);
+    // the correction and the relation score are one computation, not two that can disagree
+    const correction = JSON.parse(readFileSync(join(dir, 'correction.json'), 'utf8'));
+    assert.equal(correction.relations.counts.kept, s.relations.matched);
+    assert.equal(correction.relations.counts.added, s.relations.acceptedPairs - s.relations.matched);
+    assert.equal(correction.relations.counts.removed, s.relations.proposedPairs - s.relations.matched);
   });
 }
 

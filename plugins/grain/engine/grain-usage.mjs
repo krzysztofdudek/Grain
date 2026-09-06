@@ -28,6 +28,11 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
                                           which is advice — and, as data rather than advice, places that change together with nothing
                                           in the graph connecting them, counted and disclosed here, listed only under \`--json\`.
                                           \`--graph\` reads a graph held beside the repository instead of inside it
+  oracle record [--proposal <dir>] [--graph <dir>] [--name <n>] [--out <dir>] [--yes]
+                                          keep the difference between a proposal and the graph you actually accepted: what it would
+                                          store and where is printed first and nothing is written without \`--yes\`
+  oracle score <name-or-dir> [--json]     precision and recall of that proposal against the graph you accepted, on the same measures
+                                          grain is scored with against hand-written graphs
   decide steer <path>#<name> --surfaces <pid,…> [--instead-of <pid,…>] [--author <who>] --note "…"   promote a value repo-wide (.grain/seeds.jsonl, committed)
   decide boundary <from> --never-imports <to> --note "…"     an architecture decision: new imports crossing it are flagged
   decide waive <path>#<name> --on <pid> --note "…"           excuse ONE scope from ONE convention: check calls its departure deliberate, the counts still report it

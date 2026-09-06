@@ -1,0 +1,31 @@
+{
+ "schema": "grain-oracle/1",
+ "name": "yggdrasil",
+ "recordedAt": "2026-09-06T17:35:25.106Z",
+ "engine": "0.4.0",
+ "target": {
+  "repo": "/home/user/Yggdrasil",
+  "checkout": "/tmp/claude-0/-home-user/75008b68-28bc-527f-bdc4-99a93951f2fc/scratchpad/clones/yggdrasil",
+  "asOf": "3a351e16dc693fa2db3ae9fd86472520f555b510",
+  "files": 3056,
+  "filesExcluded": 0
+ },
+ "sources": {
+  "proposal": "/tmp/claude-0/-home-user/75008b68-28bc-527f-bdc4-99a93951f2fc/scratchpad/ygg-proposal",
+  "accepted": "/tmp/claude-0/-home-user/75008b68-28bc-527f-bdc4-99a93951f2fc/scratchpad/clones/yggdrasil"
+ },
+ "counts": {
+  "proposedTypes": 107,
+  "proposedNodes": 85,
+  "proposedRelations": 216,
+  "proposedRules": 173,
+  "proposedAlternatives": 282,
+  "acceptedTypes": 36,
+  "acceptedNodes": 436,
+  "acceptedRelations": 1298,
+  "acceptedRules": 70,
+  "acceptedPorts": 1
+ },
+ "unknownWhenKeys": [],
+ "files": 3056
+}

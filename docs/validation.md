@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2429 tests under engine 0.4.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2442 tests under engine 0.4.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -326,6 +326,46 @@ of them ticket directories), `Examples` on express (80 files, nine independent p
 `Test Fixtures` and `Docs Site Config` on Yggdrasil — and **nothing at all** on spring-petclinic, whose nodes are
 already the size of one thing. That last row is what makes the other four worth reading, and both answers are
 pinned by tests against the real oracles.
+
+## A fifth kind of oracle: the correction an adopter made
+
+The four graphs above were each written by hand, by a session forbidden to look at grain's output, which is why
+they can measure it — and why there are four of them and not forty. `grain oracle record` makes a fifth kind
+cheap: every adopter who runs `grain propose`, reads it, and accepts a different graph with `yg adopt` has
+already produced the two artifacts a measurement needs, and the difference between them is a graph a maintainer
+of that repository decided to live with. Recording it is the adopter's decision, taken twice — the command
+prints what it would store and where and writes nothing until it is run again with `--yes` — and what it stores
+is structure and paths, never file contents, so a repository that cannot be shared can still contribute the
+oracle. The full record shape is in [the reference](reference.md#the-oracle-contract).
+
+The first one recorded is **Yggdrasil at `3a351e1`**: 3056 tracked files, a proposal of 107 node types, 85 nodes,
+216 relations and 173 rule drafts, against an accepted graph of 36 node types, 436 nodes, 1298 relations, 1 port
+and 70 rules.
+
+| | recall | precision |
+|---|---|---|
+| node types | 23/36 = 0.639 (25/36 = 0.694 counting the alternatives it offered) | 25/107 = 0.234 |
+| nodes | 43/402 = 0.107 | 44/83 = 0.530 |
+| relations, between the 44 nodes both graphs agree on | 29/39 = 0.744 | 29/41 = 0.707 |
+
+Read it with its denominators. The relation row covers 39 of 1298 declared relations: the accepted graph has 436
+nodes to the proposal's 85, so 1259 declared relations have an end no proposed node matches and are scored
+neither way. The node row is the same fact from the other side — a 436-node hand graph cut at the size of one
+owner is not recoverable from a proposal that draws 85. Rules: 8 of the 37 accepted mechanical rules are named
+by some draft, and **no draft appears in the accepted graph under its own name at all**, which the command says
+out loud, because that graph was not grown from that proposal.
+
+**This first record is a calibration, not new evidence.** Its target is the same repository as one of the four
+hand-written oracles, so it says nothing about a fifth repository — what it shows is that the recorded-oracle
+measure lands where the established instrument lands: `.system/research/oracles-4-measurement.md` scored the same
+comparison at 21/36 type recall (23/36 with alternatives) and 30/393 node recall on an older commit and an older
+engine, against 23/36, 25/36 and 43/402 here. The obligation stated above — that the type-level policy be
+re-measured when a fifth repository arrives — is not discharged by it.
+
+The record is at `plugins/grain/tests/stress/oracles/yggdrasil/`, the memo is
+[`.system/research/oracle-5-yggdrasil.md`](../.system/research/oracle-5-yggdrasil.md), and
+`tests/reconstruct.test.mjs` scores it on every run — with no checkout of Yggdrasil anywhere, because the file
+sets were expanded once, when it was recorded.
 
 ## Known boundaries
 
