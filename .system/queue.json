@@ -1032,9 +1032,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "horde/140-lease",
-      "state": "running",
-      "note": "Horde worktree, wave B",
-      "updated": "2026-09-06 16:24"
+      "state": "merged",
+      "note": "489/489; leases.json, bind/init refuse overlap, --take with ruled escalation, archive releases",
+      "updated": "2026-09-06 17:06",
+      "sha": "fc06c61"
     },
     {
       "id": 97,
