@@ -981,6 +981,56 @@
       "note": "437/437 on merged tree; five disciplines rendered as Law, drill.mjs list/check/run/record with violates/satisfies corpus, attribution",
       "updated": "2026-09-06 16:24",
       "sha": "286e437"
+    },
+    {
+      "id": 92,
+      "ticket": "134",
+      "kind": "fix",
+      "agent": "opus",
+      "branch": "horde/134-stack",
+      "state": "running",
+      "note": "Horde worktree, wave B",
+      "updated": "2026-09-06 16:24"
+    },
+    {
+      "id": 93,
+      "ticket": "136",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "horde/136-next",
+      "state": "running",
+      "note": "Horde worktree, wave B",
+      "updated": "2026-09-06 16:24"
+    },
+    {
+      "id": 94,
+      "ticket": "137",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "horde/137-evidence-done",
+      "state": "running",
+      "note": "Horde worktree, wave B",
+      "updated": "2026-09-06 16:24"
+    },
+    {
+      "id": 95,
+      "ticket": "139",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "horde/139-blame",
+      "state": "running",
+      "note": "Horde worktree, wave B",
+      "updated": "2026-09-06 16:24"
+    },
+    {
+      "id": 96,
+      "ticket": "140",
+      "kind": "fix",
+      "agent": "sonnet",
+      "branch": "horde/140-lease",
+      "state": "running",
+      "note": "Horde worktree, wave B",
+      "updated": "2026-09-06 16:24"
     }
   ]
 }
