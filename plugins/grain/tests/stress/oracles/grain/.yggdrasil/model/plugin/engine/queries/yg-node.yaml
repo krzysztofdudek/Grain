@@ -1,0 +1,32 @@
+name: Query Implementations
+type: mining-core
+description: >-
+  Where a mined convention becomes an answer. One module per question the dispatcher can be asked —
+  where to put a thing, how a change like this went before, what a word means here, the full lattice
+  for one file, the verdict on a file, what a change is missing — plus the measured architecture, the
+  report and rules documents, and the mutation harness the suite measures its own detection rate with.
+
+  It reads the model and never builds it, which is why it sits below the model assembly and above the
+  mining. Same envelope as the rest of the engine: no subprocess, no network, no first-party dependency
+  beyond the relation pass and the constants.
+relations:
+  - target: plugin/engine/mining
+    type: calls
+  - target: plugin/engine/relations
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/arch.mjs
+  - plugins/grain/engine/check.mjs
+  - plugins/grain/engine/spectrum.mjs
+  - plugins/grain/engine/where.mjs
+  - plugins/grain/engine/how.mjs
+  - plugins/grain/engine/evidence.mjs
+  - plugins/grain/engine/what.mjs
+  - plugins/grain/engine/evals.mjs
+  - plugins/grain/engine/report-facts.mjs
+  - plugins/grain/engine/report.mjs
+  - plugins/grain/engine/completeness.mjs
+  - plugins/grain/engine/selftest.mjs

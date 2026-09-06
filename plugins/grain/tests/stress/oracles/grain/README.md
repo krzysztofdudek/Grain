@@ -19,6 +19,19 @@ would be worth nothing.
 | Written from | the repository's code and its design record |
 | Validated with | the real `yg` binary, on a staged copy, never in the repository root |
 
+### Updated since
+
+**2026-09-06 — the ticket-117 split (`87de53a`).** `plugins/grain/engine/core.mjs` was split into thirty
+modules, so the graph was updated the way a maintainer updates a graph when files move: the
+`mining-core` type's `when` names the whole engine instead of one path, `engine-module` names its three
+modules directly, `mining-core` may now call its own type (the engine's modules call each other), and
+the one `Mining Core` node became four ownership-sized ones — `Engine Facade`, `Mining`, `Query
+Implementations`, `Model Assembly`. Nothing else moved: no aspect, no rule, no threshold, no verdict.
+
+**Every number below, and every number in the 108 measurement, was produced against the graph as of
+`3d249bf`** — before this update. They stay attributable to that graph; a re-measurement against the
+updated one has not been run.
+
 ### What was read
 
 - Every non-test source file under `plugins/grain/`: the two entry points, all nine engine modules
@@ -58,7 +71,7 @@ about command reachability. Both informed rules below. Neither came from the min
 |---|---|
 | Node types | **35** — 2 organizational (`project`, `area`) and 33 classifying, 26 of them `enforce: strict` |
 | Classifying coverage | 1470 / 1470 tracked files; every file matches **exactly one** type, none matches two |
-| Nodes | **42** — 7 organizational areas, 35 owning files |
+| Nodes | **42** — 7 organizational areas, 35 owning files (**45** since the 117 update: the engine node became four) |
 | Relations | **49** — 31 `calls`, 18 `uses`; `relations.default: deny` on every type |
 | Ports | **1** — `constants` on the constant table, carrying one rule to all nine of its consumers |
 | Flows | 0 |
@@ -146,6 +159,9 @@ and each aspect's own description says where it is violated and what the exit is
    module above it cannot be judged as a whole by anything. This is also why the reviewer ceiling in
    `yg-config.yaml` is set an order of magnitude above the default, and that comment points back here.
    The largest standing structural debt in the product.
+   **Partly paid (ticket 117, 2026-09-06):** the mining core is thirty modules now, every one of them
+   inside the budget, with grain's output byte-identical to what the single file produced. The
+   proposal writer (247 131) and the dispatcher (159 454) are still over — two refusals, not three.
 2. **`source/no-raw-control-bytes` — three files carry a raw control byte.** A literal SOH inside a
    comment in the mining core (the separator byte the original vendoring was meant to have escaped
    everywhere), and control bytes in two history test files. git treats such a file as binary, so it

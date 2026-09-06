@@ -187,6 +187,24 @@ Fazy się nakładają (pipeline). Nic nie czeka na nic poza merge'em, który cze
 - raport ≤200 słów, liczby; „nie mogę" jednolinijkowe jest dobrą odpowiedzią
 - granica to pełnoprawny wynik
 
+### Mapa silnika (od 117)
+
+`engine/core.mjs` **nie jest już silnikiem** — to fasada: same `export … from`, po jednej linii na moduł, z
+opisem nad każdą. Kto szuka kodu, czyta tę listę; kto dodaje moduł, dopisuje się do niej. Każdy moduł mieści
+się w budżecie recenzenta (50 000 znaków) i pilnuje tego test `engine-module-size-budget.test.mjs`,
+importujący sprawdzenie z ręcznej wyroczni, żeby liczba miała jedną definicję.
+
+Warstwy, od dołu: `base` → `parse` → `extract` → `scopes` (ekstrakcja); `superposition`, `lexical`, `facts`
+(słownik faktów i funkcja celu); `obligations`, `mine`, `weights`, `verbalize`, `partition` (wydobycie);
+`placement`, `arch`, `check`, `spectrum`, `cards` (werdykt); `where`, `how`, `evidence`, `what`, `evals`,
+`report-facts`, `report`, `completeness`, `selftest` (odpowiedzi); `decisions`, `commit-log`, `learn` (model).
+Graf importów między nimi jest DAG-iem — **zero cykli**, i tak ma zostać.
+
+Poza fasadą stoją, jak stały: `grain.mjs` (dyspozytor), `config.mjs` (stałe i klucze wersji cache),
+`history.mjs` (jedyny moduł silnika, który wolno mu odpalić podproces), `relations.mjs`, `export.mjs`,
+`propose.mjs`, `yggdrasil-graph.mjs`. `grain.mjs` i `propose.mjs` wciąż przekraczają budżet — to reszta
+długu z wyroczni, wypisana w `KNOWN_OVER` tego testu.
+
 ---
 
 ## 6. Lista eskalacji — do dyrektora, zawsze
@@ -259,7 +277,7 @@ wynik; podbicia wersji batchowane przez dyrektora.
    podbicie zmienia.
 2. **Przeformatowanie silnika** (zatwierdzone): jedna instrukcja na linię, ~100–120 kolumn, komentarze
    nietknięte, Prettier, jeden atomowy commit „tylko format, zero logiki", suita udowadnia tożsamość. Dopiero gdy
-   żadna gałąź nie wisi — `core.mjs` ma setki wieloinstrukcyjnych linii, a git scala po liniach.
+   żadna gałąź nie wisi — moduły silnika mają setki wieloinstrukcyjnych linii, a git scala po liniach.
 3. `docs/validation.md`: liczba testów zakotwiczona w wersji silnika (test pilnuje kotwicy, nie liczby); tabela
    korpusu regenerowana z instrumentu F.
 4. Aktualizacja tego skilla, jeśli model się zmienił.

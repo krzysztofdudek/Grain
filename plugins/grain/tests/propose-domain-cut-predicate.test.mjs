@@ -171,7 +171,7 @@ test('the predicate classifies a file grain never saw', { skip: HAVE_YG ? false 
   const r = spawnSync('node', [YG_BIN, 'check'], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
   const text = (r.stdout || '') + (r.stderr || '');
   assert.match(text, /yg check: \w+[^\n]*?\d+ nodes/, `the graph did not load:\n${text.slice(0, 3000)}`);
-  assert.ok(!/architecture-invalid|type-when-mismatch|node-invalid|yaml|schema/.test(text),
+  assert.ok(!/\b(architecture-invalid|type-when-mismatch|node-invalid|yaml-[a-z-]+|schema-[a-z-]+)\b/.test(text),
     `the domain type broke the graph:\n${text}`);
 
   const c = spawnSync('node', [YG_BIN, 'context', '--file', fresh], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });

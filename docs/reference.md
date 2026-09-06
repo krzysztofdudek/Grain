@@ -68,7 +68,7 @@ the identical fact, never two hand-synced copies of one sentence.
 
 ## Voices
 
-Every line grain prints as a claim carries exactly one of four voices (`voice(kind, text, meta)`, `core.mjs`),
+Every line grain prints as a claim carries exactly one of four voices (`voice(kind, text, meta)`, `engine/mine.mjs`),
 marked identically in every command and document (`report`, `rules`, `where`, `check`, `how`, `what`, `map`, the
 hooks). Headers, stamps and continuation lines (`in:`, `lives in:`, `depends on:`, `conforms to:`, `as of …`) are
 structure, not claims, and carry no marker.
@@ -88,7 +88,7 @@ the start of a session, not a per-edit hook, so its architecture and concepts li
 ## `missing:` sources
 
 `check`/`review`/`how` end with at most one `missing from your change:` block (`missingLines(model, files, {
-sources, newFileScopes, changedScopes })`, `core.mjs`) — one renderer, one heading, a line per source that has
+sources, newFileScopes, changedScopes })`, `engine/completeness.mjs`) — one renderer, one heading, a line per source that has
 something to say; silence means no block at all, never an empty or "(complete)" one. Each caller passes only the
 sources it can actually support:
 

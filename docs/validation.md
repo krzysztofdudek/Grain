@@ -347,7 +347,7 @@ own canonical example (`HelloController.scala`) nests a `package views { object 
 broken `class HelloController @Inject() (cc: …)(implicit …)`. Grain's walk was throwing that clean subtree away
 too, unconditionally, because it stopped descending the instant it hit the ERROR node wrapping the whole
 statement list rather than only the broken statement — a walk-logic gap, not a second grammar limitation. Fixed
-by pushing an ERROR node's own children onto the walk (engine/core.mjs, `extractScopes`) so the traversal keeps
+by pushing an ERROR node's own children onto the walk (engine/scopes.mjs, `extractScopes`) so the traversal keeps
 going exactly as it does past any other non-scope node; nothing is ever extracted from the ERROR node itself, only
 from descendants the grammar already typed with zero errors of their own, so this adds no fabrication risk (the
 same instinct as §018's macro-body reparse, applied at node granularity instead of re-parsing a text span — a
@@ -372,7 +372,7 @@ scored (`governed[].withinFile` in `--json`, and a clause on the conformance lin
 keeps a file-kind fact off it). Acceptance, `idxCost` and the candidate universe are untouched: the counts are an
 out-parameter of `lexicalPreds`, never a predicate. The residue this left stated rather than hidden — the 22
 literals on express and 12 on flask that depart their file's majority WITHOUT a forcing delimiter — is exactly
-what §077 (director-approved follow-up, esc-1) turned into a per-literal flag: `quoteFlags` (core.mjs) reuses this
+what §077 (director-approved follow-up, esc-1) turned into a per-literal flag: `quoteFlags` (engine/report-facts.mjs) reuses this
 same delimiter-forced content test on the instances `lexicalPreds` already scans, and `withinFile` now also
 carries `flagged`/`flagLines` for the minority-quote literals that are genuine departures, rendered as part of the
 same tally clause (never a new line, never a new constant — the file-level convention's own certification is what

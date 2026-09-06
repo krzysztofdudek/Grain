@@ -31,11 +31,13 @@ reviewer:
       # at their own reviewer through a gitignored yg-secrets.yaml without invalidating a baseline.
       provider: claude-code
       consensus: 1
-      # Deliberately far above the 50 000 default. The mining core is a 572 KB single file, and a prose
-      # rule about it cannot be verified in a prompt smaller than the file. The number is not a
-      # preference: it is what this repository's largest module costs today, and the advisory rule
-      # `engine/file-size-budget` is the standing request to bring it back under the DEFAULT budget so
-      # this line can go away.
+      # Deliberately far above the 50 000 default. A prose rule is assembled over a whole NODE, so this
+      # ceiling is set by the largest node, not the largest file. It was 572 KB when the mining core
+      # was one file; since the ticket-117 split the largest node is the query implementations at
+      # roughly 265 000 characters, so the number is now loose rather than binding. It is left where it
+      # is on purpose — moving a check parameter is the maintainer's call, not a refactor's side
+      # effect — and `engine/file-size-budget` remains the standing request that ends with this line
+      # going away entirely.
       max_prompt_chars: 600000
       config:
         model: sonnet
