@@ -5149,3 +5149,8 @@ note: Scalone: 105, 108 (3 ślepe wyrocznie + pomiar), 109, 110, 111, 112, 113, 
 - 2026-09-06 merged: 125 31fc785
 - 2026-09-06 121 Yggdrasil wylądowało (acd9114a, pushed): rodzina ma transakcję przyjęcia grafu. yg adopt --dry-run na propozycji Graina dla Hordy: 8 komponentów, 6 reguł (0/3/3), 268 miejsc już złamanych — czyli propozycja dla Hordy jest w większości szumem kraty (call-join 91, call-fail 88) i to jest kolejny dowód na 115/120 po stronie kandydatów advisory.
 - 2026-09-06 merged: 124 427a136
+- 2026-09-06 merged: 123 a8f52c6
+
+# Fala Fala 10 — prawo dociera do wykonawcy — close 2026-09-06
+suite: 2415
+note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a): yg adopt, yg context --json, linia o podłodze szumu, podpowiedź coverage.required. Horde (122, c226f73): yg check w bramce premerge, node.mjs show z regułami ze statusami, testGlobs nigdy po cichu, bramki 7 ekosystemów, horde charter edit. Grain: 117 core.mjs → 29 modułów, 124 propose.mjs+grain.mjs → 25 modułów (engine 62 plików, 0 cykli, budżet 50k egzekwowany), 120 higiena (287 wierszy), 125 fakt parametrów typu (g34), 123 uścisk dłoni z yg adopt. Łańcuch klon → graf → przyjęcie → praca agentów pod grafem istnieje i jest przetestowany na petclinic.

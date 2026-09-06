@@ -903,9 +903,10 @@
       "kind": "fix",
       "agent": "sonnet",
       "branch": "fix/123-adopt-handshake",
-      "state": "running",
-      "note": "next line → yg adopt; oracle file-size-budget enforced + prompt ceiling 300k; 125 follow-up in classify",
-      "updated": "2026-09-06 12:01"
+      "state": "merged",
+      "note": "premerge READY (2411/2415, 4 skipped); next: line → yg adopt with live --dry-run block; oracle file-size-budget enforced, max_prompt_chars 300000 (largest node 279 770 measured); tparams fact in classifier, 0 vs 0 disagreements on Yggdrasil",
+      "updated": "2026-09-06 13:47",
+      "sha": "a8f52c6"
     }
   ]
 }

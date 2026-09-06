@@ -1,11 +1,11 @@
 # Handoff
 
-at: 2026-09-06T00:49:10.162Z
+at: 2026-09-06T13:47:56.668Z
 by: director
-head: claude/grain-agent-tool-b89y0x@cc24d32
+head: claude/grain-agent-tool-b89y0x@a8f52c6
 
 ## Summary
-Fala 9 ZAMKNIĘTA (suita 2387/2387, 0.4.0). Wszystkie A–F z 'Ogień!' dostarczone. Otwarte: 117 (core.mjs 569k, jedyny duży refaktor), 120 (higiena identyfikatorów). Wyrocznie w drzewie: grain, spring-petclinic, express (+ Yggdrasil zewnętrznie).
+Fala 10 ZAMKNIĘTA (suita 2415/2415). Feature branche wypchnięte: Grain claude/grain-agent-tool-b89y0x, Yggdrasil claude/grain-agent-tool-b89y0x (5 commitów, repo-check 15/17 środowiskowo), Horde claude/grain-agent-tool-b89y0x (7 commitów, 328/328). Brak otwartych pracowników i worktree'ów.
 
 ## In flight
 (none)
@@ -21,20 +21,19 @@ Fala 9 ZAMKNIĘTA (suita 2387/2387, 0.4.0). Wszystkie A–F z 'Ogień!' dostarcz
 - user: decyzje: bump wersji 0.3.0→0.4.0; zgoda na 105 (README/docs pod nowy cel) (since 2026-09-05T14:21:16.449Z)
 
 ## Last actions
-- - 2026-09-05 merged: 117 c8ce4cc
-- - 2026-09-05 merged: 108 fdb7672
-- - 2026-09-05 merged: 114+118 675d19a
-- - 2026-09-05 merged: 115+116+119 148c4d0
-- - 2026-09-05 merged: 113 d94d05c
-- - 2026-09-06 merged: 110 d0d04a1
-- # Fala Fala 9 — wyrocznie, sens, fabryka — close 2026-09-06
-- versions: ENGINE 0.3.0→0.4.0, EXTR_V g32→g33, MODEL_V m25→m26, package 0.4.0
-- suite: 2387
-- note: Scalone: 105, 108 (3 ślepe wyrocznie + pomiar), 109, 110, 111, 112, 113, 114+118, 115+116+119, 117. Liczby zamknięcia (0.4.0, YG_BIN): Yggdrasil 94 typów/75 węzłów/8 cykli, 124 aspekty → 10 enforced/0 advisory/114 draft; Grain 39/37/22 relacji/0 cykli, 105 → 0/2/103 (64 proza, 37 nieobecność); petclinic 26 typów (2 partycje, 16 modułów, 2 katalogi, 6 layout)/33 węzłów/14 relacji (było 0)/0 cykli, 23 → 0/1/22. Cztery wyrocznie: precyzja relacji .929–1.000, recall .894/.867/.694/.829 (petclinic z .114). Hold-out sens brzmienia 0→0.493. Fabryka: łańcuch trzyma mechanicznie, pęka w trasowaniu prawa do wykonawcy (Horde nie czyta aspektów, yg check poza bramką merge Hordy).
+- - 2026-09-06 122 Horde wylądowało na feature branchu (c226f73): prawo grafu dociera do node.mjs show (13 reguł ze statusami tam, gdzie próba fabryki widziała 0), czerwony graf = czerwona bramka premerge. Uwaga: yg context --json istnieje już w 5.8.0 — 121 item 1 do weryfikacji przez pracownika Yggdrasil.
+- - 2026-09-06 merged: 120 0ff0a64
+- - 2026-09-06 merged: 117 195c584
+- - 2026-09-06 merged: 125 31fc785
+- - 2026-09-06 121 Yggdrasil wylądowało (acd9114a, pushed): rodzina ma transakcję przyjęcia grafu. yg adopt --dry-run na propozycji Graina dla Hordy: 8 komponentów, 6 reguł (0/3/3), 268 miejsc już złamanych — czyli propozycja dla Hordy jest w większości szumem kraty (call-join 91, call-fail 88) i to jest kolejny dowód na 115/120 po stronie kandydatów advisory.
+- - 2026-09-06 merged: 124 427a136
+- - 2026-09-06 merged: 123 a8f52c6
+- # Fala Fala 10 — prawo dociera do wykonawcy — close 2026-09-06
+- suite: 2415
+- note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a): yg adopt, yg context --json, linia o podłodze szumu, podpowiedź coverage.required. Horde (122, c226f73): yg check w bramce premerge, node.mjs show z regułami ze statusami, testGlobs nigdy po cichu, bramki 7 ekosystemów, horde charter edit. Grain: 117 core.mjs → 29 modułów, 124 propose.mjs+grain.mjs → 25 modułów (engine 62 plików, 0 cykli, budżet 50k egzekwowany), 120 higiena (287 wierszy), 125 fakt parametrów typu (g34), 123 uścisk dłoni z yg adopt. Łańcuch klon → graf → przyjęcie → praca agentów pod grafem istnieje i jest przetestowany na petclinic.
 
 ## Next actions
-- Fala 10 kandydaci: (a) krok akceptacji grafu — 112 §8: brak transakcji 'przyjmuję' po stronie Graina i Yggdrasil; design z liczbami z 108; (b) 117 podział core.mjs — refaktor pod własną wyrocznią Graina (file-size-budget), z reconstruct jako bramką; (c) 120; (d) piąta wyrocznia (prywatne repo użytkownika), gdy dostępne — polityka 110 wymaga ponownego pomiaru; (e) propozycje dla właściciela Yggdrasil/Horde z 112 §7 (nie zmiany).
+- Kandydaci fali 11 (decyzja użytkownika): (a) wymaganie → reguła/karta misji (kompilator intencji — jedyny brakujący koniec łańcucha), (b) incydent → graf (rejestr incydentów karmiony przez verifier Hordy), (c) kandydaci advisory z wieloma istniejącymi naruszeniami niżej w raporcie (Horde: 268 miejsc z 2 reguł na 66 plikach), (d) piąta wyrocznia z prywatnego repo, (e) release 0.4.0 Graina i PR-y z feature branchy Yggdrasil/Horde do właściciela.
 
 ## Notes
-- Worktree agenta powstaje ze starego main — brief zaczyna się od git merge gałęzi sesji.
-- Merge = jedna akcja na wywołanie; stan zapisywany dopiero po sprawdzeniu, że merge się dokonał.
+- Worktree agenta powstaje w repo bieżącego cwd — zawsze cd /home/user/Grain przed spawnem.
