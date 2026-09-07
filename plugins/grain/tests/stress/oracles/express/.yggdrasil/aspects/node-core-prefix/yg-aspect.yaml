@@ -1,0 +1,10 @@
+name: NodeCorePrefix
+description: >-
+  A node built-in module is required through its `node:` specifier, never its
+  bare name.
+errs: under
+review_by: 2027-09-01
+scope:
+  per: file
+  files:
+    path: "**/*.js"

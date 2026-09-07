@@ -1,0 +1,4 @@
+
+## 2026-09-05 22:05 — start: charter cascade — resolve every aspect effective on a node's files through node → ancestors → architecture types → ancestor types, marked with origin; measure nodes-with-rules on petclinic + Yggdrasil export
+
+## 2026-09-05 22:25 — done: renderNodeCharter now resolves aspects through Yggdrasil's own channel walk (own aspects, ancestor node aspects, own arch type, ancestor arch type) — new 'Rules inherited from above' section names the type and ancestor node each rule is declared on, its status and drill numbers; the 'none certified' line points there instead of dead-ending. petclinic 2/14 -> 4/14 charters carry a rule and the file-owning node goes 0 -> 8; Yggdrasil 16/73 -> 50/73. Parity vs yg context --file on a staged petclinic: 11/19 sampled files agreed before, 19/19 after. Also fixed the charter evidence row, which counted host==node.id and so said 0 everywhere.

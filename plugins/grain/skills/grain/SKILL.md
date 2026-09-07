@@ -1,6 +1,6 @@
 ---
 name: grain
-description: Ask the repository about its own conventions BEFORE writing code. Use whenever you are about to create a source file, add a class/function/handler/command/component/test, are unsure where something belongs, or want to know how a kind of change has been done here before — `grain where <intent>` names the directory, the group and the exemplar to copy; `grain obligation <path>` names what a new file there has historically had to come with; `grain how <intent>` cites the past commits that did something like it; `grain what <words>` reports what a concept already is here; `grain check <file>` shows where your change departs from the local norm; `grain completeness <file>` names co-changing files before you call a change done. Statistical answers from this repo's code and full git history; tells you which exemplar to open, never blocks.
+description: Ask the repository about its own conventions BEFORE writing code. Use whenever you are about to create a source file, add a class/function/handler/command/component/test, are unsure where something belongs, or want to know how a kind of change has been done here before — `grain where <intent>` names the directory, the group and the exemplar to copy; `grain obligation <path>` names what a new file there has historically had to come with; `grain how <intent>` cites the past commits that did something like it; `grain what <words>` reports what a concept already is here; `grain check <file>` shows where your change departs from the local norm; `grain completeness <file>` names co-changing files before you call a change done; `grain propose` mines a whole proposed Yggdrasil architecture graph for a repository that has none. Statistical answers from this repo's code and full git history; tells you which exemplar to open, never blocks.
 ---
 
 # grain — ask the repository which exemplar to copy
@@ -203,6 +203,33 @@ same records, same effect.
 - **`map [--json]`** — a structural overview: dependency layers from leaves to top, the repo's top concepts where
   commit messages and code vocabulary agree, the certified change shapes, and how many maintainer decisions are in
   force. Good for orienting in an unfamiliar repository before asking anything more specific.
+- **`propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>]`** — for a repository with no
+  `.yggdrasil/` yet: mine one. Writes a PROPOSED Yggdrasil architecture graph — node types, nodes, relations,
+  dependency cycles and mined rules, each with the evidence that produced it — into `<out-dir>` (default
+  `.yggdrasil-proposal/`, self-ignoring; the repository's own `.yggdrasil/` is never written). The default
+  report is short on purpose: the architecture with its counts, the rules a real `yg drill` proved on this
+  repository's own code (zero false alarms, at least one caught violation), and the candidates that came close;
+  everything else is on disk and summarised in one counted line, with `--full` to print it. With no Yggdrasil
+  CLI (`YG_BIN`, or `yg` on PATH) nothing can be drilled, so nothing is enforced and the report says so. It is
+  a proposal: a human reviews it and moves it in. Never move it in, and never run `yg check --approve`, unbidden.
+- **`oracle record [--proposal <dir>] [--graph <dir>] [--name <n>] [--out <dir>] [--yes]` / `oracle score
+  <name-or-dir> [--json]`** — after a proposal has been read and a graph accepted, the difference between the
+  two is a measurement oracle. `record` keeps it (both graphs' structure, the tracked paths each element
+  selects, and the correction: what was merged, split, renamed, dropped, added); `score` reports precision and
+  recall in both directions on the same Jaccard >= 0.5 bar the hand-written oracles are scored with. `record`
+  prints what it would store and where and writes NOTHING without `--yes` — relay that plan and wait, never
+  add `--yes` for the user and never pick a destination for them. It stores structure and paths, never file
+  contents, so scoring later needs no checkout.
+
+- **`advise [--json] [--graph <dir>]`** — the other direction from `propose`: for a repository that ALREADY has
+  a `.yggdrasil/`, what its own history and imports say about it. Two findings, at very different weights. A
+  place a finer cut beats on its own evidence **is** advice: one node owns a pile that is not one thing, and
+  the report names the node, its size and the directories on offer. Places that change together are **not**
+  advice and are deliberately not listed — measured on four hand-written graphs, that evidence names almost
+  nothing and what it names the graph usually already connects, so the report prints the count, how many are
+  unconnected, how concentrated they are, and what share of all pairs of places are connected anyway. Relay
+  those as numbers; never turn one into "add a relation here". `--json` hands over the whole document if the
+  user wants the data. It writes nothing and never touches the graph.
 - **`refresh [--full]`** — rebuild the index now (every query already auto-refreshes).
 - **`completeness <file…>`** — ask about files BEFORE editing them, or check several files against each other at
   once: the other files this repo's own commit history shows reliably co-changing with the ones given. This is the

@@ -1,0 +1,836 @@
+// Guard for the proposal renderer (G''): tests/stress/propose.mjs.
+//
+// The renderer writes a `.yggdrasil/` graph a maintainer is asked to adopt. Two things about that output are
+// load-bearing and both are asserted here against a REAL tiny git repository and a REAL `grain export`:
+//
+//   1. YGGDRASIL ITSELF MUST BE ABLE TO LOAD IT. Not "the YAML parses" by our own parser — the actual CLI,
+//      run from a staged copy of the repository with the proposal dropped in, must read the architecture, the
+//      nodes and the aspects and report them. A proposal Yggdrasil refuses to load is a bug, so the test drives
+//      `yg check`, keeps its exit code and its error codes, and fails on any code that means the graph did not
+//      come in (`architecture-invalid`, a YAML/schema error, an unreadable node or aspect). Where the Yggdrasil
+//      CLI is not present the staged check is skipped and the rest still runs — the renderer's own invariants
+//      are checked either way. Point `YG_BIN` at a built `bin.js` to run it.
+//   2. EVERY PROPOSED ELEMENT CARRIES AN EVIDENCE LINE. That is the whole difference between a proposal and a
+//      guess: the maintainer has to be able to read what in their repository made grain say this. So every
+//      node type, every node, every aspect and every relation block is required to have a matching row in
+//      `proposal.json` AND an `# evidence:` line in the file it was written to, with counts in it.
+//
+// Plus unit coverage of the three pieces a wrong answer would come out of silently: the name-shape compiler,
+// the `content:` predicate drafted for a role group, and the rule that decides which conventions may be
+// rendered as a deterministic check at all.
+import { test, before, after } from 'node:test';
+import assert from 'node:assert/strict';
+import { execFileSync, spawnSync } from 'node:child_process';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter, describeRow, progressiveReference, proposeReport, scoreProposal } from './stress/propose.mjs';
+import { parseYaml } from './stress/reconstruct.mjs';
+
+const here = dirname(fileURLToPath(import.meta.url));
+const PROPOSE = join(here, 'stress', 'propose.mjs');
+
+// The Yggdrasil CLI is a reference this repository does not vendor. Look where it usually is, allow an override,
+// and skip only the staged-check assertions when it is absent — never the rest.
+const YG_BIN = process.env.YG_BIN || '/home/user/Yggdrasil/source/cli/dist/bin.js';
+const HAVE_YG = existsSync(YG_BIN);
+
+let tmp, repo, out;
+
+// A repository with two localities a miner can actually see: three handlers that import three helpers.
+function buildFixture(root, env) {
+  mkdirSync(root, { recursive: true });
+  const w = (rel, content) => { const p = join(root, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
+  for (const n of ['alpha', 'beta', 'gamma']) {
+    w(`src/api/${n}-handler.ts`, `import { normalise } from '../util/${n}-helper';\nimport { join } from 'node:path';\n` +
+      `export function handle${n[0].toUpperCase()}${n.slice(1)}(input: string): string {\n  return normalise(join(input, input));\n}\n`);
+  }
+  for (const n of ['alpha', 'beta', 'gamma']) {
+    w(`src/util/${n}-helper.ts`, `import { join } from 'node:path';\nexport function normalise(value: string): string {\n  return join(value.trim());\n}\n`);
+  }
+  w('README.md', '# fixture\n');
+  execFileSync('git', ['-C', root, 'init', '-q', '-b', 'main'], { env });
+  execFileSync('git', ['-C', root, 'add', '-A'], { env });
+  execFileSync('git', ['-C', root, 'commit', '-q', '-m', 'fixture'], { env });
+}
+
+before(() => {
+  tmp = mkdtempSync(join(tmpdir(), 'propose-'));
+  repo = join(tmp, 'repo');
+  out = join(tmp, 'proposal');
+  const env = {
+    ...process.env, HOME: tmp,
+    GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x',
+    GIT_AUTHOR_DATE: '2026-01-10T12:00:00Z', GIT_COMMITTER_DATE: '2026-01-10T12:00:00Z',
+  };
+  buildFixture(repo, env);
+  const r = spawnSync('node', [PROPOSE, repo, out, '--no-history', '--quiet'], { encoding: 'utf8', maxBuffer: 1 << 28 });
+  assert.equal(r.status, 0, r.stderr);
+});
+after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+
+const sidecar = () => JSON.parse(readFileSync(join(out, 'proposal.json'), 'utf8'));
+
+// ---------- 1. the proposal directory is written, outside the repository ----------
+test('writes a complete proposal directory and never into the repository', () => {
+  for (const f of ['.yggdrasil/yg-config.yaml', '.yggdrasil/yg-architecture.yaml', 'PROPOSAL.md', 'REFACTOR-BACKLOG.md', 'alternatives.md', 'proposal.json']) {
+    assert.ok(existsSync(join(out, f)), `missing ${f}`);
+  }
+  assert.ok(!existsSync(join(repo, '.yggdrasil')), 'the renderer must never create a graph inside the repository');
+  const j = sidecar();
+  assert.equal(j.instrument, 'propose/1');
+  assert.ok(j.counts.types >= 2, `expected at least the two source localities, got ${j.counts.types}`);
+  assert.ok(j.counts.nodes >= j.counts.types - 1);
+});
+
+// ---------- 1b. scoring a proposal against a hand graph held OUTSIDE the repository ----------
+// An oracle graph lives beside the code it describes (tests/stress/oracles/<name>/.yggdrasil/ against a clone),
+// so the directory the graph is read from and the directory a `content:` predicate must be evaluated against are
+// two different places. Scoring both from the graph's own directory makes every content-gated hand type expand to
+// nothing and silently drop out of the recall denominator.
+test('scoreProposal evaluates a hand `content:` predicate against the repository, not the graph directory', () => {
+  const oracle = join(tmp, 'oracle-content');
+  mkdirSync(join(oracle, '.yggdrasil'), { recursive: true });
+  writeFileSync(join(oracle, '.yggdrasil', 'yg-config.yaml'), 'version: "5.2.0"\n');
+  writeFileSync(join(oracle, '.yggdrasil', 'yg-architecture.yaml'), [
+    'node_types:',
+    '  handler:',
+    '    description: "files that export a handler"',
+    '    when:',
+    '      all_of:',
+    '        - path: "src/**/*.ts"',
+    '        - content: "export function handle"',
+    '  helper:',
+    '    description: "everything else under src"',
+    '    when:',
+    '      path: "src/util/*.ts"',
+    '',
+  ].join('\n'));
+  const files = execFileSync('git', ['-C', repo, 'ls-files'], { encoding: 'utf8' }).split('\n').filter(Boolean);
+  const s = scoreProposal(oracle, out, files, repo);
+  const handler = s.types.recall.rows.find(r => r.id === 'handler');
+  assert.ok(handler, 'the content-gated hand type must be in the recall denominator, not silently dropped');
+  assert.equal(handler.files, 3, 'the three handlers are the ones whose BODY says `export function handle`');
+  assert.equal(s.types.recall.n, 2);
+});
+
+test('refuses an out-dir that is the repository itself', () => {
+  const r = spawnSync('node', [PROPOSE, repo, repo, '--no-history', '--quiet'], { encoding: 'utf8' });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr, /refusing to write into the repository/);
+});
+
+// ---------- 2. every proposed element carries an evidence line ----------
+const walkFiles = (d, pred, acc = []) => {
+  for (const e of readdirSync(d, { withFileTypes: true })) {
+    const p = join(d, e.name);
+    if (e.isDirectory()) walkFiles(p, pred, acc);
+    else if (pred(p)) acc.push(p);
+  }
+  return acc;
+};
+
+test('every proposed element has an evidence row in proposal.json', () => {
+  const j = sidecar();
+  const byKind = k => j.evidence.filter(e => e.kind === k);
+  const arch = parseYaml(readFileSync(join(out, '.yggdrasil', 'yg-architecture.yaml'), 'utf8'));
+  const typeIds = Object.keys(arch.node_types);
+  assert.deepEqual(byKind('type').map(e => e.id).sort(), typeIds.sort());
+
+  const nodeFiles = walkFiles(join(out, '.yggdrasil', 'model'), p => p.endsWith('yg-node.yaml'));
+  assert.equal(byKind('node').length, nodeFiles.length);
+  const aspectDirs = existsSync(join(out, '.yggdrasil', 'aspects'))
+    ? walkFiles(join(out, '.yggdrasil', 'aspects'), p => p.endsWith('yg-aspect.yaml')) : [];
+  assert.equal(byKind('aspect').length, aspectDirs.length);
+
+  for (const e of j.evidence) {
+    assert.ok(e.evidence && e.evidence.length > 20, `evidence too thin for ${e.kind} ${e.id}: ${e.evidence}`);
+    // an organizational element classifies nothing and owns nothing, so it has no count to carry — its
+    // evidence line says exactly that instead, and is the only shape allowed to have no number in it
+    if (e.level === 'organizational' || e.organizational) { assert.match(e.evidence, /organizational/); continue; }
+    assert.match(e.evidence, /\d/, `evidence for ${e.kind} ${e.id} carries no count: ${e.evidence}`);
+  }
+});
+
+test('every written YAML carries the honest preamble and an inline `# evidence:` line per element', () => {
+  const yamls = walkFiles(join(out, '.yggdrasil'), p => p.endsWith('.yaml'));
+  assert.ok(yamls.length >= 3);
+  for (const p of yamls) {
+    const text = readFileSync(p, 'utf8');
+    assert.ok(text.startsWith('# PROPOSAL —'), `${p} does not open with the proposal preamble`);
+    assert.ok(text.includes(PREAMBLE[5]), `${p} does not carry the absence-rule disclosure`);
+    if (p.endsWith('yg-config.yaml')) continue;
+    assert.match(text, /^\s*# .+\d/m, `${p} carries no evidence comment with a count in it`);
+  }
+  // the architecture carries one evidence comment per type, and every type has a `description`
+  const archText = readFileSync(join(out, '.yggdrasil', 'yg-architecture.yaml'), 'utf8');
+  const arch = parseYaml(archText);
+  for (const [id, t] of Object.entries(arch.node_types)) {
+    assert.ok(t.description, `type ${id} has no description`);
+  }
+  const body = archText.slice(archText.indexOf('node_types:'));
+  const comments = body.split('\n').filter(l => /^\s+# /.test(l)).length;
+  assert.ok(comments >= Object.keys(arch.node_types).length, `${comments} evidence comments for ${Object.keys(arch.node_types).length} types`);
+});
+
+test('every aspect ships draft, enforced or advisory status, and exactly one rule source', () => {
+  const dir = join(out, '.yggdrasil', 'aspects');
+  if (!existsSync(dir)) return; // a fixture this small may certify nothing — that is an honest outcome
+  for (const p of walkFiles(dir, x => x.endsWith('yg-aspect.yaml'))) {
+    const doc = parseYaml(readFileSync(p, 'utf8'));
+    // ticket 102: prose NEVER leaves draft; a deterministic check earns `enforced` only from a real `yg drill`
+    // (0 FALSE-ALARM, >= 1 catch) AND a certified-convention origin (ticket 107) — the identical drill result
+    // on a sub-gate-lattice origin earns `advisory` instead. This fixture is too small to grow a sub-gate
+    // lattice (`MIN_SUPPORT` sites per cell) so it will not exercise `advisory` in practice, but the assertion
+    // states the real three-way contract rather than a fixture-specific accident.
+    assert.ok(doc.status === 'draft' || doc.status === 'enforced' || doc.status === 'advisory', `${p} carries an unexpected status ${doc.status}`);
+    assert.ok(doc.name && doc.description, `${p} is missing name/description`);
+    const d = dirname(p);
+    const hasCheck = existsSync(join(d, 'check.mjs')), hasContent = existsSync(join(d, 'content.md'));
+    assert.ok(hasCheck !== hasContent, `${p} must ship exactly one of check.mjs / content.md`);
+    if (hasCheck) assert.equal(doc.errs, 'under', `${p} renders a check and must declare its error direction`);
+    else assert.equal(doc.status, 'draft', `${p} ships prose (content.md) but is not draft — prose never earns \`enforced\` (ruling prose-aspects-draft-by-default)`);
+  }
+});
+
+// ---------- 2a. status is EARNED, not declared (ticket 102, sharpened by 107) ----------
+//
+// `promoteEnforceableAspects` is the only place anything leaves `draft`, and it does so from a REAL `yg drill`
+// run, never a claim this renderer computes on its own. This drives it directly against hand-authored
+// deterministic aspects (a real check.mjs, a real drill corpus, no mining involved — the mining pipeline itself
+// is covered above) so every outcome is exercised against the real Yggdrasil binary: a clean catch from a
+// CERTIFIED-CONVENTION origin promotes to `enforced`, the IDENTICAL clean catch from a SUB-GATE-LATTICE origin
+// promotes only to `advisory` (ruling `enforced-requires-certified-origin` — origin, not drill result, decides
+// which of the two a passing drill earns), a FALSE-ALARM demotes with a named reason regardless of origin, and a
+// rule that never catches its own planted violation stays draft with the other named reason. Skipped, like the
+// staged-check test above, where `YG_BIN` is not resolvable — `promoteEnforceableAspects` itself then leaves
+// everything draft, unverified, which is covered by the assertion right after it runs.
+test('promoteEnforceableAspects earns `enforced` only for a certified-convention origin; the identical drill on a sub-gate-lattice origin earns `advisory` instead; FALSE-ALARM and no-catch both stay draft, named, regardless of origin', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const t2 = mkdtempSync(join(tmpdir(), 'promote-'));
+  const outDir2 = join(t2, 'proposal');
+  const ygg = join(outDir2, '.yggdrasil');
+  // the bare minimum Yggdrasil needs to recognize `.yggdrasil/` as a project root at all — `writeProposal`
+  // always has these on disk already by the time `promoteEnforceableAspects` runs; this test hand-builds only
+  // the aspects subtree, so it supplies the rest itself.
+  mkdirSync(join(ygg, 'model'), { recursive: true });
+  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '5.2.0' }));
+  writeFileSync(join(ygg, 'yg-architecture.yaml'), yamlEmit({ node_types: { project: { description: 'root' } } }));
+  const flagsBad = 'import { walk } from \'@chrisdudek/yg/ast\';\nexport function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.content.includes(\'BAD\')) v.push({ file: file.path, line: 1, column: 0, message: \'hit\' });\n  return v;\n}\n';
+  const writeAspect = (id, { violatesHasBad, satisfiesHasBad, kind, origin }) => {
+    const dir = join(ygg, 'aspects', id);
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(join(dir, 'yg-aspect.yaml'), yamlEmit({ name: id, description: `test aspect ${id}`, status: 'draft', errs: 'under', scope: { per: 'file' } }));
+    writeFileSync(join(dir, 'check.mjs'), flagsBad);
+    mkdirSync(join(dir, 'drills', 'violates-case'), { recursive: true });
+    writeFileSync(join(dir, 'drills', 'violates-case', 'case.txt'), violatesHasBad ? 'this file is BAD\n' : 'this file is fine\n');
+    if (satisfiesHasBad != null) {
+      mkdirSync(join(dir, 'drills', 'satisfies-case'), { recursive: true });
+      writeFileSync(join(dir, 'drills', 'satisfies-case', 'case.txt'), satisfiesHasBad ? 'this one is secretly BAD\n' : 'this one is clean\n');
+    }
+    return { id, check: flagsBad, kind: kind || null, origin: origin || null, drillViolatesWritten: 1, drillSatisfiesWritten: satisfiesHasBad != null ? 1 : 0 };
+  };
+  const aspects = [
+    // identical drill (1 violates case, correctly flagged, no satisfies case -> catches, no FA) on the two
+    // origins ticket 107 tells apart — only the origin should decide `enforced` vs. `advisory`.
+    writeAspect('catches-clean-certified', { violatesHasBad: true, origin: 'certified-convention' }),
+    writeAspect('catches-clean-subgate', { violatesHasBad: true, origin: 'sub-gate-lattice' }),
+    writeAspect('never-catches', { violatesHasBad: false, origin: 'certified-convention' }), // 1 violates case the check does NOT flag -> MISS -> no-catch
+    writeAspect('false-alarms', { violatesHasBad: true, satisfiesHasBad: true, kind: 'method', origin: 'sub-gate-lattice' }), // satisfies case mislabelled -> FALSE-ALARM, whatever the origin
+    { id: 'a-prose-aspect', check: null, kind: null, origin: 'certified-convention', drillViolatesWritten: 0, drillSatisfiesWritten: 0 }, // no check.mjs at all — never drilled
+  ];
+  mkdirSync(join(ygg, 'aspects', 'a-prose-aspect'), { recursive: true });
+  writeFileSync(join(ygg, 'aspects', 'a-prose-aspect', 'yg-aspect.yaml'), yamlEmit({ name: 'a-prose-aspect', description: 'prose', status: 'draft', scope: { per: 'file' } }));
+  writeFileSync(join(ygg, 'aspects', 'a-prose-aspect', 'content.md'), '# prose\n');
+
+  const evidence = aspects.map(a => ({ kind: 'aspect', id: a.id }));
+  const result = promoteEnforceableAspects(aspects, { ygg, outDir: outDir2, evidence, asOf: '2026-01-01', repo: t2 });
+  assert.equal(result.haveYg, true);
+  assert.equal(result.verified, 4, 'exactly the four deterministic aspects should have run a real drill');
+
+  const byId = Object.fromEntries(aspects.map(a => [a.id, a]));
+  assert.equal(byId['catches-clean-certified'].finalStatus, 'enforced', 'a certified-convention origin that clears the drill earns full enforcement');
+  assert.equal(byId['catches-clean-certified'].draftReason, null);
+  assert.equal(byId['catches-clean-subgate'].finalStatus, 'advisory', 'the IDENTICAL drill result on a sub-gate-lattice origin earns advisory, never enforced');
+  assert.equal(byId['catches-clean-subgate'].draftReason, null);
+  assert.equal(byId['never-catches'].finalStatus, 'draft');
+  assert.equal(byId['never-catches'].draftReason, 'no-catch');
+  assert.equal(byId['false-alarms'].finalStatus, 'draft');
+  assert.equal(byId['false-alarms'].draftReason, 'file-scope-approximation-fa');
+  assert.equal(byId['false-alarms'].scopeApproximation, 'file-from-symbol', 'a `method`-kind check is a symbol-level convention approximated at file scope');
+  assert.equal(byId['catches-clean-certified'].scopeApproximation, null, 'no `kind` was recorded for this one — nothing to approximate');
+  assert.equal(byId['a-prose-aspect'].finalStatus, 'draft');
+  assert.equal(byId['a-prose-aspect'].draftReason, 'prose-unenforceable-keyless');
+
+  // yg-aspect.yaml was rewritten with the earned status for the two that left draft, and only those two
+  const enforcedDoc = parseYaml(readFileSync(join(ygg, 'aspects', 'catches-clean-certified', 'yg-aspect.yaml'), 'utf8'));
+  assert.equal(enforcedDoc.status, 'enforced');
+  const advisoryDoc = parseYaml(readFileSync(join(ygg, 'aspects', 'catches-clean-subgate', 'yg-aspect.yaml'), 'utf8'));
+  assert.equal(advisoryDoc.status, 'advisory');
+  for (const id of ['never-catches', 'false-alarms', 'a-prose-aspect']) {
+    const doc = parseYaml(readFileSync(join(ygg, 'aspects', id, 'yg-aspect.yaml'), 'utf8'));
+    assert.equal(doc.status, 'draft', `${id} must stay draft in its own yg-aspect.yaml`);
+  }
+
+  // provenance.json carries all three ticket-102 fields, in Yggdrasil's own status vocabulary (ticket 107 —
+  // `enforced`/`advisory`/`draft`, not a separate Grain-internal word), and the evidence row was annotated in place
+  const prov = JSON.parse(readFileSync(join(ygg, 'aspects', 'false-alarms', 'provenance.json'), 'utf8'));
+  assert.equal(prov.status, 'draft');
+  assert.equal(prov.draftReason, 'file-scope-approximation-fa');
+  assert.equal(prov.scopeApproximation, 'file-from-symbol');
+  const advisoryProv = JSON.parse(readFileSync(join(ygg, 'aspects', 'catches-clean-subgate', 'provenance.json'), 'utf8'));
+  assert.equal(advisoryProv.status, 'advisory');
+  assert.equal(advisoryProv.origin, 'sub-gate-lattice');
+  const evRow = evidence.find(e => e.id === 'catches-clean-certified');
+  assert.equal(evRow.status, 'enforced');
+  assert.equal(evRow.draftReason, null);
+  const evRowAdvisory = evidence.find(e => e.id === 'catches-clean-subgate');
+  assert.equal(evRowAdvisory.status, 'advisory');
+
+  rmSync(t2, { recursive: true, force: true });
+});
+
+// ---------- ticket 106: an aspect's `name` is the whole statement, never a prefix cut mid-word ----------
+test('buildAspects never truncates `name` (ticket 106 — `.slice(0, 70)` used to cut mid-word)', () => {
+  const longStatement = 'this convention has a genuinely long statement that runs well past seventy characters on purpose (`WordBoundary`)';
+  assert.ok(longStatement.length > 70, 'the fixture statement must actually exceed the old cutoff to be a real regression check');
+  const active = [{ id: 'src', dir: 'src' }];
+  const exp = {
+    conventions: [{
+      established: 6, statement: longStatement, partition: 'src', feature: { enumerator: 'has', argument: null },
+      share: 1, bitsPerInstance: 4, expected: 'true', kind: 'file', exemplars: [], deviatingSites: [], conformingSites: [],
+    }],
+  };
+  const { aspects } = buildAspects(exp, active, []);
+  assert.equal(aspects.length, 1);
+  // Ticket 109 words the name as an obligation with its scope inside it, so `name` is no longer the mined
+  // statement verbatim — but 106's guarantee is untouched and asserted the same way: every word of the mined
+  // statement survives, and nothing is cut. This fixture's statement has no ` here ` to rewrite around, which
+  // is the branch that words it exactly as mined under its scope.
+  assert.ok(aspects[0].name.includes(longStatement), `name must carry the whole statement, not a 70-char prefix: ${aspects[0].name}`);
+  assert.ok(!aspects[0].name.endsWith('Bo'), 'a mid-word cut like the old `.slice(0, 70)` must not reappear');
+  assert.ok(aspects[0].description.startsWith(aspects[0].name), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
+});
+
+// ---------- ticket 109: the obligation form, and the two things it may never do ----------
+test('buildAspects words a rule as an obligation with its scope inside it, and keeps every word of the mined predicate', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const conv = (statement, expected, enumerator, argument) => ({
+    established: 6, statement, partition: 'src', feature: { enumerator, argument },
+    share: 1, bitsPerInstance: 4, expected, kind: 'method', exemplars: [], deviatingSites: [], conformingSites: [],
+  });
+  const { aspects } = buildAspects({
+    conventions: [
+      conv('methods here are annotated with `@Handler`', 'true', 'deco', '@Handler'),
+      conv('methods here do not import `lodash`', 'false', 'imp', 'lodash'),
+      conv('methods here are not annotated with `@Test`', 'false', 'deco', '@Test'),
+    ],
+  }, active, []);
+  assert.equal(aspects.length, 3);
+  assert.equal(aspects[0].name, 'Every method under `src/**` must be annotated with `@Handler`.');
+  // a prohibition reads as one, and the identifier the rule is about survives the rewrite intact
+  assert.equal(aspects[1].name, 'No method under `src/**` may import `lodash`.');
+  assert.equal(aspects[2].name, 'No method under `src/**` may be annotated with `@Test`.');
+  for (const a of aspects) {
+    assert.match(a.name, /^(Every|No) method under `src\/\*\*` (must|may) /, `not an obligation: ${a.name}`);
+    assert.ok(a.name.endsWith('.'), `an obligation is a sentence: ${a.name}`);
+    // the scope the sentence names is the scope the aspect is judged over — never a narrower one
+    assert.equal(a.scope.files.path, 'src/**');
+  }
+});
+
+test('a lattice row is worded from the value it was measured at, not from its pid (ticket 109)', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const row = (pid, exp) => ({ partition: 'src', pid, exp, share: 0.8, n: 10, ne: 8, bits: 1, kind: 'method', role: 3, deviants: ['a.ts#x', 'b.ts#y'] });
+  const { aspects } = buildAspects({ conventions: [] }, active, [
+    row('auto.nameshape', '(Ua)+'),
+    row('auto.lex:quote', 'single'),
+    row('auto.mods', 'public'),
+    row('auto.imp:lodash', 'false'),
+  ]);
+  const names = aspects.map(a => a.name);
+  assert.deepEqual(names, [
+    'Every method under `src/**` must be named PascalCase.',
+    'Every method under `src/**` must quote strings with single quotes.',
+    'Every method under `src/**` must carry the modifiers `public`.',
+    // ticket 115: a `false`-direction row of an absence class, mined in the sub-gate band, states what it
+    // measured — it is not turned into `No method under \`src/**\` may import \`lodash\`.`, which 24-of-30
+    // majorities made the most visible wrong sentence in the whole proposal.
+    '8 of 10 methods under `src/**` do not import `lodash` — an absence, not a rule.',
+  ]);
+  for (const a of aspects) {
+    assert.ok(!/auto\./.test(a.name), `an internal pid leaked into the rule: ${a.name}`);
+    assert.ok(!/``/.test(a.name), `the rule names an empty identifier: ${a.name}`);
+    // the role cluster is where the row was MEASURED; the rule speaks about the scope it is judged over
+    assert.ok(!/role/.test(a.name), `the sentence claims a narrower subject than the scope: ${a.name}`);
+    assert.match(a.evidenceLine, /role cluster \(r3\)/, 'the cluster must still be disclosed in the evidence');
+  }
+});
+
+// ---------- ticket 109 (defect): a lattice row's rule names the value it was measured at ----------
+//
+// The categorical families carry their value in the ROW, not in the predicate id: `auto.nameshape` has no
+// argument at all and `auto.lex:quote` names the surface, never `single`. Reading the pid alone produced a
+// rule with an empty identifier and a rule that printed an internal predicate id at a maintainer — while the
+// `check.mjs` rendered beside it was compiling the right value all along (`renderCheck` reads `expected`).
+test('a lattice-row rule names the value grain measured, never its internal predicate id', () => {
+  const active = [{ id: 'src', dir: 'src' }];
+  const row = (pid, exp) => ({ partition: 'src', pid, exp, share: 0.8, n: 10, ne: 8, bits: 1, kind: 'method', role: null, deviants: ['a.ts#x', 'b.ts#y'] });
+  const { aspects } = buildAspects({ conventions: [] }, active, [
+    row('auto.nameshape', '(Ua)+'),
+    row('auto.lex:quote', 'single'),
+    row('auto.mods', 'public'),
+    row('auto.first1', 'return_statement'),
+  ]);
+  assert.equal(aspects.length, 4);
+  for (const a of aspects) {
+    assert.ok(!/auto\./.test(a.name), `an internal predicate id leaked into the rule: ${a.name}`);
+    assert.ok(!/``/.test(a.name), `the rule names an empty identifier: ${a.name}`);
+  }
+  // the value itself, in the vocabulary grain's own report already uses for it
+  assert.match(aspects[0].name, /PascalCase/);
+  assert.match(aspects[1].name, /quote strings with single quotes/);
+  assert.match(aspects[2].name, /`public`/);
+  assert.match(aspects[3].name, /`return_statement`/);
+});
+
+test('provenanceFor carries status/draftReason/scopeApproximation, additive over the law-loop.mjs field set', () => {
+  const p = provenanceFor({ id: 'x', origin: 'certified-convention', check: 'body', finalStatus: 'enforced', draftReason: null, scopeApproximation: null }, { asOf: '2026-01-01', repo: '/r' });
+  assert.equal(p.status, 'enforced');
+  assert.equal(p.draftReason, null);
+  assert.equal(p.scopeApproximation, null);
+  const pAdvisory = provenanceFor({ id: 'y2', origin: 'sub-gate-lattice', check: 'body', finalStatus: 'advisory', draftReason: null, scopeApproximation: null }, { asOf: '2026-01-01', repo: '/r' });
+  assert.equal(pAdvisory.status, 'advisory');
+  const p2 = provenanceFor({ id: 'y', origin: 'sub-gate-lattice', check: null }, { asOf: '2026-01-01', repo: '/r' });
+  // no classification ran yet on this synthetic object — defaults to draft, unexplained, never a crash on a missing field
+  assert.equal(p2.status, 'draft');
+  assert.equal(p2.draftReason, null);
+});
+
+// ---------- 3. Yggdrasil's own CLI must be able to load it ----------
+// These codes mean the graph did not come in at all. Anything else `yg check` says (an uncovered file, a real
+// architectural finding such as a dependency cycle) is a statement ABOUT the repository, not a defect in the
+// proposal, and this test deliberately does not fail on it.
+const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-reviewer-missing|description-missing|type-undefined|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
+
+test('Yggdrasil loads the proposed graph from a staged copy of the repository', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const stage = join(tmp, 'stage');
+  mkdirSync(stage, { recursive: true });
+  for (const rel of execFileSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean)) {
+    const dst = join(stage, rel);
+    mkdirSync(dirname(dst), { recursive: true });
+    cpSync(join(repo, rel), dst);
+  }
+  cpSync(join(out, '.yggdrasil'), join(stage, '.yggdrasil'), { recursive: true });
+
+  const r = spawnSync('node', [YG_BIN, 'check'], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
+  const text = (r.stdout || '') + (r.stderr || '');
+  // the graph loaded: the header names the nodes and aspects it read
+  const header = /yg check: (\w+)[^\n]*?(\d+) nodes/.exec(text);
+  assert.ok(header, `yg check printed no graph header — the graph did not load:\n${text.slice(0, 2000)}`);
+  const j = sidecar();
+  assert.equal(Number(header[2]), j.counts.nodes, `Yggdrasil loaded ${header[2]} nodes, the proposal wrote ${j.counts.nodes}`);
+  const codes = [...new Set([...text.matchAll(/^ {2}([a-z][a-z-]+)/gm)].map(m => m[1]))];
+  const fatal = codes.filter(c => LOAD_FAILURES.test(c));
+  assert.deepEqual(fatal, [], `Yggdrasil refused to load the proposal:\n${text.slice(0, 4000)}`);
+  assert.equal(r.status, 0, `expected a clean check on this fixture, got:\n${text.slice(0, 4000)}`);
+});
+
+// ---------- sizing.json: files/bytes/scopes/codelength per node, and the external context-budget constant ----------
+test('sizing.json carries files/bytes/codelength per proposed node and the external context-budget constant', () => {
+  assert.ok(existsSync(join(out, 'sizing.json')));
+  const s = JSON.parse(readFileSync(join(out, 'sizing.json'), 'utf8'));
+  assert.equal(s.instrument, 'sizing/1');
+  assert.equal(s.contextBudgetTokens, 200000, 'the 200K Sonnet/Opus context window is an external constant, not tuned');
+  assert.match(s.contextBudgetSource, /external constant/);
+  assert.ok(Array.isArray(s.proposedNodes) && s.proposedNodes.length >= 1);
+  for (const n of s.proposedNodes) {
+    assert.ok(n.id, 'every sized node carries an id');
+    assert.ok(n.files >= 1, `node ${n.id} has no files`);
+    assert.ok(n.bytes > 0, `node ${n.id} has zero bytes`);
+    assert.ok(n.codelengthLines > 0, `node ${n.id} has zero codelength lines`);
+  }
+  // this fixture repo carries no `.yggdrasil/` of its own — nothing to size on the hand side
+  assert.equal(s.handNodes, null);
+  const totalFiles = s.proposedNodes.reduce((a, n) => a + n.files, 0);
+  assert.ok(totalFiles <= 7, `fixture has 7 tracked files (6 source + README), sizing over-counted: ${totalFiles}`);
+});
+
+test('sizing.json sizes HAND nodes too when the source repo already carries its own .yggdrasil/', () => {
+  const handRoot = join(tmp, 'hand-repo');
+  const w = (rel, content) => { const p = join(handRoot, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
+  for (const n of ['alpha', 'beta']) w(`src/api/${n}-handler.ts`, `export function h${n}() { return 1; }\n`);
+  for (const n of ['alpha', 'beta']) w(`src/util/${n}-helper.ts`, `export function u${n}() { return 1; }\n`);
+  w('.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w('.yggdrasil/yg-architecture.yaml', 'node_types:\n  handler:\n    description: "h"\n    when:\n      path: "src/api/*.ts"\n  helper:\n    description: "u"\n    when:\n      path: "src/util/*.ts"\n');
+  w('.yggdrasil/model/api/yg-node.yaml', 'name: Api\ntype: handler\ndescription: "d"\nmapping:\n  - src/api/\n');
+  w('.yggdrasil/model/util/yg-node.yaml', 'name: Util\ntype: helper\ndescription: "d"\nmapping:\n  - src/util/\n');
+  const env = {
+    ...process.env, HOME: tmp,
+    GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x',
+    GIT_AUTHOR_DATE: '2026-01-10T12:00:00Z', GIT_COMMITTER_DATE: '2026-01-10T12:00:00Z',
+  };
+  execFileSync('git', ['-C', handRoot, 'init', '-q', '-b', 'main'], { env });
+  execFileSync('git', ['-C', handRoot, 'add', '-A'], { env });
+  execFileSync('git', ['-C', handRoot, 'commit', '-q', '-m', 'fixture'], { env });
+  const handOut = join(tmp, 'hand-proposal');
+  const r = spawnSync('node', [PROPOSE, handRoot, handOut, '--no-history', '--quiet'], { encoding: 'utf8', maxBuffer: 1 << 28 });
+  assert.equal(r.status, 0, r.stderr);
+  const s = JSON.parse(readFileSync(join(handOut, 'sizing.json'), 'utf8'));
+  assert.ok(Array.isArray(s.handNodes) && s.handNodes.length === 2, `expected the 2 hand nodes, got ${JSON.stringify(s.handNodes)}`);
+  const byId = Object.fromEntries(s.handNodes.map(n => [n.id, n]));
+  assert.equal(byId.api.files, 2);
+  assert.equal(byId.util.files, 2);
+  assert.ok(byId.api.bytes > 0 && byId.util.bytes > 0);
+});
+
+test('computeSizing reports scopes as null, not zero, when the tree cache is absent', () => {
+  // a directory with no `.grain/cache/` at all — unlike `repo`, which the `before()` hook already ran a real
+  // `grain export` against, populating its cache and making this assertion vacuous there
+  const bareDir = join(tmp, 'no-cache-repo');
+  mkdirSync(join(bareDir, 'src', 'api'), { recursive: true });
+  writeFileSync(join(bareDir, 'src', 'api', 'alpha-handler.ts'), 'export function h() { return 1; }\n');
+  const s = computeSizing(bareDir, [{ id: 'x', dir: 'src/api', ownFiles: new Set(['src/api/alpha-handler.ts']), organizational: false }], null, []);
+  assert.equal(s.scopesAvailable, false);
+  assert.equal(s.proposedNodes[0].scopes, null, 'an absent scope cache must never be misread as zero scopes');
+});
+// ---------- 4. the pieces a wrong answer would come out of silently ----------
+test('the name-shape compiler turns grain shapes into anchored regexes, and refuses the ones it cannot', () => {
+  assert.equal(shapeToRegex('(Ua)+'), '^(?:[A-Z]+[a-z0-9]+)+$');
+  assert.equal(shapeToRegex('a(Ua)+'), '^[a-z0-9]+(?:[A-Z]+[a-z0-9]+)+$');
+  assert.equal(shapeToRegex('a'), '^[a-z0-9]+$');
+  assert.equal(shapeToRegex('a(-a)+(.a)+'), '^[a-z0-9]+(?:\\-[a-z0-9]+)+(?:\\.[a-z0-9]+)+$');
+  assert.equal(shapeToRegex('a?a'), null, 'a shape carrying `?` (grain\'s "anything else") must not compile');
+  assert.equal(shapeToRegex(''), null);
+  // and the compiled regexes actually classify
+  assert.ok(new RegExp(shapeToRegex('(Ua)+')).test('AspectUsage'));
+  assert.ok(!new RegExp(shapeToRegex('(Ua)+')).test('aspectUsage'));
+  assert.ok(new RegExp(shapeToRegex('a(-a)+(.a)+')).test('derive-nodes.test.ts'));
+});
+
+test('a role group\'s content predicate comes from its own evidence, in a stated order', () => {
+  const withMarker = { markers: [{ type: 'decorator', name: 'Handler', carriers: [1, 2, 3] }], members: [], nameTokens: [], imports: [] };
+  assert.match(contentRegexFor(withMarker).regex, /@Handler/);
+  const withAffix = {
+    markers: [], imports: [], nameTokens: [],
+    members: [{ name: 'registerCheckCommand' }, { name: 'registerFindCommand' }, { name: 'registerLogCommand' }],
+  };
+  const cr = contentRegexFor(withAffix);
+  assert.match(cr.regex, /register\[A-Za-z0-9_\]\*Command/);
+  assert.ok(new RegExp(cr.regex).test('export function registerAdviseCommand('));
+  assert.ok(!new RegExp(cr.regex).test('export function loadGraphOrAbort('));
+  assert.equal(contentRegexFor({ markers: [], members: [], nameTokens: [], imports: [] }), null,
+    'a group with no marker, no name shape and no shared import is not a type and must say so');
+});
+
+test('only rules a file-scoped check can keep as `errs: under` are rendered', () => {
+  // a negative at partition scope: provable on sight, renders
+  assert.equal(renderableDirection('call', 'false', 'method', 'partition'), true);
+  // the same rule inside a role group: the check's unit is the file, the group's is a scope — never rendered
+  assert.equal(renderableDirection('call', 'false', 'method', 'group'), false);
+  // a positive about a declaration would refuse the file for every other declaration in it
+  assert.equal(renderableDirection('returns', 'true', 'method', 'partition'), false);
+  // a positive whose subject IS the file renders
+  assert.equal(renderableDirection('imp', 'true', 'file', 'partition'), true);
+  assert.equal(renderableDirection('lex', 'space2', 'file', 'partition'), true);
+  // a shape with no name in it never renders
+  assert.equal(renderableDirection('stshape', 'true', 'method', 'partition'), false);
+  assert.equal(renderableDirection('has', 'false', 'method', 'partition'), false);
+});
+
+test('node paths, slugs and the nested-project scan', () => {
+  assert.equal(nodePathFor('.yggdrasil/aspects'), 'dot-yggdrasil/aspects');
+  assert.equal(nodePathFor(null), 'repo-root');
+  assert.equal(slug('source/cli/src/core'), 'source-cli-src-core');
+  assert.deepEqual(nestedProjectRoots(['a/b/.yggdrasil/yg-config.yaml', 'a/b/src/x.ts', '.yggdrasil/yg-config.yaml']), ['a/b']);
+});
+
+test('the YAML emitter quotes what YAML would otherwise re-read as something else', () => {
+  assert.equal(yamlEmit({ a: 'plain' }), 'a: plain\n');
+  assert.equal(yamlEmit({ a: 'true' }), 'a: "true"\n');
+  assert.equal(yamlEmit({ a: '5.2.0' }), 'a: "5.2.0"\n');
+  assert.equal(yamlEmit({ a: 'has: colon' }), 'a: "has: colon"\n');
+  assert.equal(yamlEmit({ a: [] }), 'a: []\n');
+  assert.equal(yamlEmit({ when: { path: 'src/**' } }), 'when:\n  path: "src/**"\n');
+  // and it round-trips through the reader the instruments actually use
+  const doc = { name: 'X', when: { all_of: [{ path: 'a/**' }, { not: { path: '**/*.test.ts' } }] }, mapping: ['a/'] };
+  assert.deepEqual(parseYaml(yamlEmit(doc)), doc);
+});
+
+// ---------- 13. the node charter names the rules that govern the node (dry run 112) ----------
+//
+// `charter.md` is the ONE file Horde's `node.mjs show` reads out of a proposal, so a charter that
+// cannot name a rule leaves the layer above the graph with no rule at all. The aspect's `host` is a
+// TYPE id (`src-api`); a node's `id` is a PATH (`src/api`) and its `type` is the type id — matching
+// the host against the id instead of the type silently emptied every charter on a repository whose
+// directories are not already slugs.
+test('a node charter lists the certified conventions and sub-gate candidates hosted by its own TYPE', () => {
+  const node = { id: 'src/api', type: 'src-api', dir: 'src/api', files: new Set(['src/api/a.ts']), ownFiles: new Set(['src/api/a.ts']), relations: [], why: 'a partition' };
+  const aspects = [
+    { id: 'grain/src-api/partition-nameshape', host: 'src-api', origin: 'certified-convention', name: 'types here are named PascalCase', share: 1, n: 25, deviating: 0, exemplars: [] },
+    { id: 'grain/src-api/candidate-auto-imp-x', host: 'src-api', origin: 'sub-gate-lattice', name: 'files here import `x`', share: 0.8, n: 24, deviating: 6, exemplars: [] },
+    { id: 'grain/other/unrelated', host: 'src-util', origin: 'certified-convention', name: 'not this node', share: 1, n: 5, deviating: 0, exemplars: [] },
+  ];
+  const md = renderNodeCharter(node, { nodes: [node], aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: '/tmp/x' });
+  assert.match(md, /types here are named PascalCase/, 'the certified convention hosted by this node\'s type is missing from its charter');
+  assert.match(md, /files here import `x`/, 'the sub-gate candidate hosted by this node\'s type is missing from its charter');
+  assert.doesNotMatch(md, /not this node/, 'a rule hosted by another type must not appear');
+});
+
+// ---------- 14. a promoted check's own header stops calling itself a draft (dry run 112) ----------
+//
+// `promoteEnforceableAspects` rewrites `yg-aspect.yaml` when a drill earns `enforced` or `advisory`,
+// and used to leave `check.mjs` exactly as written — including the header stating that the aspect is
+// `status: draft` and that "the runner never executes this check". On a delivered proposal that
+// sentence is false for every promoted rule, and it is the first thing a maintainer opening the file
+// reads while Yggdrasil is running it.
+test('promotion rewrites the check.mjs header, so a promoted check never says the runner skips it', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const t3 = mkdtempSync(join(tmpdir(), 'header-'));
+  const outDir3 = join(t3, 'proposal');
+  const ygg = join(outDir3, '.yggdrasil');
+  mkdirSync(join(ygg, 'model'), { recursive: true });
+  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '5.2.0' }));
+  writeFileSync(join(ygg, 'yg-architecture.yaml'), yamlEmit({ node_types: { project: { description: 'root' } } }));
+
+  const draftHeader = [
+    '// PROVENANCE — grain measured this, it did not decide it.',
+    '//   a test rule',
+    '//',
+    '// DRAFT: this aspect is `status: draft`, so the runner never executes this check. Read it, decide whether the',
+    '// rule is real, then promote it.',
+    '// `errs: under` is the contract this template keeps: it reports only where the',
+    '// syntax tree proves the negation, and stays silent where the language gives it nothing to read.',
+  ].join('\n');
+  const body = "\nimport { walk } from '@chrisdudek/yg/ast';\nexport function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.content.includes('BAD')) v.push({ file: file.path, line: 1, column: 0, message: 'hit' });\n  return v;\n}\n";
+
+  const writeAspect = (id, origin, violatesHasBad) => {
+    const dir = join(ygg, 'aspects', id);
+    mkdirSync(join(dir, 'drills', 'violates-case'), { recursive: true });
+    writeFileSync(join(dir, 'yg-aspect.yaml'), yamlEmit({ name: id, description: id, status: 'draft', errs: 'under', scope: { per: 'file' } }));
+    writeFileSync(join(dir, 'check.mjs'), draftHeader + body);
+    writeFileSync(join(dir, 'drills', 'violates-case', 'case.txt'), violatesHasBad ? 'this file is BAD\n' : 'this file is fine\n');
+    return { id, check: draftHeader + body, kind: null, origin, drillViolatesWritten: 1, drillSatisfiesWritten: 0 };
+  };
+  const aspects = [
+    writeAspect('promoted-enforced', 'certified-convention', true),
+    writeAspect('promoted-advisory', 'sub-gate-lattice', true),
+    writeAspect('stays-draft', 'certified-convention', false),
+  ];
+  promoteEnforceableAspects(aspects, { ygg, outDir: outDir3, evidence: aspects.map(a => ({ kind: 'aspect', id: a.id })), asOf: '2026-01-01', repo: t3 });
+
+  const headerOf = (id) => readFileSync(join(ygg, 'aspects', id, 'check.mjs'), 'utf8');
+  assert.equal(aspects[0].finalStatus, 'enforced');
+  assert.doesNotMatch(headerOf('promoted-enforced'), /the runner never executes this check/,
+    'an enforced check still tells its reader the runner skips it');
+  assert.match(headerOf('promoted-enforced'), /ENFORCED:/);
+  assert.equal(aspects[1].finalStatus, 'advisory');
+  assert.doesNotMatch(headerOf('promoted-advisory'), /the runner never executes this check/,
+    'an advisory check still tells its reader the runner skips it');
+  assert.match(headerOf('promoted-advisory'), /ADVISORY:/);
+  assert.equal(aspects[2].finalStatus, 'draft');
+  assert.match(headerOf('stays-draft'), /DRAFT: this aspect is/, 'a draft check keeps its draft header');
+  for (const id of ['promoted-enforced', 'promoted-advisory', 'stays-draft']) {
+    assert.match(headerOf(id), /`errs: under` is the contract this template keeps/, id);
+  }
+
+  rmSync(t3, { recursive: true, force: true });
+});
+
+// ---------- 15. the sentence a rule states about itself (dry run 112) ----------
+//
+// `describeRow` (ticket 109 folded ticket 112`s `describePid` into it) writes the statement that becomes the aspect's `name:` and `description:`, and so the
+// line an agent reads in `yg context --file`, `yg aspects` and every `yg check` warning. Three of its
+// classes were wrong on a real repository: a decorator identifier already carries its `@`, so the
+// statement doubled it; a name-shape rule keeps its shape in `expected`, not in the pid, so the
+// statement named an empty shape; and `filenameshape` had no entry at all, so the fallback printed
+// grain's internal pid to the user.
+test('a rule states itself in words, with no doubled marker, no empty shape and no internal pid', () => {
+  assert.equal(describeRow('auto.deco:@SpringBootTest', 'true'), 'carry `@SpringBootTest`');
+  assert.equal(describeRow('auto.deco:pytest.fixture', 'true'), 'carry `@pytest.fixture`');
+  // the shape lives in `expected`, so the sentence must carry it and never an empty pair of backticks
+  assert.match(describeRow('auto.nameshape', 'a(Ua)+'), /camelCase/);
+  assert.doesNotMatch(describeRow('auto.nameshape', 'a(Ua)+'), /``/);
+  assert.match(describeRow('auto.filenameshape', '(Ua)+'), /file name PascalCase/);
+  assert.doesNotMatch(describeRow('auto.filenameshape', '(Ua)+'), /``/);
+  assert.equal(describeRow('auto.imp:jakarta.persistence.Entity', 'true'), 'import `jakarta.persistence.Entity`');
+  // an unknown class still says something, and still never prints the raw pid to a human
+  assert.doesNotMatch(describeRow('auto.mods', 'true'), /auto\./);
+});
+
+// ---------- 16. the charter names the rules that reach the node from ABOVE (ticket 114) ----------
+//
+// A grain proposal attaches every mined rule to a TYPE, and the node that owns the files is often a
+// nested one whose own type hosts nothing: on spring-petclinic the 30 Java files belong to
+// `src/main/java/org`, while all 8 rules sit on the `src-main-java` type one level up. Yggdrasil
+// resolves that correctly — `yg context --file` walks the cascade (`core/graph/aspects.ts`,
+// channels 1-4: own aspects, ancestor node aspects, own architecture type, ancestor architecture
+// type) — but the charter was per-node and flat, so the owner assigned to the node that HOLDS the
+// code read "none certified yet at this node" about code governed by eight rules. The charter is the
+// only file the layer above the graph reads, so the cascade has to be in it.
+test('a node charter names an ancestor type\'s rules as INHERITED, with their origin, status and drill numbers', () => {
+  const parent = { id: 'src/api', type: 'src-api', dir: 'src/api', files: new Set(['src/api/deep/a.ts']), ownFiles: new Set(), relations: [], why: 'a partition' };
+  const child = { id: 'src/api/deep', type: 'src-api-deep', dir: 'src/api/deep', files: new Set(['src/api/deep/a.ts']), ownFiles: new Set(['src/api/deep/a.ts']), relations: [], why: 'a directory card' };
+  const aspects = [
+    { id: 'grain/src-api/partition-nameshape', host: 'src-api', origin: 'certified-convention', name: 'Every type under `src/api/**` must be named PascalCase', share: 1, n: 25, deviating: 0, exemplars: [], finalStatus: 'enforced', drill: { pass: 5, miss: 0, falseAlarm: 0, catches: 5, violates: 5, satisfies: 5 } },
+    { id: 'grain/src-api/candidate-auto-imp-x', host: 'src-api', origin: 'sub-gate-lattice', name: 'No file under `src/api/**` may import `x`', share: 0.8, n: 24, deviating: 6, exemplars: [], finalStatus: 'advisory' },
+    { id: 'grain/other/unrelated', host: 'src-util', origin: 'certified-convention', name: 'not this node', share: 1, n: 5, deviating: 0, exemplars: [], finalStatus: 'draft' },
+  ];
+  const ctx = { nodes: [parent, child], aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: '/tmp/x' };
+  const md = renderNodeCharter(child, ctx);
+  assert.match(md, /## Rules inherited from above/, 'the charter has no inherited-rules section');
+  assert.match(md, /Every type under `src\/api\/\*\*` must be named PascalCase/, 'the ancestor type\'s certified rule is missing from the node that owns the files');
+  assert.match(md, /No file under `src\/api\/\*\*` may import `x`/, 'the ancestor type\'s sub-gate rule is missing');
+  assert.match(md, /inherited from type `src-api`/, 'an inherited rule does not say where it comes from');
+  assert.match(md, /ancestor node `src\/api`/, 'an inherited rule does not name the ancestor node it attaches at');
+  assert.match(md, /status `enforced`/, 'an inherited rule does not carry its status word');
+  assert.match(md, /status `advisory`/, 'an inherited rule does not carry its status word');
+  assert.match(md, /caught 5 of 5 · 0 false alarm/, 'an inherited rule does not carry its drill numbers');
+  assert.doesNotMatch(md, /not this node/, 'a rule hosted by an unrelated type must not appear');
+  // and the node that HOSTS them still reads them as its own, never as inherited
+  const parentMd = renderNodeCharter(parent, ctx);
+  assert.match(parentMd, /Every type under `src\/api\/\*\*` must be named PascalCase/);
+  assert.doesNotMatch(parentMd, /inherited from type/, 'a hosting node must not call its own rules inherited');
+  // the dead end the ticket was opened on: the node that owns the files must never be told there is nothing
+  assert.doesNotMatch(md, /\(none certified yet at this node\)/, 'the empty line must point at the inherited section instead');
+});
+
+// The cascade above is asserted against the ONE implementation that decides it in production: a real
+// `.yggdrasil/` tree on disk, read by the real Yggdrasil CLI. `yg context --file` is what an agent
+// mid-edit actually sees; the charter is what the layer above the graph sees. They must name the same
+// rules for the same file, so the parity is asserted directly rather than described.
+test('the charter and `yg context --file` name the same rules for the same file', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
+  const t = mkdtempSync(join(tmpdir(), 'cascade-'));
+  const w = (rel, text) => { const p = join(t, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
+  w('svc/Root.ts', 'export class Root {\n  public run(): void {}\n}\n');
+  w('svc/deep/Leaf.ts', 'export class Leaf {\n  public run(): void {}\n}\n');
+  w('.yggdrasil/yg-config.yaml', yamlEmit({ version: '5.2.0', coverage: { required: [], excluded: [] } }));
+  w('.yggdrasil/yg-architecture.yaml', yamlEmit({
+    node_types: {
+      project: { description: 'Top-level grouping.', parents: [] },
+      svc: { description: 'The service partition.', when: { path: 'svc/**' }, parents: ['project'], aspects: ['grain/svc/partition-nameshape'] },
+      'svc-deep': { description: 'One level below.', when: { path: 'svc/deep/**' }, parents: ['project', 'svc'] },
+    },
+  }));
+  w('.yggdrasil/model/svc/yg-node.yaml', yamlEmit({ name: 'svc', type: 'svc', description: 'The service.', mapping: ['svc/'], relations: [] }));
+  w('.yggdrasil/model/svc/deep/yg-node.yaml', yamlEmit({ name: 'svc/deep', type: 'svc-deep', description: 'The nested node that owns the file.', mapping: ['svc/deep/'], relations: [] }));
+  w('.yggdrasil/aspects/grain/svc/partition-nameshape/yg-aspect.yaml', yamlEmit({
+    name: 'Every type under `svc/**` must be named PascalCase', description: 'Every type under `svc/**` must be named PascalCase.',
+    status: 'advisory', errs: 'under', review_by: '2027-01-15', scope: { per: 'file', files: { path: 'svc/**' } },
+  }));
+  w('.yggdrasil/aspects/grain/svc/partition-nameshape/check.mjs',
+    "export function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.path.includes('BAD')) v.push({ file: file.path, line: 1, column: 0, message: 'hit' });\n  return v;\n}\n");
+
+  const r = spawnSync('node', [YG_BIN, 'context', '--file', 'svc/deep/Leaf.ts'], { cwd: t, encoding: 'utf8', maxBuffer: 1 << 26 });
+  assert.equal(r.status, 0, `yg context failed: ${r.stdout}${r.stderr}`);
+  const fromYg = [...new Set([...r.stdout.matchAll(/(grain\/[A-Za-z0-9/._-]+) \[/g)].map(m => m[1]))].sort();
+  assert.deepEqual(fromYg, ['grain/svc/partition-nameshape'], `yg context did not resolve the ancestor type's rule: ${r.stdout}`);
+
+  // the same graph, described to the charter renderer exactly as the renderer's own writers describe it
+  const nodes = [
+    { id: 'svc', type: 'svc', dir: 'svc', files: new Set(['svc/Root.ts', 'svc/deep/Leaf.ts']), ownFiles: new Set(['svc/Root.ts']), relations: [], why: 'a partition' },
+    { id: 'svc/deep', type: 'svc-deep', dir: 'svc/deep', files: new Set(['svc/deep/Leaf.ts']), ownFiles: new Set(['svc/deep/Leaf.ts']), relations: [], why: 'a directory card' },
+  ];
+  const aspects = [{ id: 'grain/svc/partition-nameshape', host: 'svc', origin: 'certified-convention', name: 'Every type under `svc/**` must be named PascalCase', share: 1, n: 4, deviating: 0, exemplars: [], finalStatus: 'advisory' }];
+  const md = renderNodeCharter(nodes[1], { nodes, aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: t });
+  const fromCharter = [...new Set([...md.matchAll(/\(`(grain\/[^`]+)`\)/g)].map(m => m[1]))].sort();
+  assert.deepEqual(fromCharter, fromYg, 'the charter and yg context disagree about which rules govern this file');
+
+  rmSync(t, { recursive: true, force: true });
+});
+
+// ---------- 18. the charter's own audit row counted nothing (bug, found while doing ticket 114) ----------
+//
+// `proposal.json`'s `evidence[]` is the full audit trail — "every element this renderer wrote has exactly one
+// row here" — and a charter's row claimed how many rules the charter names. It compared the aspect's `host`
+// (a TYPE id) against the node's `id` (a PATH): the same category error ticket 112 fixed inside the charter
+// body, left behind in the row that reports on it. Every charter row on every repository read "0 hosted
+// aspect drafts", including the ones whose charter names eight.
+test('a charter\'s evidence row counts the rules the charter actually names', () => {
+  const j = JSON.parse(readFileSync(join(out, 'proposal.json'), 'utf8'));
+  const rows = j.evidence.filter(e => e.kind === 'charter');
+  assert.ok(rows.length, 'no charter evidence rows at all');
+  const model = join(out, '.yggdrasil', 'model');
+  for (const row of rows) {
+    const md = readFileSync(join(model, row.id, 'charter.md'), 'utf8');
+    const named = new Set([...md.matchAll(/\(`(grain\/[^`]+)`\)/g)].map(m => m[1]));
+    const claimed = /(\d+) rules? in force here/.exec(row.evidence);
+    assert.ok(claimed, `charter row for ${row.id} does not say how many rules its charter names: ${row.evidence}`);
+    assert.equal(Number(claimed[1]), named.size, `charter row for ${row.id} claims ${claimed[1]} rules, the charter names ${named.size}`);
+  }
+});
+
+// ---------- 17. an enforced rule says how much of TODAY it already refuses (ticket 118) ----------
+//
+// Ticket 109 measured it on the whole corpus: all 21 enforced rules block 1-18 EXISTING files at the first
+// `yg check`. The drill that earned `enforced` proves the CHECK correct; it never asks whether the repository
+// conforms, and ruling `enforced-requires-certified-origin` does not either. Yggdrasil answers this with
+// progressive mode (`progressive.reference` in `yg-config.yaml`, `yg schemas read config`): an enforced finding
+// the current change did not reach renders as a warning, and `yg check --full` blocks on it again. So the
+// proposal turns it on with a reference derived from the repository, and every enforced rule carries the number
+// of sites that break it on the day it is delivered.
+test('the proposal derives progressive.reference from the repository and writes it to yg-config.yaml', () => {
+  const cfg = parseYaml(readFileSync(join(out, '.yggdrasil', 'yg-config.yaml'), 'utf8'));
+  // the fixture repository is a fresh `git init -b main` with no remote at all — no `origin/HEAD`, no
+  // `origin/main`, so the only honest reference is the branch it is on
+  assert.deepEqual(cfg.progressive, { reference: 'main' }, 'the proposal names no reference to measure changes against');
+  assert.equal(Object.keys(cfg.progressive).length, 1, 'the progressive block accepts `reference` and nothing else (config-progressive-unknown-key)');
+});
+
+test('progressiveReference prefers the remote default branch, then the current branch, and says when it has neither', () => {
+  const t = mkdtempSync(join(tmpdir(), 'progref-'));
+  const env = {
+    ...process.env, HOME: t,
+    GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x',
+    GIT_AUTHOR_DATE: '2026-01-10T12:00:00Z', GIT_COMMITTER_DATE: '2026-01-10T12:00:00Z',
+  };
+  const upstream = join(t, 'upstream'), clone = join(t, 'clone');
+  mkdirSync(upstream, { recursive: true });
+  writeFileSync(join(upstream, 'a.txt'), 'a\n');
+  execFileSync('git', ['-C', upstream, 'init', '-q', '-b', 'trunk'], { env });
+  execFileSync('git', ['-C', upstream, 'add', '-A'], { env });
+  execFileSync('git', ['-C', upstream, 'commit', '-q', '-m', 'one'], { env });
+  execFileSync('git', ['clone', '-q', upstream, clone], { env });
+  // a clone knows its remote's default branch, and that is what an adopter's CI compares against
+  assert.equal(progressiveReference(clone).reference, 'origin/trunk');
+  // a repository with no remote at all can still name the branch it is on
+  assert.equal(progressiveReference(upstream).reference, 'trunk');
+  // and a directory with no git names nothing rather than guessing
+  const bare = join(t, 'nogit');
+  mkdirSync(bare, { recursive: true });
+  const none = progressiveReference(bare);
+  assert.equal(none.reference, null);
+  assert.match(none.why, /\S/, 'a missing reference must say why it is missing');
+  rmSync(t, { recursive: true, force: true });
+});
+
+// The number itself, on the two surfaces an adopter reads: the per-aspect record on disk and the report the
+// command prints. `deviating` is the count of sites that break the rule at `asOf` — the same number the
+// evidence line already carries, said in the words that matter on the day the graph is switched on.
+test('an enforced aspect carries existingViolations, and the report says what happens to those sites', () => {
+  const t = mkdtempSync(join(tmpdir(), 'existing-'));
+  const a = { id: 'grain/x/rule', origin: 'certified-convention', name: 'Every file under `x/**` must be tidy', share: 0.9, n: 45, deviating: 7, finalStatus: 'enforced', check: 'x', drill: { pass: 5, miss: 0, falseAlarm: 0, catches: 5, violates: 5, satisfies: 5 } };
+  const prov = provenanceFor(a, { asOf: 'abc1234', repo: t });
+  assert.equal(prov.existingViolations, 7, 'provenance.json does not say how many sites break the rule today');
+
+  const withProgressive = proposeReport({
+    counts: { types: 1, nodes: 1, nodeCycles: 0, aspects: 1, alternatives: 0, aspectsSkippedNotARule: 0 },
+    exp: { asOf: 'abc1234567' }, files: ['x/a.ts'], nodes: [{ relations: [] }], aspects: [a], alternatives: [],
+    verify: { haveYg: true, ygBin: '/yg', verified: 1, timedOut: 0 },
+    progressive: { reference: 'origin/main', why: 'the default branch' },
+  }, { outDir: join(t, 'proposal'), root: t }).lines.join('\n');
+  assert.match(withProgressive, /7 existing sites violate it today; progressive mode keeps them as warnings until touched/,
+    'the report does not say what the enforced rule does to the code that is already there');
+  assert.match(withProgressive, /origin\/main/, 'the report never names the reference the proposal set');
+
+  const withoutProgressive = proposeReport({
+    counts: { types: 1, nodes: 1, nodeCycles: 0, aspects: 1, alternatives: 0, aspectsSkippedNotARule: 0 },
+    exp: { asOf: 'abc1234567' }, files: ['x/a.ts'], nodes: [{ relations: [] }], aspects: [a], alternatives: [],
+    verify: { haveYg: true, ygBin: '/yg', verified: 1, timedOut: 0 },
+    progressive: { reference: null, why: 'this repository names no branch to measure against' },
+  }, { outDir: join(t, 'proposal'), root: t });
+  assert.match(withoutProgressive.lines.join('\n'), /the first `yg check` will be red on 7 sites/,
+    'with no progressive reference the report must say plainly that the first check is red');
+  assert.equal(withoutProgressive.json.progressive.reference, null);
+  assert.equal(withProgressive.includes('undefined'), false);
+  rmSync(t, { recursive: true, force: true });
+});

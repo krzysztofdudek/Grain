@@ -1,0 +1,9 @@
+name: ContinuousIntegration
+type: ci-workflow
+description: >-
+  Four workflows - lint plus a test matrix across nine node majors on Linux and
+  Windows, CodeQL, OSSF Scorecard - and the dependabot manifest. The project
+  publishes a Scorecard result, so the pinning discipline in these files is part
+  of a claim it makes publicly about itself.
+mapping:
+  - .github/

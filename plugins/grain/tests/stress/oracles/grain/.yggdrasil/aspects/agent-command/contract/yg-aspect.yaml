@@ -1,0 +1,23 @@
+name: SlashCommandContract
+description: >-
+  A command document is a thin shell over one verb, and its shape is fixed:
+
+  1. It opens with YAML frontmatter carrying at least a `description` (what a user picking from a menu
+     reads) and `allowed-tools` (without it the host refuses to run the command at all).
+  2. It contains exactly ONE execution line, and that line runs the plugin's CLI entry point with a
+     single verb. Not two lines, not zero.
+  3. It reaches the product through the entry point and nothing else — never a module inside the
+     engine, never a bare binary name from the path.
+
+  One verb per document is the part worth stating: a document that runs two commands produces one blob
+  of output a model then has to guess the structure of, and a document that runs none is a menu entry
+  that does nothing when picked. The entry-point requirement is what keeps the process contract (the
+  compiler re-exec, the error funnel, the stdout drain) in front of every invocation instead of only
+  some.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    path: "**/*.md"

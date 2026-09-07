@@ -214,6 +214,10 @@ export function exportModel({
         'the line(s) inside a site where the convention manifests. For `negated`/absence conventions there is no positive occurrence: focus is the declaration line by construction.',
       applicableNodeTypes:
         'null = the enumerator is not domain-restricted (any scope of the kind is decidable); an array = only these node types can carry the surface.',
+      tparams:
+        "(issue 125) a site's own `tparams`: the type parameters that SITE declares in its own header (`<T>`, `[T, +U]`), never a domain type — `[]` for a site with no generics of its own, and, in every language this covers, for a member whose enclosing type is generic but which redeclares nothing new itself (its own header carries none; the enclosing type's site carries `T`). Read this before treating a `ptype`/`returns`/`extends` argument as a real type name: an argument equal to one of a scope's own `tparams` (or, for a member, its OWNER's) names a type parameter, not a type in the repository's domain. Present on every site (`conformingSites`/`deviatingSites`, and the sub-gate lattice's own row), including `exemplars`, which carry it too where the underlying scope had one.",
+      own:
+        "(issue 123) a `method`-kind site's own receiver/owner type NAME where the grammar exposes one structurally (Go's `func (b Box[T]) …`, Rust's `impl<T> Box<T>`) — `null` everywhere else, including every nested member in a language whose methods sit inside a class body rather than declaring a detached receiver (Java/TS/C#/Kotlin: the enclosing type is never named on the member's own site at all). Look this NAME up among the repository's own `type`-kind sites to read the owner's `tparams` — grain does not resolve it for you, because the site that names the owner and the site that declares its type parameters are not always the same one this export ever saw together.",
       calibration:
         'available only when the history holds >= calibMinEv value-transition events inside the horizon — rare on ordinary repos; trend/lifecycle do not depend on it.',
       waivers:
@@ -232,6 +236,8 @@ export function exportModel({
         'certified value concordance (§mathematics, "Value concordance"): one entry per container (an enum, or a positionally-identified string set) whose members were found to travel together above the acceptance floor. `members` names every surviving sibling value; `norm` (present only when the co-travel itself cleared the KT/lambda test) gives the population/evidence a `kin:` gap is measured against. The raw per-value place index this is built from (`model.valueIndex` — every indexed value and everywhere it occurs, not only ones with a sibling) is NOT exported: it is internal working data on the order of `summary.valueIndexSize` entries, most of them singletons with no concordance to report; `valueSiblings`/its `norm` are the certified, bounded facts that raw index would otherwise duplicate less usefully.',
       relCoverage:
         'how much of the indexed file set the relation/architecture layer (edges/moduleGraph) can even see (§G21, same fact `report`/`status` print as the "resolution does not cover N files (...)" line): `n` files sit in a grammar that is either missing a resolution extractor entirely, or (issue 041) registered but structurally limited to a literal `#include`-style path — never a real symbol reference, so it resolves close to nothing on a repo whose headers are not addressed relative to the including file\'s own directory; `grammars` names which. Those files still carry conventions-layer facts, only file/module edges are silent or near-silent for them. Without this, "N modules · 0 directed dependencies" and a real, measured "this code imports nothing" are indistinguishable from the export alone. `n: 0, grammars: []` is the honest complete-coverage shape — read it as "no gap", never as "field not populated".',
+      relStages:
+        'the three stages a dependency passes on its way from source text to the architecture graph, counted over this run (§113): `seen` is every reference the language extractors emitted — imports, heritage, type references, internal and external alike, since which of them is internal is not knowable before resolution; `resolved` is how many bound to a file inside the indexed tree; `crossing` how many of THOSE join two different modules and so reach `moduleGraph.edges`. A graph with no relations is three different situations — nothing was read, nothing resolved, or everything resolved inside one module — and only these numbers tell them apart. Reported for every repository, not only empty ones.',
     },
     indexedAt: meta?.builtAt || null,
     history: model.historyStats
@@ -255,6 +261,7 @@ export function exportModel({
     edgesTruncated: model.edgesTruncated || 0,
     moduleGraph: model.moduleGraph || { nodes: [], edges: [], cycles: [] },
     relCoverage: relCoverageData(model),
+    relStages: model.relStages || { seen: 0, resolved: (model.edges || []).length, crossing: (model.moduleGraph?.edges || []).length },
     archNorms: (model.archNorms || []).filter(n => n.fromKind !== 'group'),
     changeArchetypes: model.changeArchetypes || [],
     twins: model.twins || [],
@@ -295,6 +302,8 @@ export function exportModel({
       endLine: s.endLine || s.line,
       grammar: s.g || null,
       nodeType: s.nt || null,
+      tparams: s.tparams || [],
+      own: s.own || null,
     });
     const lifecycleOf = key => {
       const L = lcOf(key);
@@ -472,6 +481,12 @@ export function exportModel({
           endLine: st.endLine,
           grammar: st.grammar,
           nodeType: st.nodeType,
+          // issue 125/123: carried through unchanged from `site()` so a consumer deciding whether an argument
+          // names a real type or a type parameter (schemaNotes.tparams) never has to re-derive it from a
+          // separate site — `conformingSites`/`deviatingSites` are the one place this fact travels with the row
+          // it was measured on.
+          tparams: st.tparams || [],
+          own: st.own || null,
           focus,
           lifecycle: lc,
         };

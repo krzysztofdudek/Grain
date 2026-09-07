@@ -1,0 +1,8 @@
+name: LicenseBanner
+description: >-
+  Every published library module opens with the express copyright banner and
+  the MIT licence line.
+errs: exact
+review_by: 2028-01-01
+scope:
+  per: file

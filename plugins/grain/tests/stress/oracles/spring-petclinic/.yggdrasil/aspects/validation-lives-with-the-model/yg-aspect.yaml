@@ -1,0 +1,8 @@
+name: ValidationLivesWithTheModel
+description: "A constraint on a single field is declared on the field; a rule that needs more than one field, or that depends on state, goes in a validator. ADVISORY while the split is being brought into line — the pet form currently re-states a length limit in code that the entity could declare, and the entity's own maximum lengths are not all mirrored where the form needs them."
+reviewer:
+  type: llm
+status: advisory
+review_by: 2027-03-01
+scope:
+  per: file

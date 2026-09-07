@@ -1,0 +1,25 @@
+name: NoSubprocessInAnalysisLayer
+description: >-
+  The analysis layer never spawns a process. No module of type mining-core, engine-config,
+  engine-module or vendored-relations may import `node:child_process` or reach a spawn, exec or fork
+  function through it.
+
+  Three modules in the product legitimately do spawn: the dispatcher and the history layer, both to talk
+  to git, and the proposal writer, which drills each rule it drafts against real code. Each of those has
+  its OWN type for exactly this reason — the history layer was split off the ordinary engine modules
+  solely so that this rule could be a type default with no carve-out, no exception list and no
+  suppression anywhere. That is the shape the rule wants: the permission is a property of what a module
+  IS, visible in the graph, rather than a name buried in a checker.
+
+  Why it matters: a process spawned in the middle of mining is not reproducible, not measurable, and not
+  answerable for. The layer that decides what this repository practises must be a pure function of the
+  bytes it was given, which is also what makes a cached verdict about it worth anything.
+errs: under
+status: enforced
+review_by: 2027-06-01
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

@@ -1,54 +1,26 @@
 {
-  "at": "2026-09-02T12:38:28.783Z",
+  "at": "2026-09-06T22:39:16.432Z",
   "by": "director",
-  "head": "main@3bc8468",
-  "summary": "RELEASED PUBLICLY 2026-09-02 on the user's explicit order: main pushed (601aa23..3bc8468), tag v0.3.0, GitHub Release v0.3.0 with honest notes. The build is the former working 0.4.0 renamed 0.3.0 (user's choice among three options). docs/results.md carries the complete measured record incl. the 0-in-25 verdict; README links it from evidence, documentation and status. Machine paths scrubbed from tracked .system/ and the stress baseline JSON before publication. Suite 2181/2181. Development paused; nothing is authorised beyond this release.",
-  "inFlight": [
-    {
-      "name": 55,
-      "task": "",
-      "since": "2026-09-02T12:38:28.828Z",
-      "reportsTo": "lead",
-      "branch": "research/092"
-    }
-  ],
+  "head": "claude/grain-agent-tool-b89y0x@258b0b7",
+  "summary": "Misja 'jeden zgrany system' ZAMKNIĘTA (fala 11): 23 bilety na feature branchach Horde 744689c (580/580), Grain 1856d72 (2446/2446), Yggdrasil 8b7e4e3b (repo-check zielony poza pack-smoke i 7 testami pod rootem). Katalog dowodów E1–E20 zielony; wynik w .system/research/mission-one-system.md §10. Wszystkie worktree i gałęzie pracowników usunięte; żadnego pracownika w toku.",
+  "inFlight": [],
   "pendingDecisions": [],
-  "waitingOn": [
-    {
-      "who": "grain-lead",
-      "what": "wave 2 start message (workers dispatched, count), then 'queue empty' escalation",
-      "since": "2026-09-01T21:51:29.863Z"
-    },
-    {
-      "who": "grain-lead",
-      "what": "wave 2 start message (workers dispatched, count), then queue-empty escalation",
-      "since": "2026-09-01T21:51:42.758Z"
-    },
-    {
-      "who": "grain-lead",
-      "what": "wave close (wave close --suite 2115, wave start 3) and a fresh handoff",
-      "since": "2026-09-02T04:11:36.859Z"
-    },
-    {
-      "who": "trial-0-4-0",
-      "what": "paired trial verdict — the mission decision point",
-      "since": "2026-09-02T04:11:36.882Z"
-    }
-  ],
+  "waitingOn": [],
   "lastActions": [
-    "- 2026-09-02 merged: 082 9c498b3",
-    "- 2026-09-02 merged: 083 2d1fc05",
-    "- 2026-09-02 merged: 084 f231b26",
-    "- 2026-09-02 merged: 086 8efac06",
-    "- 2026-09-02 merged: 085 c439ae7",
-    "- 2026-09-02 merged: 088 1f2efa9",
-    "- 2026-09-02 merged: 080 aa45602",
-    "- 2026-09-02 merged: 087 84f0188",
-    "- 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).",
-    "- 2026-09-02 merged: 089 80d5b5c"
+    "- 2026-09-06 merged: 147 b36f24e3",
+    "- 2026-09-06 merged: 135 fc73b16",
+    "- 2026-09-06 Horde 135 scalone (fc73b16, 545/545): Horda wymaga Yggdrasila. Rozdane 141, 142 (Opus), 148 (Sonnet).",
+    "- 2026-09-06 merged: 148 461d006",
+    "- 2026-09-06 merged: 144 49ea51da",
+    "- 2026-09-06 merged: 141 744689c",
+    "- 2026-09-06 merged: 145 8b7e4e3b",
+    "# Fala 11 — jeden system, fala A — close 2026-09-06",
+    "suite: 2446",
+    "note: Fala 11 'jeden zgrany system' zamknięta: 23 bilety (126–148) na trzech gałęziach; Horde 580/580 (744689c), Grain 2446/2446 (1856d72), Yggdrasil 8b7e4e3b (repo-check zielony poza dwoma błędami środowiska); katalog dowodów 20/20. Szczegóły: mission-one-system.md §10."
   ],
   "nextActions": [
-    "Nothing scheduled. If asked to continue: (1) hard-task paired trial with per-run counterfactual (092), (2) write-time guard product form, (3) 091/090, (4) 089 landed-unmerged, (5) worktree prune. Push again only on explicit instruction."
+    "Decyzje użytkownika: PR-y z trzech gałęzi do main, wersje pakietów, publikacja.",
+    "Po misji: horda jednego (pomiar kosztu weryfikatora), rozwój Graina na Hordzie, drille dyscyplin z prawdziwymi agentami, eskalacja 22 po pomiarze."
   ],
   "notes": []
 }

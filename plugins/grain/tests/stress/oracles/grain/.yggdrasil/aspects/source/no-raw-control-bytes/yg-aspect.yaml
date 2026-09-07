@@ -1,0 +1,24 @@
+name: NoRawControlBytes
+description: >-
+  No source file may contain a raw control byte in the C0 range (0x00-0x1F) other than the three that
+  legitimately occur in text: tab, line feed and carriage return. This repository has already paid for
+  this once: the engine was vendored from a prototype that carried literal NUL and SOH bytes, and the
+  vendoring notes record replacing them with their escapes as a named step, because git treats a file
+  containing one as binary — so it stops diffing, and a corruption in it is invisible to review, to the
+  type checker, to the linter and to the test run alike. The compliant way to put a control character
+  in a string is its escape, which is ordinary ASCII and passes. Because every C0 code point is a
+  single UTF-8 byte equal to its own value, scanning the decoded text over that range is exactly a
+  raw-byte scan of it: every hit is a provable raw control byte and there are no false alarms.
+
+  ADVISORY, because the code violates it today in three places: a literal SOH inside a comment in the
+  mining core (the separator byte the vendoring was supposed to have escaped everywhere), and control
+  bytes in two history test files. Promote to enforced once those three are escaped.
+errs: under
+status: advisory
+review_by: 2026-12-01
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

@@ -12,7 +12,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
 const BUILDER = join(here, '..', '..', '..', 'tests', 'fixtures', 'build-fixture.mjs');
 let tmp, repo;
-const grain = (args, opts = {}) => { const r = spawnSync('node', [BIN, ...args], { cwd: opts.cwd || repo, encoding: 'utf8', input: opts.input, env: { ...process.env, ...(opts.env || {}) } });
+// `maxBuffer` explicit: `grain export`'s output has no fixed ceiling (it grows with every additive schema
+// field — ticket 123 tipped a couple of this file's own fixtures past node's 1 MB spawnSync default, which
+// fails SILENTLY as `status: null` with no thrown error, not as a reported overflow) — matching the bound
+// already used for the same reason elsewhere in this suite (e.g. `propose-command.test.mjs`).
+const grain = (args, opts = {}) => { const r = spawnSync('node', [BIN, ...args], { cwd: opts.cwd || repo, encoding: 'utf8', input: opts.input, maxBuffer: 1 << 28, env: { ...process.env, ...(opts.env || {}) } });
   return { out: (r.stdout || "").replace(/\n$/, ""), err: r.stderr, code: r.status }; };
 const gitEnv = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: '2026-01-10T12:00:00Z', GIT_COMMITTER_DATE: '2026-01-10T12:00:00Z' };
 const git = (...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', env: { ...process.env, ...gitEnv } }).trim();
@@ -315,7 +319,7 @@ test('§081: the SessionStart advertisement names exactly the roster it was meas
     .flatMap(l => l.split('—')[0].split('|').map(seg => seg.trim().replace(/^grain\s+/, '').split(/\s+/)[0]));
   assert.deepEqual(advertised, ['where', 'check', 'status', 'report'], `roster changed: ${ctx}`);
   // the conditional lines may name more, but never a command absent from the dispatcher
-  const known = new Set(['where', 'how', 'what', 'map', 'obligation', 'check', 'review', 'spectrum', 'explain', 'status', 'report', 'rules', 'export', 'decide', 'seed', 'refresh', 'completeness', 'selftest']);
+  const known = new Set(['where', 'how', 'what', 'map', 'obligation', 'check', 'review', 'spectrum', 'explain', 'status', 'report', 'rules', 'export', 'propose', 'decide', 'seed', 'refresh', 'completeness', 'selftest']);
   for (const c of advertised) assert.ok(known.has(c), `advertises a command the dispatcher does not have: ${c}`);
 });
 

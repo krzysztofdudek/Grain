@@ -1,0 +1,25 @@
+name: Model Assembly
+type: mining-core
+description: >-
+  Where the current tree and the replayed history are folded into the one model every query is
+  answered from: the partitions and their accepted conventions, the maintainer's decisions resolved
+  against the tree as it stands, and the sections read off the commit log — the language bridge, the
+  shared concepts, the recurring shapes of past commits.
+
+  It is the top of the engine: it calls the mining and the query implementations, and nothing calls
+  it except the dispatcher through the facade. This is also the only part of the engine that ran as
+  one 71 KB function until ticket 117 lifted its blocks into functions of their own.
+relations:
+  - target: plugin/engine/mining
+    type: calls
+  - target: plugin/engine/queries
+    type: calls
+  - target: plugin/engine/relations
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/decisions.mjs
+  - plugins/grain/engine/commit-log.mjs
+  - plugins/grain/engine/learn.mjs

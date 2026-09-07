@@ -1,0 +1,5 @@
+name: LibrarySupport
+type: subsystem
+description: >-
+  The leaves of the library: modules that require nothing else in this
+  repository, which is what makes them safe for several layers to share.

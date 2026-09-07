@@ -1,0 +1,7 @@
+name: MenuIdIsKnown
+description: "The menu id a page passes to the layout must be one the layout actually defines. The layout compares that string against each navigation entry to decide which one is highlighted; a value nothing matches is not an error anywhere — the page simply renders with no entry highlighted, and a user cannot tell where they are. The set of valid ids is read from the layout itself, so adding a navigation entry widens it automatically."
+reviewer:
+  type: deterministic
+status: enforced
+errs: over
+review_by: 2027-03-01

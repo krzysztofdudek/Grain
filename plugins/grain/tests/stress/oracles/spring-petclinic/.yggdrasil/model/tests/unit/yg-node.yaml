@@ -1,0 +1,12 @@
+name: UnitTests
+type: unit-test
+description: "Tests that need no Spring context at all: owner aggregate behaviour, vet serialization, the pet validator, the pet-type formatter with a mocked repository, the bean-validation constraints on the person base, the crash controller called as a plain object, and the i18n consistency test that walks the source tree looking for untranslated text and out-of-sync bundles."
+mapping:
+  - src/test/java/org/springframework/samples/petclinic/model/ValidatorTests.java
+  - src/test/java/org/springframework/samples/petclinic/owner/OwnerTests.java
+  - src/test/java/org/springframework/samples/petclinic/owner/PetTypeFormatterTests.java
+  - src/test/java/org/springframework/samples/petclinic/owner/PetValidatorTests.java
+  - src/test/java/org/springframework/samples/petclinic/system/CrashControllerTests.java
+  - src/test/java/org/springframework/samples/petclinic/system/I18nPropertiesSyncTest.java
+  - src/test/java/org/springframework/samples/petclinic/vet/VetTests.java
+relations: []

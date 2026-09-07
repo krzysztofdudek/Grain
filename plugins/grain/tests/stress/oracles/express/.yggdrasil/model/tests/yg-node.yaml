@@ -1,0 +1,6 @@
+name: TestSuite
+type: subsystem
+description: >-
+  The mocha suite mocha runs as `test/ test/acceptance/` with
+  `--require test/support/env` and `--check-leaks`. Nothing here is published;
+  everything here is what makes a change to the published library survivable.

@@ -1,0 +1,33 @@
+name: FileSizeBudget
+description: >-
+  A first-party module must fit inside the DEFAULT reviewer budget of 50 000 characters.
+
+  The number is not taste and not a line count somebody liked. It is derived: a prose rule about a
+  module is verified by assembling that module into one reviewer prompt, and 50 000 characters is the
+  default ceiling that assembly is checked against. A module above it cannot be judged as a whole by
+  anything — not by a reviewer, and in practice not by a person either. The rule therefore says exactly
+  one thing: a module has to be small enough that a statement about it can be checked.
+
+  It was ADVISORY because three modules were over the line and two of them far over: the mining core at
+  roughly 572 000 characters (eleven times the budget), the proposal writer and the dispatcher at roughly
+  160 000 each. That was this repository's largest standing structural debt.
+
+  ALL THREE ARE PAID. Ticket 117 split the mining core into thirty modules; ticket 124 split the proposal
+  writer into seventeen and the dispatcher into ten. Every first-party module in the product now fits,
+  the largest at about 46 000 characters, and the exception list in
+  `tests/engine-module-size-budget.test.mjs` is empty with a test of its own keeping it empty. Each split
+  was a pure move gated on byte-identical output, so nothing the tool answers changed.
+
+  PROMOTED to `enforced` by ticket 123: with the debt paid and the exception list empty and guarded, the
+  rule now costs nothing to satisfy and there is nothing left to decide — a maintainer turning it on
+  would find every file already passing. The exit, when a module grows past the line again, stays a
+  split along a seam the code already has — never a raised ceiling.
+errs: exact
+status: enforced
+review_by: 2026-12-01
+scope:
+  per: file
+  files:
+    any_of:
+      - path: "**/*.mjs"
+      - path: "**/*.js"

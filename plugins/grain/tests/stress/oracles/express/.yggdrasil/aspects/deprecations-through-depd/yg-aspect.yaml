@@ -1,0 +1,8 @@
+name: DeprecationsThroughDepd
+description: >-
+  A deprecation notice is emitted through the module's `depd` instance, never
+  by hand.
+errs: exact
+review_by: 2027-09-01
+scope:
+  per: file

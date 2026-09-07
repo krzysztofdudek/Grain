@@ -1,0 +1,17 @@
+name: InstrumentsAreNotTests
+description: >-
+  No file in the instrument directory may be named like a test.
+
+  The gate runs the suite by globbing the test directories for files whose name ends in the test suffix.
+  An instrument named that way is therefore swept into the gate automatically, and instruments are not
+  gates: they run a fixed corpus of real repositories, take minutes to hours, need clones that are not
+  in this repository, and are expected to report a number rather than pass or fail. One misnamed file
+  turns every push into a corpus run that either times out or reports a machine-specific number as a
+  build failure.
+
+  The distinction is deliberate and stated in the project's own working model: an instrument measures a
+  class over the corpus and IS the retest, on its own schedule. What belongs in the gate is a small
+  guardian test that holds the instrument's contract — and each instrument has one.
+errs: under
+status: enforced
+review_by: 2027-06-01

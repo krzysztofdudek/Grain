@@ -1,0 +1,38 @@
+name: Proposal Writer
+type: proposal-writer
+description: >-
+  Mines a proposed architecture graph for a repository that has none, into a staging directory, and
+  never touches the repository's own graph. It is the one engine module that must spawn processes: each
+  rule it drafts is drilled against the repository's own code before it may claim enforcement, and a
+  rule nothing can be shown to violate stays a draft. What it prints back is deliberately short;
+  everything it drafted but did not certify stays on disk behind a flag.
+
+  Seventeen files since ticket 124, not one: `propose.mjs` is a facade of `export … from` lines, one per
+  seam the single file already had, and sixteen siblings carry the work. One owner, one charter, one
+  context; the split moved statements between files and changed none of them.
+relations:
+  - target: plugin/engine/core
+    type: calls
+  - target: plugin/engine/yggdrasil-graph
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/propose.mjs
+  - plugins/grain/engine/propose-base.mjs
+  - plugins/grain/engine/propose-levels.mjs
+  - plugins/grain/engine/propose-types.mjs
+  - plugins/grain/engine/propose-nodes.mjs
+  - plugins/grain/engine/propose-lattice.mjs
+  - plugins/grain/engine/propose-checks.mjs
+  - plugins/grain/engine/propose-classify.mjs
+  - plugins/grain/engine/propose-sizing.mjs
+  - plugins/grain/engine/propose-drills.mjs
+  - plugins/grain/engine/propose-aspects.mjs
+  - plugins/grain/engine/propose-status.mjs
+  - plugins/grain/engine/propose-family.mjs
+  - plugins/grain/engine/propose-charters.mjs
+  - plugins/grain/engine/propose-markdown.mjs
+  - plugins/grain/engine/propose-report.mjs
+  - plugins/grain/engine/propose-write.mjs

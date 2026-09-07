@@ -5083,3 +5083,106 @@ note: 36 tickets merged (queue items 3-37, plus follow-ups 075/076/077/078 disco
 - 2026-09-02 merged: 087 84f0188
 - 2026-09-02 trial-0.4.0-b merged (e037b85): obligation reachable (0→4 calls), silent 14/14; answer-changed-diff 0 — 0 in 25 across both trials. Wave 5 = 091 (floor 4) + 092 (trial tasks by without-arm failure).
 - 2026-09-02 merged: 089 80d5b5c
+
+# Fala 6 — rekonstrukcja — start 2026-09-05
+- 2026-09-05 Nowa gwiazda: miner brownfieldu dla Yggdrasila. Instrument G' (093) mierzy, ile ręcznego .yggdrasil/ Grain odzyskuje; kierunek: 094 renderer propozycji, 095 krata maintainera, 096 diagnostyka 'za dużo'.
+- 2026-09-05 merged: 093 fdd19c9
+- 2026-09-05 merged: 096 2c16467
+- 2026-09-05 merged: 094 8d65a2c
+- 2026-09-05 merged: 098 7076df3
+- 2026-09-05 merged: 097 80ba07d
+
+# Fala 6 — rekonstrukcja — close 2026-09-05
+suite: 2239
+note: Fala 6 (rekonstrukcja): 093 instrument G', 094 renderer propozycji, 096 'za dużo', 098 dług grafu + sizing, 097 pętla prawa (negatyw z liczbami). Zero zmian silnika — wersje bez zmian (ENGINE 0.3.0, g32/h11/m24). Trzy memo Fable scalone. Rulingi: north star, law loop (przyjęty, potem 'not doing it' po 097), layers/no user thresholds, granularity (dwie granularności), no rewrite.
+
+# Fala 7 — szwy i stress — start 2026-09-05
+- 2026-09-05 100 kontrakty szwów + charter.md + adapter family-candidates; 101 stress integracji na korpusie + sense rate + sędzia Opus dla próbki 097; 099 cap fileScopes; 095 do sprawdzenia czy wchłonięte.
+- 2026-09-05 merged: 100 adbe951
+- 2026-09-05 merged: 101 b3a9b32
+- 2026-09-05 101 odebrany jako hub: 17/17 propozycji ładowalnych przez yg, wrogie repo 17/17, sens det. aspektów 60% / typów 12% / węzłów 36% / prozy 0%, bar 2 (0.091/0.300) NIE zdany — 14/20 to nie reguły. Sześć defektów propose.mjs naprawionych od ręki. Cztery orzeczenia zapisane (proza draft, FA-etykieta jako odbiór, _root/MIN_TYPE_FILES, no-catch draft).
+
+# Fala 7 — szwy i stress — close 2026-09-05
+suite: 2260
+note: Szwy (100) i stress (101) scalone; law-loop B1 przegrany (097); waluta grafu 0 długu/100 commitów (098). Wniosek fali: Grain dostarcza architekturę + reguły leksykalne z drillem; proza i no-catch to kandydaci, nie prawo.
+
+# Fala Fala 8 — odbiór propozycji — start 2026-09-05
+- 2026-09-05 099 (cap fileScopes) + 102 (skutki 101 w rendererze) → Sonnet; potem decyzja z liczbami: grain propose jako komenda produktu, Grain jako brownfield nr 2, README pod nową funkcję celu (klasa 6).
+- 2026-09-05 merged: 099 498da86
+- 2026-09-05 merged: 102 26acdf0
+- 2026-09-05 Dyrektor przy scaleniu 102 skleił definicję SYMBOL_LEVEL_KIND z komentarzem (perl), a łańcuch komend zacommitował mimo 1 fail (grep zwrócił 0). Naprawione 2272/2272. Lekcja: nigdy commit za grepem — bramką jest kod wyjścia testu.
+- 2026-09-05 Niezależny przerender autopropozycji Yggdrasil scalonym rendererem (export 5cca6b15, YG_BIN): 124 aspekty, 33 deterministyczne drillowane (665 przypadków) → 10 enforced, 22 no-catch, 1 file-scope FA; 91 prozy draft; 37 pominięte jako nie-reguły, 17 jako group-scoped nierenderowalne; 8 cykli węzłów; 73 karty. Rozjazd z liczbami pracownika 102 (11/13) — inny export; do weryfikacji w 104 na jednym ustalonym exporcie.
+- 2026-09-05 merged: 104 e53127f
+- 2026-09-05 Wersje NIE podbite przy 104: ENGINE_VERSION 0.3.0 to publiczne wydanie (3bc8468 po wcześniejszym 0.4.0 → 113ef97); bump wersji to decyzja użytkownika, nie dyrektora — rekomendacja pracownika (0.4.0 za nową powierzchnię komendy) zapisana w logu 104. Wart osobnego biletu: nazwa aspektu ucięta do 70 znaków w połowie słowa (kosmetyka, na dysku tak samo).
+
+# Fala Fala 8 — odbiór propozycji — close 2026-09-05
+suite: 2290
+note: grain propose jest komendą produktu (104), cichy raport; statusy zarabiane: enforced = certyfikowana konwencja + drill 0 FA + ≥1 mutant; advisory = krata po drillu (kandydaci); draft = reszta z powodem. Yggdrasil: 124 aspektów → 10 enforced. Grain na sobie: 81 → 0 enforced, 22 advisory, 59 prozy. Otwarte dla użytkownika: bump wersji, README (105).
+- 2026-09-05 merged: 107 a6a2c46
+
+# Fala Fala 9 — wyrocznie, sens, fabryka — start 2026-09-05
+- 2026-09-05 Użytkownik: 'Ogień!' na A–F przy nieograniczonych zasobach. A wyrocznie (108), B sens (109), C typy (110), D utwardzenie (111), E próba fabryki (112), F README (105) + bump wersji przy zamknięciu.
+- 2026-09-05 merged: 108-express f6b0456
+- 2026-09-05 merged: 105 49a015c
+- 2026-09-05 merged: 108-petclinic 4612e82
+- 2026-09-05 merged: 108-grain ec8cc56
+- 2026-09-05 merged: 112 397a9e4
+- 2026-09-05 merged: 111 f488c83
+- 2026-09-05 merged: 109 993e819
+- 2026-09-05 merged: 117 c8ce4cc
+- 2026-09-05 merged: 108 fdb7672
+- 2026-09-05 merged: 114+118 675d19a
+- 2026-09-05 merged: 115+116+119 148c4d0
+- 2026-09-05 merged: 113 d94d05c
+- 2026-09-06 merged: 110 d0d04a1
+
+# Fala Fala 9 — wyrocznie, sens, fabryka — close 2026-09-06
+versions: ENGINE 0.3.0→0.4.0, EXTR_V g32→g33, MODEL_V m25→m26, package 0.4.0
+suite: 2387
+note: Scalone: 105, 108 (3 ślepe wyrocznie + pomiar), 109, 110, 111, 112, 113, 114+118, 115+116+119, 117. Liczby zamknięcia (0.4.0, YG_BIN): Yggdrasil 94 typów/75 węzłów/8 cykli, 124 aspekty → 10 enforced/0 advisory/114 draft; Grain 39/37/22 relacji/0 cykli, 105 → 0/2/103 (64 proza, 37 nieobecność); petclinic 26 typów (2 partycje, 16 modułów, 2 katalogi, 6 layout)/33 węzłów/14 relacji (było 0)/0 cykli, 23 → 0/1/22. Cztery wyrocznie: precyzja relacji .929–1.000, recall .894/.867/.694/.829 (petclinic z .114). Hold-out sens brzmienia 0→0.493. Fabryka: łańcuch trzyma mechanicznie, pęka w trasowaniu prawa do wykonawcy (Horde nie czyta aspektów, yg check poza bramką merge Hordy).
+
+# Fala Fala 10 — prawo dociera do wykonawcy — start 2026-09-06
+- 2026-09-06 Użytkownik: eksperymenty na feature branchach we wszystkich trzech repo (Grain, Yggdrasil, Horde), push feature brancha. Cel fali: szwy z 112 — akceptacja grafu, reguły do wykonawcy, yg check w bramce Hordy; plus 117 core.mjs i 120.
+- 2026-09-06 122 Horde wylądowało na feature branchu (c226f73): prawo grafu dociera do node.mjs show (13 reguł ze statusami tam, gdzie próba fabryki widziała 0), czerwony graf = czerwona bramka premerge. Uwaga: yg context --json istnieje już w 5.8.0 — 121 item 1 do weryfikacji przez pracownika Yggdrasil.
+- 2026-09-06 merged: 120 0ff0a64
+- 2026-09-06 merged: 117 195c584
+- 2026-09-06 merged: 125 31fc785
+- 2026-09-06 121 Yggdrasil wylądowało (acd9114a, pushed): rodzina ma transakcję przyjęcia grafu. yg adopt --dry-run na propozycji Graina dla Hordy: 8 komponentów, 6 reguł (0/3/3), 268 miejsc już złamanych — czyli propozycja dla Hordy jest w większości szumem kraty (call-join 91, call-fail 88) i to jest kolejny dowód na 115/120 po stronie kandydatów advisory.
+- 2026-09-06 merged: 124 427a136
+- 2026-09-06 merged: 123 a8f52c6
+
+# Fala Fala 10 — prawo dociera do wykonawcy — close 2026-09-06
+suite: 2415
+note: Fala 10 zamknięta na trzech feature branchach. Yggdrasil (121, acd9114a): yg adopt, yg context --json, linia o podłodze szumu, podpowiedź coverage.required. Horde (122, c226f73): yg check w bramce premerge, node.mjs show z regułami ze statusami, testGlobs nigdy po cichu, bramki 7 ekosystemów, horde charter edit. Grain: 117 core.mjs → 29 modułów, 124 propose.mjs+grain.mjs → 25 modułów (engine 62 plików, 0 cykli, budżet 50k egzekwowany), 120 higiena (287 wierszy), 125 fakt parametrów typu (g34), 123 uścisk dłoni z yg adopt. Łańcuch klon → graf → przyjęcie → praca agentów pod grafem istnieje i jest przetestowany na petclinic.
+
+# Fala 11 — jeden system, fala A — start 2026-09-06
+- 2026-09-06 Karta misji: .system/research/mission-one-system.md. Fala A: Yggdrasil 130→132→133 (jeden Opus, szeregowo), Grain 131 (Opus), Horde 126/127 (Opus), 128 (Sonnet), 129 (Opus) w worktree. Fale B i C: bilety 134–145 założone, czekają na A.
+- 2026-09-06 merged: 128 4529fe1
+- 2026-09-06 merged: 126 865d247
+- 2026-09-06 merged: 127 25ca1e2
+- 2026-09-06 merged: 129 286e437
+- 2026-09-06 Horde fala A zamknięta na gałęzi: 128 → 126 → 127 → 129, 437/437, wypchnięte 286e437. Otwarte: Yggdrasil 130/132/133, Grain 131.
+- 2026-09-06 Fala B Hordy rozdana: 134 (Opus), 136/137/139/140 (Sonnet) w worktree od 286e437.
+- 2026-09-06 merged: 131 786f161
+- 2026-09-06 Horde fala B: 136 101067d, 137 c6c03b8, 139 37293ba scalone, 467/467, wypchnięte; 134 i 140 rozwiązują konflikty.
+- 2026-09-06 merged: 140 fc06c61
+- 2026-09-06 merged: 134 31a9f6c
+- 2026-09-06 Horde fala B zamknięta na gałęzi: 134/136/137/139/140, 515/515, wypchnięte 31a9f6c. Otwarte: Yggdrasil 130→132→133, Grain 143/146; Horde 135/138 czekają na Yggdrasil, 141/142 na 135.
+- 2026-09-06 merged: 146 179fde7
+- 2026-09-06 merged: 138 94c4328
+- 2026-09-06 merged: 143 1856d72
+- 2026-09-06 merged: 130 3a351e16
+- 2026-09-06 merged: 132 b31c900a
+- 2026-09-06 merged: 133 4bc0173f
+- 2026-09-06 Yggdrasil 130/132/133 wypchnięte (4bc0173f); pracownik idzie z 147 → 144 → 145. Horde 135 rozdane.
+- 2026-09-06 merged: 147 b36f24e3
+- 2026-09-06 merged: 135 fc73b16
+- 2026-09-06 Horde 135 scalone (fc73b16, 545/545): Horda wymaga Yggdrasila. Rozdane 141, 142 (Opus), 148 (Sonnet).
+- 2026-09-06 merged: 148 461d006
+- 2026-09-06 merged: 144 49ea51da
+- 2026-09-06 merged: 141 744689c
+- 2026-09-06 merged: 145 8b7e4e3b
+
+# Fala 11 — jeden system, fala A — close 2026-09-06
+suite: 2446
+note: Fala 11 'jeden zgrany system' zamknięta: 23 bilety (126–148) na trzech gałęziach; Horde 580/580 (744689c), Grain 2446/2446 (1856d72), Yggdrasil 8b7e4e3b (repo-check zielony poza dwoma błędami środowiska); katalog dowodów 20/20. Szczegóły: mission-one-system.md §10.

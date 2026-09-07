@@ -1,0 +1,15 @@
+name: AcceptanceTests
+type: acceptance-test
+description: >-
+  Eighteen suites that mount an example application and drive it over HTTP.
+  Each file is named for the example directory it requires, which makes the
+  examples executable documentation rather than prose that silently rots. Seven
+  example directories currently have no suite here; that gap is a recorded
+  advisory finding, not an accepted state.
+mapping:
+  - test/acceptance/*.js
+relations:
+  - target: examples
+    type: uses
+  - target: tests/support
+    type: uses

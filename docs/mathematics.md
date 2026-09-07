@@ -54,6 +54,17 @@ holds by construction, and only the tool's own store (`.grain/`, `.git/`) is inv
 gitignore to consult. Package manifests (`package.json`, `go.mod`, `tsconfig.json`) are read for *resolution*, that
 is workspaces, path aliases and the module graph, never as a statistical prior.
 
+On the JVM the same role is played by the *source root*, and it is read from the language rather than from a manifest:
+a file's package declaration must be its directory path (JLS §7.2.1), so the directory with that path removed as a
+suffix is where the package hierarchy starts; the Maven and Gradle standard layout, `src/<sourceSet>/<language>`,
+says the same thing from the build side. A reference resolves against every source root of the repository, not only
+the ancestors of the file making it, which is what lets a test under `src/test/java` reach the production type it
+imports. And the module cut is taken below the source root, advanced through its non-branching prefix: a package
+opens with a reverse-domain name the spec requires and every file shares, so cutting there would put a whole source
+tree in one module. Within a package, Java needs no import at all — a simple type name binds to the sibling that
+declares it — so those references are read from the syntax directly and resolve only when the package really
+declares that type.
+
 ## Partitions from compression
 
 The populations a file is judged against are cut from the directory tree by a post order dynamic program: a directory
@@ -201,6 +212,13 @@ What remains that mathematics does not decide, on the record:
 - `fpsCap` (20 000 per-commit footprints retained, newest kept) and `scopePairCap` (200 scope-pairs per commit) —
   compute/memory guards on how much of history a match-by-example query or a scope-level co-change count walks,
   the same role `megaCap` already plays for files per commit; no MDL role, and no claim rests on where they sit;
+  the retained-pair budget on scope co-change (5000) is a guard of the same family, with one refinement that is
+  not a threshold: the budget is split between pairs whose two declarations live in ONE file and pairs that span
+  two, each half ranked by its own support and either half's unused share going to the other. The two populations
+  are not comparable — two declarations in one file move whenever that file moves — so a single ranking is won
+  outright by the within-file half on any repository with large files, and the cross-file half is emptied before
+  any query sees it. Measured, and the number of pairs retained is unchanged
+  ([`node-cochange-measurement.md`](../.system/research/node-cochange-measurement.md) §9);
 - `valueDfMin`/`valueDfMaxShare` — a population gate on what enters the value-concordance index (a value in one
   file has no concordance to report; a value in a fifth of the repository is furniture, not a concept), the same
   kind of floor as the vocabulary support constants above, not a second or third λ; whether anything is SAID about

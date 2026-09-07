@@ -1,0 +1,9 @@
+name: NoNativeQueries
+description: "A repository query is JPQL, never native SQL. The same code runs on H2, MySQL and PostgreSQL, and the three dialects already differ enough that the schema needs a separate file each; a native query would silently pick one of them and fail on the other two — which is exactly the shape of the last dialect bug this repository fixed."
+reviewer:
+  type: deterministic
+status: enforced
+errs: under
+review_by: 2027-03-01
+scope:
+  per: file

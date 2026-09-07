@@ -23,7 +23,11 @@ const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
 const BUILDER = join(here, '..', '..', '..', 'tests', 'fixtures', 'build-fixture.mjs');
 let tmp, repo;
-const grain = args => { const r = spawnSync('node', [BIN, ...args], { cwd: repo, encoding: 'utf8' }); return { out: (r.stdout || '').replace(/\n$/, ''), err: r.stderr, code: r.status }; };
+// `maxBuffer` explicit: `grain export`'s output has no fixed ceiling (it grows with every additive schema
+// field — ticket 123 tipped this file's own export past node's 1 MB spawnSync default, which fails SILENTLY
+// as a truncated stdout, not as a reported overflow) — matching the bound already used for the same reason
+// elsewhere in this suite (e.g. `propose-command.test.mjs`).
+const grain = args => { const r = spawnSync('node', [BIN, ...args], { cwd: repo, encoding: 'utf8', maxBuffer: 1 << 28 }); return { out: (r.stdout || '').replace(/\n$/, ''), err: r.stderr, code: r.status }; };
 
 before(() => {
   tmp = mkdtempSync(join(tmpdir(), 'grain-answer-grammar-'));

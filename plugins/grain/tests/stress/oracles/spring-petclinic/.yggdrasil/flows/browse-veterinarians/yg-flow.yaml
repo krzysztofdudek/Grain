@@ -1,0 +1,9 @@
+name: BrowseVeterinarians
+description: "A visitor lists the clinic's veterinarians and their specialties, either as a paged page or as a machine-readable representation of the same data. Read-only from end to end, and cached — the vet list is the one query in the application that is served from a cache rather than the database on every request."
+nodes:
+  - app/vet/web
+  - app/vet/repository
+  - app/vet/entities
+  - app/vet/marshalling
+  - app/system/config
+  - ui/templates

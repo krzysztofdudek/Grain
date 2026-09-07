@@ -1,0 +1,10 @@
+name: Working Model Manual
+type: director-doc
+description: >-
+  The operating manual for the project itself: the seven classes of defect worth chasing, the one
+  instrument per class that measures a class over the whole corpus and IS the retest, the corpus as a
+  mapping over axes rather than a sample, the two tracks of work, the pre-merge checklist, and the
+  standing escalation list. Read at the start of a session that works on this repository; never shipped.
+mapping:
+  - .claude/skills/director/SKILL.md
+  - .claude/skills/director/reference/

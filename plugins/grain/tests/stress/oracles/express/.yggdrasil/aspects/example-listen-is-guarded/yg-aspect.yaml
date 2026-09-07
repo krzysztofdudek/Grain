@@ -1,0 +1,11 @@
+name: ExampleListenIsGuarded
+description: >-
+  An example binds a port only when it is run directly, never when it is
+  required.
+status: advisory
+errs: over
+review_by: 2027-03-01
+scope:
+  per: file
+  files:
+    path: "examples/*/index.js"

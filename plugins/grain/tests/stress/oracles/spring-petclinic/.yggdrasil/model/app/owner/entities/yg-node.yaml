@@ -1,0 +1,11 @@
+name: OwnerAggregate
+type: entity
+description: "The owner aggregate: Owner, its Pet children, the PetType lookup, and the Visit records attached to a pet. These four classes reference each other freely and are written as one unit through Owner's cascades, which is why they are one component rather than four."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/owner/Owner.java
+  - src/main/java/org/springframework/samples/petclinic/owner/Pet.java
+  - src/main/java/org/springframework/samples/petclinic/owner/PetType.java
+  - src/main/java/org/springframework/samples/petclinic/owner/Visit.java
+relations:
+  - target: app/model
+    type: extends

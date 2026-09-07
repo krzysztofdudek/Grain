@@ -1,0 +1,12 @@
+name: Relation End-to-End Cases
+type: test-relations-e2e
+description: >-
+  Twenty-five cases, one file per case, ported one-to-one from the sibling project's relation
+  end-to-end suites. Each builds a minimal fixture tree, runs the real binary through the shared
+  harness, and asserts on the file-to-file edges the tri-state resolver bound — including the cases
+  whose expected answer is silence.
+relations:
+  - target: plugin/tests/relations/harness
+    type: uses
+mapping:
+  - plugins/grain/tests/relations/e2e/*.test.mjs

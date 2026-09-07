@@ -1,0 +1,7 @@
+name: SchemaCoversEveryEntityTable
+description: "Every table an entity maps to — its own table and any join table it declares — must be created by all three dialect schemas. Schema generation is switched off deliberately: the SQL is hand-written and the entities are checked against it at startup, so a new entity whose table nobody added to the SQL fails on first boot, and only against whichever database that developer happened to be running."
+reviewer:
+  type: deterministic
+status: enforced
+errs: exact
+review_by: 2027-03-01

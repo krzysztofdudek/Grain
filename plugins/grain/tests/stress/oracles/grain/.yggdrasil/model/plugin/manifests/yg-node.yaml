@@ -1,0 +1,20 @@
+name: Plugin Manifests
+type: plugin-manifest
+description: >-
+  The plugin's identity across three hosts, its MCP server declaration, and the package manifest whose
+  most important line is the one that is missing: there are no runtime dependencies, only grammar
+  packages needed to regenerate committed assets. One name, one version, one description, repeated
+  wherever a host has to read it.
+relations:
+  # No code dependency — declared so the version rule may read the engine's own version constant, the
+  # fifth place the same string is written and the one the running product reports.
+  - target: plugin/engine/config
+    type: uses
+    consumes: [constants]
+mapping:
+  - plugins/grain/.claude-plugin/plugin.json
+  - plugins/grain/.codex-plugin/plugin.json
+  - plugins/grain/.cursor-plugin/plugin.json
+  - plugins/grain/.mcp.json
+  - plugins/grain/package.json
+  - plugins/grain/package-lock.json

@@ -1,0 +1,21 @@
+name: Engine Facade
+type: mining-core
+description: >-
+  The engine's front door. Until ticket 117 this file WAS the engine — one 572 KB module, the largest
+  standing structural debt in the product. It is now a facade and nothing else: comments and
+  `export … from` lines, one per module, which makes it the map of the engine as well as its surface.
+
+  Every name the engine exported before the split is still exported from here under the same name, so
+  the dispatcher, the export serializer, the proposal writer, the history layer, the instruments and
+  the tests all import exactly what they did. That is the point of keeping it: the split moved
+  statements between files and changed none of them, and this file is what made that invisible to
+  every caller.
+relations:
+  - target: plugin/engine/mining
+    type: calls
+  - target: plugin/engine/queries
+    type: calls
+  - target: plugin/engine/model
+    type: calls
+mapping:
+  - plugins/grain/engine/core.mjs

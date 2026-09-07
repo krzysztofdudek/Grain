@@ -2,7 +2,7 @@
 
 Everything an operator or an integrator needs in one place: commands and flags, the voice rule every printed claim
 follows, the `missing:` sources, the hooks and their payloads, the store on disk, the environment switches, the
-cache version keys, and the export schema contract.
+cache version keys, and the export, proposal and advice contracts.
 
 ## Commands
 
@@ -27,6 +27,10 @@ worktree.
 | `report` | `--top N`, `--json` | top conventions with trends and ages, templates of the unclustered residue, drift, the module graph with cycles, boundaries, and a `== health ==` section of conventions worth a decision |
 | `rules` | `--out <file>`, `--top N` | a generated Markdown document of established conventions over the same data `report` prints, stamped with the commit; no `--out` prints it to stdout (so `grain rules > CONVENTIONS.md` works) — for a reader with no terminal and no grain plugin |
 | `export` | `--out <file>`, `--max-sites N`, `--compact`, `--no-anchors` | the whole model as data; see the schema contract below |
+| `propose [<out-dir>]` | `--full`, `--json <path>`, `--holdout <YYYY-MM-DD>` | a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository, written to `<out-dir>` (default `.yggdrasil-proposal/`); the report names the architecture, the rules a real `yg drill` proved, and the candidates, with `--full` for every draft it kept back; see the proposal contract below |
+| `advise` | `--json`, `--graph <dir>` | what this repository's own history and imports say about the architecture graph it ALREADY has (never a proposed one): places that change together with nothing in the graph connecting them, and places a finer cut of their own files beats on their own evidence. The change-together side is not advice and is not listed on the text surface — see the measurement below; the split side is. `--graph` reads a hand-written graph held beside the repository instead of inside it. Emits `grain-advice/1` |
+| `oracle record` | `--proposal <dir>`, `--graph <dir>`, `--name <n>`, `--out <dir>`, `--yes` | keep the difference between the graph `propose` wrote and the graph a maintainer accepted, as a scoreable record: both graphs' structure, the tracked paths each element selects, and the correction between them. Prints what it would store and where and writes NOTHING without `--yes`; outside this repository's own fixtures there is no default destination and `--out` is the adopter's choice. Emits `grain-oracle/1` |
+| `oracle score <name-or-dir>` | `--json` | precision and recall of that proposal against that accepted graph — both directions, at type, node and relation granularity, a match at Jaccard >= 0.5 over file sets, which is the same measure `tests/stress/propose.mjs` scores grain with against the hand-written oracles. Emits `grain-oracle-score/1` |
 | `decide steer <path>#<name>` | `--surfaces <pid,…>`, `--instead-of <pid,…>`, `--note`, `--topic`, `--weight`, `--author` | record a maintainer decision; without `--surfaces` it refuses and lists the exemplar's properties (alias `seed add`) |
 | `decide boundary <from>` | `--never-imports <to>`, `--note`, `--author` | an architecture decision; new imports crossing it are flagged at edit time (alias `seed add-boundary`) |
 | `decide waive <path>#<name>` | `--on <pid>`, `--note`, `--author` | excuse one named scope from one convention; `check` reports the departure as deliberate, the counts still count it non-conforming |
@@ -61,13 +65,13 @@ ranked answer with none of the honesty the text answer next to it already carrie
 score high while the text run, on the identical query, was disclosing that the real text lives in a file grain has
 no grammar for at all. Nothing existing changed shape; a command with no matching caveat carries an empty array,
 never an absent key. `check`/`review`'s `disclosures[]` deliberately does not attempt every hedge line either
-renders (see their own §089 comments in `grain.mjs`) — only the caveats backed by a flag the JSON already carried
+renders (see their own §089 comments in `engine/grain-check.mjs`) — only the caveats backed by a flag the JSON already carried
 as a boolean (`noGrammar`, `noPartition`, `parseFailed`, `hasError`), so text and JSON are guaranteed to speak from
 the identical fact, never two hand-synced copies of one sentence.
 
 ## Voices
 
-Every line grain prints as a claim carries exactly one of four voices (`voice(kind, text, meta)`, `core.mjs`),
+Every line grain prints as a claim carries exactly one of four voices (`voice(kind, text, meta)`, `engine/mine.mjs`),
 marked identically in every command and document (`report`, `rules`, `where`, `check`, `how`, `what`, `map`, the
 hooks). Headers, stamps and continuation lines (`in:`, `lives in:`, `depends on:`, `conforms to:`, `as of …`) are
 structure, not claims, and carry no marker.
@@ -87,7 +91,7 @@ the start of a session, not a per-edit hook, so its architecture and concepts li
 ## `missing:` sources
 
 `check`/`review`/`how` end with at most one `missing from your change:` block (`missingLines(model, files, {
-sources, newFileScopes, changedScopes })`, `core.mjs`) — one renderer, one heading, a line per source that has
+sources, newFileScopes, changedScopes })`, `engine/completeness.mjs`) — one renderer, one heading, a line per source that has
 something to say; silence means no block at all, never an empty or "(complete)" one. Each caller passes only the
 sources it can actually support:
 
@@ -107,7 +111,7 @@ therefore gets none of the per-edit hooks below. All hooks are silent on any fai
 build or refresh an index — a stale or missing model/history cache is silence, not an error, resolved by the next
 real query.
 
-Five hooks share `hook-seen.json` (`seenGate(store, key, sigText)`, `grain.mjs`) under five keys (`check:<rel>`,
+Five hooks share `hook-seen.json` (`seenGate(store, key, sigText)`, `engine/grain-session.mjs`) under five keys (`check:<rel>`,
 `how:<hash>`, `read:<rel>`, `commit:<hash>`, and `cochange:<rel>` — shared by check-hook's own post-edit co-change
 line and edit-hook's pre-edit one, so whichever fires first in a turn suppresses the other) so they never overwrite
 each other's suppression state, and each repeats an identical finding no more often than once per
@@ -198,9 +202,10 @@ at the same binary by hand.
   `-32602`); a failure while answering (a bad `repo` path, a file that does not exist) comes back as a normal
   result with `isError: true` so the calling model can see and react to it. Neither kind ever crashes the server —
   it keeps answering later calls.
-- Mutating commands (`decide`/`seed`, `refresh`) and `map`/`explain`/`selftest` (not part of the four-question read
-  surface `where`/`how`/`what`/`check` answers) are deliberately not exposed; this is a read-only query surface
-  over the questions an agent asks mid-task, not the whole CLI.
+- Mutating commands (`decide`/`seed`, `refresh`, `propose` — which writes a whole staging tree) and
+  `map`/`explain`/`selftest` (not part of the four-question read surface `where`/`how`/`what`/`check` answers) are
+  deliberately not exposed; this is a read-only query surface over the questions an agent asks mid-task, not the
+  whole CLI.
 
 ## The store
 
@@ -224,6 +229,11 @@ at the same binary by hand.
 ```
 
 Deleting `cache/` is always safe; the next query rebuilds the same bytes.
+
+`grain propose` writes outside this store, to `<repo>/.yggdrasil-proposal/` (or the out-dir you name): a staging
+tree, not state. It carries its own ignore file (`*`) from the first run, so it never shows as an uncommitted
+change and can never be committed by accident, and deleting it is always safe — the next `propose` rewrites it.
+The repository's own `.yggdrasil/` is never written by grain, at all.
 
 ## Environment
 
@@ -265,8 +275,15 @@ keys is unaffected by a new one; only a change to an EXISTING field's shape woul
 happened yet).
 
 Top level: `schema, engine, extractor, repo, asOf, schemaNotes, indexedAt, history, summary, steers, boundaries,
-waivers, edges, edgesTruncated, moduleGraph, archNorms, changeArchetypes, twins, moves, valueSiblings, partitions,
-conventions, cochange`.
+waivers, edges, edgesTruncated, moduleGraph, relCoverage, relStages, archNorms, changeArchetypes, twins, moves,
+valueSiblings, partitions, conventions, cochange`.
+
+`relStages`: the three stages a dependency passes on its way from source text to the architecture graph, counted over
+the run. `seen` is every reference the language extractors emitted (imports, heritage, type references — internal and
+external alike, since which of them is internal is not knowable before resolution), `resolved` how many bound to a
+file inside the indexed tree, `crossing` how many of those joined two different modules and so reached
+`moduleGraph.edges`. An empty module graph is three different situations — nothing was read, nothing resolved, or
+everything resolved inside one module — and only these three numbers tell them apart.
 
 `waivers`: maintainer exceptions, one named scope excused from one surface (`pid`), recorded in `.grain/seeds.jsonl`.
 Each entry: `id, path, name, pid, kind, line, partition, found` (plus `note`/`author`/`createdAt` when set). A waiver
@@ -336,3 +353,411 @@ only) does not — a minor, known asymmetry, harmless since the aggregate's own 
 the whole payload's shape. That same parseable-file item also carries `disclosures[]` (§089, see above) — a
 degraded parse on a file review lists for another reason is disclosed there exactly like `check`'s own verdict for
 that file, even when `review`'s own text collapses several such files into one aggregate line above its display cap.
+
+## The proposal contract
+
+`grain propose [<out-dir>]` writes a proposed `.yggdrasil/` graph to `<out-dir>` — `PROPOSAL.md`,
+`REFACTOR-BACKLOG.md`, `alternatives.md`, `sizing.json` and the `.yggdrasil/` tree itself.
+`<out-dir>/proposal.json` prints `schema: "grain-proposal/1"`.
+
+**The out-dir defaults to `.yggdrasil-proposal/` at the repository root and is never the repository's own
+`.yggdrasil/`** — the command refuses that path outright. A proposal is a staging tree a human reads and edits;
+accepting it is `yg adopt`'s job, never a manual move. The directory is written with its own ignore file (`*`,
+the same self-ignoring form `.grain/`'s own uses for the cache) the first time it appears, so a proposal under
+review never shows up as an untracked change and can never be committed by accident. Naming
+`.yggdrasil-proposal/` in the repository's top-level ignore list as well is fine; nothing in grain requires it.
+
+**The acceptance handshake (ticket 123).** The report's final `next:` line names the actual transaction —
+`yg adopt <out-dir> --dry-run` to preview, `yg adopt <out-dir>` to accept — dry-run named first because it
+writes nothing. When a Yggdrasil CLI resolves (`YG_BIN`, or `yg` on PATH — the same resolution the drill step
+above already uses), the command goes further: it runs that `--dry-run` on the very proposal it just wrote and
+prints Yggdrasil's own summary block VERBATIM beneath the `next:` line — components, rules by status, origin,
+and above all **"Already broken N sites"**, the one number nothing else in either report can give, since a
+mined rule earns its status from how the code is usually written, never from a check that the repository is
+clean today. The adopter sees the real cost of accepting before deciding, not a promise that a command exists.
+When no CLI resolves, the line that would have carried the dry-run block instead says what `yg adopt` would
+report once one does, and how to make it resolve — the same honest-negative discipline the rest of this report
+already follows. Nothing here writes a real graph: only `--dry-run` ever runs, and only when a maintainer runs
+`yg adopt` for real, on their own, does a graph get installed. `proposal.json` and each aspect's own
+`provenance.json` already carry every field `yg adopt`'s own preview reads (`schema`, `engine`, `asOf`, `files`
+at the top level; `existingViolations` per aspect) — see "The proposal contract" fields below and
+`schemaNotes.provenance`.
+
+The same renderer is also driven by the measurement instrument `node tests/stress/propose.mjs <repo> <out-dir>`,
+which adds `--score <repo>` (compare against a hand-written graph, both directions) and `--family-candidates
+<out.json>`. The instrument and the command write byte-identical trees — the renderer lives behind the
+`plugins/grain/engine/propose.mjs` facade, in the sixteen `engine/propose-*.mjs` modules it re-exports, and
+neither surface has a rendering path of its own.
+
+**What the command prints** is deliberately short (ruling `propose-default-is-quiet`), and every line of it
+carries a number or a path: the architecture (node types, nodes, relations, dependency cycles), the aspects that
+EARNED `status: enforced` from a real drill with what each one checks and its drill numbers, and the
+CANDIDATES. Ticket 107, ruling `enforced-requires-certified-origin`: earning `status: enforced` needs the drill
+AND a `certified-convention` origin — a rule cleared grain's own MDL/λ certification bound. A `sub-gate-lattice`
+origin (a rule below that bound — grain itself declined to certify it; ruling `sub-gate-rows-are-the-product`, a
+lattice row is a refactor plan, not law) that clears the SAME drill earns `status: advisory` instead: real, but
+not yet a maintainer's decision to switch on. The candidates section lists these advisory aspects first,
+strongest evidence first, then — folded into the same list, below them — the older definition: a draft (any
+origin) the same real drill still caught at least one violation with. A candidate is a definition, not a
+cut-off: with no drill there are no candidates and the report says that instead of ranking drafts nobody has
+judged. Everything else (prose aspects, no-catch drafts, finer type alternatives, conventions skipped as not a
+rule) is written to disk exactly as before and summarised in one counted line naming the file that holds it;
+`--full` prints all of it. Because a rule earns `enforced` from a drill that never asked whether the repository is green today, the
+proposal also turns on Yggdrasil's progressive mode — `progressive.reference` in its `yg-config.yaml`, derived
+from the repository (the remote's default branch, else the branch HEAD is on, and left out with a one-line
+instruction in the report where there is neither) — so a rule blocks on what a change reaches while the sites
+that already break it are reported as warnings until touched, with `yg check --full` blocking on all of it;
+each enforced rule's report line and its `provenance.json` (`existingViolations`) carry how many those are.
+`--json <path>` writes the same report as a
+`schema: "grain-propose/1"` document built in the same pass, so the two cannot disagree. When no Yggdrasil CLI
+resolves (`YG_BIN`, or `yg` on PATH) nothing is drilled, nothing is enforced, and the report says so in place of
+the enforced list. A drill that does not return within its own bound is abandoned, and its aspect stays a
+draft that no verdict was reached on rather than one that was judged and found wanting — the report says how
+many were given up on and after how long, and `--json`'s `yggdrasil.timedOut` carries the same count. The bound
+is derived from the slowest drill actually measured (see `DRILL_TIMEOUT_MS`), not chosen. Where a repository
+HAS git but `git ls-files` fails — an unreadable index, a permission the process lacks — the proposal is still
+produced from a worktree walk, but that set is weaker (with no git there is no `.gitignore` resolution, so
+build output is in it): the report opens with a warning naming git's own failure, and `--json` carries the same
+text as `degraded`. A directory with no git at all is the documented case and carries no warning. **The schema is a published,
+versioned interface exactly like `grain-export/1` above**: Yggdrasil's own `yg check`/`yg drill`/`yg advise`
+read the `.yggdrasil/` tree this renderer writes, and Horde's `node.mjs show` reads `charter.md` from it — a
+shape change here is a breaking change for both neighbours, made deliberately and versioned, never as a side
+effect of a refactor. **Fields are added freely without bumping the schema number**; only a change to an
+EXISTING field's shape needs `grain-proposal/2` (has not happened yet). 094/097/098's existing output is
+untouched by this contract — nothing already there was renamed or removed to make room for it.
+
+`proposal.json` top level: `schema, engine, extractor, instrument, repo, asOf, files, counts, schemaNotes,
+evidence`. `schema`/`engine`/`extractor` mirror `grain-export/1`'s own fields (the same `ENGINE_VERSION`/
+`EXTR_V` constants) — a proposal names the engine build that produced it without a consumer re-deriving that
+from the export it was rendered from. `instrument: "propose/1"`, `repo` and `asOf` are 094's original fields,
+unchanged. `evidence[]` is the full audit trail: one row per emitted element (`kind`: `type` | `relations` |
+`deny` | `node` | `charter` | `aspect`), `id` naming the element, `evidence` the exact prose a human reads on
+the file itself, plus `kind`-specific structured detail (an `aspect` row carries `enumerator`/`identifier`/
+`expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`) and
+`draftReason`, see below). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there
+for the exact, current wording.
+
+### The level a type was cut at, and the ones it was not (ticket 110)
+
+No single level of a repository's tree is the right one to cut types at. Ticket 108 measured four hand-written
+architectures and found the module level recovering most of one, the directory level most of another, the role
+group most of the remaining two. So the proposal PUBLISHES the level rather than picking one globally:
+
+| level | what it is |
+| --- | --- |
+| `partition` | grain's own MDL cut of the directory tree |
+| `module` | a node of the refined module graph — the unit the dependency graph is aggregated at |
+| `directory` | a directory that carries declarations grain parsed — usually a published directory card, otherwise a directory of parsed code no card named |
+| `domain` | a role group whose members all live under one directory, so the membership is a `path:` glob |
+| `role group` | a structurally-uniform cluster inside a partition — never a place in the layout |
+| `layout` | a grouping the path is the only evidence for: the remainder nothing else claimed, or a directory grain parsed nothing in |
+
+Every ACTIVE type carries its level (`level`) and every level that independently named the same directory
+(`levels`), plus `intrinsic`: the oracle-free evidence for that cut — files, resolved imports touching the set
+split by whether both endpoints are inside it, co-change pairs split the same way, the modal file-name shape and
+how many files carry it, how many of the files grain parsed at all, and how many mined conventions have every
+site inside it. Every candidate the run did NOT activate is now a row of the same audit trail (`kind:
+"alternative"`, with `level`, `form`, `of`, `selects`, `fidelity`, `viable` and the same `intrinsic` block) and
+appears in `alternatives.md` grouped by level, so a maintainer can choose a different level for one subtree by
+comparing like with like. `counts.typesByLevel` and `counts.alternativesByLevel` split the two totals.
+
+**Only a path-shaped level may be active.** Active types are path prefixes, so any two are nested or disjoint
+and Yggdrasil's child precedence gives every file exactly one owner. Two types over the same directory separated
+by a `content:` predicate have no ordering between them, so `role group` is an alternatives-only level by
+construction rather than by preference.
+
+**Which finer candidates go active is DERIVED, not chosen.** Fourteen intrinsic-only policies were scored
+against all four oracles at Jaccard >= 0.5. Recall is monotone in the candidate set — a finer type can only add
+a match — so "maximise recall" alone selects "every directory", which is 418 types on Yggdrasil and not a
+proposal anyone reads. The policy that wins on all four repositories without losing on any is a comparison
+between two measured numbers and carries no cutoff: **a finer directory becomes a type of its own only where it
+beats the level above it on that level's own evidence** — strictly more of its imports stay inside than the
+parent's do, or grain could read none of its files while it could read the parent's. Candidates are decided
+shallowest-first, and an accepted one becomes the parent of its own children, so the cut does not run away down
+the tree. The second disjunct carries most of it: a directory of files grain parsed NONE of (Java resources,
+templates, test fixtures, shipped docs) is invisible to every other level, because a directory card is published
+only where scopes were mined. **The policy is fitted on those four oracles and must be re-measured when a fifth
+arrives**; the sweep is in `.system/research/type-levels.md`.
+
+### How a proposed rule is worded (ticket 109)
+
+Every aspect this renderer writes is an OBLIGATION with its scope inside the sentence, not a report of what the
+code does:
+
+```
+name: "Every method under `tests/**`, in a file carrying `@Then`, must be annotated with `[Then]`."
+name: "No file under `src/Application/**` may import `lodash`."
+```
+
+Three rules produce that sentence, and they are the whole of it:
+
+- **The subject is one thing and it names where it lives.** `Every <method|type|file|directory|catch block|…>
+  under <the aspect's own `scope:` glob>`, plus the `content:` half of the scope as a participial clause
+  (`carrying \`@Handler\``, `mentioning \`counter\``) when the scope has one. Grain's own query surface says
+  "methods here …"; an aspect read cold, months later, has no way to know where "here" is.
+- **The mood is deontic.** `must` for a rule whose expected value is true, `No … may` for one whose expected
+  value is false — a prohibition, never a doubled negative. The PREDICATE keeps every word grain mined; only
+  the verb form changes (`are annotated with` → `be annotated with`).
+- **A lattice row is worded from the value it was measured at.** The categorical families carry their value in
+  the row, not in the predicate id: `auto.nameshape` has no argument and `auto.lex:quote` names the surface
+  rather than `single`. The sentence reads the same field the rendered `check.mjs` compiles.
+
+The `#e` evidence line leads with the two numbers that decide whether to believe the sentence — how many sites
+in scope hold the rule and how many break it today — then where it applies, then what to copy, then how grain
+came to propose it. `description` carries the rule, how far it already holds, and one sentence saying what the
+`status:` beside it actually does to `yg check`. None of this changes anything measured: ticket 109 diffs the
+whole rendered tree round to round, and every id, status, count, `check.mjs` body, drill corpus and
+`provenance.json` number is byte-identical across the change.
+
+### What "enforced" means in a proposal (ticket 102, sharpened by 107)
+
+Every element this renderer writes starts as a candidate, never a claim: no type carries `enforce: strict`
+(Yggdrasil's bidirectional-coverage flag — a `yg-architecture.yaml` node-type field, unrelated to the aspect
+`status` below despite the name), and every aspect starts `status: draft`. What changes is which aspects EARN
+their way out of draft, and how a consumer is told why one has not:
+
+- **Prose never leaves draft.** An aspect that ships `content.md` (no template renders its convention's class as
+  a syntax-tree check) needs a configured LLM reviewer to produce a verdict at all, and this renderer never
+  assumes one exists. Ticket 101 measured prose's sense rate under a keyless gate at 0% (1305 of 1671 proposed
+  aspects on a 17-repository corpus) — a judgment call is a candidate for a human decision, never a rule this
+  renderer ships as enforceable. `draftReason: "prose-unenforceable-keyless"`.
+- **A deterministic check (`check.mjs`) is judged by a REAL `yg drill`.** When `YG_BIN` resolves to a built
+  Yggdrasil CLI, this renderer stages the `.yggdrasil/` tree it JUST wrote into a throwaway copy and runs
+  `yg drill --aspect <id>` for every check that shipped a corpus — the same measurement a maintainer would run
+  by hand, not a claim this script computes on its own. A check that comes back with zero FALSE-ALARMs and at
+  least one caught `violates-*` case has PROVEN `check.mjs` correct — but the drill only ever measures whether
+  the check is right, never whether the rule is ADOPTED (ticket 107). What happens next turns on the
+  convention's ORIGIN:
+  - `origin: certified-convention` (cleared grain's own certification bound) → promoted: its `yg-aspect.yaml` is
+    rewritten `status: enforced`, and a plain `yg check` on the delivered proposal enforces it immediately, no
+    further review needed to turn it on.
+  - `origin: sub-gate-lattice` (a row BELOW that bound — grain itself declined to certify it) → promoted only to
+    `status: advisory` instead: Yggdrasil runs the same reviewer and records the same baseline, but a refusal
+    warns rather than blocks. Measured on Grain's own young, uncertified repository: EVERY sub-gate row that
+    cleared this exact drill (22 of 22) would otherwise have gone straight to `enforced`, including rules
+    practised in as little as 67% of sites with a third deviating — `enforced-requires-certified-origin` exists
+    because turning `yg check` red on a third of the existing code for a rule grain itself would not certify is
+    not what "enforced" is supposed to mean.
+
+  Everything else stays draft, with one of two reasons:
+  - `draftReason: "file-scope-approximation-fa"` — the drill found at least one FALSE-ALARM. Ticket 101 §8.1
+    traced every remaining FALSE-ALARM in its whole corpus to one shape: the convention's own subject is a
+    SYMBOL inside a file (a method, a type) while Yggdrasil reviews the check per FILE, and a drill corpus cut
+    from a sample of sites mislabels the file. Ruling `drill-fa-labelling-is-acceptance-not-defect`: this is
+    accepted as a corpus-labelling artifact, not chased as a defect — the fix is to demote the rule, not
+    relabel the corpus, and 0 FALSE-ALARMs is not a matter of taste; it is the only value at which a keyless CI
+    never blocks a legitimately clean change.
+  - `draftReason: "no-catch"` — zero FALSE-ALARMs, but also zero caught `violates-*` cases. Ruling
+    `no-catch-rules-stay-draft`: a rule nothing can ever be shown to violate does not enforce architecture,
+    whatever else is true of it — 125 of 366 deterministic aspects in ticket 101's corpus were exactly this.
+  - `draftReason: null` with no verdict at all means the aspect was never verified this run — no `YG_BIN`
+    resolvable, or the check shipped no drill corpus to run. This is not one of the three reasons above: it says
+    nothing about the check's quality, only that nobody has looked yet. This was every deterministic aspect's
+    fate before ticket 102 — the only regression-proof default when Yggdrasil is not available to ask.
+
+`counts.aspectsActive` (kept named for schema stability; counts `status: enforced`) / `counts.aspectsAdvisory`
+(ticket 107, additive — counts `status: advisory`) / `counts.aspectsDraft` / `counts.aspectsByDraftReason` (a
+count per reason above) and `counts.aspectsVerified` / `counts.aspectsVerifiedAgainst` (how many deterministic
+aspects a real drill actually judged, and against which Yggdrasil binary — `null` when `YG_BIN` did not resolve)
+summarize this split for the whole run; `evidence[]`'s own `aspect` rows and each aspect's `provenance.json`
+(below) carry it per element.
+
+**What an adopter actually gets, in plain terms**: `status: enforced` means a deterministic rule that survived a
+real drill on this repository's own code with zero false alarms and at least one caught violation, AND whose
+convention cleared grain's own certification bound — nothing between the maintainer and turning this rule on
+today. `status: advisory` means the identical drill result but a rule grain itself declined to certify: real
+evidence, worth reading, but a refactor decision rather than a rule to switch on unread — Yggdrasil records its
+baseline and warns on a refusal without blocking `yg check`. Everything else — every prose aspect, every check
+that false-alarmed or caught nothing, every check nobody has verified yet — is a candidate too: worth reading,
+not worth trusting sight unseen. Adopting a proposal means reviewing the drafts (and the advisory rules), not
+merely running `yg check --approve` on the enforced set and calling the rest done.
+
+### Identifier hygiene (ticket 120)
+
+A mined row can be true, checkable, and still not a rule anyone should read as one. Four such shapes are caught
+at render time, before the row ever becomes an aspect draft — `.system/research/sense-iteration.md` §10 names
+them; here is what `propose` does about each:
+
+- **A parser node type as the identifier.** `call_expression`, `identifier`, `member_expression` — a value that
+  belongs to tree-sitter's grammar rather than to the language a person writes, appearing as the thing
+  "called"/"imported"/"extended" (a mining artifact) or as the whole POINT of a `has`/`stshape`/`first1`/`ret`
+  row (these four families measure the grammar's own vocabulary by construction — a `has` row's identifier IS a
+  node type every time). Detected by tokenizing the value and checking every token against the SHIPPED
+  grammar's own `node-types.json` for the host type's files (`engine/grammars/tree-sitter-<g>.node-types.json`,
+  read directly — never a hand list of node type names, so a grammar gains or loses coverage exactly when its
+  `node-types.json` does). Such a row is not rendered as an aspect at all: it is counted in
+  `counts.aspectsSkippedNotARule` and broken down in `counts.aspectsSkippedNotARuleByReason["parser-node-type-as-identifier"]`,
+  and the report's "skipped as not a rule" line names the reason.
+- **A generic type parameter read as a domain type.** `S`, `V`, `T`, `TResult` in a `ptype`/`returns`/`extends`
+  row — obeyable, but not a statement about the domain. There is no extracted fact this renderer can consult to
+  know a name was DECLARED as a type parameter in scope (core.mjs's callable-surface walk explicitly excludes
+  `type_parameters`, and neither `fileSups` nor `fileTypeRefs` is part of the export schema at all — a real
+  extractor fix is tracked as a gap, not done here), so the render-side test uses the honest signal the export
+  DOES carry: the identifier is shaped like a type parameter (a bare uppercase letter, or the `T<Word>` form) AND
+  is never found declared as a real type (`kind: "type"`) anywhere this export saw. A repository with an actual
+  class named `T` or `S` keeps its rule — the second half of the test is what makes the first honest. Skipped the
+  same way as above, reason `"generic-type-parameter-as-domain-type"`.
+- **A rule measured in one role-group cluster, enforced over the whole directory.** A sub-gate row's evidence
+  already names the cluster it was measured in (ticket 109); until now the check it rendered still enforced the
+  WHOLE host type's directory regardless. Now the scope is narrowed to the cluster's own files wherever that can
+  be said EXACTLY — an explicit file list (only when the export's own group-member list is not itself truncated)
+  or the same shared `content:` predicate a group-scoped certified convention already drafts from a marker, name
+  shape or import. There is no threshold: when neither is exact, the row renders no check at all and stays
+  `status: draft`, `draftReason: "cluster-narrower-than-scope"`, permanently — `counts.aspectsClusterNarrowerThanScope`
+  counts these.
+- **A type with nothing attached obliges nothing.** A proposed node type that hosts no aspect draft (empty
+  `aspectIds`) and appears on neither side of any measured dependency edge is still emitted — the directory needs
+  a node to be reviewable at all, and coverage depends on that — but it is not law. `PROPOSAL.md`'s "Types with no
+  law" section lists them, and `counts.typesWithNoLaw` carries the count.
+
+**Per-aspect `provenance.json`** — `.yggdrasil/aspects/<id>/provenance.json`, one per rendered aspect, same
+field set as the law-loop measurement's own (ticket 097): `aspectId, conventionId, origin, enumeratorClass,
+identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note`. A live
+`propose` run has no hold-out cut of its own, so `cutSha` is `asOf` (HEAD) and `cutDate` is `null` — the two
+differ only in provenance, never in the fields carried.
+
+**Three fields ADDED here (ticket 102), additive per the rule above — not shared with law-loop.mjs's own replay
+provenance, which describes a held-out cut rather than a live run with a real `.yggdrasil/` tree on disk**:
+`status` (`"enforced"` | `"advisory"` | `"draft"` — ticket 107 adds `"advisory"` to what shipped as a two-value
+`"active"` | `"draft"` pair; adding a value to an existing field is additive, not a shape change, so this needed
+no `grain-proposal/2` — the SAME three values Yggdrasil's own `yg-aspect.yaml` `status:` field takes, written
+here verbatim rather than through a separate Grain-internal word translated at write time),
+`draftReason` (one of `"prose-unenforceable-keyless"` | `"file-scope-approximation-fa"` | `"no-catch"` |
+`"absence-not-forbiddance"` (ticket 115) | `"cluster-narrower-than-scope"` (ticket 120, see "Identifier hygiene"
+below), or `null` when `status` is `"enforced"`/`"advisory"` or the aspect was never verified this run), and `scopeApproximation`
+(`"file-from-symbol"` when the convention's own subject — `a.kind`, grain's `unitOf` domain: `method` | `type` |
+`catch` | `finally` | `case` — is a symbol living inside a file rather than the file itself, `null` for a
+file/module-level convention where the check's unit and the convention's subject are the same thing). This flag
+is set independently of drill results — a symbol-scoped check can still earn `enforced` if its own drill comes
+back clean; the flag explains WHY a FALSE-ALARM would happen here if one ever does, it does not by itself demote
+anything.
+
+**Per-node `charter.md`** — `.yggdrasil/model/<node>/charter.md`, beside `yg-node.yaml`, one per proposed node
+(including organizational ones). Rendered the way a `where` card reads a directory to a human: what lives here
+(files, extensions, nested groups, and why they were grouped), what this node may depend on (its declared
+relations with resolved-import counts, and what `yg check` does about an undeclared one — the built-in
+relation-conformance check refuses a node that depends on a node it has not declared a relation to), certified
+conventions (share, n conforming/deviating, exemplars to copy — `path:line`), sub-gate
+candidates (evidence below the certification bound, not yet law), co-change partners (aggregated from `.grain`'s
+own file-level co-change up to node granularity), sizing (the node's own row from `sizing.json`), and the `asOf`
+sha. Every line carries a number or a path; a section with nothing to report says so rather than being omitted.
+Horde's `node.mjs show <node>` reads this file verbatim — no schema of its own beyond "a markdown file at that
+path".
+
+**`sizing.json`** (ticket 098) is unchanged by this contract — see its own header comment in
+`plugins/grain/engine/propose-sizing.mjs` for the field-by-field explanation; every `charter.md` quotes its own node's row from
+it rather than duplicating the numbers.
+
+**The `.family-candidates.json` adapter** — the instrument's `--family-candidates <out.json>` writes a SEPARATE file
+(not part of `proposal.json`) in the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
+`advise-nominations.ts`): `{v: 1, ts, families: [{id, language, members, fittedPredicate: {kind, value},
+scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `ts` MUST be a parseable calendar instant (Yggdrasil's
+freshness gate runs `Date.parse` on it and silently drops the whole file otherwise) — grain's own `asOf` is a git
+sha, so this adapter uses the export's `indexedAt` instead. A "family without a law" in grain's own terms is a
+role group (093/094's structural cluster within a partition) that clears the same size floor Yggdrasil's own
+offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `plugins/grain/engine/propose-base.mjs`) and carries no certified
+convention of its own — whether that group ended up as a finer `-content` alternative (a subset of its host
+type) or, when the group coincides with its whole host type, was cut directly as an active type with no
+alternative offered. Dropping the file into an existing `.yggdrasil/` at `.family-candidates.json` and running
+`yg advise` there makes Yggdrasil nominate the family with zero code changes on Yggdrasil's side —
+`plugins/grain/tests/seams.test.mjs` proves this against a real `yg` binary and against Yggdrasil's own
+planted-family precision fixtures.
+
+## The oracle contract
+
+`grain oracle record` writes five documents under `<out>/<name>/`, and `grain oracle score` reads them. The
+point of the pair is that an adopter's own correction — the difference between the graph `grain propose` wrote
+and the graph they accepted with `yg adopt` — is a measurement oracle by exactly the definition the four
+hand-written graphs in `plugins/grain/tests/stress/oracles/` meet: a graph a maintainer of that repository
+decided to live with, which grain did not write.
+
+| file | what it holds |
+| --- | --- |
+| `oracle.json` | `schema: "grain-oracle/1"`, the name, when it was recorded and by which engine, the target (`repo`, `checkout`, `asOf`, `files`, `filesExcluded`), the two source directories, and the element counts of both sides |
+| `files.json` | the tracked file list at `asOf`, after the accepted graph's own `coverage.excluded` — every file set in the record is a list of indices into it |
+| `proposal.json` | the proposed side: node types with whether they classify, nodes with `mapping`/`relations`/`ports`/attached rules, rule drafts with `status` and the `identifier` each one is about, the alternative cuts, and the file set of each |
+| `accepted.json` | the same shape for the graph the maintainer accepted |
+| `correction.json` | `schema: "grain-correction/1"` — nodes kept, renamed, remapped, merged, split, recut, dropped and added; relations added and removed; rules kept, dropped, added, promoted, demoted, edited; ports counted. Its own `schemaNotes` defines every one of those words |
+
+**Structure and paths, never contents.** A record carries no file bodies, no descriptions, no charters, no prose
+rule bodies, no drill corpora, no history and no lock files — only what the measures consume. Two consequences,
+both deliberate: it is small enough to commit and read, and a repository that cannot be shared can still
+contribute its oracle. The identifiers a mechanical rule polices are read out of its `check.mjs` (the same
+extraction the reconstruction instrument uses) and stored as a list of names; the check itself is not stored.
+
+**The file sets are expanded once, at record time, against the real repository.** That is what makes scoring
+later independent of the repository — and it is also the honest fix for a failure the four-oracle measurement
+names: scored against a checkout that is not there, every `content:`-gated predicate expands to the empty set
+and drops out of a denominator with no error at all.
+
+**Consent is the command's output.** `record` prints the target, both graphs' counts, what it will store, what
+it will not, and the destination — then stops. `--yes` on a second run is what writes anything. The in-repo
+oracles directory is a default only for this repository's own fixtures (its own checkout, a repository named in
+its measurement corpus, or a name it already carries an oracle for); for any other repository there is no
+default and `--out` names a directory the adopter chose.
+
+**The score.** `grain-oracle-score/1` carries `types` (`recall`, `recallWithAlternatives`, `precision`), `nodes`
+(`recall`, `precision`), `relations` and `rules`. Every direction is a list of rows — each element of one graph,
+the best Jaccard it reaches against any element of the other, and which one — with `n`, `hit` (J >= 0.5), `hit8`
+(J >= 0.8), `rate` and `meanJ` over them. Relations are scored only between the nodes both graphs agree on, and
+the result says how many declared relations have an end outside that set and are therefore scored neither way.
+Rules are reported twice: by id (what became of each draft) and by name (how many of the accepted graph's
+mechanical rules some draft names the same identifier as) — and when no draft id survives at all, the command
+says outright that the accepted graph was not grown from that proposal, so the row is a comparison rather than a
+review. A node that maps no file of its own is scored in neither direction and counted separately.
+
+## The advice contract
+
+`grain advise [--json] [--graph <dir>]` reads the architecture graph a repository **already has** — never a
+proposed one — and reports what the repository's own history and imports say about it. `--json` emits a
+`grain-advice/1` document; the layer above (Yggdrasil's `yg advise`) is its consumer, and the fields listed here
+are fixed. A producer may add fields; a consumer reads only these.
+
+```json
+{
+  "schema": "grain-advice/1", "repo": ".", "at": "<40-char HEAD sha>",
+  "items": [
+    { "kind": "relation", "nodes": ["orders", "billing"], "confidence": 0.41,
+      "evidence": { "coChanged": 31, "ofA": 0.31, "ofB": 0.40, "declared": false }, "text": "…" },
+    { "kind": "split", "nodes": ["orders"], "candidates": ["orders/pricing"],
+      "evidence": { "node": { "…": "…" }, "candidates": [ { "…": "…" } ] }, "text": "…" }
+  ]
+}
+```
+
+`kind` is one of `relation | port | split | rule`. **`port` and `rule` are reserved and never emitted** — grain
+does not fabricate an item kind it has no evidence for, and a test asserts that only `relation` and `split` ever
+appear.
+
+**`kind: relation`** — two nodes whose code changes together. `nodes` are graph node paths, sorted.
+`confidence` is the MUTUAL confidence, `min(ofA, ofB)`, and both directions must reach 1/3 — the same
+single-subject floor `completeness` applies, required of both sides, which is what makes this an anti-hub test
+rather than a hub detector. `evidence.coChanged` is the commit count of the single strongest witness — a pair of
+named declarations, given as `witnessA`/`witnessB` with the `commitsA`/`commitsB` behind the two rates — never a
+sum over witnesses: several declarations in one file naming the same partner is one fact, not several.
+`evidence.declared` says whether the graph already joins the two nodes, and `evidence.declaredVia` says how:
+`relation` (one names the other), `ancestor-relation` (an ancestor of one names an ancestor of the other), or
+`containment` (one is inside the other).
+
+**`kind: split`** — a node a finer cut of its own files beats on the node's own evidence. `candidates` are
+directory paths; the policy is ticket 110's, applied with the node's mapped file set as the parent instead of a
+proposed type (see *The level a type was cut at* above), so a candidate is offered only where strictly more of
+the imports touching it stay inside than the parent's do, or grain could read none of its files while it could
+read the parent's. `evidence.candidates[].reason` is `tighter` or `unread` accordingly.
+
+A non-contract `survey` block carries the counts a measurement reads — pairs, declared/undeclared, the share of
+pairs touching the hottest node, the declared rate over every pair of nodes that owns a file, and the split
+count. It is not part of the contract and a consumer must not read it.
+
+**What the text surface says, and why it is not the same.** `.system/research/node-cochange-measurement.md`
+measured this on four hand-written graphs: the change-together side named two node pairs in total, both of them
+connections those graphs already declared, and every looser reading of the same evidence concentrates on
+whichever place the repository changes most — the finding `where`'s file-level co-change lever was rejected on.
+So the pairs are **data, not advice**: the text surface prints their count, how many are undeclared, the
+concentration and the declared rates, and leaves the pairs themselves to `--json`. Those numbers are recomputed
+on every run, so a repository where the finding does not hold says so in its own output. The split side was
+measured on the same four graphs, named a place holding a pile the evidence separates on three of them and
+nothing on the fourth, and **is** printed as advice.
+
+With no `.yggdrasil/` to read, the command says so and points at `grain propose`; the document is still a
+`grain-advice/1` with an empty `items` and a `note`.

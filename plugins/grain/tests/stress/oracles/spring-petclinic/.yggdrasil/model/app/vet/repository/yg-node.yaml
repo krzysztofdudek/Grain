@@ -1,0 +1,8 @@
+name: VetRepository
+type: repository
+description: "Read-only persistence access for veterinarians, paged or whole. Both methods are cached under the `vets` cache and marked read-only; the cache is the reason this is the only repository in the application that extends the bare Repository interface rather than JpaRepository — it exposes nothing that writes."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/vet/VetRepository.java
+relations:
+  - target: app/vet/entities
+    type: uses

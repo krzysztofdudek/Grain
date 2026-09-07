@@ -1,0 +1,6 @@
+name: OwnerArea
+type: feature-area
+description: "The owner feature area — owners, their pets, the pet-type lookup, and the visits booked for a pet. One Java package holds all four because they form a single persistence aggregate rooted at Owner; the components below split it by layer, not by class."
+aspects:
+  - owner-is-the-aggregate-root
+relations: []

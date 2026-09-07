@@ -1,0 +1,16 @@
+name: History Layer
+type: engine-history
+description: >-
+  Walks the entire git history once and then resumes. Every distinct historical blob is parsed exactly
+  once ever, content-addressed and keyed by extractor version; the per-scope lifecycle replay and the
+  co-change accumulation are persisted alongside the last walked commit, so a freshly landed commit
+  costs exactly its new blobs. A head that does not descend from the recorded one makes the replay state
+  unusable and the walk restarts from the root — still warm, because the blob cache survives.
+relations:
+  - target: plugin/engine/core
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/history.mjs

@@ -1,0 +1,37 @@
+name: Mining
+type: mining-core
+description: >-
+  Where a convention is found. It derives every language binding from each grammar's own node-type
+  metadata, extracts scopes and features generically from syntax trees and paths, reads the lexical
+  surfaces an AST cannot carry, induces groups of similar code rather than reading them off a list,
+  weights every instance by how long it survived in history and who wrote it, and accepts a claim only
+  when stating it compresses the repository. One loss constant decides whether it speaks at all. It
+  also cuts the directory tree into partitions, builds the cards every answer is assembled from, and
+  holds the name mechanics placement advice runs on.
+
+  Nothing about a language, a framework or a role is written down here by NAME — that is the whole
+  discipline of this layer, and the reason it may reach the parser runtime and the relation pass while
+  spawning nothing.
+relations:
+  - target: plugin/engine/relations
+    type: calls
+  - target: plugin/engine/vendor-runtime
+    type: calls
+  - target: plugin/engine/config
+    type: calls
+    consumes: [constants]
+mapping:
+  - plugins/grain/engine/base.mjs
+  - plugins/grain/engine/parse.mjs
+  - plugins/grain/engine/extract.mjs
+  - plugins/grain/engine/scopes.mjs
+  - plugins/grain/engine/superposition.mjs
+  - plugins/grain/engine/lexical.mjs
+  - plugins/grain/engine/facts.mjs
+  - plugins/grain/engine/obligations.mjs
+  - plugins/grain/engine/mine.mjs
+  - plugins/grain/engine/weights.mjs
+  - plugins/grain/engine/verbalize.mjs
+  - plugins/grain/engine/partition.mjs
+  - plugins/grain/engine/cards.mjs
+  - plugins/grain/engine/placement.mjs

@@ -9,3 +9,9 @@ node_modules/
 # instrument F (scale ladder): per-run result dumps are machine-specific noise; one checked-in baseline stays as a reference point.
 plugins/grain/tests/stress/results/*
 !plugins/grain/tests/stress/results/baseline-*.json
+# the oracle measurements are not per-run noise: each one is the record a research memo cites by number, taken
+# against hand-written graphs that are themselves committed, so it has to stay readable next to them.
+!plugins/grain/tests/stress/results/oracles-*.json
+
+# agent worktrees created by the harness during isolated subagent work — live state, never committed
+.claude/worktrees/

@@ -1,0 +1,16 @@
+name: Relation Unit Cases
+type: test-relations-unit
+description: >-
+  Eight hundred and twenty-five numbered cases, grouped by language, each pinning what one extractor or
+  one resolver returns for one construct. White-box on purpose: no command-line output can pin down
+  whether a grouped import block emits one hint per specifier, or whether a nested type's dotted use
+  resolves through the symbol table. Each language also carries a name-resolution matrix directory.
+relations:
+  - target: plugin/tests/relations/harness
+    type: uses
+  - target: plugin/engine/vendor-relations
+    type: calls
+  - target: plugin/engine/core
+    type: calls
+mapping:
+  - plugins/grain/tests/relations/unit/**/*.test.mjs

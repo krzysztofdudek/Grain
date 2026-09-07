@@ -1,0 +1,8 @@
+name: VetListRepresentation
+type: marshalling-dto
+description: "A JAXB-rooted wrapper holding a list of vets, so the /vets endpoint has one named root element to marshal instead of a bare collection. Not persistent and not part of the domain — it exists purely for the representation."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/vet/Vets.java
+relations:
+  - target: app/vet/entities
+    type: uses

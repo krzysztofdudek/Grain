@@ -1,0 +1,9 @@
+name: SystemWeb
+type: controller
+description: "The two feature-free pages: the welcome screen at the root, and the endpoint that raises a runtime exception so the localized error page can be demonstrated. Both hold no state and depend on no repository."
+mapping:
+  - src/main/java/org/springframework/samples/petclinic/system/WelcomeController.java
+  - src/main/java/org/springframework/samples/petclinic/system/CrashController.java
+relations:
+  - target: ui/templates
+    type: uses
