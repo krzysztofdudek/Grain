@@ -3,7 +3,7 @@
 **Status:** LANDED — merged on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** medium
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
 **Ruling:** `horde-blame` · after 126 landed · mission §6 E15
 **Class:** sonnet
 

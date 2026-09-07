@@ -293,5 +293,5 @@ cat <out-dir>/sizing.json
 
 Yggdrasil was treated as read-only throughout: `git clone` (read) into two throwaway directories under this
 session's scratchpad, `git checkout` inside those clones only, `grain export` run only inside those clones.
-`/home/user/Yggdrasil`'s own `git status --short` was confirmed empty and carries no `.grain/` at the end of
+`<yggdrasil>`'s own `git status --short` was confirmed empty and carries no `.grain/` at the end of
 this measurement.

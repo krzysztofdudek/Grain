@@ -1,6 +1,6 @@
 {
  "side": "accepted",
- "root": "/tmp/claude-0/-home-user/75008b68-28bc-527f-bdc4-99a93951f2fc/scratchpad/clones/yggdrasil",
+ "root": "<scratchpad>/clones/yggdrasil",
  "types": [
   {
    "id": "project",

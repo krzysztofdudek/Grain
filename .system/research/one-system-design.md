@@ -3,7 +3,7 @@
 Odpowiedź na pytanie: *czy mechanika hordy pozwala na sensowne zrównoleglanie planu, i jak z Hordy,
 Superpowers, Yggdrasila i Graina zrobić jeden spójny system, a nie dwa posznurkowane.*
 
-Materiał: cała Horda (`/home/user/horde`, gałąź `claude/grain-agent-tool-b89y0x`: SKILL.md, `reference/**`,
+Materiał: cała Horda (`<horde>`, gałąź `claude/grain-agent-tool-b89y0x`: SKILL.md, `reference/**`,
 `templates/**`, wszystkie skrypty i ich testy) oraz całe Superpowers v6.3.0 (klon `obra/superpowers` w
 scratchpadzie: README, CLAUDE/AGENTS, hook, wszystkie SKILL.md, prompty implementera/recenzenta/re-recenzji,
 `writing-skills` z metodą testowania, `systematic-debugging` z testami presji, `writing-good-tests`, specyfikacje

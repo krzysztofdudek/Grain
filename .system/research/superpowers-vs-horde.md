@@ -1,8 +1,8 @@
 # Superpowers a Horde — przegląd i werdykt
 
-Materiał: klon `obra/superpowers` v6.3.0 w `/tmp/claude-0/-home-user/75008b68-28bc-527f-bdc4-99a93951f2fc/scratchpad/superpowers`
-(ścieżki niżej są względem tego katalogu) oraz `/home/user/horde` na gałęzi `claude/grain-agent-tool-b89y0x`
-(ścieżki względem `/home/user/horde`). Wszystko poniżej pochodzi z przeczytanych plików; nic nie jest domysłem o zachowaniu.
+Materiał: klon `obra/superpowers` v6.3.0 w `<scratchpad>/superpowers`
+(ścieżki niżej są względem tego katalogu) oraz `<horde>` na gałęzi `claude/grain-agent-tool-b89y0x`
+(ścieżki względem `<horde>`). Wszystko poniżej pochodzi z przeczytanych plików; nic nie jest domysłem o zachowaniu.
 
 ---
 

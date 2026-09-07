@@ -3,7 +3,7 @@
 **Status:** LANDED — committed 8b7e4e3b, pushed
 **Found by:** director, 2026-09-06
 **Severity:** medium
-**Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · same worker, after 144
+**Repo:** <yggdrasil> · branch `claude/grain-agent-tool-b89y0x` · same worker, after 144
 **Ruling:** `production-is-the-corpus` · mission §6 E20
 **Class:** opus
 

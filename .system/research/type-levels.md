@@ -26,7 +26,7 @@ typów petclinic.
 | walidacja propozycji | kopia repo bez `.git/.grain/.yggdrasil` + `prop-<n>/.yggdrasil` w korzeniu, `git init`, `yg check --summary`, `yg check --approve --only-deterministic` |
 
 Wyrocznie i commity dokładnie te z 108 (grain `3d249bf`, petclinic `818c413`, express `023767f`, Yggdrasil
-`5cca6b1`). `YG_BIN=/home/user/Yggdrasil/source/cli/dist/bin.js`. Instrument przemiatania odtwarza bazowe
+`5cca6b1`). `YG_BIN=<yggdrasil>/source/cli/dist/bin.js`. Instrument przemiatania odtwarza bazowe
 liczby 108 **co do jednej** (15/33, 2/28, 6/13, 21/36 recall; 18/31, 3/12, 7/22, 23/82 precision) w 2,5 s na
 cztery repozytoria — dlatego dało się przemieść czternaście polityk zamiast jednej.
 

@@ -3,7 +3,7 @@
 **Status:** LANDED — committed b31c900a on Yggdrasil feature branch, pushed
 **Found by:** director, 2026-09-06
 **Severity:** high
-**Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · same worker as 130, after 130 lands on the branch
+**Repo:** <yggdrasil> · branch `claude/grain-agent-tool-b89y0x` · same worker as 130, after 130 lands on the branch
 **Rulings:** `port-is-contract` · mission `.system/research/mission-one-system.md` (Grain) §3, §6 E2
 **Class:** opus
 

@@ -218,7 +218,7 @@ responsibility. `core.mjs` carries 141 ambiguous scopes against 104 assigned one
 
 1. **The Yggdrasil index was built by a sibling worker.** Ticket 094's export started one minute before mine on
    the same repository; I killed my duplicate rather than have two writers on one content-addressed cache,
-   reused their warm `/home/user/Yggdrasil/.grain/cache/`, and **left it in place** (deleting it would break
+   reused their warm `<yggdrasil>/.grain/cache/`, and **left it in place** (deleting it would break
    094 mid-run). Yggdrasil's `.grain/` is therefore still present and is the only untracked artifact there;
    `.yggdrasil/.feature-field.json`, which `check --attention-dump` rewrote, is gitignored by
    `.yggdrasil/.gitignore:8`. No tracked file was touched.

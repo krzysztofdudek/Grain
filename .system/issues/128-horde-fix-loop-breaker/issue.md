@@ -3,7 +3,7 @@
 **Status:** LANDED — merged 4529fe1 on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** medium
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push
 **Rulings:** `flake-is-an-incident`, `horde-of-one-deferred` (only the approval-seat rule enters now) · mission §6 E8
 **Class:** sonnet
 

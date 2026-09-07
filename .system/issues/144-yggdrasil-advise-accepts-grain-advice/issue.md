@@ -3,7 +3,7 @@
 **Status:** LANDED — committed 49ea51da, pushed
 **Found by:** director, 2026-09-06
 **Severity:** medium
-**Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · same worker as 130–133, after 133
+**Repo:** <yggdrasil> · branch `claude/grain-agent-tool-b89y0x` · same worker as 130–133, after 133
 **Rulings:** `layered-family`, `escalations-become-rules`, `quality-always-authorised` · mission §3 (`grain-advice/1` shape), §6 E20
 **Class:** opus
 
@@ -20,7 +20,7 @@
 3. Idempotent: re-importing the same document does not duplicate entries (key on kind + nodes + measured sha).
 4. Graph before code; docs and CLI reference; CHANGELOG `[Unreleased]` for the adopter (another tool can now
    hand Yggdrasil proposals, kept apart from what a person decided); tests on real fixtures with a document
-   produced by the real `grain advise` if the Grain build is available at /home/user/Grain (ticket 131), else a
+   produced by the real `grain advise` if the Grain build is available at <grain> (ticket 131), else a
    document of the documented shape checked in as a fixture; `scripts/repo-check.sh` green except the two known
    environmental failures; commit with session trailers.
 

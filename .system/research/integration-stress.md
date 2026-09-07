@@ -425,7 +425,7 @@ The classes, as used here:
 Per `oracle-is-fallible-report-disagreements-symmetrically`, precision is computed on **(a)+(b)** only. Every
 row was judged by opening the files, not from the table.
 
-| # | candidate rule | share | n / dev | class | evidence, read from the code at `/home/user/Yggdrasil/source/cli` |
+| # | candidate rule | share | n / dev | class | evidence, read from the code at `<yggdrasil>/source/cli` |
 |---|---|---|---|---|---|
 | 1 | `tests/integration`: quote strings with **single quotes** | 1.000 | 23 / 0 | **b** | 8001 single- vs 410 double-quoted spans across the 68 files; `eslint.config.js` sets no `quotes` rule and no hand aspect mentions quoting — a real, exceptionless practice the graph does not declare. |
 | 2 | `tests/e2e`: method names follow **`a(Ua)+`** | 0.815 | 502 / 114 | **d** | `a(Ua)+` requires a second camel segment, so it refuses every legitimate one-word name; the e2e tree defines `run(`, `git(`, `w(` and 1174 `it(` call sites — the 114 "deviating" sites are ordinary names. |
@@ -660,6 +660,6 @@ cd plugins/grain && node --test tests/integration-stress.test.mjs
 ```
 
 `--yg <path>` (or `YG_BIN`) points at a built Yggdrasil `bin.js`; the default is
-`/home/user/Yggdrasil/source/cli/dist/bin.js`. Stages are deleted after each repository unless `--keep-stages`.
+`<yggdrasil>/source/cli/dist/bin.js`. Stages are deleted after each repository unless `--keep-stages`.
 Every proposal, `proposal.json`, `sizing.json` and drill corpus stays under `<out>/proposals/<repo>/`.
 

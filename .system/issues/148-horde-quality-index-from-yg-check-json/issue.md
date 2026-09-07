@@ -3,7 +3,7 @@
 **Status:** LANDED — merged 461d006
 **Found by:** director, 2026-09-06 (follow-up of 138 and 147)
 **Severity:** medium
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push · after 135 landed
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push · after 135 landed
 **Rulings:** `layered-family` · mission §6 E14
 **Class:** sonnet
 

@@ -233,7 +233,7 @@ Per stage, byte-identical against the pre-split baseline:
 
 - the full proposal tree, `proposal.json`, `sizing.json`, `PROPOSAL.md`, `alternatives.md`,
   `REFACTOR-BACKLOG.md` and the quiet report from
-  `node tests/stress/propose.mjs /home/user/Yggdrasil <out> --export <cached export>` (445 files);
+  `node tests/stress/propose.mjs <yggdrasil> <out> --export <cached export>` (445 files);
 - `grain propose` with `--json` on a frozen clone of this repository — frozen deliberately, because
   the corpus of a proposal run on the live worktree is the very code the stage is changing;
 - `grain export --json` on three corpora after wiping `.grain/` (a reused index would make the gate a

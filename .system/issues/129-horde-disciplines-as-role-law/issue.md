@@ -3,9 +3,9 @@
 **Status:** LANDED — merged 286e437 on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** high
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push
 **Rulings:** `disciplines-are-rules`, `production-is-the-corpus` · mission §6 E9
-**Source to model on:** `/tmp/claude-0/-home-user/75008b68-28bc-527f-bdc4-99a93951f2fc/scratchpad/superpowers` (obra/superpowers v6.3.0, MIT). Read: `skills/test-driven-development/` (SKILL.md, writing-good-tests.md), `skills/systematic-debugging/` (SKILL.md, root-cause-tracing.md, condition-based-waiting.md, test-pressure-*.md), `skills/verification-before-completion/`, `skills/requesting-code-review/` + `code-reviewer.md`, `skills/receiving-code-review/`, `skills/brainstorming/SKILL.md` + `spec-document-reviewer-prompt.md`, `skills/writing-skills/` (SKILL.md, testing-skills-with-subagents.md).
+**Source to model on:** `<scratchpad>/superpowers` (obra/superpowers v6.3.0, MIT). Read: `skills/test-driven-development/` (SKILL.md, writing-good-tests.md), `skills/systematic-debugging/` (SKILL.md, root-cause-tracing.md, condition-based-waiting.md, test-pressure-*.md), `skills/verification-before-completion/`, `skills/requesting-code-review/` + `code-reviewer.md`, `skills/receiving-code-review/`, `skills/brainstorming/SKILL.md` + `spec-document-reviewer-prompt.md`, `skills/writing-skills/` (SKILL.md, testing-skills-with-subagents.md).
 **Class:** opus
 
 ## Why

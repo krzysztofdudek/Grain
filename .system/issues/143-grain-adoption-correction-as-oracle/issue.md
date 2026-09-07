@@ -3,7 +3,7 @@
 **Status:** LANDED — merged 1856d72
 **Found by:** director, 2026-09-06
 **Severity:** medium
-**Repo:** /home/user/Grain · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
+**Repo:** <grain> · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
 **Rulings:** `production-is-the-corpus`, `examples-are-not-oracles` (an accepted graph is an oracle by the same definition the four existing ones use) · mission §6 E19
 **Class:** opus
 

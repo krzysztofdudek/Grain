@@ -54,7 +54,7 @@ connection every graph states loudest, and calling it a hidden edge would inflat
 ## 2. The four oracles, at the shipped gate
 
 Three committed hand graphs under `plugins/grain/tests/stress/oracles/` against the corpus clones, and the
-Yggdrasil repository against its own live `.yggdrasil/` (a clone of `/home/user/Yggdrasil`, indexed with full
+Yggdrasil repository against its own live `.yggdrasil/` (a clone of `<yggdrasil>`, indexed with full
 history). Every number below is `grain advise --json`'s own `survey` block on that run.
 
 | oracle | HEAD | nodes owning files | pairs emitted | declared | undeclared | concentration | control | splits |
@@ -195,7 +195,7 @@ everywhere would be saying nothing. Both answers are pinned by tests (`tests/adv
 
 ```
 git clone <corpus>/express W/express                 # and spring-petclinic; the Grain repo and a clone of
-                                                     # /home/user/Yggdrasil are the other two
+                                                     # <yggdrasil> are the other two
 cd W/express && grain refresh --full                 # full history: the co-change side needs it
 grain advise --json --graph <grain>/plugins/grain/tests/stress/oracles/express
 ```

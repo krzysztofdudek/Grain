@@ -17,12 +17,12 @@ contract") i kazał zapisać pierwszą taką wyrocznię z repozytorium Yggdrasil
 
 | co | polecenie |
 |---|---|
-| klon | `git clone --no-hardlinks /home/user/Yggdrasil <scratch>/clones/yggdrasil` (HEAD `3a351e16`, 1570 commitów, 3056 plików) |
-| propozycja | `YG_BIN=/home/user/Yggdrasil/source/cli/dist/bin.js node plugins/grain/bin/grain.mjs propose <scratch>/ygg-proposal --repo <klon>` |
+| klon | `git clone --no-hardlinks <yggdrasil> <scratch>/clones/yggdrasil` (HEAD `3a351e16`, 1570 commitów, 3056 plików) |
+| propozycja | `YG_BIN=<yggdrasil>/source/cli/dist/bin.js node plugins/grain/bin/grain.mjs propose <scratch>/ygg-proposal --repo <klon>` |
 | zapis wyroczni | `node plugins/grain/bin/grain.mjs oracle record --repo <klon> --proposal <scratch>/ygg-proposal --name yggdrasil --out plugins/grain/tests/stress/oracles --yes` |
 | pomiar | `node plugins/grain/bin/grain.mjs oracle score yggdrasil` |
 
-Nic nie zostało zapisane do `/home/user/Yggdrasil`: klon jest w scratchu, propozycja w scratchu, rekord w tym
+Nic nie zostało zapisane do `<yggdrasil>`: klon jest w scratchu, propozycja w scratchu, rekord w tym
 repozytorium. Propozycja biegła z prawdziwym binarium Yggdrasila, więc reguły przechodziły prawdziwy `yg drill`
 (44 zweryfikowane, 7 `enforced`, 12 `advisory`, 791 przypadków drilla).
 

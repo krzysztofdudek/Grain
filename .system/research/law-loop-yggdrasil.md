@@ -34,7 +34,7 @@ keeping, and it is not nothing: the hold-out machinery, the provenance record, a
 `plugins/grain/tests/law-loop.test.mjs` (14 tests, on a real synthetic git repository with a planted rule and a
 real cut). It reuses `propose.mjs` (094) for the renderer and the lattice, and `reconstruct.mjs` (093) for graph
 reading, `when`/`mapping` expansion and the aspect-literal matcher. **Zero changes under `plugins/grain/engine/`.**
-`/home/user/Yggdrasil` was read-only throughout: every clone, stage, corpus and `.grain/` cache was written under
+`<yggdrasil>` was read-only throughout: every clone, stage, corpus and `.grain/` cache was written under
 a scratch directory, and the repository ends the run with `git status --short` empty and no `.grain/`.
 
 **The cut.** `2591a3ad` (2026-06-19) — **commit 1094 of 1564** in chronological order, 69.9% of history.

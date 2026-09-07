@@ -385,8 +385,8 @@ contracts.
 0.4.0. The interfaces are stable — the export schema established at 0.1.0 is unbroken, and every new convention
 family added since flows through the same generic per-fact serialization, never a hand-listed schema addition — but
 the objective changed under it: `grain propose` and the brownfield-miner numbers in this file are new since
-2026-09-05; 0.4.0 is the first build that ships them (`grain propose`, the proposal contract, the type levels, the JVM source-root relations, and `grain advise` over a graph that already exists). The agent-facing surface (`where`, `check`, `how`, the hooks)
-is the earlier objective, unchanged in behaviour, kept because it still works and nothing here has replaced it.
+2026-09-05; 0.4.0, released 2026-09-07, is the first build that ships them (`grain propose`, the proposal contract, the type levels, the JVM source-root relations, `grain advise` over a graph that already exists, and `grain oracle` for turning an adopter's accepted graph into a scored reference). Grain is the second layer of a three-layer family: it needs Yggdrasil and writes only what Yggdrasil reads; [Horde](https://github.com/krzysztofdudek/Horde) sits above both and uses Grain when it is installed. The agent-facing surface (`where`, `check`, `how`, the hooks)
+is the earlier objective, unchanged in behaviour, kept because it still works and nothing here has replaced it. Experimental: the numbers in this file and in [docs/results.md](docs/results.md) are the whole claim.
 
 ## The Yggdrasil family
 

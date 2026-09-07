@@ -3,7 +3,7 @@
 **Status:** LANDED — committed b36f24e3, pushed
 **Found by:** director, 2026-09-06 (from ticket 138's report: `yg check --json` does not exist, so Horde's wave close parses the text output of `check` and `aspects`)
 **Severity:** medium
-**Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · same worker as 130–133, after 133 and before 144
+**Repo:** <yggdrasil> · branch `claude/grain-agent-tool-b89y0x` · same worker as 130–133, after 133 and before 144
 **Rulings:** `layered-family` (a lower layer's text output parsed by a higher layer is the exact fragility the mission removes)
 **Class:** opus
 

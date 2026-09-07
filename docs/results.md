@@ -7,8 +7,11 @@ for a repository that has none, for a maintainer adopting [Yggdrasil](https://gi
 not for an agent mid-edit. The section below is that objective's complete record, 093–107, every negative kept in.
 The section after it is the earlier record, kept because the agent-facing surface it measured still exists and
 still works — it is the second story now, not the first. The 093–107 measurements were made on the 0.3.0 build and the wave-9 ones
-(108–119) on the code that became 0.4.0 — the internal research documents under `.system/research/` name the exact
-commit each ran against, and nothing in them was edited to match a release.
+(108–119) on the code that became 0.4.0; waves 10 and 11 (120–148) landed in 0.4.0 as released on 2026-09-07, with
+`grain advise` measured over four graphs and shipped as data rather than advice, the scope co-change budget cut over
+two populations with no consumer's precision moving, and the first adopter-recorded oracle — the internal research
+documents under `.system/research/` name the exact commit each ran against, and nothing in them was edited to match a
+release.
 
 ## Brownfield-miner results (093–107), the current objective
 

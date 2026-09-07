@@ -3,7 +3,7 @@
 **Status:** LANDED — merged fc73b16
 **Found by:** director, 2026-09-06
 **Severity:** high
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
 **Rulings:** `horde-requires-yggdrasil`, `port-is-contract`, `verifier-is-yggdrasil-reviewer`, `layered-family` · after 130, 132, 133 (Yggdrasil) and 127 landed · mission §1–§3, §6 E10
 **Class:** opus
 
@@ -38,7 +38,7 @@ documents (`yg-node/1`, `yg-context/1`, `yg-impact/1`), and writes to it only th
    commands from 133 so the verifier judges them under its own name; the graph item is ✓ only when a full `yg
    check` is green on the branch (deterministic + recorded prose verdicts).
 5. Tests rewritten for the one mode (real temp repos with a real `.yggdrasil/` created by the real `yg` build at
-   `/home/user/Yggdrasil/source/cli/dist/bin.js`; the suite already does this for premerge's graph item); E10;
+   `<yggdrasil>/source/cli/dist/bin.js`; the suite already does this for premerge's graph item); E10;
    `scripts/README.md`, topology.md, model.md, role briefs, README, CHANGELOG `[Unreleased]` in adopter
    language (Horde now needs Yggdrasil and creates the graph when missing; contracts live in the graph as
    ports).

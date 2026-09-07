@@ -3,7 +3,7 @@
 **Status:** LANDED — committed 3a351e16 on Yggdrasil feature branch, pushed
 **Found by:** director, 2026-09-06
 **Severity:** high
-**Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · work directly on the branch (single worker), commit, do not push
+**Repo:** <yggdrasil> · branch `claude/grain-agent-tool-b89y0x` · work directly on the branch (single worker), commit, do not push
 **Rulings:** `layered-family`, `port-is-contract` · mission `.system/research/mission-one-system.md` (in Grain) §3 for the exact shapes, §6 E1
 **Class:** opus · the same worker continues with 132 and 133 in sequence
 

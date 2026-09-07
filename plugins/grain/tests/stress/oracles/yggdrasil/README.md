@@ -6,7 +6,7 @@ a graph a maintainer of that repository decided to live with, which grain did no
 
 | | |
 |---|---|
-| **Target** | `/home/user/Yggdrasil` |
+| **Target** | `<yggdrasil>` |
 | **Revision** | `3a351e16dc693fa2db3ae9fd86472520f555b510` |
 | **Tracked files** | 3056 |
 | **Recorded** | 2026-09-06T17:35:25.106Z by grain 0.4.0 |

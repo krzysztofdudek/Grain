@@ -3,7 +3,7 @@
 **Status:** LANDED — merged 179fde7
 **Found by:** director, 2026-09-06 (from escalation 23, ticket 131)
 **Severity:** medium
-**Repo:** /home/user/Grain · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
+**Repo:** <grain> · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
 **Rulings:** escalation 23 (approved as a structural fix), escalation 22 (refused: no new floor), `quality-always-authorised`
 **Class:** opus
 

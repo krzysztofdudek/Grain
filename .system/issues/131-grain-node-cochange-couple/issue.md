@@ -3,7 +3,7 @@
 **Status:** LANDED — merged 786f161
 **Found by:** director, 2026-09-06
 **Severity:** medium
-**Repo:** /home/user/Grain · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push
+**Repo:** <grain> · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push
 **Rulings:** `layered-family` (Grain writes only Yggdrasil-shaped objects), `production-is-the-corpus`, and the standing Grain rulings (`where-cochange-promotion` memo: file-level co-change with one-way confidence surfaces the hottest file and was rejected; `examples-are-not-oracles`; `precision-holds-recall-tracks-imports`) · mission `.system/research/mission-one-system.md` §3 (`grain-advice/1` shape), §6 E4
 **Class:** opus
 
@@ -28,7 +28,7 @@ So: build the instrument, measure, and ship only what the numbers allow.
      `propose-levels.mjs`), as `candidates[]`.
    - `rule` and `port` kinds are reserved; do not fabricate them.
 2. **Measure** on the four oracles (`plugins/grain/tests/stress/oracles/{grain,spring-petclinic,express}` and
-   the Yggdrasil repo at `/home/user/Yggdrasil`, clones under the scratchpad `clones/` as the reconstruct test
+   the Yggdrasil repo at `<yggdrasil>`, clones under the scratchpad `clones/` as the reconstruct test
    uses them): for each, the pairs emitted, how many are declared vs undeclared, the concentration (share of
    pairs touching the single hottest node), and a control (declared rate among random node pairs). Verdict per
    the standing rulings: if the instrument mostly names the hottest node, it ships as `--json`-only data with a

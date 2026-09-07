@@ -3,7 +3,7 @@
 **Status:** LANDED — merged 25ca1e2 on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** high
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · work in a worktree, do not push
 **Rulings:** `port-is-contract`, `evidence-is-the-plan`, `layered-family` · mission `.system/research/mission-one-system.md` §3 (`yg-impact/1` shape, ticket fields), §6 E6 E7
 **Class:** opus
 

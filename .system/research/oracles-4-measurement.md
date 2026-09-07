@@ -27,11 +27,11 @@ wyniku. W jedną stronę raport jest listą błędów Graina; w drugą — list�
 | cykle wyroczni | kopia repo + `.yggdrasil/` wyroczni w korzeniu, `git init`, `node $YG_BIN advise` |
 | walidacja propozycji | kopia repo bez `.git/.grain/.yggdrasil` + `prop-<n>/.yggdrasil` w korzeniu, `git init`, `yg check --summary`, `yg check --approve --only-deterministic` |
 
-`YG_BIN=/home/user/Yggdrasil/source/cli/dist/bin.js` (Yggdrasil 5.8.0). Żaden klon korpusu nie został zmieniony:
+`YG_BIN=<yggdrasil>/source/cli/dist/bin.js` (Yggdrasil 5.8.0). Żaden klon korpusu nie został zmieniony:
 wszystko biegło na kopiach pod scratch. Grain na sobie samym mierzony jest na **klonie w scratch wymeldowanym na
 `3d249bf`** — commicie, przeciw któremu pisano wyrocznię — a nie w worktree (worktree ma dziś 1888 plików, w tym
 408 plików samych wyroczni, których żaden typ wyroczni nie klasyfikuje). Nic nie zostało zapisane do
-`/home/user/Yggdrasil`.
+`<yggdrasil>`.
 
 Czasy: eksport petclinic 106 s, grain 235 s, express 242 s, Yggdrasil 63 s (z ciepłym cache);
 instrument rekonstrukcji 0.2–2.7 s; `propose` 7 / 9 / 26 / 77 s.

@@ -3,7 +3,7 @@
 **Status:** LANDED — merged 744689c
 **Found by:** director, 2026-09-06
 **Severity:** high
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
 **Rulings:** `quality-always-authorised`, `escalations-become-rules`, `production-is-the-corpus` · after 131 (Grain) and 135 landed · mission §1 mandate, §6 E17
 **Class:** opus
 

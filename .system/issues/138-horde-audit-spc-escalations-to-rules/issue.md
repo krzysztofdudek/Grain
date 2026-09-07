@@ -3,7 +3,7 @@
 **Status:** LANDED — merged 94c4328
 **Found by:** director, 2026-09-06
 **Severity:** medium
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
 **Rulings:** `audit-is-spc`, `escalations-become-rules`, `quality-always-authorised` · after 137 landed (and 135 for the quality index through `yg`) · mission §6 E14
 **Class:** opus
 

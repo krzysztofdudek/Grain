@@ -1,7 +1,7 @@
 # Sense iteration: can wording alone make a proposed rule a rule?
 
 Ticket 109. Renderer: `plugins/grain/engine/propose.mjs`. Instrument: `plugins/grain/tests/stress/propose.mjs`.
-Yggdrasil CLI `/home/user/Yggdrasil/source/cli/dist/bin.js` (read-only checkout). Corpus: the same pinned
+Yggdrasil CLI `<yggdrasil>/source/cli/dist/bin.js` (read-only checkout). Corpus: the same pinned
 clones ticket 101 used. Every number below comes from a run.
 
 The maintainer's question, in their words: *rules that FUTURE agent sessions cannot argue with — the finer and

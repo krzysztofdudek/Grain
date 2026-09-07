@@ -10,7 +10,7 @@ wykonał, poszły przez ścieżkę deterministyczną (`0 reviewer calls` w każd
 nigdy nie opuściło `draft`.
 
 Scena: `/tmp/.../scratchpad/w112/petclinic` (kopia `cp -r` klonu). Yggdrasil 5.8.0 z
-`/home/user/Yggdrasil/source/cli/dist/bin.js`. Java okazała się wystarczająca — nie było potrzeby schodzić do
+`<yggdrasil>/source/cli/dist/bin.js`. Java okazała się wystarczająca — nie było potrzeby schodzić do
 `express`.
 
 ---
@@ -18,7 +18,7 @@ Scena: `/tmp/.../scratchpad/w112/petclinic` (kopia `cp -r` klonu). Yggdrasil 5.8
 ## 1. Grain: co propose napisał
 
 ```
-YG_BIN=/home/user/Yggdrasil/source/cli/dist/bin.js \
+YG_BIN=<yggdrasil>/source/cli/dist/bin.js \
   node <worktree>/plugins/grain/bin/grain.mjs propose
 ```
 

@@ -3,7 +3,7 @@
 **Status:** LANDED — committed 4bc0173f on Yggdrasil feature branch, pushed
 **Found by:** director, 2026-09-06
 **Severity:** high
-**Repo:** /home/user/Yggdrasil · branch `claude/grain-agent-tool-b89y0x` · same worker as 130/132, after 132 lands
+**Repo:** <yggdrasil> · branch `claude/grain-agent-tool-b89y0x` · same worker as 130/132, after 132 lands
 **Rulings:** `verifier-is-yggdrasil-reviewer`, `layered-family` · mission §6 E3
 **Class:** opus
 

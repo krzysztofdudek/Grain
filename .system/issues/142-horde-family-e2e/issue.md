@@ -3,15 +3,15 @@
 **Status:** LANDED — merged on Horde feature branch
 **Found by:** director, 2026-09-06
 **Severity:** high
-**Repo:** /home/user/horde · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
+**Repo:** <horde> · branch `claude/grain-agent-tool-b89y0x` · worktree, do not push
 **Rulings:** `layered-family` · after 135 landed · mission §6 E18
 **Class:** opus
 
 ## What
 
 `skills/horde/scripts/tests/family.e2e.test.mjs`, skipped with a printed reason only when the two builds are
-absent (`YG_BIN`, default `/home/user/Yggdrasil/source/cli/dist/bin.js`; `GRAIN_BIN`, default the Grain
-engine's dispatcher at `/home/user/Grain/plugins/grain/engine/grain.mjs`) — never skipped silently:
+absent (`YG_BIN`, default `<yggdrasil>/source/cli/dist/bin.js`; `GRAIN_BIN`, default the Grain
+engine's dispatcher at `<grain>/plugins/grain/engine/grain.mjs`) — never skipped silently:
 
 1. A small real repository is created in a temp dir with a commit history (a handful of source files in two
    directories, tests, a few commits touching them so Grain has evidence).
