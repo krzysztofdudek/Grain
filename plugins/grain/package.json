@@ -2,7 +2,7 @@
   "name": "grain-engine",
   "version": "0.4.0",
   "private": true,
-  "description": "grain — ask a repository about its own conventions before writing code.",
+  "description": "grain — mine an architecture graph out of a repository that has none, from its own code and history.",
   "type": "module",
   "license": "MIT",
   "engines": {

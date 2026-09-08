@@ -92,18 +92,20 @@ The complete measurement record behind every number above, negatives included, i
 
 ## Grain, Yggdrasil, Horde
 
-Three jobs, three tools, one family, each installed on its own: [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)
+Three jobs, three tools, one family, in layers: [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)
 **enforces** — it is what reads `.yggdrasil/` and fails a build when code violates it. Grain (this one) **mines** —
 it produces the graph Yggdrasil enforces, from evidence, for a repository that does not have one yet. [Horde](https://github.com/krzysztofdudek/Horde)
 **executes** — it is what raises more than one agent against an architecture graph and holds every one of them to
-it. None of the three assumes the others are installed, and they talk to each other through versioned files on
-disk rather than a shared codebase: a `grain propose` output is a `.yggdrasil/` tree Yggdrasil loads directly; each
-proposed node gets its own `charter.md` (what lives there, what it depends on and is used by, its certified
-conventions with their share and exemplars, its co-change partners) written for a human or for Horde's own tooling
-to read, not for Grain itself; and grain's role groups are also emitted as Yggdrasil's own `.family-candidates.json`
-shape, so `yg advise` can nominate families mined by Grain with no code change on Yggdrasil's side at all — verified
-against a planted fixture where all 5 real families were nominated 5 of 5. Install whichever tools a repository
-needs, in whichever order adopting them makes sense.
+it. They stack rather than stand apart: Grain writes only what Yggdrasil reads, and Horde needs Yggdrasil and
+uses Grain when it is installed. Each layer works without the ones above it, and none of them knows the ones above
+exist. They talk to each other through versioned files on disk rather than a shared codebase: a `grain propose`
+output is a `.yggdrasil/` tree Yggdrasil loads directly; each proposed node gets its own `charter.md` (what lives
+there, what it depends on and is used by, its certified conventions with their share and exemplars, its co-change
+partners) written for a human or for Horde's own tooling to read, not for Grain itself; and grain's role groups are
+also emitted as Yggdrasil's own `.family-candidates.json` shape, so `yg advise` can nominate families mined by Grain
+with no code change on Yggdrasil's side at all — verified against a planted fixture where all 5 real families were
+nominated 5 of 5. Adopt them from the bottom up: Yggdrasil first, then Grain if the repository has no graph yet,
+then Horde when one agent is no longer enough.
 
 ## Install
 
@@ -114,7 +116,7 @@ Claude Code:
 
 ```
 /plugin marketplace add krzysztofdudek/Grain
-/plugin install grain@grain
+/plugin install grain@grain-marketplace
 ```
 
 That gives you:
@@ -133,9 +135,14 @@ That gives you:
   `where`/`check`/`status`/`report` as JSON-RPC tools over stdio — see
   [docs/reference.md](docs/reference.md#mcp-server).
 
-Update with `claude plugin update grain@grain` and restart the session to apply. Codex CLI, Cursor and GitHub Copilot
-CLI are packaged from the same plugin directory but have not been smoke-tested against a live install; treat those
-three as unverified.
+Update with `claude plugin update grain@grain-marketplace` and restart the session to apply.
+
+GitHub Copilot CLI reads the same repository as a marketplace: `copilot plugin marketplace add krzysztofdudek/Grain`,
+then `copilot plugin install grain@grain-marketplace`; upgrade with `copilot plugin update grain`. Codex CLI:
+`codex plugin marketplace add krzysztofdudek/Grain`, then `codex plugin install grain@grain-marketplace`; upgrade with
+`codex plugin marketplace upgrade grain-marketplace`. Cursor auto-discovers the plugin from the manifest at the
+repository root: `git clone https://github.com/krzysztofdudek/Grain.git` and
+`ln -s "$(pwd)/Grain" ~/.cursor/plugins/local/grain`, then **Developer: Reload Window**.
 
 For a human at a terminal, from any repository:
 
@@ -144,7 +151,10 @@ node /path/to/Grain/plugins/grain/bin/grain.mjs report
 node /path/to/Grain/plugins/grain/bin/grain.mjs where "background job"
 ```
 
-The first query builds the index under `<repo>/.grain/cache/` (gitignored; `.grain/.gitignore` is created for you):
+The first query builds the index under `<repo>/.grain/cache/` (gitignored; `.grain/.gitignore` is created for you).
+That `.gitignore` is meant to be committed: it ignores only `cache/`, so `.grain/seeds.jsonl` and
+`.grain/decisions.jsonl` — the maintainer's own decisions — stay in version control. In a repository that runs
+Yggdrasil, add `.grain/` to the graph's excluded roots so the store is never counted as uncovered code:
 full git history once, incremental afterwards. Delete the cache any time; the next query rebuilds the same bytes.
 
 ## What it costs you
@@ -390,17 +400,16 @@ is the earlier objective, unchanged in behaviour, kept because it still works an
 
 ## The Yggdrasil family
 
-Four tools, one thesis: **make an AI coding agent prove correctness, stage by stage.** Because "done" isn't done. Each is a checkpoint at a different point in the pipeline, where the agent has to show its work before it continues.
+Four tools, one thesis: **make an AI coding agent prove correctness, stage by stage.** Because "done" isn't done. Each of the first four is a checkpoint at a different point in the pipeline, where the agent has to show its work before it continues.
 
 | Tool | Stage | What it makes the agent prove |
 |---|---|---|
 | **[Ratatoskr](https://github.com/krzysztofdudek/RatatoskrSkill)** | request → intent | Keeps the agent talking to you in plain words, not code, so you can follow what it's doing. |
-| **[Urd](https://github.com/krzysztofdudek/UrdSkill)** | intent → code | When the spec is ambiguous, it consults the source of truth and asks — it doesn't guess. |
+| **[Urd](https://github.com/krzysztofdudek/UrdSkill)** | intent → code | When the spec is ambiguous, it consults the source of truth and asks, it doesn't guess. |
 | **[Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)** | code → architecture | Every change satisfies the rules that govern it, checked before the agent moves on. |
-| **[Researcher](https://github.com/krzysztofdudek/ResearcherSkill)** | code → measured result | Point it at a metric and it runs experiments — hypotheses kept and discarded. |
+| **[Researcher](https://github.com/krzysztofdudek/ResearcherSkill)** | code → measured result | Point it at a metric and it runs experiments, hypotheses kept and discarded. |
 
-Two more sit alongside the chain rather than inside it. **[Horde](https://github.com/krzysztofdudek/Horde)** doesn't own a stage — it's what you add when a mission needs more than one agent to move through all four at once, holding every agent it raises to the same standards. **Grain** (this one) reads the conventions a codebase actually practices instead of the ones someone declared — the same seam as Yggdrasil from the other side, and the reason this repository exists.
-
+Two more sit alongside the chain rather than inside it, and they stack. **Grain** (this one) reads a codebase's own code and history and writes the first architecture graph for it, then keeps telling Yggdrasil where practice has drifted from what the graph declares; it needs Yggdrasil and nothing else. **[Horde](https://github.com/krzysztofdudek/Horde)** sits on top of both: it needs Yggdrasil, uses Grain when it is installed, and is what you add when a mission needs more than one agent to move through all four stages at once, holding every agent it raises to the same standards. Each layer works without the ones above it, and none of them knows the ones above exist.
 ## Developing
 
 ```
@@ -429,3 +438,9 @@ The engine is derived from the roots prototype in [Yggdrasil](https://github.com
 licensed, and carries that licence forward. Grain has no runtime dependency on Yggdrasil.
 
 MIT.
+
+---
+
+<div align="center">
+  <img src="yggdrasil.svg" alt="Yggdrasil" width="150" />
+</div>
