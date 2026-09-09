@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 - The marketplace is named `grain-marketplace`, like every sibling in the family: `/plugin install grain@grain-marketplace`. GitHub Copilot CLI, Codex CLI and Cursor install from the same repository; the README carries each path.
 - `.grain/.gitignore` is documented as a committed file that ignores only the cache, so the maintainer's own decisions under `.grain/` stay in version control, with the one setting that keeps the store out of a Yggdrasil graph's uncovered-file count.
+- When this project, Yggdrasil, and Horde are changed together for one release, the checks that prove grain's proposals work with both now compare the shared branch across all three instead of each sibling's own main line.
+
+### Fixed
+- The checks that prove grain's proposals work with Yggdrasil and Horde now install Yggdrasil the same way you would on your own machine, not a local build standing in for it. A broken install now fails on its own, instead of surfacing as a mistake inside Horde.
 
 ## [0.4.0] - 2026-09-07
 

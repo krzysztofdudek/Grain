@@ -43,15 +43,33 @@ jobs:
         uses: actions/checkout@v4
         with:
           path: grain
+      # Yggdrasil and Horde default to their own main below. When this workflow run is itself on a
+      # branch that also exists in each sibling — the three repos moving together for a joint
+      # release — the seam should compare that branch against itself in all three, not silently
+      # fall back to main in the two it does not own.
+      - name: resolve sibling branches
+        id: sibling-branches
+        run: |
+          branch="${{ github.head_ref || github.ref_name }}"
+          for repo in Yggdrasil Horde; do
+            slug=$(echo "$repo" | tr '[:upper:]' '[:lower:]')
+            if git ls-remote --exit-code --heads "https://github.com/krzysztofdudek/${repo}.git" "$branch" >/dev/null 2>&1; then
+              echo "${slug}-ref=${branch}" >> "$GITHUB_OUTPUT"
+            else
+              echo "${slug}-ref=main" >> "$GITHUB_OUTPUT"
+            fi
+          done
       - name: checkout Yggdrasil
         uses: actions/checkout@v4
         with:
           repository: krzysztofdudek/Yggdrasil
+          ref: ${{ steps.sibling-branches.outputs.yggdrasil-ref }}
           path: yggdrasil
       - name: checkout Horde
         uses: actions/checkout@v4
         with:
           repository: krzysztofdudek/Horde
+          ref: ${{ steps.sibling-branches.outputs.horde-ref }}
           path: horde
       # The two repositories the in-tree hand oracles under tests/stress/oracles/ describe. Pinned to the exact
       # commits those oracles were written against — the oracle asserts file counts and mappings, so a moving
@@ -82,6 +100,16 @@ jobs:
         run: |
           npm install
           npm run build
+      # The seam is "a real adopter's yg on PATH", not the built file directly — link it exactly
+      # the way `npm i -g @chrisdudek/yg` would, so Horde's scripts (which shell out to the bare
+      # `yg` command by default) find it like they would on a real machine.
+      - name: link Yggdrasil's CLI onto PATH
+        working-directory: yggdrasil/source/cli
+        run: npm link
+      # A missing link fails three steps down, inside the seam test's own output, where it reads
+      # as a Horde bug instead of what it is — surface it here instead.
+      - name: verify yg resolves on PATH
+        run: which yg
       - name: run seam tests
         working-directory: grain/plugins/grain
         env:

@@ -229,11 +229,10 @@ test('charter.md parses under Horde\'s node.mjs show', {
   skip: !HAVE_YG ? YG_SKIP : !HAVE_HORDE ? HORDE_SKIP : false,
 }, () => {
   assert.ok(!yggProposeError, yggProposeError);
-  // Horde's own state, stapled onto the same staged repo: `nodeSource: yggdrasil` points `node.mjs` at
-  // `.yggdrasil/model/**` for node discovery (no writes of its own — see node.mjs's header), and at least one
-  // horde must exist under `.horde/hordes/` for `resolveHorde` to pick a default.
+  // Horde's own state, stapled onto the same staged repo: at least one horde must exist under
+  // `.horde/hordes/` for `resolveHorde` to pick a default.
   mkdirSync(join(yggStage, '.horde', 'hordes', 'seam'), { recursive: true });
-  writeFileSync(join(yggStage, '.horde', 'config.json'), JSON.stringify({ nodeSource: 'yggdrasil' }, null, 1));
+  writeFileSync(join(yggStage, '.horde', 'config.json'), JSON.stringify({}, null, 1));
   const graph = readGraph(yggProposalOut);
   const node = graph.nodes.find(n => Array.isArray(n.mapping) && n.mapping.length) || graph.nodes[0];
   assert.ok(node, 'the rendered proposal has no nodes to show');
