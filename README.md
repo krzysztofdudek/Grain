@@ -19,6 +19,12 @@ adopting Yggdrasil on a codebase nobody has annotated, refactoring against a gra
 orienting in an unfamiliar tree, or planning a wave of agent work against a real map instead of none. The
 agent-facing questions Grain has always answered — where does this belong, does my change conform — still work
 exactly as before and are documented further down; they are the second thing this tool is for now, not the first.
+Yggdrasil is the core the family runs on, not an add-on Grain happens to write files for — the law a repository
+is actually held to lives there, and Grain exists only to get a first honest draft of that law onto disk faster
+than writing it by hand. That draft needs history to mine: a repository with no commits yet has no grain to read
+and no law to extract from it (Grain's own repository earns zero rules enforced from its own `propose`, for the
+same reason — see "What it can deduce, and what it can't" below), so that repository's entry point is Yggdrasil
+directly, with law written from requirements instead of mined from practice that does not exist yet.
 
 ## From clone to graph
 

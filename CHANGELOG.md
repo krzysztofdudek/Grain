@@ -14,6 +14,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `grain propose` no longer writes a `charter.md` beside every proposed component. What it used to open with, what the component owns, is now the component's own description. Everything else it used to carry, conventions with examples and co-change partners, is a live answer from `grain explain`, `grain where` and `grain completeness` instead of a file that goes stale the moment the graph changes. If you used to read a component's `charter.md` by hand, its description is where that fact lives now.
 - `grain advise`'s count of places a finer cut would help now says how many of those it could not read at all, instead of folding that reason silently into the same number as the places it could read but found too coarse anyway.
 - `grain propose` now writes graphs in the 6.0.0 format. Loading one needs Yggdrasil 6.0.0 or newer.
+- The start of a session in a repository that already has an architecture graph now says so and points at `yg prime`, and names how to install `yg` when it isn't on your PATH.
+- `grain propose`'s report now names how many of its rules look ready to earn enforcement once Yggdrasil is installed, on a run with no Yggdrasil CLI to check them itself.
+- The start of a session now warns when the repository's index is sparse, instead of leaving that only in one summary number.
+- A `boundary` decision recorded with `grain decide boundary` now appears in what `grain propose` writes — as a forbidden dependency in the proposed graph — not only in `grain seed list`.
 
 ### Fixed
 - The checks that prove grain's proposals work with Yggdrasil and Horde now install Yggdrasil the same way you would on your own machine, not a local build standing in for it. A broken install now fails on its own, instead of surfacing as a mistake inside Horde.

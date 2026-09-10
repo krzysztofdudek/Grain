@@ -22,9 +22,9 @@ import { cutDrills } from './propose-drills.mjs';
 import { partitionLattice, subGate } from './propose-lattice.mjs';
 import { countBy, levelSentence, localities } from './propose-levels.mjs';
 import { renderAlternativesMd, renderBacklogMd, renderProposalMd } from './propose-markdown.mjs';
-import { buildNodes, buildRelations, nestedProjectRoots } from './propose-nodes.mjs';
+import { buildMaintainerDenies, buildNodes, buildRelations, nestedProjectRoots } from './propose-nodes.mjs';
 import { computeSizing } from './propose-sizing.mjs';
-import { aspectYamlDoc, promoteEnforceableAspects } from './propose-status.mjs';
+import { aspectYamlDoc, certifiedWithCasesCount, promoteEnforceableAspects } from './propose-status.mjs';
 import { buildTypes } from './propose-types.mjs';
 
 // The inputs: the tracked files, the export (reused when the caller already has one, spawned otherwise), the
@@ -51,8 +51,26 @@ function loadInputs(repo, opts) {
   const ctx = { root: repo, pathCache: new Map(), contentCache: new Map(), headCache: new Map(), unknownWhenKeys: new Set(), parsed: new Set(cache?.filesAll || []) };
   return { files, exp, cache, ctx, degraded };
 }
+// Ticket 028: `.grain/seeds.jsonl` (maintainer decisions) is read once already, at learn/export time
+// (`readSeeds`, grain-context.mjs), and that reader SKIPS an unparsable line with a log line rather than a
+// refusal — the right default for every other command, which must keep answering on a model that is mostly
+// fine. `propose` is different: it is about to render a decision into `.yggdrasil/`, and a decision it could
+// not even parse is a maintainer input the renderer would otherwise act as if it never existed, silently. So
+// `propose` alone re-reads the file itself, before anything else runs, and refuses by line number instead of
+// letting the silent skip upstream stand in for a decision that never made it into `exp.boundaries` at all.
+function validateSeedsFile(repo) {
+  const p = join(repo, '.grain', 'seeds.jsonl');
+  if (!existsSync(p)) return;
+  const lines = readFileSync(p, 'utf8').split('\n');
+  lines.forEach((line, i) => {
+    const t = line.trim();
+    if (!t || t.startsWith('#')) return;
+    try { JSON.parse(t); }
+    catch { throw new Error(`.grain/seeds.jsonl:${i + 1}: not valid JSON — refusing to propose rather than silently dropping a maintainer decision`); }
+  });
+}
 // `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
-function writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, progressive }) {
+function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive }) {
   // yg-config.yaml — require nothing. A proposal that turns every unmapped file into a blocking error on day one
   // is a proposal nobody runs twice; `getting-started` §4 says require-nothing is the brownfield default.
   //
@@ -86,7 +104,12 @@ function writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, 
   };
   for (const a of active) {
     const targets = uniq([...(rels.uses.get(a.id) || new Map()).keys()]).sort();
-    const deny = rels.denies.find(d => d.fromType === a.id);
+    // Ticket 028: a maintainer `boundary` decision (`.grain/seeds.jsonl`) is looked up SECOND, after a mined
+    // established negative — `.find()` returns at most one, so a type that already earned a mined deny keeps
+    // that evidence rather than being silently re-attributed to a decision that agrees with it. With no
+    // boundary decisions, `maintainerDenies` is `[]` and `.find()` on it is always `undefined` — this line
+    // then behaves exactly as it did before ticket 028, byte for byte.
+    const deny = rels.denies.find(d => d.fromType === a.id) || maintainerDenies.find(d => d.fromType === a.id);
     // WHAT THE PREDICATE ACTUALLY SELECTS, said as a match and a miss rather than as a coefficient (ticket
     // 109). The same three numbers as before — selected, overlap, total — plus the Jaccard the earlier line
     // led with, kept at the tail and named, because `J=0.62` is not a fact a maintainer can act on and
@@ -105,9 +128,17 @@ function writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, 
     // declared a relation to (`relation-undeclared-dependency`, always an error). So where this renderer
     // writes a `uses:` list, the description says what the list MEANS for an agent about to add an import,
     // instead of naming the miner's cut it came from.
+    // Ticket 028: when the deny came from a maintainer `boundary` decision rather than a mined established
+    // negative, the provenance is said HERE too, in the type's own `description` — not only in the evidence[]
+    // row below — because "maintainer decision `<id>` `<date>`" is the one sentence naming WHO forbade this
+    // dependency and WHEN, and `yg-architecture.yaml` is what a reader opens first. A reader following `#e`
+    // into `proposal.json`'s evidence[] finds the same id and date again, never a different story.
+    const denyProvenance = deny?.origin === 'maintainer-decision'
+      ? ` (maintainer decision \`${deny.decisionId}\` ${deny.decisionAt}${deny.decisionNote ? ` — ${deny.decisionNote}` : ''})`
+      : '';
     const mayUse = targets.length
-      ? ` Code of this type may depend on ${targets.map(t => `\`${t}\``).join(', ')}${deny ? ' and on nothing else' : ''} — \`yg check\` refuses a dependency on any other node until the architecture declares it.`
-      : deny ? ' This type declares no outgoing dependency, and none is allowed — `yg check` refuses the first one until the architecture declares it.' : '';
+      ? ` Code of this type may depend on ${targets.map(t => `\`${t}\``).join(', ')}${deny ? ' and on nothing else' : ''} — \`yg check\` refuses a dependency on any other node until the architecture declares it.${denyProvenance}`
+      : deny ? ` This type declares no outgoing dependency, and none is allowed — \`yg check\` refuses the first one until the architecture declares it.${denyProvenance}` : '';
     nodeTypes[a.id] = {
       '#e': ev('type', a.id, line, { level: a.source, levels: a.levels || [a.source], dir: a.dir, evidenceFiles: a.files.size, selects: a.selected.size, fidelity: +a.fidelity.toFixed(3), intrinsic: a.evidence || null }),
       description: `${a.dir ? `Put a file under \`${a.dir}/\`` : 'Put a file at the repository root itself'} only if it belongs to this type: a file placed there is classified here with no further step, and every rule attached to this type applies to it from that moment.${mayUse || (a.aspectIds?.length ? '' : ' No rule and no relation are attached to this type yet, so today it constrains nothing — it is where they will attach.')}`,
@@ -128,7 +159,9 @@ function writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, 
       ...(a.aspectIds?.length ? { aspects: [...a.aspectIds] } : {}),
     };
     if (targets.length) ev('relations', a.id, `${targets.length} allowed \`uses\` targets, aggregated from ${[...(rels.uses.get(a.id) || new Map()).values()].reduce((x, y) => x + y, 0)} resolved imports out of files of this type`);
-    if (deny) ev('deny', a.id, `established negative: \`${deny.from}\` does not reach \`${deny.to}\` (share ${deny.share.toFixed(3)}, ${deny.ne}/${deny.neff} scopes, ${deny.bits.toFixed(1)} bits) AND this type has no resolved outgoing import at all, so the deny contradicts nothing observed`);
+    if (deny && deny.origin === 'maintainer-decision')
+      ev('deny', a.id, `maintainer decision \`${deny.decisionId}\` ${deny.decisionAt}: \`${deny.from}\` never imports \`${deny.to}\`${deny.decisionNote ? ` — ${deny.decisionNote}` : ''}`, { origin: 'maintainer-decision', decisionId: deny.decisionId, decisionAt: deny.decisionAt });
+    else if (deny) ev('deny', a.id, `established negative: \`${deny.from}\` does not reach \`${deny.to}\` (share ${deny.share.toFixed(3)}, ${deny.ne}/${deny.neff} scopes, ${deny.bits.toFixed(1)} bits) AND this type has no resolved outgoing import at all, so the deny contradicts nothing observed`);
   }
   write(join(ygg, 'yg-architecture.yaml'), preambleComment() + yamlEmit({ node_types: nodeTypes }));
 }
@@ -206,6 +239,7 @@ function writeAspectFiles(ygg, repo, aspects, opts, ev) {
   return { drillCases, drillDropped };
 }
 export async function propose(repo, outDir, opts = {}) {
+  validateSeedsFile(repo);
   const { files, exp, cache, ctx, degraded } = loadInputs(repo, opts);
   if (degraded) say(opts, `WARNING: ${degraded}`);
 
@@ -239,7 +273,14 @@ export async function propose(repo, outDir, opts = {}) {
   // The branch a change is measured against, derived from this repository (ticket 118) — read once here so the
   // config, the report and `--json` all name the same reference and cannot disagree about it.
   const progressive = progressiveReference(repo);
-  writeArchitecture(ygg, { active, alternatives, nodes, rels, files, ev, progressive });
+  // Ticket 028: maintainer `boundary` decisions (`.grain/seeds.jsonl`, already resolved against the current
+  // tree by `applyBoundaries`/`decisions.mjs` into `exp.boundaries` — `fromLive`/`toLive` say whether either
+  // side still has a tracked file at all) rendered alongside the mined established negatives above. A boundary
+  // grain cannot attach to any proposed type — its directory not in the model, or not a type's own directory —
+  // is disclosed in evidence[] rather than silently dropped or crashing the run.
+  const { denies: maintainerDenies, skipped: skippedBoundaries } = buildMaintainerDenies(exp, active);
+  for (const b of skippedBoundaries) ev('boundary-skipped', b.id, `maintainer decision \`${b.id}\` (\`${b.boundary.from}/\` never imports \`${b.boundary.to}/\`) was not rendered as a deny: ${b.why}`);
+  writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive });
 
   // EVERY CANDIDATE THIS RUN DID NOT ACTIVATE, IN THE AUDIT TRAIL (ticket 110). The active types have carried an
   // `evidence` row since 094; the alternatives were on disk in `alternatives.md` and nowhere in the machine
@@ -299,6 +340,10 @@ export async function propose(repo, outDir, opts = {}) {
     aspectsDraft: aspects.filter(a => a.finalStatus === 'draft').length,
     aspectsByDraftReason,
     aspectsVerified: verify.verified, aspectsVerifiedAgainst: verify.haveYg ? verify.ygBin : null,
+    // ticket 028, additive: computable without a drill (see `certifiedWithCasesCount`'s own comment) — how
+    // many deterministic aspects grain is confident enough in, and has cases written for, to be worth drilling
+    // once a real Yggdrasil CLI is available. Named for what it IS, not for what a drill would find.
+    aspectsCertifiedWithCases: certifiedWithCasesCount(aspects),
     aspectsSkippedUnrenderableGroupScoped: skipped.unrenderableGroupScoped, aspectsSkippedNotARule: skipped.notARule,
     // ticket 120, additive: WHY a row was skipped as not-a-rule (`parser-node-type-as-identifier` |
     // `generic-type-parameter-as-domain-type`), same shape as `proseByClass` beside it.

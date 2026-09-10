@@ -29,6 +29,40 @@ export function buildRelations(exp, typeOfFile, active) {
 }
 
 // ==================================================================================================
+// 5-bis. Maintainer `boundary` decisions (ticket 028), rendered as denies alongside the mined ones above.
+//
+// A `boundary` decision (`grain decide boundary <fromDir> --never-imports <toDir>`, `.grain/seeds.jsonl`) IS
+// already a directional forbiddance — the record itself, `{from, to}` — so rendering it costs nothing invented:
+// unlike a `steer` decision (see the note at this function's call site in propose-write.mjs), there is no rule
+// text to make up. `steer` stays Grain-only for exactly that reason; only `boundary` reaches this file.
+//
+// Resolution follows the SAME rule `buildRelations` above uses for a mined established negative — `dirOfType`
+// keyed by a type's OWN directory, exact match only — so a boundary and a mined negative on the same pair
+// attach to the identical type the identical way, and `writeArchitecture`'s `default: deny` lookup does not
+// need to know which of the two produced the entry it found.
+export function buildMaintainerDenies(exp, active) {
+  const dirOfType = new Map(active.filter(a => a.dir).map(a => [a.dir, a.id]));
+  const denies = [], skipped = [];
+  const seen = new Set(); // (fromType|to): a second decision on the identical pair adds no second deny
+  for (const b of exp.boundaries || []) {
+    if (!b.fromLive || !b.toLive) {
+      skipped.push({ id: b.id, boundary: b.boundary, why: `\`${!b.fromLive ? b.boundary.from : b.boundary.to}\` has no tracked file in this repository` });
+      continue;
+    }
+    const fromType = dirOfType.get(b.boundary.from);
+    if (!fromType) {
+      skipped.push({ id: b.id, boundary: b.boundary, why: `\`${b.boundary.from}\` is not a proposed type's own directory, so there is nothing to attach a deny to` });
+      continue;
+    }
+    const key = `${fromType}|${b.boundary.to}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    denies.push({ from: b.boundary.from, to: b.boundary.to, fromType, toType: dirOfType.get(b.boundary.to) || null, origin: 'maintainer-decision', decisionId: b.id, decisionAt: b.createdAt, decisionNote: b.note || '' });
+  }
+  return { denies, skipped };
+}
+
+// ==================================================================================================
 // 6. Nodes — the COARSE cut, deliberately.
 //
 // 093 §3: the pattern repo's hand graph has 250 nodes that map exactly ONE file. Imitating that would be

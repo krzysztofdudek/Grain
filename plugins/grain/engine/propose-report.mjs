@@ -100,7 +100,7 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     progressive: { reference: prog.reference || null, why: prog.why || null },
     // `advisory` (ticket 107, additive) is also the count of `candidates` rows that carry `status: advisory` —
     // both numbers are given so a reader does not have to filter `candidates` to get the split.
-    aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason },
+    aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason, certifiedWithCases: c.aspectsCertifiedWithCases },
     enforced: enforced.map(aspectJson),
     candidates: candidates.map(aspectJson),
     alternatives: c.alternatives,
@@ -128,6 +128,14 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
   if (!r.verify?.haveYg) {
     L.push(`enforced: 0 of ${c.aspects} aspects — no Yggdrasil CLI was found, so no rule was drilled and NOTHING here is enforced (set YG_BIN to a built bin.js, or put \`yg\` on PATH, then run this again)`);
     L.push(`candidates: 0 of ${c.aspects} — a candidate is an advisory or draft aspect a real drill caught a violation with, and no drill ran`);
+    // The companion to the two lines above (ticket 028): NOT a prediction that a drill would pass — only that
+    // grain is confident enough in these to have written them a drill corpus already (see
+    // `certifiedWithCasesCount`). Silent at 0, same as on Grain's own repository, where `propose` earns 0
+    // enforced rules from itself (README, "What it can deduce, and what it can't") — a sentence that always
+    // fires would misname this repository's own case as having something to install Yggdrasil for.
+    if (c.aspectsCertifiedWithCases > 0) {
+      L.push(`  ${c.aspectsCertifiedWithCases} certified convention(s) with cases already look worth drilling once Yggdrasil is installed: \`npm i -g @chrisdudek/yg\`, then \`grain propose\` again so a real drill can vouch for them, then \`yg adopt ${out}\``);
+    }
   } else {
     L.push(`enforced: ${enforced.length} of ${c.aspects} aspects earned \`status: enforced\` from a real drill of ${r.verify.verified} deterministic check(s) — a certified-convention origin required, not just a passing drill (${r.verify.ygBin})`);
     // A line only when it happened: a drill that never returned would otherwise leave its aspect in the draft
