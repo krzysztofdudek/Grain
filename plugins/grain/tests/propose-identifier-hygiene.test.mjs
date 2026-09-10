@@ -8,7 +8,7 @@
 // like a node type (`identifier`, exactly the ticket's own example); (2) a real generic identity function's
 // return type is genuinely `T`. Classes 3 and 4 are exercised at the `buildAspects` unit level, the same
 // precedented pattern `propose.test.mjs` already uses for the renderer's own classification logic (a role
-// group's content predicate, a node's charter) — engineering a REAL repository whose mining naturally produces
+// group's content predicate, a node's own description) — engineering a REAL repository whose mining naturally produces
 // a role-group cluster of a chosen, exact size relative to its host directory is not reproducible without
 // reaching into the same MDL machinery the unit test exists to keep decoupled from.
 import { test, before, after } from 'node:test';
@@ -177,7 +177,7 @@ test('class 2: a generic type parameter read as a domain type is dropped (`retur
 
 // ==================================================================================================
 // Class 2, at the `buildAspects` unit level (same precedent as `propose.test.mjs`'s content-predicate and
-// node-charter tests). Ticket 123 / issue 125: the name-shape guess (a bare uppercase letter, `T<Word>`, tested
+// node-description tests). Ticket 123 / issue 125: the name-shape guess (a bare uppercase letter, `T<Word>`, tested
 // against a GLOBAL census of declared type names) is gone. The test is now exact and PER ROW — its own host
 // site's `tparams` (or, for a member with none of its own, its owner's, via `own`) — so shape carries no weight
 // at all any more: a single uppercase letter that is nobody's declared type parameter keeps its rule, and a

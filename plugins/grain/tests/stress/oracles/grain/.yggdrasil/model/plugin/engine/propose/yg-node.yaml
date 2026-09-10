@@ -7,9 +7,9 @@ description: >-
   rule nothing can be shown to violate stays a draft. What it prints back is deliberately short;
   everything it drafted but did not certify stays on disk behind a flag.
 
-  Seventeen files since ticket 124, not one: `propose.mjs` is a facade of `export … from` lines, one per
-  seam the single file already had, and sixteen siblings carry the work. One owner, one charter, one
-  context; the split moved statements between files and changed none of them.
+  Sixteen files since ticket 124, not one: `propose.mjs` is a facade of `export … from` lines, one per
+  seam the single file already had, and fifteen siblings carry the work. One owner, one context; the
+  split moved statements between files and changed none of them.
 relations:
   - target: plugin/engine/core
     type: calls
@@ -32,7 +32,6 @@ mapping:
   - plugins/grain/engine/propose-aspects.mjs
   - plugins/grain/engine/propose-status.mjs
   - plugins/grain/engine/propose-family.mjs
-  - plugins/grain/engine/propose-charters.mjs
   - plugins/grain/engine/propose-markdown.mjs
   - plugins/grain/engine/propose-report.mjs
   - plugins/grain/engine/propose-write.mjs

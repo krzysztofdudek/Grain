@@ -40,16 +40,16 @@ import {
   MIN_GROUP_MEMBERS, MIN_WHEN_FIDELITY, MIN_CONVENTION_SITES, FAMILY_MIN_MEMBERS, SUBGATE_PER_PARTITION,
   slug, yq, yamlEmit, localities, contentRegexFor, caseTolerant, buildTypes, buildRelations, buildNodes,
   nestedProjectRoots, nodePathFor, partitionLattice, subGate, identifierOf, shapeToRegex, renderCheck,
-  renderableDirection, computeSizing, buildAspects, provenanceFor, buildFamilyCandidates, nodeCochangePairs,
-  renderNodeCharter, cutDrills, resolveYg, proposeReport, describeRow, progressiveReference,
+  renderableDirection, computeSizing, buildAspects, provenanceFor, buildFamilyCandidates,
+  nodeDescription, cutDrills, resolveYg, proposeReport, describeRow, progressiveReference,
 } from '../../engine/propose.mjs';
 export {
   PREAMBLE, RENDERABLE, WHY_PROSE, SUPERMAJORITY, LAMBDA_BOUND, MIN_SUPPORT, MIN_PROMOTE_FILES,
   MIN_GROUP_MEMBERS, MIN_WHEN_FIDELITY, MIN_CONVENTION_SITES, FAMILY_MIN_MEMBERS, SUBGATE_PER_PARTITION,
   slug, yq, yamlEmit, localities, contentRegexFor, caseTolerant, buildTypes, buildRelations, buildNodes,
   nestedProjectRoots, nodePathFor, partitionLattice, subGate, identifierOf, shapeToRegex, renderCheck,
-  renderableDirection, computeSizing, buildAspects, provenanceFor, buildFamilyCandidates, nodeCochangePairs,
-  renderNodeCharter, cutDrills, resolveYg, proposeReport, describeRow, progressiveReference,
+  renderableDirection, computeSizing, buildAspects, provenanceFor, buildFamilyCandidates,
+  nodeDescription, cutDrills, resolveYg, proposeReport, describeRow, progressiveReference,
 };
 
 // Where the built Yggdrasil CLI lives for a MEASUREMENT run on this machine — the same path

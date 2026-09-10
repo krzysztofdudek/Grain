@@ -122,29 +122,3 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
   return { v: 1, ts: asOf, families: fitted, _fit: dropped };
 }
 
-// ==================================================================================================
-// 7c. `charter.md` — one per proposed node, beside `yg-node.yaml` (ticket 100, addendum on
-// `two-granularities-rules-fine-nodes-ownership-sized`). Horde's `node.mjs show` reads this file VERBATIM from
-// `.yggdrasil/model/<node>/charter.md` — no schema of its own, so this is written the way a `where` card reads
-// a directory to a human: what lives here, depends on / used by, certified conventions with their evidence,
-// exemplars to copy, co-change partners, sizing, and the sha it is all measured as of. Every line carries a
-// number or a path; a section with nothing to report says so rather than being omitted, so an owner reading it
-// cold knows the difference between "nothing found" and "not measured".
-// ==================================================================================================
-// Node-level co-change: `exp.cochange` pairs FILES; a node's own partners are the pairs whose two files land in
-// two DIFFERENT nodes, aggregated by summing `support` over every such pair — the same aggregation `whereCmd`'s
-// directory-level `cochangePartners` does at file granularity, done here at node granularity instead because a
-// charter is read by the node's OWNER, who thinks in nodes, not files.
-export function nodeCochangePairs(exp, nodeOfFile, top = 5) {
-  const agg = new Map();
-  const add = (x, y, support) => { const m = agg.get(x) || agg.set(x, new Map()).get(x); m.set(y, (m.get(y) || 0) + support); };
-  for (const p of exp.cochange || []) {
-    const a = nodeOfFile.get(p.a), b = nodeOfFile.get(p.b);
-    if (!a || !b || a === b) continue;
-    add(a, b, p.support || 0);
-    add(b, a, p.support || 0);
-  }
-  const out = new Map();
-  for (const [id, m] of agg) out.set(id, [...m].sort((x, y) => y[1] - x[1]).slice(0, top).map(([partner, support]) => ({ partner, support })));
-  return out;
-}

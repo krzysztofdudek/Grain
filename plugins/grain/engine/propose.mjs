@@ -95,7 +95,7 @@ export { RENDERABLE, isAbsenceRow, renderableDirection, WHY_PROSE } from './prop
 // proposal writer · sizing.json — what the graph costs to review
 export { computeSizing } from './propose-sizing.mjs';
 // proposal writer · the render pipeline: read the model, write the staging tree
-export { propose } from './propose-write.mjs';
+export { propose, nodeDescription } from './propose-write.mjs';
 // proposal writer · the obligation form and the aspect drafts
 export {
   unitOne,
@@ -111,10 +111,8 @@ export {
   DRILL_TIMEOUT_MS,
   promoteEnforceableAspects,
 } from './propose-status.mjs';
-// proposal writer · the family-without-law adapter and node co-change
-export { buildFamilyCandidates, nodeCochangePairs } from './propose-family.mjs';
-// proposal writer · charter.md, one per proposed node
-export { effectiveAspectsForNode, renderNodeCharter } from './propose-charters.mjs';
+// proposal writer · the family-without-law adapter
+export { buildFamilyCandidates } from './propose-family.mjs';
 // proposal writer · the drill corpora and the aspect bodies they accompany
 export { cutDrills } from './propose-drills.mjs';
 // proposal writer · what `grain propose` prints, and what --json writes

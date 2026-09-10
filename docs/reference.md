@@ -386,7 +386,7 @@ at the top level; `existingViolations` per aspect) — see "The proposal contrac
 The same renderer is also driven by the measurement instrument `node tests/stress/propose.mjs <repo> <out-dir>`,
 which adds `--score <repo>` (compare against a hand-written graph, both directions) and `--family-candidates
 <out.json>`. The instrument and the command write byte-identical trees — the renderer lives behind the
-`plugins/grain/engine/propose.mjs` facade, in the sixteen `engine/propose-*.mjs` modules it re-exports, and
+`plugins/grain/engine/propose.mjs` facade, in the fifteen `engine/propose-*.mjs` modules it re-exports, and
 neither surface has a rendering path of its own.
 
 **What the command prints** is deliberately short (ruling `propose-default-is-quiet`), and every line of it
@@ -420,9 +420,10 @@ produced from a worktree walk, but that set is weaker (with no git there is no `
 build output is in it): the report opens with a warning naming git's own failure, and `--json` carries the same
 text as `degraded`. A directory with no git at all is the documented case and carries no warning. **The schema is a published,
 versioned interface exactly like `grain-export/1` above**: Yggdrasil's own `yg check`/`yg drill`/`yg advise`
-read the `.yggdrasil/` tree this renderer writes, and Horde's `node.mjs show` reads `charter.md` from it — a
-shape change here is a breaking change for both neighbours, made deliberately and versioned, never as a side
-effect of a refactor. **Fields are added freely without bumping the schema number**; only a change to an
+read the `.yggdrasil/` tree this renderer writes, and Horde reads that same tree only through those Yggdrasil
+commands (`yg node --json`, `yg context`) — a shape change here is a breaking change for both neighbours, made
+deliberately and versioned, never as a side effect of a refactor. **Fields are added freely without bumping the
+schema number**; only a change to an
 EXISTING field's shape needs `grain-proposal/2` (has not happened yet). 094/097/098's existing output is
 untouched by this contract — nothing already there was renamed or removed to make room for it.
 
@@ -430,8 +431,8 @@ untouched by this contract — nothing already there was renamed or removed to m
 evidence`. `schema`/`engine`/`extractor` mirror `grain-export/1`'s own fields (the same `ENGINE_VERSION`/
 `EXTR_V` constants) — a proposal names the engine build that produced it without a consumer re-deriving that
 from the export it was rendered from. `instrument: "propose/1"`, `repo` and `asOf` are 094's original fields,
-unchanged. `evidence[]` is the full audit trail: one row per emitted element (`kind`: `type` | `relations` |
-`deny` | `node` | `charter` | `aspect`), `id` naming the element, `evidence` the exact prose a human reads on
+unchanged. `evidence[]` is the full audit trail: one row per emitted element (`kind`: `type` | `alternative` |
+`relations` | `deny` | `node` | `aspect`), `id` naming the element, `evidence` the exact prose a human reads on
 the file itself, plus `kind`-specific structured detail (an `aspect` row carries `enumerator`/`identifier`/
 `expected`/`host`, plus — ticket 102, three-way since 107 — `status` (`enforced` | `advisory` | `draft`) and
 `draftReason`, see below). `schemaNotes` explains each field the way `grain-export/1`'s own does — read it there
@@ -632,21 +633,16 @@ is set independently of drill results — a symbol-scoped check can still earn `
 back clean; the flag explains WHY a FALSE-ALARM would happen here if one ever does, it does not by itself demote
 anything.
 
-**Per-node `charter.md`** — `.yggdrasil/model/<node>/charter.md`, beside `yg-node.yaml`, one per proposed node
-(including organizational ones). Rendered the way a `where` card reads a directory to a human: what lives here
-(files, extensions, nested groups, and why they were grouped), what this node may depend on (its declared
-relations with resolved-import counts, and what `yg check` does about an undeclared one — the built-in
-relation-conformance check refuses a node that depends on a node it has not declared a relation to), certified
-conventions (share, n conforming/deviating, exemplars to copy — `path:line`), sub-gate
-candidates (evidence below the certification bound, not yet law), co-change partners (aggregated from `.grain`'s
-own file-level co-change up to node granularity), sizing (the node's own row from `sizing.json`), and the `asOf`
-sha. Every line carries a number or a path; a section with nothing to report says so rather than being omitted.
-Horde's `node.mjs show <node>` reads this file verbatim — no schema of its own beyond "a markdown file at that
-path".
+**No per-node `charter.md` (ticket 026).** A proposal used to write one beside every `yg-node.yaml`; what it
+carried is not lost, it moved. What lives here (files, extensions, nested groups, and why they were grouped) is
+the node's own `description` field now, written in `yg-node.yaml` itself and read back with `yg node --json`.
+Everything else a charter used to carry — certified conventions with their exemplars, sub-gate candidates,
+co-change partners — was always a static rendering of something the graph itself already answers: `grain
+explain <file>`, `grain where` and `grain completeness` answer it live, against the graph as it stands today
+rather than as it stood the moment `grain propose` ran.
 
 **`sizing.json`** (ticket 098) is unchanged by this contract — see its own header comment in
-`plugins/grain/engine/propose-sizing.mjs` for the field-by-field explanation; every `charter.md` quotes its own node's row from
-it rather than duplicating the numbers.
+`plugins/grain/engine/propose-sizing.mjs` for the field-by-field explanation.
 
 **The `.family-candidates.json` adapter** — the instrument's `--family-candidates <out.json>` writes a SEPARATE file
 (not part of `proposal.json`) in the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,

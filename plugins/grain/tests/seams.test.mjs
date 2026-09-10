@@ -1,5 +1,5 @@
 // Seam tests (ticket 100) — the family's contracts, driven through the NEIGHBOUR PROJECTS' OWN real binaries,
-// never a re-implementation of either. Three seams, three tests:
+// never a re-implementation of either. Four seams:
 //
 //   1. YGGDRASIL LOADS THE PROPOSAL, DRILLS IT CLEAN, AND ADVISES THE FAMILY. A real Yggdrasil checkout is
 //      staged into a disposable temp copy (git-tracked files only, never the shared checkout itself — see
@@ -12,9 +12,14 @@
 //      (`tests/fixtures/family-planted-mono`, `-polyglot`) whose whole point is a known-exact answer: one
 //      structurally-uniform cluster with no rule of its own, surrounded by decoys that must NOT cluster.
 //      `buildFamilyCandidates` is run directly against them (no `yg` needed) and checked against that answer.
-//   3. HORDE READS THE CHARTER. A real Horde checkout's `node.mjs show <node>` is run against the SAME staged
-//      Yggdrasil repo from seam 1 (its `.horde/` wiring stapled on) and must print the rendered charter.md back
-//      verbatim under a `## Charter` heading.
+//   3. THE PROPOSAL CONTRACT WITHOUT A CHARTER (ticket 026). `yg node <path> --json`, run by the real Yggdrasil
+//      CLI against the SAME staged repo from seam 1, returns the `description` grain wrote into `yg-node.yaml`
+//      — and no `charter.md` exists anywhere under the tree grain rendered. This is Yggdrasil-only: reading the
+//      node through `yg node --json` is exactly what sidesteps the coupling to Horde a charter.md used to need.
+//   4. GRAIN'S OWN ADVICE PARSES UNDER HORDE. A real `grain advise --json` run against the SAME staged (now
+//      adopted-equivalent) repo is handed to a real Horde checkout's `queue.mjs quality --from` — proving the
+//      `grain-advice/1` document this repo writes is the one document Horde's quality pass reads, never a
+//      re-implementation of the schema on either side.
 //
 // Every seam skips itself, with a stated reason, when its neighbour binary/checkout is not present — never a
 // silent pass and never a hard failure of the whole suite. Point `YG_BIN` at Yggdrasil's built `bin.js` (its
@@ -35,6 +40,7 @@ import { readGraph } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROPOSE = join(here, 'stress', 'propose.mjs');
+const GRAIN_BIN = join(here, '..', 'bin', 'grain.mjs');
 
 const YG_BIN = process.env.YG_BIN || '/home/user/Yggdrasil/source/cli/dist/bin.js';
 // `YG_BIN` is `<repo>/source/cli/dist/bin.js` — the checkout root is three directories up. `YGG_DIR` overrides
@@ -45,6 +51,7 @@ const YG_SKIP = `Yggdrasil binary/checkout not found (looked for ${YG_BIN} and a
 
 const HORDE_DIR = process.env.HORDE_DIR || '/home/user/krzysztofdudek/horde';
 const NODE_MJS = join(HORDE_DIR, 'skills', 'horde', 'scripts', 'node.mjs');
+const QUEUE_MJS = join(HORDE_DIR, 'skills', 'horde', 'scripts', 'queue.mjs');
 const HAVE_HORDE = existsSync(NODE_MJS);
 const HORDE_SKIP = `Horde checkout not found (looked for ${NODE_MJS} — set HORDE_DIR)`;
 
@@ -221,27 +228,73 @@ test('the adapter emits exactly the planted family on family-planted-mono, and n
 });
 
 // ============================================================================================================
-// Seam 3 — Horde's `node.mjs show <node>` reads the rendered `charter.md` verbatim from
-// `.yggdrasil/model/<node>/charter.md`, on the SAME staged Yggdrasil repo seam 1 already built (a real
-// git repo is required — `node.mjs`'s `repoRoot()` runs `git rev-parse --show-toplevel`).
+// Seam 3 — the proposal contract without a charter (ticket 026). `yg node <path> --json`, the real Yggdrasil
+// CLI, reads the rendered `.yggdrasil/` tree from the SAME staged repo seam 1 already built, and its
+// `description` is the fact a `charter.md` used to open with. No `charter.md` exists anywhere under the tree
+// this run wrote — asserted recursively, not on one node, since a stub check on the node happened to look at
+// is exactly the kind of regression a wipe elsewhere in the tree would hide.
 // ============================================================================================================
-test('charter.md parses under Horde\'s node.mjs show', {
-  skip: !HAVE_YG ? YG_SKIP : !HAVE_HORDE ? HORDE_SKIP : false,
-}, () => {
+test('yg node <path> --json returns Grain\'s own description, and the proposal has no charter.md anywhere', { skip: HAVE_YG ? false : YG_SKIP }, () => {
   assert.ok(!yggProposeError, yggProposeError);
-  // Horde's own state, stapled onto the same staged repo: at least one horde must exist under
-  // `.horde/hordes/` for `resolveHorde` to pick a default.
-  mkdirSync(join(yggStage, '.horde', 'hordes', 'seam'), { recursive: true });
-  writeFileSync(join(yggStage, '.horde', 'config.json'), JSON.stringify({}, null, 1));
   const graph = readGraph(yggProposalOut);
   const node = graph.nodes.find(n => Array.isArray(n.mapping) && n.mapping.length) || graph.nodes[0];
   assert.ok(node, 'the rendered proposal has no nodes to show');
-  const r = spawnSync('node', [NODE_MJS, 'show', node.id], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 24 });
+  const r = spawnSync('node', [YG_BIN, 'node', node.id, '--json'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 24 });
   const text = (r.stdout || '') + (r.stderr || '');
-  assert.equal(r.status, 0, `node.mjs show ${node.id} exited ${r.status}:\n${text.slice(0, 2000)}`);
-  assert.match(text, /## Charter/, `node.mjs show did not print a Charter section:\n${text.slice(0, 2000)}`);
-  const charterOnDisk = readFileSync(join(yggProposalOut, '.yggdrasil', 'model', node.id, 'charter.md'), 'utf8');
-  const firstContentLine = charterOnDisk.split('\n').find(l => l.startsWith('# Charter'));
-  assert.ok(firstContentLine && text.includes(firstContentLine), `node.mjs show's output did not carry the charter's own heading ("${firstContentLine}"):\n${text.slice(0, 2000)}`);
-  console.log(`[seams] node.mjs show ${node.id}: charter.md (${charterOnDisk.split('\n').length} lines) read back verbatim`);
+  assert.equal(r.status, 0, `yg node ${node.id} --json exited ${r.status}:\n${text.slice(0, 2000)}`);
+  const doc = JSON.parse(r.stdout);
+  assert.equal(doc.description, node.description, `yg node --json's description does not match what grain wrote into ${node.id}'s yg-node.yaml`);
+  assert.ok(doc.description && doc.description.length, 'the description read back is empty');
+
+  const charterFiles = [];
+  const walk = d => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p); else if (e.name === 'charter.md') charterFiles.push(p);
+    }
+  };
+  walk(join(yggProposalOut, '.yggdrasil'));
+  assert.deepEqual(charterFiles, [], `a charter.md is still written: ${charterFiles.join(', ')}`);
+  console.log(`[seams] yg node ${node.id} --json: description read back verbatim, no charter.md under .yggdrasil/`);
+});
+
+// ============================================================================================================
+// Seam 4 — grain's own advice parses under Horde. A real `grain advise --json` run against the SAME staged
+// (now adopted-equivalent) repo is handed to a real Horde checkout's `queue.mjs quality --from` — the path
+// `readAdvice`/`parseAdvice` (Horde's `skills/horde/scripts/queue.mjs`) read a `grain-advice/1` document
+// through, whether Horde calls Grain itself (`grainCommand`) or is handed a file grain already wrote. `--from`
+// exercises the file path directly so this seam does not also need a `grainCommand` wired into `.horde/config.json`.
+// `--dry-run --all` keeps the run to parsing and matching: no ticket, no queue, no roster file is needed for the
+// document to prove it is the schema Horde expects.
+// ============================================================================================================
+test('grain advise --json parses under Horde\'s queue.mjs quality', {
+  skip: !HAVE_YG ? YG_SKIP : !HAVE_HORDE ? HORDE_SKIP : false,
+}, () => {
+  assert.ok(!yggProposeError, yggProposeError);
+  // Horde's own state, stapled onto the same staged repo: at least one horde must exist under `.horde/hordes/`
+  // for `resolveHorde` to pick a default, and `config.json` carries only the keys Horde actually reads for this
+  // command (`ygCommand`, so `nodeExists` can resolve `yg node --json`; `base`/`gates` alongside it for a
+  // realistic config, not because this command reads them) — not `nodeSource`, which nothing in Horde reads at
+  // all (audit 2026-09-09).
+  mkdirSync(join(yggStage, '.horde', 'hordes', 'seam'), { recursive: true });
+  writeFileSync(join(yggStage, '.horde', 'config.json'), JSON.stringify({
+    base: 'main', gates: { commit: '', team: '', trunk: '' }, ygCommand: `node ${YG_BIN}`,
+  }, null, 1));
+
+  const advicePath = join(tmp, 'grain-advice.json');
+  const g = spawnSync('node', [GRAIN_BIN, 'advise', '--json'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 26 });
+  assert.equal(g.status, 0, `grain advise --json exited ${g.status}:\n${(g.stdout || '') + (g.stderr || '')}`);
+  writeFileSync(advicePath, g.stdout);
+  const advice = JSON.parse(g.stdout);
+  assert.equal(advice.schema, 'grain-advice/1');
+
+  const r = spawnSync('node', [QUEUE_MJS, 'quality', '--from', advicePath, '--dry-run', '--all', '--json'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 24 });
+  const text = (r.stdout || '') + (r.stderr || '');
+  assert.equal(r.status, 0, `queue.mjs quality --from exited ${r.status}:\n${text.slice(0, 2000)}`);
+  assert.doesNotMatch(text, /does not hold a grain-advice\/1 document/, `Horde refused grain's own document:\n${text.slice(0, 2000)}`);
+  const doc = JSON.parse(r.stdout);
+  assert.equal(doc.ran, true);
+  assert.equal(doc.source, advicePath);
+  assert.ok(Array.isArray(doc.filed) && Array.isArray(doc.skipped), `unexpected shape: ${text.slice(0, 500)}`);
+  console.log(`[seams] queue.mjs quality --from: ${advice.items.length} advice item(s), ${doc.filed.length} would be filed, ${doc.skipped.length} skipped`);
 });

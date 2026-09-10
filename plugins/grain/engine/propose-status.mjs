@@ -87,7 +87,7 @@ export function aspectYamlDoc(a, status) {
 // ==================================================================================================
 // 7a-continued. Aspect status, earned rather than declared (ticket 102, sharpened by ticket 107's ruling
 // `enforced-requires-certified-origin`). Sits right after `provenanceFor` (§7a) rather than claiming its own
-// top-level number — §7b/§7c below (the family-candidates adapter, `charter.md`) are ticket 100's, unrenumbered.
+// top-level number — §7b below (the family-candidates adapter) is ticket 100's, unrenumbered.
 //
 // `status: draft` is where every aspect starts (§ above). `a.finalStatus` below is written directly in
 // Yggdrasil's own vocabulary (`enforced` | `advisory` | `draft` — `yg schemas read aspect`), not a separate

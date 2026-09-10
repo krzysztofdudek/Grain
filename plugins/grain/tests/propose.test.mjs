@@ -25,7 +25,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, 
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, renderNodeCharter, describeRow, progressiveReference, proposeReport, scoreProposal } from './stress/propose.mjs';
+import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, nodeDescription, describeRow, progressiveReference, proposeReport, scoreProposal } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -557,24 +557,30 @@ test('the YAML emitter quotes what YAML would otherwise re-read as something els
   assert.deepEqual(parseYaml(yamlEmit(doc)), doc);
 });
 
-// ---------- 13. the node charter names the rules that govern the node (dry run 112) ----------
+// ---------- 13. a node's description carries what a charter's first paragraph used to (ticket 026) ----------
 //
-// `charter.md` is the ONE file Horde's `node.mjs show` reads out of a proposal, so a charter that
-// cannot name a rule leaves the layer above the graph with no rule at all. The aspect's `host` is a
-// TYPE id (`src-api`); a node's `id` is a PATH (`src/api`) and its `type` is the type id — matching
-// the host against the id instead of the type silently emptied every charter on a repository whose
-// directories are not already slugs.
-test('a node charter lists the certified conventions and sub-gate candidates hosted by its own TYPE', () => {
-  const node = { id: 'src/api', type: 'src-api', dir: 'src/api', files: new Set(['src/api/a.ts']), ownFiles: new Set(['src/api/a.ts']), relations: [], why: 'a partition' };
-  const aspects = [
-    { id: 'grain/src-api/partition-nameshape', host: 'src-api', origin: 'certified-convention', name: 'types here are named PascalCase', share: 1, n: 25, deviating: 0, exemplars: [] },
-    { id: 'grain/src-api/candidate-auto-imp-x', host: 'src-api', origin: 'sub-gate-lattice', name: 'files here import `x`', share: 0.8, n: 24, deviating: 6, exemplars: [] },
-    { id: 'grain/other/unrelated', host: 'src-util', origin: 'certified-convention', name: 'not this node', share: 1, n: 5, deviating: 0, exemplars: [] },
-  ];
-  const md = renderNodeCharter(node, { nodes: [node], aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: '/tmp/x' });
-  assert.match(md, /types here are named PascalCase/, 'the certified convention hosted by this node\'s type is missing from its charter');
-  assert.match(md, /files here import `x`/, 'the sub-gate candidate hosted by this node\'s type is missing from its charter');
-  assert.doesNotMatch(md, /not this node/, 'a rule hosted by another type must not appear');
+// `grain propose` no longer writes a `charter.md` beside every node. What its opening paragraph said — file
+// counts, own files vs. a nested node's, the root-glob edge case where a node has no directory of its own — is
+// now the node's `description` in `yg-node.yaml` itself, the field an adopter, `yg node --json` and `grain
+// explain` all actually show, replacing a stub ("Proposed node for `x`") that never carried a fact.
+// `nodeDescription` is exercised directly, at the same unit level the retired charter renderer was, against the
+// three node shapes that used to print three different sentences — a shortening that silently collapsed two of
+// them into one would have been a silent loss of fact, which is the trip wire this guards.
+test('a node\'s description carries file counts and own-vs-nested, for an ordinary, an organizational and a root-glob node', () => {
+  const nested = { id: 'src/api', dir: 'src/api', files: new Set(['src/api/a.ts', 'src/api/b.ts']), ownFiles: new Set(['src/api/a.ts']) };
+  assert.match(nodeDescription(nested), /^Everything under `src\/api\/` is this node's: 2 tracked files, 1 owned here and 1 by a nested node below it\. A rule attached to this node applies to every file it owns\.$/);
+
+  const allOwned = { id: 'src/util', dir: 'src/util', files: new Set(['src/util/a.ts']), ownFiles: new Set(['src/util/a.ts']) };
+  assert.match(nodeDescription(allOwned), /1 tracked file, all of them owned here\./, 'a node with nothing nested below it must not claim a split it does not have');
+
+  const organizational = { id: 'src', organizational: true };
+  assert.equal(nodeDescription(organizational),
+    'Organizational node — it owns no file of its own. Every file under `model/src/` belongs to one of its children; attach a rule to the child that owns the file, never here.');
+
+  const rootGlob = { id: 'root-scripts', dir: null, files: new Set(['a.sh', 'b.sh']), ownFiles: new Set(['a.sh', 'b.sh']) };
+  const rootMd = nodeDescription(rootGlob);
+  assert.match(rootMd, /^Every file that sits at the repository root itself is this node's: 2 tracked files, all of them owned here\./);
+  assert.doesNotMatch(rootMd, /null/, 'a root-glob node (no `dir`) must never interpolate the literal word null into its description');
 });
 
 // ---------- 14. a promoted check's own header stops calling itself a draft (dry run 112) ----------
@@ -657,106 +663,99 @@ test('a rule states itself in words, with no doubled marker, no empty shape and 
   assert.doesNotMatch(describeRow('auto.mods', 'true'), /auto\./);
 });
 
-// ---------- 16. the charter names the rules that reach the node from ABOVE (ticket 114) ----------
+// ---------- 16. no `charter.md` anywhere in a proposal, and the audit trail no longer claims one (ticket 026) ----------
 //
-// A grain proposal attaches every mined rule to a TYPE, and the node that owns the files is often a
-// nested one whose own type hosts nothing: on spring-petclinic the 30 Java files belong to
-// `src/main/java/org`, while all 8 rules sit on the `src-main-java` type one level up. Yggdrasil
-// resolves that correctly — `yg context --file` walks the cascade (`core/graph/aspects.ts`,
-// channels 1-4: own aspects, ancestor node aspects, own architecture type, ancestor architecture
-// type) — but the charter was per-node and flat, so the owner assigned to the node that HOLDS the
-// code read "none certified yet at this node" about code governed by eight rules. The charter is the
-// only file the layer above the graph reads, so the cascade has to be in it.
-test('a node charter names an ancestor type\'s rules as INHERITED, with their origin, status and drill numbers', () => {
-  const parent = { id: 'src/api', type: 'src-api', dir: 'src/api', files: new Set(['src/api/deep/a.ts']), ownFiles: new Set(), relations: [], why: 'a partition' };
-  const child = { id: 'src/api/deep', type: 'src-api-deep', dir: 'src/api/deep', files: new Set(['src/api/deep/a.ts']), ownFiles: new Set(['src/api/deep/a.ts']), relations: [], why: 'a directory card' };
-  const aspects = [
-    { id: 'grain/src-api/partition-nameshape', host: 'src-api', origin: 'certified-convention', name: 'Every type under `src/api/**` must be named PascalCase', share: 1, n: 25, deviating: 0, exemplars: [], finalStatus: 'enforced', drill: { pass: 5, miss: 0, falseAlarm: 0, catches: 5, violates: 5, satisfies: 5 } },
-    { id: 'grain/src-api/candidate-auto-imp-x', host: 'src-api', origin: 'sub-gate-lattice', name: 'No file under `src/api/**` may import `x`', share: 0.8, n: 24, deviating: 6, exemplars: [], finalStatus: 'advisory' },
-    { id: 'grain/other/unrelated', host: 'src-util', origin: 'certified-convention', name: 'not this node', share: 1, n: 5, deviating: 0, exemplars: [], finalStatus: 'draft' },
-  ];
-  const ctx = { nodes: [parent, child], aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: '/tmp/x' };
-  const md = renderNodeCharter(child, ctx);
-  assert.match(md, /## Rules inherited from above/, 'the charter has no inherited-rules section');
-  assert.match(md, /Every type under `src\/api\/\*\*` must be named PascalCase/, 'the ancestor type\'s certified rule is missing from the node that owns the files');
-  assert.match(md, /No file under `src\/api\/\*\*` may import `x`/, 'the ancestor type\'s sub-gate rule is missing');
-  assert.match(md, /inherited from type `src-api`/, 'an inherited rule does not say where it comes from');
-  assert.match(md, /ancestor node `src\/api`/, 'an inherited rule does not name the ancestor node it attaches at');
-  assert.match(md, /status `enforced`/, 'an inherited rule does not carry its status word');
-  assert.match(md, /status `advisory`/, 'an inherited rule does not carry its status word');
-  assert.match(md, /caught 5 of 5 · 0 false alarm/, 'an inherited rule does not carry its drill numbers');
-  assert.doesNotMatch(md, /not this node/, 'a rule hosted by an unrelated type must not appear');
-  // and the node that HOSTS them still reads them as its own, never as inherited
-  const parentMd = renderNodeCharter(parent, ctx);
-  assert.match(parentMd, /Every type under `src\/api\/\*\*` must be named PascalCase/);
-  assert.doesNotMatch(parentMd, /inherited from type/, 'a hosting node must not call its own rules inherited');
-  // the dead end the ticket was opened on: the node that owns the files must never be told there is nothing
-  assert.doesNotMatch(md, /\(none certified yet at this node\)/, 'the empty line must point at the inherited section instead');
+// The renderer used to write one `charter.md` per node, beside its `yg-node.yaml`, and an audit-trail row of
+// `kind: 'charter'` for each. Both are gone: the assertion is recursive over the whole output tree, not one
+// node, because a leftover from a stub that only checked the node it happened to look at is exactly the kind
+// of regression this guards.
+test('the proposal writes no `charter.md` anywhere, and `evidence[]` carries no `charter` kind', () => {
+  const walk = (d, acc = []) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p, acc); else acc.push(e.name);
+    }
+    return acc;
+  };
+  const names = walk(join(out, '.yggdrasil', 'model'));
+  assert.ok(!names.includes('charter.md'), `a charter.md is still written: ${names.filter(n => n === 'charter.md').length} found`);
+  const j = sidecar();
+  assert.ok(!j.evidence.some(e => e.kind === 'charter'), 'evidence[] still carries a `charter` row');
+  assert.ok(j.counts.charters === undefined, 'counts.charters is a leftover of the retired renderer');
 });
 
-// The cascade above is asserted against the ONE implementation that decides it in production: a real
-// `.yggdrasil/` tree on disk, read by the real Yggdrasil CLI. `yg context --file` is what an agent
-// mid-edit actually sees; the charter is what the layer above the graph sees. They must name the same
-// rules for the same file, so the parity is asserted directly rather than described.
-test('the charter and `yg context --file` name the same rules for the same file', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
-  const t = mkdtempSync(join(tmpdir(), 'cascade-'));
-  const w = (rel, text) => { const p = join(t, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, text); };
-  w('svc/Root.ts', 'export class Root {\n  public run(): void {}\n}\n');
-  w('svc/deep/Leaf.ts', 'export class Leaf {\n  public run(): void {}\n}\n');
-  w('.yggdrasil/yg-config.yaml', yamlEmit({ version: '5.2.0', coverage: { required: [], excluded: [] } }));
-  w('.yggdrasil/yg-architecture.yaml', yamlEmit({
-    node_types: {
-      project: { description: 'Top-level grouping.', parents: [] },
-      svc: { description: 'The service partition.', when: { path: 'svc/**' }, parents: ['project'], aspects: ['grain/svc/partition-nameshape'] },
-      'svc-deep': { description: 'One level below.', when: { path: 'svc/deep/**' }, parents: ['project', 'svc'] },
-    },
-  }));
-  w('.yggdrasil/model/svc/yg-node.yaml', yamlEmit({ name: 'svc', type: 'svc', description: 'The service.', mapping: ['svc/'], relations: [] }));
-  w('.yggdrasil/model/svc/deep/yg-node.yaml', yamlEmit({ name: 'svc/deep', type: 'svc-deep', description: 'The nested node that owns the file.', mapping: ['svc/deep/'], relations: [] }));
-  w('.yggdrasil/aspects/grain/svc/partition-nameshape/yg-aspect.yaml', yamlEmit({
-    name: 'Every type under `svc/**` must be named PascalCase', description: 'Every type under `svc/**` must be named PascalCase.',
-    status: 'advisory', errs: 'under', review_by: '2027-01-15', scope: { per: 'file', files: { path: 'svc/**' } },
-  }));
-  w('.yggdrasil/aspects/grain/svc/partition-nameshape/check.mjs',
-    "export function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.path.includes('BAD')) v.push({ file: file.path, line: 1, column: 0, message: 'hit' });\n  return v;\n}\n");
-
-  const r = spawnSync('node', [YG_BIN, 'context', '--file', 'svc/deep/Leaf.ts'], { cwd: t, encoding: 'utf8', maxBuffer: 1 << 26 });
-  assert.equal(r.status, 0, `yg context failed: ${r.stdout}${r.stderr}`);
-  const fromYg = [...new Set([...r.stdout.matchAll(/(grain\/[A-Za-z0-9/._-]+) \[/g)].map(m => m[1]))].sort();
-  assert.deepEqual(fromYg, ['grain/svc/partition-nameshape'], `yg context did not resolve the ancestor type's rule: ${r.stdout}`);
-
-  // the same graph, described to the charter renderer exactly as the renderer's own writers describe it
-  const nodes = [
-    { id: 'svc', type: 'svc', dir: 'svc', files: new Set(['svc/Root.ts', 'svc/deep/Leaf.ts']), ownFiles: new Set(['svc/Root.ts']), relations: [], why: 'a partition' },
-    { id: 'svc/deep', type: 'svc-deep', dir: 'svc/deep', files: new Set(['svc/deep/Leaf.ts']), ownFiles: new Set(['svc/deep/Leaf.ts']), relations: [], why: 'a directory card' },
-  ];
-  const aspects = [{ id: 'grain/svc/partition-nameshape', host: 'svc', origin: 'certified-convention', name: 'Every type under `svc/**` must be named PascalCase', share: 1, n: 4, deviating: 0, exemplars: [], finalStatus: 'advisory' }];
-  const md = renderNodeCharter(nodes[1], { nodes, aspects, sizingByNode: new Map(), cochangeByNode: new Map(), asOf: 'abc1234', repo: t });
-  const fromCharter = [...new Set([...md.matchAll(/\(`(grain\/[^`]+)`\)/g)].map(m => m[1]))].sort();
-  assert.deepEqual(fromCharter, fromYg, 'the charter and yg context disagree about which rules govern this file');
-
-  rmSync(t, { recursive: true, force: true });
-});
-
-// ---------- 18. the charter's own audit row counted nothing (bug, found while doing ticket 114) ----------
+// ---------- 17. every proposed node's description carries what a charter's first paragraph used to ----------
 //
-// `proposal.json`'s `evidence[]` is the full audit trail — "every element this renderer wrote has exactly one
-// row here" — and a charter's row claimed how many rules the charter names. It compared the aspect's `host`
-// (a TYPE id) against the node's `id` (a PATH): the same category error ticket 112 fixed inside the charter
-// body, left behind in the row that reports on it. Every charter row on every repository read "0 hosted
-// aspect drafts", including the ones whose charter names eight.
-test('a charter\'s evidence row counts the rules the charter actually names', () => {
-  const j = JSON.parse(readFileSync(join(out, 'proposal.json'), 'utf8'));
-  const rows = j.evidence.filter(e => e.kind === 'charter');
-  assert.ok(rows.length, 'no charter evidence rows at all');
+// Same fact as unit test 13, asserted end to end against the real fixture: no `yg-node.yaml` ships the old
+// stub ("Proposed node for `x`" / "Parent node for `x`"), and every description carries a file count.
+test('every yg-node.yaml written by a real run has a real description, never the retired stub', () => {
   const model = join(out, '.yggdrasil', 'model');
-  for (const row of rows) {
-    const md = readFileSync(join(model, row.id, 'charter.md'), 'utf8');
-    const named = new Set([...md.matchAll(/\(`(grain\/[^`]+)`\)/g)].map(m => m[1]));
-    const claimed = /(\d+) rules? in force here/.exec(row.evidence);
-    assert.ok(claimed, `charter row for ${row.id} does not say how many rules its charter names: ${row.evidence}`);
-    assert.equal(Number(claimed[1]), named.size, `charter row for ${row.id} claims ${claimed[1]} rules, the charter names ${named.size}`);
+  const walk = (d, acc = []) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p, acc);
+      else if (e.name === 'yg-node.yaml') acc.push(p);
+    }
+    return acc;
+  };
+  const nodeFiles = walk(model);
+  assert.ok(nodeFiles.length > 0, 'no yg-node.yaml written at all');
+  for (const f of nodeFiles) {
+    const doc = parseYaml(readFileSync(f, 'utf8'));
+    assert.ok(doc.description, `${f} has no description`);
+    assert.doesNotMatch(doc.description, /^Proposed node for `/, `${f} still ships the retired stub`);
+    assert.doesNotMatch(doc.description, /^Parent node for `/, `${f} still ships the retired stub`);
+    assert.match(doc.description, /tracked file|owns no file of its own/, `${f}'s description carries neither a file count nor the organizational sentence`);
   }
+});
+
+// ---------- 18. two runs over the same fixture write byte-identical proposals (ticket 026) ----------
+//
+// The fixture is fully deterministic (fixed author/dates, `--no-history`), and nothing in this renderer reads
+// wall-clock time or process-order-dependent state — a regression here would most likely come from this
+// change specifically, since a node's `description` is now built from `Set` iteration order for the first time.
+test('two `grain propose` runs over the same fixture write byte-identical `.yggdrasil/` trees', () => {
+  const out2 = join(tmp, 'proposal-2');
+  const r = spawnSync('node', [PROPOSE, repo, out2, '--no-history', '--quiet'], { encoding: 'utf8', maxBuffer: 1 << 28 });
+  assert.equal(r.status, 0, r.stderr);
+  const relFiles = (d, base = d, acc = []) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) relFiles(p, base, acc); else acc.push(p.slice(base.length));
+    }
+    return acc;
+  };
+  const a = relFiles(join(out, '.yggdrasil')).sort();
+  const b = relFiles(join(out2, '.yggdrasil')).sort();
+  assert.deepEqual(a, b, 'the two runs wrote a different set of files');
+  for (const rel of a) {
+    assert.equal(readFileSync(join(out, '.yggdrasil', rel), 'utf8'), readFileSync(join(out2, '.yggdrasil', rel), 'utf8'), `${rel} differs between the two runs`);
+  }
+  rmSync(out2, { recursive: true, force: true });
+});
+
+// ---------- 19. a `charter.md` left over from a previous run does not survive the next one ----------
+//
+// `writeArchitecture`'s caller wipes and recreates `.yggdrasil/` wholesale before writing anything into it
+// (`rmSync(ygg, { recursive: true, force: true })`), which already covered a stray file of ANY name before this
+// ticket — asserted directly so a future change to that wipe cannot silently narrow it back to just the files
+// the renderer itself still writes.
+test('a charter.md left behind by an older run of grain (or planted by hand) is gone after the next run', () => {
+  const out3 = join(tmp, 'proposal-stale');
+  mkdirSync(join(out3, '.yggdrasil', 'model', 'leftover'), { recursive: true });
+  writeFileSync(join(out3, '.yggdrasil', 'model', 'leftover', 'charter.md'), '# stale charter from a previous run\n');
+  const r = spawnSync('node', [PROPOSE, repo, out3, '--no-history', '--quiet'], { encoding: 'utf8', maxBuffer: 1 << 28 });
+  assert.equal(r.status, 0, r.stderr);
+  assert.ok(!existsSync(join(out3, '.yggdrasil', 'model', 'leftover')), 'a stale node directory from before this run must not survive the wipe');
+  const walk = (d, acc = []) => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p, acc); else acc.push(e.name);
+    }
+    return acc;
+  };
+  assert.ok(!walk(join(out3, '.yggdrasil')).includes('charter.md'), 'a charter.md survived a fresh run over a directory that held one before');
+  rmSync(out3, { recursive: true, force: true });
 });
 
 // ---------- 17. an enforced rule says how much of TODAY it already refuses (ticket 118) ----------

@@ -393,7 +393,15 @@ export async function cmdAdvise({ model, head, root, args, opts, stamp }) {
   // and on each of them it named a place holding a pile the evidence separates, never a place that was already one
   // thing. So it is listed.
   if (split.length) {
-    lines.push(`${split.length} place${split.length === 1 ? '' : 's'} a finer cut beats on its own evidence:`);
+    // `reason: 'unread'` (§3 above) keeps a candidate for the opposite reason `'tighter'` does: not because its
+    // imports stay inside it more than the parent's do, but because grain could not read it at all — a
+    // different kind of evidence, silently folded into the same count until now. `--json` already marks it per
+    // candidate (`evidence.candidates[].reason`); the text line said only "a finer cut beats", which reads as
+    // the imports case for every one of them. Split, not dropped: the unread ones are still real candidates
+    // for the maintainer to look at, they just cannot cite an import boundary as their reason.
+    const unread = split.filter(it => it.evidence.candidates.some(c => c.reason === 'unread')).length;
+    lines.push(`${split.length} place${split.length === 1 ? '' : 's'} a finer cut beats on its own evidence`
+      + (unread ? `, of which ${unread} grain could not read:` : ':'));
     for (const it of split.slice(0, 20)) lines.push(`  - ${it.text}`);
     if (split.length > 20) lines.push(`  … and ${split.length - 20} more.`);
   } else lines.push('No place here is beaten by a finer cut of its own files.');

@@ -122,10 +122,10 @@ test('the active cut owns every classified file exactly once, deepest type winni
 test('a finer cut that wraps types already covering everything is not made at all', async () => {
   // The failure this guards: a candidate that is not finer than anything. With no active type ABOVE it and no
   // file of its own, it is a WRAPPER over directories that were already classified — a node that owns nothing
-  // once its children take their files, which no rule can attach to and no charter can describe. It appears on
-  // a repository grain mined NOTHING in: with no partitions, every directory reads as unparsed and the "grain
-  // read none of these files" half of the policy has no contrast to fire against, so it fired on the top of the
-  // tree. Driven at the unit that decides, with the exact inputs that shape produces.
+  // once its children take their files, which no rule can attach to and nothing real can be said about in a
+  // description. It appears on a repository grain mined NOTHING in: with no partitions, every directory reads as
+  // unparsed and the "grain read none of these files" half of the policy has no contrast to fire against, so it
+  // fired on the top of the tree. Driven at the unit that decides, with the exact inputs that shape produces.
   const { buildTypes } = await import('./stress/propose.mjs');
   const files = ['src/api/a.ts', 'src/api/b.ts', 'src/api/c.ts', 'src/util/a.ts', 'src/util/b.ts', 'src/util/c.ts', 'README.md'];
   const exp = { partitions: [], moduleGraph: { nodes: [{ id: 'src/api', files: 3, layer: 0 }, { id: 'src/util', files: 3, layer: 0 }] } };

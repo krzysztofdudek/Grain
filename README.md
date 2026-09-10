@@ -99,11 +99,12 @@ it produces the graph Yggdrasil enforces, from evidence, for a repository that d
 it. They stack rather than stand apart: Grain writes only what Yggdrasil reads, and Horde needs Yggdrasil and
 uses Grain when it is installed. Each layer works without the ones above it, and none of them knows the ones above
 exist. They talk to each other through versioned files on disk rather than a shared codebase: a `grain propose`
-output is a `.yggdrasil/` tree Yggdrasil loads directly; each proposed node gets its own `charter.md` (what lives
-there, what it depends on and is used by, its certified conventions with their share and exemplars, its co-change
-partners) written for a human or for Horde's own tooling to read, not for Grain itself; and grain's role groups are
-also emitted as Yggdrasil's own `.family-candidates.json` shape, so `yg advise` can nominate families mined by Grain
-with no code change on Yggdrasil's side at all — verified against a planted fixture where all 5 real families were
+output is a `.yggdrasil/` tree Yggdrasil loads directly, with the node's own description (what lives there) written
+into `yg-node.yaml` — what a charter used to carry beyond that (conventions with exemplars, co-change) is a live
+answer from `grain explain`, `grain where` and `grain completeness`, never a file `grain propose` writes; and
+grain's role groups are also emitted as Yggdrasil's own `.family-candidates.json` shape, so `yg advise` can
+nominate families mined by Grain with no code change on Yggdrasil's side at all — verified against a planted
+fixture where all 5 real families were
 nominated 5 of 5. Adopt them from the bottom up: Yggdrasil first, then Grain if the repository has no graph yet,
 then Horde when one agent is no longer enough.
 
