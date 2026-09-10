@@ -43,7 +43,7 @@ function buildRepo(root) {
       `export function handle${n[0].toUpperCase()}${n.slice(1)}(input: string): string {\n  return normalise(input);\n}\n`);
     w(root, `src/util/${n}-helper.ts`, `export function normalise(value: string): string {\n  return value.trim(); // ${n} TRACE_ONLY_IN_A_FILE_BODY\n}\n`);
   }
-  w(root, '.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w(root, '.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
   w(root, '.yggdrasil/yg-architecture.yaml', [
     'node_types:', '',
     '  handler:', '    description: "HTTP handlers."',
@@ -69,7 +69,7 @@ function buildRepo(root) {
 
 // the same twelve files under ONE node — the adopter merged the two the proposal drew
 function buildMergedGraph(root) {
-  w(root, '.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w(root, '.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
   w(root, '.yggdrasil/yg-architecture.yaml', [
     'node_types:', '',
     '  code:', '    description: "All of it."',
@@ -82,7 +82,7 @@ function buildMergedGraph(root) {
 
 // the handlers cut in two — the adopter split the node the proposal drew over src/api/
 function buildSplitGraph(root) {
-  w(root, '.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w(root, '.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
   w(root, '.yggdrasil/yg-architecture.yaml', [
     'node_types:', '',
     '  handler:', '    description: "Handlers."',

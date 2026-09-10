@@ -92,7 +92,7 @@ test('writes a complete proposal directory and never into the repository', () =>
 test('scoreProposal evaluates a hand `content:` predicate against the repository, not the graph directory', () => {
   const oracle = join(tmp, 'oracle-content');
   mkdirSync(join(oracle, '.yggdrasil'), { recursive: true });
-  writeFileSync(join(oracle, '.yggdrasil', 'yg-config.yaml'), 'version: "5.2.0"\n');
+  writeFileSync(join(oracle, '.yggdrasil', 'yg-config.yaml'), 'version: "6.0.0"\n');
   writeFileSync(join(oracle, '.yggdrasil', 'yg-architecture.yaml'), [
     'node_types:',
     '  handler:',
@@ -214,7 +214,7 @@ test('promoteEnforceableAspects earns `enforced` only for a certified-convention
   // always has these on disk already by the time `promoteEnforceableAspects` runs; this test hand-builds only
   // the aspects subtree, so it supplies the rest itself.
   mkdirSync(join(ygg, 'model'), { recursive: true });
-  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '5.2.0' }));
+  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '6.0.0' }));
   writeFileSync(join(ygg, 'yg-architecture.yaml'), yamlEmit({ node_types: { project: { description: 'root' } } }));
   const flagsBad = 'import { walk } from \'@chrisdudek/yg/ast\';\nexport function check(ctx) {\n  const v = [];\n  for (const file of ctx.files) if (file.content.includes(\'BAD\')) v.push({ file: file.path, line: 1, column: 0, message: \'hit\' });\n  return v;\n}\n';
   const writeAspect = (id, { violatesHasBad, satisfiesHasBad, kind, origin }) => {
@@ -461,7 +461,7 @@ test('sizing.json sizes HAND nodes too when the source repo already carries its 
   const w = (rel, content) => { const p = join(handRoot, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
   for (const n of ['alpha', 'beta']) w(`src/api/${n}-handler.ts`, `export function h${n}() { return 1; }\n`);
   for (const n of ['alpha', 'beta']) w(`src/util/${n}-helper.ts`, `export function u${n}() { return 1; }\n`);
-  w('.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w('.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
   w('.yggdrasil/yg-architecture.yaml', 'node_types:\n  handler:\n    description: "h"\n    when:\n      path: "src/api/*.ts"\n  helper:\n    description: "u"\n    when:\n      path: "src/util/*.ts"\n');
   w('.yggdrasil/model/api/yg-node.yaml', 'name: Api\ntype: handler\ndescription: "d"\nmapping:\n  - src/api/\n');
   w('.yggdrasil/model/util/yg-node.yaml', 'name: Util\ntype: helper\ndescription: "d"\nmapping:\n  - src/util/\n');
@@ -595,7 +595,7 @@ test('promotion rewrites the check.mjs header, so a promoted check never says th
   const outDir3 = join(t3, 'proposal');
   const ygg = join(outDir3, '.yggdrasil');
   mkdirSync(join(ygg, 'model'), { recursive: true });
-  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '5.2.0' }));
+  writeFileSync(join(ygg, 'yg-config.yaml'), yamlEmit({ version: '6.0.0' }));
   writeFileSync(join(ygg, 'yg-architecture.yaml'), yamlEmit({ node_types: { project: { description: 'root' } } }));
 
   const draftHeader = [

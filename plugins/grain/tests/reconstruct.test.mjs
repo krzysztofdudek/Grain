@@ -57,7 +57,7 @@ function buildFixture(root, env, { withGraph = true } = {}) {
     return;
   }
 
-  w('.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w('.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
   w('.yggdrasil/yg-architecture.yaml', [
     'node_types:',
     '',

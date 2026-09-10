@@ -1,4 +1,4 @@
-version: "5.2.0"
+version: "6.0.0"
 
 # Whole repository is in scope: every tracked file belongs to a node. An
 # express checkout is small enough that leaving a corner uncovered would be a

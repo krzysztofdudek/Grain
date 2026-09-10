@@ -32,7 +32,7 @@ function buildFixture(root) {
   w('src/reports/summary-report.ts', "import { LIMIT } from '../const/values';\nexport function summarise(n: number) { return n > LIMIT; }\n");
   w('src/const/values.ts', 'export const LIMIT = 10;\n');
 
-  w('.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w('.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
   w('.yggdrasil/yg-architecture.yaml', [
     'node_types:',
     '  handler:',

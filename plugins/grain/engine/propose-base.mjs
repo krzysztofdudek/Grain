@@ -46,7 +46,7 @@ export const FAMILY_MIN_MEMBERS = 5;
 // Per partition, at most this many sub-gate candidates are drafted; the rest go to the backlog. A cap on how
 // much a maintainer is asked to read, not on what is measured.
 export const SUBGATE_PER_PARTITION = 6;
-export const SCHEMA_VERSION = '5.2.0'; // CLI_SUPPORTED_SCHEMA in Yggdrasil's core/graph-loader.ts
+export const SCHEMA_VERSION = '6.0.0'; // CLI_SUPPORTED_SCHEMA in Yggdrasil's core/graph-loader.ts
 // Where the Yggdrasil CLI is: an explicit `ygBin` option first (the stress instrument passes its own default
 // there, so its runs are unchanged), then the `YG_BIN` environment variable, then a plain `yg` on PATH. A
 // PRODUCT command may not carry a machine path, so there is no fourth fallback: when none of the three resolves,

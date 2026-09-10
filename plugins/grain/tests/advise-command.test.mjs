@@ -92,7 +92,7 @@ function buildFixture(root) {
 // A hand-written graph held BESIDE the repository, the shape every oracle under `tests/stress/oracles/` has.
 // `declaresCalls` is the single difference between the two copies.
 function buildGraph(root, { declaresCalls }) {
-  w(root, '.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w(root, '.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
   w(root, '.yggdrasil/yg-architecture.yaml', [
     'node_types:', '', '  service:', '    description: "A service."', '    when:',
     '      path: "src/**/*.ts"', '    relations:', '      default: deny', '',
