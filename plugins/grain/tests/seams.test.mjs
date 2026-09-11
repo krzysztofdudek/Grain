@@ -1,5 +1,5 @@
 // Seam tests (ticket 100) — the family's contracts, driven through the NEIGHBOUR PROJECTS' OWN real binaries,
-// never a re-implementation of either. Four seams:
+// never a re-implementation of either. Five seams:
 //
 //   1. YGGDRASIL LOADS THE PROPOSAL, DRILLS IT CLEAN, AND ADVISES THE FAMILY. A real Yggdrasil checkout is
 //      staged into a disposable temp copy (git-tracked files only, never the shared checkout itself — see
@@ -20,6 +20,10 @@
 //      adopted-equivalent) repo is handed to a real Horde checkout's `queue.mjs quality --from` — proving the
 //      `grain-advice/1` document this repo writes is the one document Horde's quality pass reads, never a
 //      re-implementation of the schema on either side.
+//   5. THE FAMILY-CONTRACTS REGISTER IS THE WHOLE TRUTH (ticket 027). `YGG_DIR/docs/family-contracts.md` names
+//      every machine document the family exchanges. This seam is the only CI with all three checkouts at once,
+//      so it is the only place that can hold the page to all three: every schema id Horde's scripts name, and
+//      every one Grain's engine writes, must have a row. Pure file reads — no binary is run.
 //
 // Every seam skips itself, with a stated reason, when its neighbour binary/checkout is not present — never a
 // silent pass and never a hard failure of the whole suite. Point `YG_BIN` at Yggdrasil's built `bin.js` (its
@@ -297,4 +301,177 @@ test('grain advise --json parses under Horde\'s queue.mjs quality', {
   assert.equal(doc.source, advicePath);
   assert.ok(Array.isArray(doc.filed) && Array.isArray(doc.skipped), `unexpected shape: ${text.slice(0, 500)}`);
   console.log(`[seams] queue.mjs quality --from: ${advice.items.length} advice item(s), ${doc.filed.length} would be filed, ${doc.skipped.length} skipped`);
+});
+
+// ============================================================================================================
+// Seam 5 — the family-contracts register is the whole truth (ticket 027). `YGG_DIR/docs/family-contracts.md`
+// is the one page naming every machine document the family exchanges, its schema id, its producer and its
+// consumers. Yggdrasil's own unit test holds that page to Yggdrasil's `src/formatters/` constants; it cannot
+// see the other two repositories. THIS job can — it is the only CI with all three checkouts at once — so this
+// is where a document Horde reads, or Grain writes, that nobody added a row for turns something red.
+//
+// No binary is run: three trees are read with `node:fs` and compared. Horde's scripts are read with
+// `readFileSync` as TEXT rather than grepped from a shell — `escalate.mjs` has carried a literal NUL byte,
+// which makes grep/rg treat the file as binary and say nothing at all, and a scanner that silently skips a
+// file is exactly the drift this seam exists to catch. The assertion below pins that the file was opened.
+//
+// The table parser is a SECOND, INDEPENDENT COPY of the one in Yggdrasil's
+// `tests/unit/repo/family-contracts-invariant.test.ts`. Deliberately duplicated: this job cannot import
+// Yggdrasil's TypeScript, and ten lines of regex copied once is cheaper than a shared package three
+// repositories would have to version together. If the page's table shape ever changes, both copies move.
+// ============================================================================================================
+
+const HORDE_SCRIPTS_DIR = join(HORDE_DIR, 'skills', 'horde', 'scripts');
+const HAVE_HORDE_SCRIPTS = existsSync(HORDE_SCRIPTS_DIR);
+const HORDE_SCRIPTS_SKIP = `Horde checkout has no skills/horde/scripts/ (looked in ${HORDE_SCRIPTS_DIR} — set HORDE_DIR)`;
+const HAVE_YGG_CHECKOUT = existsSync(join(YGG_DIR, '.git'));
+const YGG_CHECKOUT_SKIP = `Yggdrasil checkout not found (looked for a git repo at ${YGG_DIR} — set YG_BIN / YGG_DIR)`;
+
+// A family schema id: a lowercase, HYPHENATED name and a version number — `yg-check/1`, `horde-law/1`,
+// `grain-advice/1`. The hyphen is required so an ordinary path or media type in a string literal
+// (`application/1`, `skills/2`) is never mistaken for a contract.
+const SCHEMA_ID = '[a-z][a-z0-9]*(?:-[a-z0-9]+)+\\/\\d+';
+
+/** Every quoted family schema id in one source file's text, each with the 1-based line it sits on. */
+function schemaIdsInSource(text) {
+  const re = new RegExp(`['"\`](${SCHEMA_ID})['"\`]`, 'g');
+  const found = [];
+  text.split(/\r?\n/).forEach((line, i) => {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(line)) !== null) found.push({ id: m[1], line: i + 1 });
+  });
+  return found;
+}
+
+/**
+ * Scan every `.mjs` under `dir` for family schema ids. Returns the map id → "file:line" of the FIRST sighting
+ * (so a refusal can say which side of the seam moved) and the list of files actually opened.
+ */
+function scanSchemaIds(dir) {
+  const where = new Map();
+  const opened = [];
+  for (const name of readdirSync(dir).filter(f => f.endsWith('.mjs')).sort()) {
+    const text = readFileSync(join(dir, name), 'utf8'); // as TEXT — a NUL byte must not silence the file
+    opened.push(name);
+    for (const { id, line } of schemaIdsInSource(text)) {
+      if (!where.has(id)) where.set(id, `${name}:${line}`);
+    }
+  }
+  return { where, opened };
+}
+
+/** Parse every markdown table on the page. The duplicate of Yggdrasil's own parser — see the note above. */
+function parseTables(page) {
+  const lines = page.split(/\r?\n/);
+  const cellsOf = line => {
+    const t = line.trim();
+    if (!t.startsWith('|') || !t.endsWith('|') || t.length < 2) return null;
+    return t.slice(1, -1).split('|').map(c => c.trim());
+  };
+  const isSeparator = cells => cells !== null && cells.length > 0 && cells.every(c => /^:?-{3,}:?$/.test(c));
+  const tables = [];
+  for (let i = 0; i < lines.length; i++) {
+    const header = cellsOf(lines[i]);
+    if (header === null || isSeparator(header)) continue;
+    if (!isSeparator(cellsOf(lines[i + 1] ?? ''))) continue;
+    const rows = [];
+    let j = i + 2;
+    for (; j < lines.length; j++) {
+      const cells = cellsOf(lines[j]);
+      if (cells === null) break;
+      rows.push({ line: j + 1, cells });
+    }
+    tables.push({ headerLine: i + 1, headerText: lines[i].trim(), header, rows });
+    i = j - 1;
+  }
+  return tables;
+}
+
+/** The schema id a table row declares, or null when it deliberately declares none. */
+function rowSchemaId(cell) {
+  const m = cell.replace(/`/g, '').trim().match(new RegExp(`^(${SCHEMA_ID})`));
+  return m ? m[1] : null;
+}
+
+test('every schema id Horde reads and Grain writes has a row on Yggdrasil\'s family-contracts page', {
+  skip: !HAVE_YGG_CHECKOUT ? YGG_CHECKOUT_SKIP : !HAVE_HORDE_SCRIPTS ? HORDE_SCRIPTS_SKIP : false,
+}, () => {
+  // A missing page is a REFUSAL naming the path, never a skip: the checkout is here, so the page's absence is
+  // the drift, not a missing neighbour.
+  const pagePath = join(YGG_DIR, 'docs', 'family-contracts.md');
+  assert.ok(existsSync(pagePath), `the family-contracts register is missing: ${pagePath} does not exist in the Yggdrasil checkout`);
+  const page = readFileSync(pagePath, 'utf8');
+
+  // The table's shape, before anything is read out of it.
+  const tables = parseTables(page);
+  assert.equal(tables.length, 1, `expected exactly one table on ${pagePath}, found ${tables.length}`);
+  const [table] = tables;
+  assert.equal(table.header.length, 6,
+    `the register's header row has ${table.header.length} columns, expected 6 — line ${table.headerLine}: ${table.headerText}`);
+  assert.ok(table.rows.length > 0, `the register at ${pagePath} has a header and no rows`);
+
+  const rowById = new Map();
+  for (const row of table.rows) {
+    const id = rowSchemaId(row.cells[1] ?? '');
+    if (id !== null) rowById.set(id, row);
+  }
+
+  // What Horde reads and writes. An EMPTY result is a refusal, not a pass: an empty set satisfies every
+  // containment assertion below, which makes it the quietest way this seam could ever break.
+  const horde = scanSchemaIds(HORDE_SCRIPTS_DIR);
+  assert.ok(horde.opened.length > 0, `scanned ${HORDE_SCRIPTS_DIR} and opened no .mjs file at all`);
+  assert.ok(horde.where.size > 0,
+    `scanned ${horde.opened.length} Horde script(s) under ${HORDE_SCRIPTS_DIR} and found no schema id — the scan, `
+    + 'not the page, is what broke: an empty set passes every assertion below silently');
+  // The NUL-byte file must be among the files the scan opened. `escalate.mjs` has carried a literal NUL, which
+  // makes a shell grep treat it as binary and report nothing; reading it as text is what keeps it in the scan.
+  assert.ok(horde.opened.includes('escalate.mjs'),
+    `escalate.mjs was not among the ${horde.opened.length} Horde script(s) the scan opened — a file that goes `
+    + `silent takes its contracts with it. Opened: ${horde.opened.join(', ')}`);
+
+  // What Grain writes, read out of its own engine rather than hard-coded, so a new Grain document is caught
+  // here the day it lands.
+  const grainEngineDir = join(here, '..', 'engine');
+  const grain = scanSchemaIds(grainEngineDir);
+  assert.ok(grain.where.size > 0, `scanned ${grainEngineDir} and found no grain-* schema id`);
+
+  const missing = [];
+  for (const [id, at] of [...horde.where].sort()) {
+    if (!rowById.has(id)) missing.push(`${id} — read or written by Horde at skills/horde/scripts/${at}`);
+  }
+  for (const [id, at] of [...grain.where].sort()) {
+    if (!rowById.has(id)) missing.push(`${id} — written by Grain at plugins/grain/engine/${at}`);
+  }
+  assert.deepEqual(missing, [],
+    `these schema ids cross the seam but have no row on ${pagePath}:\n  ${missing.join('\n  ')}\n`
+    + 'Add a row (document, schema id, producer, consumers, since, described where) — the page is this seam\'s '
+    + 'only source of truth.');
+
+  // `.family-candidates.json` carries no `schema` field at all — it versions itself by `v`. Deciding whether to
+  // give it an identifier is a contract change and a separate decision; until then the page must say so, and
+  // this seam holds it to saying it rather than quietly dropping the document.
+  assert.match(page, /\.family-candidates\.json/,
+    `${pagePath} has no row for .family-candidates.json — the one document in the family with no schema id, `
+    + 'versioned by its `v` field (Grain writes it, yg advise reads it)');
+
+  // A row for a document none of the three repositories names is allowed ONLY when the page itself says where
+  // it comes from — a non-empty producer column. Anything else is a ghost row.
+  const known = new Set([...horde.where.keys(), ...grain.where.keys()]);
+  const ghosts = [];
+  const notes = [];
+  for (const [id, row] of rowById) {
+    if (known.has(id)) continue;
+    const producer = (row.cells[2] ?? '').trim();
+    if (producer === '') ghosts.push(`${id} (line ${row.line}) — no producer named`);
+    else notes.push(`${id} — produced by ${producer}`);
+  }
+  assert.deepEqual(ghosts, [],
+    `ghost rows on ${pagePath}: ${ghosts.join('; ')}. Neither Horde nor Grain names these, and the page does `
+    + 'not say who produces them either.');
+
+  // A document dropped from Horde but still listed is NOT an error — the page is a register of the release's
+  // history, and a consumer on an older version still reads it. It is worth saying out loud, though.
+  if (notes.length) console.log(`[seams] family-contracts: ${notes.length} row(s) no Horde or Grain source names — ${notes.join(', ')}`);
+  console.log(`[seams] family-contracts: ${rowById.size} row(s); ${horde.where.size} id(s) across ${horde.opened.length} Horde script(s), ${grain.where.size} written by Grain — all present`);
 });
