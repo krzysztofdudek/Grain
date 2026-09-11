@@ -48,10 +48,17 @@ function gitLines(args, root) {
 // Strip NODE_TEST_CONTEXT so a nested `node --test` (this script may itself be invoked
 // from inside a `node --test` run, e.g. by its own test suite) isn't skipped as a
 // perceived recursive call — Node's test runner treats that env var as a marker that
-// it's already inside a test run and silently no-ops a nested one.
+// it's already inside a test run and silently no-ops a nested one. Also strip
+// FORCE_COLOR/COLORTERM: Node's test runner honors FORCE_COLOR over TTY detection, and
+// a color-forcing parent shell makes the nested run emit ANSI-prefixed summary lines
+// that parseNodeTestSummary's anchored regex can't match, turning a real "1 fail" into
+// an unparseable null and failing this check on an otherwise-fine branch.
 function childEnv() {
   const env = { ...process.env };
   delete env.NODE_TEST_CONTEXT;
+  delete env.FORCE_COLOR;
+  delete env.COLORTERM;
+  env.NO_COLOR = '1';
   return env;
 }
 
