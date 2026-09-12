@@ -7,9 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [6.0.0] - 2026-09-12
+
+### Added
+
+- `grain propose` writes graphs in the 6.0.0 format; loading one needs Yggdrasil 6.0.0 or newer.
+
 ### Changed
-- The marketplace is named `grain-marketplace`, like every sibling in the family: `/plugin install grain@grain-marketplace`. GitHub Copilot CLI, Codex CLI and Cursor install from the same repository; the README carries each path.
-- `.grain/.gitignore` is documented as a committed file that ignores only the cache, so the maintainer's own decisions under `.grain/` stay in version control, with the one setting that keeps the store out of a Yggdrasil graph's uncovered-file count.
+
+- Marketplace renamed to `grain-marketplace`: `/plugin install grain@grain-marketplace`. Also installable from the same repository via GitHub Copilot CLI, Codex CLI and Cursor.
+- `grain propose` no longer writes `charter.md` beside a proposed component. What it opens with is now the component's own description; conventions and co-change partners are a live answer from `grain explain`, `grain where` and `grain completeness` instead.
+- A `boundary` decision recorded with `grain decide boundary` now also appears in what `grain propose` writes, as a forbidden dependency in the proposed graph.
+- `grain advise`'s count of places a finer cut would help now separates places it could not read from places it could read but found too coarse.
+- Session start in a repository that already has an architecture graph now says so and points at `yg prime`, and names how to install `yg` when it isn't on `PATH`.
+- Session start now warns when the repository's index is sparse.
+- `grain propose`'s report now names how many of its rules look ready to earn enforcement once Yggdrasil is installed, on a run with no Yggdrasil CLI to check them itself.
+
+### Fixed
+
+- The checks proving `grain propose` works with Yggdrasil and Horde now install Yggdrasil the way an adopter would, not a local build standing in for it.
 
 ## [0.4.0] - 2026-09-07
 
@@ -40,7 +56,8 @@ Released as a portfolio piece, with the complete measured record attached. Devel
 ### Added
 - First public release.
 
-[Unreleased]: https://github.com/krzysztofdudek/Grain/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/krzysztofdudek/Grain/compare/v6.0.0...HEAD
+[6.0.0]: https://github.com/krzysztofdudek/Grain/compare/v0.4.0...v6.0.0
 [0.4.0]: https://github.com/krzysztofdudek/Grain/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/krzysztofdudek/Grain/compare/v0.1.0...v0.3.0
 [0.1.0]: https://github.com/krzysztofdudek/Grain/releases/tag/v0.1.0

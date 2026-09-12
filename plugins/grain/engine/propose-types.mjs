@@ -135,7 +135,7 @@ export function buildTypes(exp, loc, files, ctx) {
   // four files would otherwise fall into the top-level remainder. Without this a repository grain mined nothing
   // in (no partitions, so every directory reads as unparsed) grew a wrapper type over directories that were
   // already fully classified: a node that owns no file of its own once its children take theirs, which is a
-  // node no rule can ever attach to and no charter can describe.
+  // node no rule can ever attach to and nothing meaningful can be said about in a description.
   const claimedFiles = new Set();
   for (const a of active) for (const f of setOf(a)) claimedFiles.add(f);
   const promoted = [];

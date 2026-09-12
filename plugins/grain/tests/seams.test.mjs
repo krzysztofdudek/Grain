@@ -1,5 +1,5 @@
 // Seam tests (ticket 100) — the family's contracts, driven through the NEIGHBOUR PROJECTS' OWN real binaries,
-// never a re-implementation of either. Three seams, three tests:
+// never a re-implementation of either. Five seams:
 //
 //   1. YGGDRASIL LOADS THE PROPOSAL, DRILLS IT CLEAN, AND ADVISES THE FAMILY. A real Yggdrasil checkout is
 //      staged into a disposable temp copy (git-tracked files only, never the shared checkout itself — see
@@ -12,9 +12,18 @@
 //      (`tests/fixtures/family-planted-mono`, `-polyglot`) whose whole point is a known-exact answer: one
 //      structurally-uniform cluster with no rule of its own, surrounded by decoys that must NOT cluster.
 //      `buildFamilyCandidates` is run directly against them (no `yg` needed) and checked against that answer.
-//   3. HORDE READS THE CHARTER. A real Horde checkout's `node.mjs show <node>` is run against the SAME staged
-//      Yggdrasil repo from seam 1 (its `.horde/` wiring stapled on) and must print the rendered charter.md back
-//      verbatim under a `## Charter` heading.
+//   3. THE PROPOSAL CONTRACT WITHOUT A CHARTER (ticket 026). `yg node <path> --json`, run by the real Yggdrasil
+//      CLI against the SAME staged repo from seam 1, returns the `description` grain wrote into `yg-node.yaml`
+//      — and no `charter.md` exists anywhere under the tree grain rendered. This is Yggdrasil-only: reading the
+//      node through `yg node --json` is exactly what sidesteps the coupling to Horde a charter.md used to need.
+//   4. GRAIN'S OWN ADVICE PARSES UNDER HORDE. A real `grain advise --json` run against the SAME staged (now
+//      adopted-equivalent) repo is handed to a real Horde checkout's `queue.mjs quality --from` — proving the
+//      `grain-advice/1` document this repo writes is the one document Horde's quality pass reads, never a
+//      re-implementation of the schema on either side.
+//   5. THE FAMILY-CONTRACTS REGISTER IS THE WHOLE TRUTH (ticket 027). `YGG_DIR/docs/family-contracts.md` names
+//      every machine document the family exchanges. This seam is the only CI with all three checkouts at once,
+//      so it is the only place that can hold the page to all three: every schema id Horde's scripts name, and
+//      every one Grain's engine writes, must have a row. Pure file reads — no binary is run.
 //
 // Every seam skips itself, with a stated reason, when its neighbour binary/checkout is not present — never a
 // silent pass and never a hard failure of the whole suite. Point `YG_BIN` at Yggdrasil's built `bin.js` (its
@@ -35,6 +44,7 @@ import { readGraph } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROPOSE = join(here, 'stress', 'propose.mjs');
+const GRAIN_BIN = join(here, '..', 'bin', 'grain.mjs');
 
 const YG_BIN = process.env.YG_BIN || '/home/user/Yggdrasil/source/cli/dist/bin.js';
 // `YG_BIN` is `<repo>/source/cli/dist/bin.js` — the checkout root is three directories up. `YGG_DIR` overrides
@@ -45,6 +55,7 @@ const YG_SKIP = `Yggdrasil binary/checkout not found (looked for ${YG_BIN} and a
 
 const HORDE_DIR = process.env.HORDE_DIR || '/home/user/krzysztofdudek/horde';
 const NODE_MJS = join(HORDE_DIR, 'skills', 'horde', 'scripts', 'node.mjs');
+const QUEUE_MJS = join(HORDE_DIR, 'skills', 'horde', 'scripts', 'queue.mjs');
 const HAVE_HORDE = existsSync(NODE_MJS);
 const HORDE_SKIP = `Horde checkout not found (looked for ${NODE_MJS} — set HORDE_DIR)`;
 
@@ -221,28 +232,246 @@ test('the adapter emits exactly the planted family on family-planted-mono, and n
 });
 
 // ============================================================================================================
-// Seam 3 — Horde's `node.mjs show <node>` reads the rendered `charter.md` verbatim from
-// `.yggdrasil/model/<node>/charter.md`, on the SAME staged Yggdrasil repo seam 1 already built (a real
-// git repo is required — `node.mjs`'s `repoRoot()` runs `git rev-parse --show-toplevel`).
+// Seam 3 — the proposal contract without a charter (ticket 026). `yg node <path> --json`, the real Yggdrasil
+// CLI, reads the rendered `.yggdrasil/` tree from the SAME staged repo seam 1 already built, and its
+// `description` is the fact a `charter.md` used to open with. No `charter.md` exists anywhere under the tree
+// this run wrote — asserted recursively, not on one node, since a stub check on the node happened to look at
+// is exactly the kind of regression a wipe elsewhere in the tree would hide.
 // ============================================================================================================
-test('charter.md parses under Horde\'s node.mjs show', {
-  skip: !HAVE_YG ? YG_SKIP : !HAVE_HORDE ? HORDE_SKIP : false,
-}, () => {
+test('yg node <path> --json returns Grain\'s own description, and the proposal has no charter.md anywhere', { skip: HAVE_YG ? false : YG_SKIP }, () => {
   assert.ok(!yggProposeError, yggProposeError);
-  // Horde's own state, stapled onto the same staged repo: `nodeSource: yggdrasil` points `node.mjs` at
-  // `.yggdrasil/model/**` for node discovery (no writes of its own — see node.mjs's header), and at least one
-  // horde must exist under `.horde/hordes/` for `resolveHorde` to pick a default.
-  mkdirSync(join(yggStage, '.horde', 'hordes', 'seam'), { recursive: true });
-  writeFileSync(join(yggStage, '.horde', 'config.json'), JSON.stringify({ nodeSource: 'yggdrasil' }, null, 1));
   const graph = readGraph(yggProposalOut);
   const node = graph.nodes.find(n => Array.isArray(n.mapping) && n.mapping.length) || graph.nodes[0];
   assert.ok(node, 'the rendered proposal has no nodes to show');
-  const r = spawnSync('node', [NODE_MJS, 'show', node.id], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 24 });
+  const r = spawnSync('node', [YG_BIN, 'node', node.id, '--json'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 24 });
   const text = (r.stdout || '') + (r.stderr || '');
-  assert.equal(r.status, 0, `node.mjs show ${node.id} exited ${r.status}:\n${text.slice(0, 2000)}`);
-  assert.match(text, /## Charter/, `node.mjs show did not print a Charter section:\n${text.slice(0, 2000)}`);
-  const charterOnDisk = readFileSync(join(yggProposalOut, '.yggdrasil', 'model', node.id, 'charter.md'), 'utf8');
-  const firstContentLine = charterOnDisk.split('\n').find(l => l.startsWith('# Charter'));
-  assert.ok(firstContentLine && text.includes(firstContentLine), `node.mjs show's output did not carry the charter's own heading ("${firstContentLine}"):\n${text.slice(0, 2000)}`);
-  console.log(`[seams] node.mjs show ${node.id}: charter.md (${charterOnDisk.split('\n').length} lines) read back verbatim`);
+  assert.equal(r.status, 0, `yg node ${node.id} --json exited ${r.status}:\n${text.slice(0, 2000)}`);
+  const doc = JSON.parse(r.stdout);
+  assert.equal(doc.description, node.description, `yg node --json's description does not match what grain wrote into ${node.id}'s yg-node.yaml`);
+  assert.ok(doc.description && doc.description.length, 'the description read back is empty');
+
+  const charterFiles = [];
+  const walk = d => {
+    for (const e of readdirSync(d, { withFileTypes: true })) {
+      const p = join(d, e.name);
+      if (e.isDirectory()) walk(p); else if (e.name === 'charter.md') charterFiles.push(p);
+    }
+  };
+  walk(join(yggProposalOut, '.yggdrasil'));
+  assert.deepEqual(charterFiles, [], `a charter.md is still written: ${charterFiles.join(', ')}`);
+  console.log(`[seams] yg node ${node.id} --json: description read back verbatim, no charter.md under .yggdrasil/`);
+});
+
+// ============================================================================================================
+// Seam 4 — grain's own advice parses under Horde. A real `grain advise --json` run against the SAME staged
+// (now adopted-equivalent) repo is handed to a real Horde checkout's `queue.mjs quality --from` — the path
+// `readAdvice`/`parseAdvice` (Horde's `skills/horde/scripts/queue.mjs`) read a `grain-advice/1` document
+// through, whether Horde calls Grain itself (`grainCommand`) or is handed a file grain already wrote. `--from`
+// exercises the file path directly so this seam does not also need a `grainCommand` wired into `.horde/config.json`.
+// `--dry-run --all` keeps the run to parsing and matching: no ticket, no queue, no roster file is needed for the
+// document to prove it is the schema Horde expects.
+// ============================================================================================================
+test('grain advise --json parses under Horde\'s queue.mjs quality', {
+  skip: !HAVE_YG ? YG_SKIP : !HAVE_HORDE ? HORDE_SKIP : false,
+}, () => {
+  assert.ok(!yggProposeError, yggProposeError);
+  // Horde's own state, stapled onto the same staged repo: at least one horde must exist under `.horde/hordes/`
+  // for `resolveHorde` to pick a default, and `config.json` carries only the keys Horde actually reads for this
+  // command (`ygCommand`, so `nodeExists` can resolve `yg node --json`; `base`/`gates` alongside it for a
+  // realistic config, not because this command reads them) — not `nodeSource`, which nothing in Horde reads at
+  // all (audit 2026-09-09).
+  mkdirSync(join(yggStage, '.horde', 'hordes', 'seam'), { recursive: true });
+  writeFileSync(join(yggStage, '.horde', 'config.json'), JSON.stringify({
+    base: 'main', gates: { commit: '', team: '', trunk: '' }, ygCommand: `node ${YG_BIN}`,
+  }, null, 1));
+
+  const advicePath = join(tmp, 'grain-advice.json');
+  const g = spawnSync('node', [GRAIN_BIN, 'advise', '--json'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 26 });
+  assert.equal(g.status, 0, `grain advise --json exited ${g.status}:\n${(g.stdout || '') + (g.stderr || '')}`);
+  writeFileSync(advicePath, g.stdout);
+  const advice = JSON.parse(g.stdout);
+  assert.equal(advice.schema, 'grain-advice/1');
+
+  const r = spawnSync('node', [QUEUE_MJS, 'quality', '--from', advicePath, '--dry-run', '--all', '--json'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 24 });
+  const text = (r.stdout || '') + (r.stderr || '');
+  assert.equal(r.status, 0, `queue.mjs quality --from exited ${r.status}:\n${text.slice(0, 2000)}`);
+  assert.doesNotMatch(text, /does not hold a grain-advice\/1 document/, `Horde refused grain's own document:\n${text.slice(0, 2000)}`);
+  const doc = JSON.parse(r.stdout);
+  assert.equal(doc.ran, true);
+  assert.equal(doc.source, advicePath);
+  assert.ok(Array.isArray(doc.filed) && Array.isArray(doc.skipped), `unexpected shape: ${text.slice(0, 500)}`);
+  console.log(`[seams] queue.mjs quality --from: ${advice.items.length} advice item(s), ${doc.filed.length} would be filed, ${doc.skipped.length} skipped`);
+});
+
+// ============================================================================================================
+// Seam 5 — the family-contracts register is the whole truth (ticket 027). `YGG_DIR/docs/family-contracts.md`
+// is the one page naming every machine document the family exchanges, its schema id, its producer and its
+// consumers. Yggdrasil's own unit test holds that page to Yggdrasil's `src/formatters/` constants; it cannot
+// see the other two repositories. THIS job can — it is the only CI with all three checkouts at once — so this
+// is where a document Horde reads, or Grain writes, that nobody added a row for turns something red.
+//
+// No binary is run: three trees are read with `node:fs` and compared. Horde's scripts are read with
+// `readFileSync` as TEXT rather than grepped from a shell — `escalate.mjs` has carried a literal NUL byte,
+// which makes grep/rg treat the file as binary and say nothing at all, and a scanner that silently skips a
+// file is exactly the drift this seam exists to catch. The assertion below pins that the file was opened.
+//
+// The table parser is a SECOND, INDEPENDENT COPY of the one in Yggdrasil's
+// `tests/unit/repo/family-contracts-invariant.test.ts`. Deliberately duplicated: this job cannot import
+// Yggdrasil's TypeScript, and ten lines of regex copied once is cheaper than a shared package three
+// repositories would have to version together. If the page's table shape ever changes, both copies move.
+// ============================================================================================================
+
+const HORDE_SCRIPTS_DIR = join(HORDE_DIR, 'skills', 'horde', 'scripts');
+const HAVE_HORDE_SCRIPTS = existsSync(HORDE_SCRIPTS_DIR);
+const HORDE_SCRIPTS_SKIP = `Horde checkout has no skills/horde/scripts/ (looked in ${HORDE_SCRIPTS_DIR} — set HORDE_DIR)`;
+const HAVE_YGG_CHECKOUT = existsSync(join(YGG_DIR, '.git'));
+const YGG_CHECKOUT_SKIP = `Yggdrasil checkout not found (looked for a git repo at ${YGG_DIR} — set YG_BIN / YGG_DIR)`;
+
+// A family schema id: a lowercase, HYPHENATED name and a version number — `yg-check/1`, `horde-law/1`,
+// `grain-advice/1`. The hyphen is required so an ordinary path or media type in a string literal
+// (`application/1`, `skills/2`) is never mistaken for a contract.
+const SCHEMA_ID = '[a-z][a-z0-9]*(?:-[a-z0-9]+)+\\/\\d+';
+
+/** Every quoted family schema id in one source file's text, each with the 1-based line it sits on. */
+function schemaIdsInSource(text) {
+  const re = new RegExp(`['"\`](${SCHEMA_ID})['"\`]`, 'g');
+  const found = [];
+  text.split(/\r?\n/).forEach((line, i) => {
+    re.lastIndex = 0;
+    let m;
+    while ((m = re.exec(line)) !== null) found.push({ id: m[1], line: i + 1 });
+  });
+  return found;
+}
+
+/**
+ * Scan every `.mjs` under `dir` for family schema ids. Returns the map id → "file:line" of the FIRST sighting
+ * (so a refusal can say which side of the seam moved) and the list of files actually opened.
+ */
+function scanSchemaIds(dir) {
+  const where = new Map();
+  const opened = [];
+  for (const name of readdirSync(dir).filter(f => f.endsWith('.mjs')).sort()) {
+    const text = readFileSync(join(dir, name), 'utf8'); // as TEXT — a NUL byte must not silence the file
+    opened.push(name);
+    for (const { id, line } of schemaIdsInSource(text)) {
+      if (!where.has(id)) where.set(id, `${name}:${line}`);
+    }
+  }
+  return { where, opened };
+}
+
+/** Parse every markdown table on the page. The duplicate of Yggdrasil's own parser — see the note above. */
+function parseTables(page) {
+  const lines = page.split(/\r?\n/);
+  const cellsOf = line => {
+    const t = line.trim();
+    if (!t.startsWith('|') || !t.endsWith('|') || t.length < 2) return null;
+    return t.slice(1, -1).split('|').map(c => c.trim());
+  };
+  const isSeparator = cells => cells !== null && cells.length > 0 && cells.every(c => /^:?-{3,}:?$/.test(c));
+  const tables = [];
+  for (let i = 0; i < lines.length; i++) {
+    const header = cellsOf(lines[i]);
+    if (header === null || isSeparator(header)) continue;
+    if (!isSeparator(cellsOf(lines[i + 1] ?? ''))) continue;
+    const rows = [];
+    let j = i + 2;
+    for (; j < lines.length; j++) {
+      const cells = cellsOf(lines[j]);
+      if (cells === null) break;
+      rows.push({ line: j + 1, cells });
+    }
+    tables.push({ headerLine: i + 1, headerText: lines[i].trim(), header, rows });
+    i = j - 1;
+  }
+  return tables;
+}
+
+/** The schema id a table row declares, or null when it deliberately declares none. */
+function rowSchemaId(cell) {
+  const m = cell.replace(/`/g, '').trim().match(new RegExp(`^(${SCHEMA_ID})`));
+  return m ? m[1] : null;
+}
+
+test('every schema id Horde reads and Grain writes has a row on Yggdrasil\'s family-contracts page', {
+  skip: !HAVE_YGG_CHECKOUT ? YGG_CHECKOUT_SKIP : !HAVE_HORDE_SCRIPTS ? HORDE_SCRIPTS_SKIP : false,
+}, () => {
+  // A missing page is a REFUSAL naming the path, never a skip: the checkout is here, so the page's absence is
+  // the drift, not a missing neighbour.
+  const pagePath = join(YGG_DIR, 'docs', 'family-contracts.md');
+  assert.ok(existsSync(pagePath), `the family-contracts register is missing: ${pagePath} does not exist in the Yggdrasil checkout`);
+  const page = readFileSync(pagePath, 'utf8');
+
+  // The table's shape, before anything is read out of it.
+  const tables = parseTables(page);
+  assert.equal(tables.length, 1, `expected exactly one table on ${pagePath}, found ${tables.length}`);
+  const [table] = tables;
+  assert.equal(table.header.length, 6,
+    `the register's header row has ${table.header.length} columns, expected 6 — line ${table.headerLine}: ${table.headerText}`);
+  assert.ok(table.rows.length > 0, `the register at ${pagePath} has a header and no rows`);
+
+  const rowById = new Map();
+  for (const row of table.rows) {
+    const id = rowSchemaId(row.cells[1] ?? '');
+    if (id !== null) rowById.set(id, row);
+  }
+
+  // What Horde reads and writes. An EMPTY result is a refusal, not a pass: an empty set satisfies every
+  // containment assertion below, which makes it the quietest way this seam could ever break.
+  const horde = scanSchemaIds(HORDE_SCRIPTS_DIR);
+  assert.ok(horde.opened.length > 0, `scanned ${HORDE_SCRIPTS_DIR} and opened no .mjs file at all`);
+  assert.ok(horde.where.size > 0,
+    `scanned ${horde.opened.length} Horde script(s) under ${HORDE_SCRIPTS_DIR} and found no schema id — the scan, `
+    + 'not the page, is what broke: an empty set passes every assertion below silently');
+  // The NUL-byte file must be among the files the scan opened. `escalate.mjs` has carried a literal NUL, which
+  // makes a shell grep treat it as binary and report nothing; reading it as text is what keeps it in the scan.
+  assert.ok(horde.opened.includes('escalate.mjs'),
+    `escalate.mjs was not among the ${horde.opened.length} Horde script(s) the scan opened — a file that goes `
+    + `silent takes its contracts with it. Opened: ${horde.opened.join(', ')}`);
+
+  // What Grain writes, read out of its own engine rather than hard-coded, so a new Grain document is caught
+  // here the day it lands.
+  const grainEngineDir = join(here, '..', 'engine');
+  const grain = scanSchemaIds(grainEngineDir);
+  assert.ok(grain.where.size > 0, `scanned ${grainEngineDir} and found no grain-* schema id`);
+
+  const missing = [];
+  for (const [id, at] of [...horde.where].sort()) {
+    if (!rowById.has(id)) missing.push(`${id} — read or written by Horde at skills/horde/scripts/${at}`);
+  }
+  for (const [id, at] of [...grain.where].sort()) {
+    if (!rowById.has(id)) missing.push(`${id} — written by Grain at plugins/grain/engine/${at}`);
+  }
+  assert.deepEqual(missing, [],
+    `these schema ids cross the seam but have no row on ${pagePath}:\n  ${missing.join('\n  ')}\n`
+    + 'Add a row (document, schema id, producer, consumers, since, described where) — the page is this seam\'s '
+    + 'only source of truth.');
+
+  // `.family-candidates.json` carries no `schema` field at all — it versions itself by `v`. Deciding whether to
+  // give it an identifier is a contract change and a separate decision; until then the page must say so, and
+  // this seam holds it to saying it rather than quietly dropping the document.
+  assert.match(page, /\.family-candidates\.json/,
+    `${pagePath} has no row for .family-candidates.json — the one document in the family with no schema id, `
+    + 'versioned by its `v` field (Grain writes it, yg advise reads it)');
+
+  // A row for a document none of the three repositories names is allowed ONLY when the page itself says where
+  // it comes from — a non-empty producer column. Anything else is a ghost row.
+  const known = new Set([...horde.where.keys(), ...grain.where.keys()]);
+  const ghosts = [];
+  const notes = [];
+  for (const [id, row] of rowById) {
+    if (known.has(id)) continue;
+    const producer = (row.cells[2] ?? '').trim();
+    if (producer === '') ghosts.push(`${id} (line ${row.line}) — no producer named`);
+    else notes.push(`${id} — produced by ${producer}`);
+  }
+  assert.deepEqual(ghosts, [],
+    `ghost rows on ${pagePath}: ${ghosts.join('; ')}. Neither Horde nor Grain names these, and the page does `
+    + 'not say who produces them either.');
+
+  // A document dropped from Horde but still listed is NOT an error — the page is a register of the release's
+  // history, and a consumer on an older version still reads it. It is worth saying out loud, though.
+  if (notes.length) console.log(`[seams] family-contracts: ${notes.length} row(s) no Horde or Grain source names — ${notes.join(', ')}`);
+  console.log(`[seams] family-contracts: ${rowById.size} row(s); ${horde.where.size} id(s) across ${horde.opened.length} Horde script(s), ${grain.where.size} written by Grain — all present`);
 });

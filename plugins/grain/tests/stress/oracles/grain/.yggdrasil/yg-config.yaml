@@ -1,4 +1,4 @@
-version: "5.2.0"
+version: "6.0.0"
 
 quality:
   # Ownership-sized nodes: a node whose direct fan-out passes ten is doing more than one job.

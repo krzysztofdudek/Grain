@@ -87,7 +87,7 @@ export function aspectYamlDoc(a, status) {
 // ==================================================================================================
 // 7a-continued. Aspect status, earned rather than declared (ticket 102, sharpened by ticket 107's ruling
 // `enforced-requires-certified-origin`). Sits right after `provenanceFor` (§7a) rather than claiming its own
-// top-level number — §7b/§7c below (the family-candidates adapter, `charter.md`) are ticket 100's, unrenumbered.
+// top-level number — §7b below (the family-candidates adapter) is ticket 100's, unrenumbered.
 //
 // `status: draft` is where every aspect starts (§ above). `a.finalStatus` below is written directly in
 // Yggdrasil's own vocabulary (`enforced` | `advisory` | `draft` — `yg schemas read aspect`), not a separate
@@ -144,6 +144,19 @@ export const DRILL_TIMEOUT_MS = SLOWEST_OBSERVED_DRILL_MS * 100;
 //
 // `drillTimeoutMs` exists so a test can prove the bound is actually enforced without waiting out the real one;
 // nothing in the product passes it, and the default IS `DRILL_TIMEOUT_MS`.
+//
+// WHAT CAN BE SAID WITHOUT A DRILL. `enforced` needs a real `yg drill` verdict (0 FALSE-ALARM, >= 1 catch) —
+// there is no way to predict that outcome without running it, so with no Yggdrasil CLI every deterministic
+// aspect is honestly unverified (§ above). But a NARROWER, computable claim survives without a drill: an
+// aspect is a `check.mjs` template (`a.check`), its origin cleared grain's own certification bound
+// (`a.origin === 'certified-convention'`), and `writeAspectFiles` already wrote it a drill corpus
+// (`a.drillViolatesWritten`/`a.drillSatisfiesWritten`, set at write time regardless of whether anything ever
+// drills them). That triple is exactly grain's own confidence plus evidence a drill COULD run against — named
+// "certified convention(s) with cases", never "enforceable", because whether the drill would actually pass is
+// the one thing this function cannot say without running it.
+export function certifiedWithCasesCount(aspects) {
+  return aspects.filter(a => a.check && a.origin === 'certified-convention' && (a.drillViolatesWritten || a.drillSatisfiesWritten)).length;
+}
 export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf, repo, ygBin: explicitYgBin, drillTimeoutMs = DRILL_TIMEOUT_MS }) {
   const yg = resolveYg(explicitYgBin);
   const ygBin = yg.label;

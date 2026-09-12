@@ -92,7 +92,7 @@ function buildFixture(root) {
 // A hand-written graph held BESIDE the repository, the shape every oracle under `tests/stress/oracles/` has.
 // `declaresCalls` is the single difference between the two copies.
 function buildGraph(root, { declaresCalls }) {
-  w(root, '.yggdrasil/yg-config.yaml', 'version: "5.2.0"\n');
+  w(root, '.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
   w(root, '.yggdrasil/yg-architecture.yaml', [
     'node_types:', '', '  service:', '    description: "A service."', '    when:',
     '      path: "src/**/*.ts"', '    relations:', '      default: deny', '',
@@ -274,6 +274,17 @@ test('the text surface never lists the change-together pairs as advice, and alwa
   assert.ok(!/issueInvoice/.test(out), 'a co-change pair must not be listed on the text surface');
   // the split side IS advice and is listed
   assert.match(out, /a finer cut beats on its own evidence/);
+});
+
+// `reason: 'unread'` (guarded above, section 4) is one of two reasons a candidate is kept, and until now the
+// counter line folded it into the same count as `'tighter'` without saying so — "a finer cut beats" reads as
+// the imports case even for a place grain could not read at all. `graphUndeclared` is the one fixture in this
+// file with a real `unread` candidate (section 4 above), so the split half of the count is asserted against it
+// rather than synthesized.
+test('the split counter names how many of its places grain could not read at all', () => {
+  const out = advise(repo, ['--graph', graphUndeclared]);
+  assert.match(out, /^1 place a finer cut beats on its own evidence, of which 1 grain could not read:$/m,
+    `expected the counter to name the unread half:\n${out}`);
 });
 
 test('a repository with no architecture graph is told so, and the document stays a grain-advice/1', () => {

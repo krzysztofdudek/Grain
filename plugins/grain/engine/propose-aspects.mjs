@@ -469,7 +469,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
       enumerator: fam, argument: identifierOf(r.pid), expected: r.exp, kind: r.kind,
       // sub-gate rows have no CONFORMING exemplar of their own — only `deviants` (sites that do NOT follow the
       // candidate) — so `exemplars` (a "copy this" list, never a "avoid this" one) stays empty here, unlike a
-      // certified convention above; the charter renderer reads absence as "not yet a copy-worthy pattern".
+      // certified convention above: an empty list here means "not yet a copy-worthy pattern", never "unmeasured".
       partition: r.partition, share: r.share ?? null, n: r.ne ?? null, deviating: deviants.length,
       exemplars: [],
       // Pre-set, and `promoteEnforceableAspects` keeps whatever reason an aspect already carries: verification

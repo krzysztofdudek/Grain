@@ -9,19 +9,20 @@ import { createHash } from 'node:crypto';
 import {  } from './core.mjs';
 import { BIN, readJson, short } from './grain-context.mjs';
 import { signal } from './grain-report.mjs';
+import { resolveYg } from './propose-base.mjs';
 
 // ----- session-context: what the SessionStart hook injects (no refresh, no parsing — must be instant) -----
 export function sessionContext({ root, isGit, store, mode }) {
   const meta = readJson(store.metaPath);
   const model = meta && existsSync(store.modelPath) ? readJson(store.modelPath) : null;
   const head = isGit ? headSha(root) : null;
-  let state;
+  let state, sig = null;
   if (!isGit && !model)
     state = 'not built yet — the first query builds it (no git here, so weights will be flat)';
   else if (!model)
     state = `not built yet — the first query walks the full git history and parses every file; on a multi-thousand-commit or densely-scoped repo this can run minutes, not seconds, and a tight command timeout may mistake that for a hang; run \`grain refresh\` ahead of time, or add \`--no-history\` for a fast first answer without the history layer (later refreshes are incremental)`;
   else {
-    const sig = signal(model);
+    sig = signal(model);
     state = `${meta.headSha === head ? 'ready' : 'built at ' + short(meta.headSha) + ', HEAD moved to ' + short(head) + ' — the first query refreshes it incrementally'}: ${model.files} files, ${sig.groups} groups, ${sig.facts} conventions in source code (${sig.verdict})`;
   }
   // §067a: the advertised commands below lead with the conceptual name `grain`, never with `node` — a real
@@ -46,6 +47,12 @@ export function sessionContext({ root, isGit, store, mode }) {
     `  grain check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''} Run: \`${bin} check <file>\`. Before you consider the change done: \`grain completeness <file>\` for co-changing files you may have missed.`,
     `  grain status | report        — size, freshness, top conventions. Run: \`${bin} status\` or \`${bin} report\`.`,
     `Index: ${state}.`,
+    // Grain 2 (mission triage): `sig` is already computed above the moment a model exists — this hook has
+    // held the verdict since before the SessionStart hook existed, and never printed it. A sparse model is the
+    // one verdict worth a line of its own here: it says an agent's `where`/`check` answers this session will
+    // read as placement, not shape, before the agent hits that surprise mid-task. The other verdicts (rich,
+    // moderate, empty, no source partition) are read straight off `Index:` above and cost nothing extra.
+    ...(sig && /^a sparse model\b/.test(sig.verdict) ? [sig.verdict] : []),
     ...(model && model.moduleGraph && model.moduleGraph.edges.length
       ? [
           (() => {
@@ -71,6 +78,23 @@ export function sessionContext({ root, isGit, store, mode }) {
     ...(model && !existsSync(join(root, '.yggdrasil'))
       ? [
           `This repository has no architecture graph yet (no .yggdrasil/). When the task is to adopt Yggdrasil here, or to write down the architecture this repo already practises, \`grain propose\` mines one — nodes, relations and rules with the evidence attached — into .yggdrasil-proposal/ for a human to review and move in. Run: \`${bin} propose\`.`,
+        ]
+      : []),
+    // Ticket 028 ("Grain jako wejście do rodziny", D8/D10): the mirror image of the block above — a
+    // repository that ALREADY has `.yggdrasil/` gets pointed at the law itself, not at mining a new one.
+    // `existsSync` alone (no `statSync` distinction, matching the no-graph branch above) is deliberate: a
+    // `.yggdrasil` that is a FILE, not a directory, is still "present" for this sentence's purposes, and the
+    // sentence names no path grain would need to read. `resolveYg` only runs (a `which`/`where` spawn) once
+    // `.yggdrasil/` is confirmed present, so a repo with no graph — most of them — pays nothing for this line
+    // ever being checked, the same cost discipline the sibling block above documents for itself.
+    ...(model && existsSync(join(root, '.yggdrasil'))
+      ? [
+          'This repository runs Yggdrasil; read `yg prime` before changing code, and ask grain where a change belongs.',
+          ...(resolveYg().have
+            ? []
+            : [
+                'Yggdrasil\'s CLI is not on PATH — `yg prime` and `yg check` cannot run. Install it with `npm i -g @chrisdudek/yg` (or set YG_BIN to a built bin.js).',
+              ]),
         ]
       : []),
     ...(model && model.concepts && model.concepts.length

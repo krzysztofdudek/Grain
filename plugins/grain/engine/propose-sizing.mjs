@@ -54,8 +54,8 @@ export function computeSizing(repo, nodes, handGraph, handFiles) {
 
 // ---- the four file sets `propose` writes, each in its own function ----
 //
-// `propose` below reads its inputs, builds the model, and then writes four things: the architecture, the
-// nodes, the aspects with their drill corpora, and the charters. Those four are what the section comments
+// `propose` below reads its inputs, builds the model, and then writes three things: the architecture, the
+// nodes, and the aspects with their drill corpora. Those three are what the section comments
 // have always called them; they are functions here so the pipeline reads as the five steps it is rather than
 // as one page of interleaved writes. Every body is unchanged, and `ev` — the one shared piece of state, the
 // evidence recorder — is passed in rather than closed over, so each function's whole effect is in its

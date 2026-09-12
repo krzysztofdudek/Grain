@@ -23,7 +23,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -153,6 +153,47 @@ test('with no Yggdrasil CLI resolvable, nothing is enforced and the report says 
   assert.equal(j.candidates.length, 0);
   // the architecture is still there — that half of the proposal never needed a reviewer
   assert.ok(j.architecture.nodes >= 1, 'the architecture is proposed whether or not a drill can run');
+  // Ticket 028 (1): with no Yggdrasil CLI, "enforced: 0 of N" (129) is not the whole story — grain still knows
+  // which deterministic aspects it is confident enough in, and has cases written for, to be worth drilling once
+  // a real CLI resolves. Named "certified conventions with cases", never "enforceable": whether a drill would
+  // actually pass is exactly what cannot be said without running one.
+  const withCases = r.stdout.split('\n').find(l => /certified convention\(s\) with cases/.test(l));
+  assert.ok(withCases, `no companion sentence to the enforced/candidates lines:\n${r.stdout}`);
+  assert.match(withCases, /^\s*\d+ certified convention\(s\) with cases already look worth drilling/, withCases);
+  assert.match(withCases, /npm i -g @chrisdudek\/yg/, withCases);
+  assert.match(withCases, /`grain propose` again/, withCases);
+  assert.match(withCases, /`yg adopt/, withCases);
+  assert.equal(j.aspects.certifiedWithCases, +withCases.trim().match(/^(\d+)/)[1], 'the --json count and the printed count must agree');
+  assert.ok(j.aspects.certifiedWithCases > 0, 'the fixture must actually exercise the non-zero case');
+  const proposalMd = readFileSync(join(tmp, 'no-yg', 'PROPOSAL.md'), 'utf8');
+  assert.match(proposalMd, /certified convention\(s\) with cases already look worth drilling/, 'the same sentence must land in PROPOSAL.md, not only the CLI report');
+});
+
+test('the "certified conventions with cases" sentence is silent at zero, and silent whenever a real Yggdrasil is found', () => {
+  // A repository with no partitions drafts no aspects at all — `aspectsCertifiedWithCases` is 0 by
+  // construction, the same shape as Grain's own repository earning 0 enforced rules from its own `propose`
+  // (README, "What it can deduce, and what it can't") — and the sentence must not fire for a zero it cannot
+  // act on, exactly like the existing "enforced: 0 of N" line never gained a phantom companion before this.
+  const emptyRepo = join(tmp, 'no-conventions');
+  mkdirSync(emptyRepo, { recursive: true });
+  execFileSync('git', ['-C', emptyRepo, 'init', '-q', '-b', 'main']);
+  execFileSync('git', ['-C', emptyRepo, 'config', 'commit.gpgsign', 'false']);
+  execFileSync('git', ['-C', emptyRepo, 'config', 'user.email', 't@x']);
+  execFileSync('git', ['-C', emptyRepo, 'config', 'user.name', 'T']);
+  writeFileSync(join(emptyRepo, 'README.md'), 'hello\n');
+  execFileSync('git', ['-C', emptyRepo, 'add', '-A']);
+  execFileSync('git', ['-C', emptyRepo, 'commit', '-qm', 'base'], { env: { ...process.env, GIT_AUTHOR_DATE: '2024-01-15T12:00:00Z', GIT_COMMITTER_DATE: '2024-01-15T12:00:00Z' } });
+  const r = spawnSync('node', [BIN, 'propose', join(tmp, 'no-conventions-out'), '--json', join(tmp, 'no-conventions.json'), '--repo', emptyRepo], { encoding: 'utf8', env: { ...process.env, YG_BIN: join(tmp, 'no-such-yg.js') } });
+  assert.equal(r.status, 0, r.stderr);
+  assert.doesNotMatch(r.stdout, /certified convention\(s\) with cases/, r.stdout);
+  const j = JSON.parse(readFileSync(join(tmp, 'no-conventions.json'), 'utf8'));
+  assert.equal(j.aspects.certifiedWithCases, 0);
+
+  if (HAVE_YG) {
+    // With a real Yggdrasil present, the report earns a REAL verdict instead — the "would be worth drilling"
+    // sentence, whose whole point is standing in for a drill that cannot run, must not appear beside one.
+    assert.doesNotMatch(run.stdout, /certified convention\(s\) with cases already look worth drilling/, run.stdout);
+  }
 });
 
 // ---------- 5. the acceptance handshake (ticket 123): `next:` names `yg adopt`, and — when a Yggdrasil CLI
@@ -210,11 +251,17 @@ test('§081: the SessionStart text names `grain propose` exactly where the trigg
   try {
     const withGraph = ctx();
     assert.ok(!/grain propose/.test(withGraph), `a repository that already has a graph must not be told to propose one:\n${withGraph}`);
-    assert.equal(
-      Buffer.byteLength(withGraph),
-      Buffer.byteLength(withoutGraph) - Buffer.byteLength(named[0]) - 1,
-      'the propose line must be the ONLY difference the condition makes'
-    );
+    // Ticket 028: a repository WITH a graph no longer sees plain "no propose line" — it sees the mirror-image
+    // block instead (`yg prime`, plus an install line when `yg` is not resolvable). Apart from the propose
+    // line (removed) and that block (added), the rest of the output must still be byte-identical — same
+    // invariant §081 always tested, widened for the one new trigger moment ticket 028 adds.
+    const YGGDRASIL_BLOCK = /Yggdrasil|`yg prime`|npm i -g @chrisdudek\/yg/;
+    const withoutGraphLines = withoutGraph.split('\n').filter(l => l !== named[0]);
+    const withGraphLines = withGraph.split('\n');
+    const primeLine = withGraphLines.find(l => /`yg prime`/.test(l));
+    assert.ok(primeLine, `a repository with a graph must be told to read \`yg prime\`:\n${withGraph}`);
+    const withGraphRest = withGraphLines.filter(l => !YGGDRASIL_BLOCK.test(l));
+    assert.deepEqual(withGraphRest, withoutGraphLines, 'apart from the propose line (removed) and the Yggdrasil block (added), the two outputs must be identical');
   } finally { rmSync(join(repo, '.yggdrasil'), { recursive: true, force: true }); }
 });
 

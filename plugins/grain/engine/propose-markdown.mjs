@@ -27,6 +27,12 @@ export function renderProposalMd({ repo, exp, files, active, alternatives, nodes
     counts.drillHoldout
       ? `Drills are cut with a TIME HOLD-OUT at ${counts.drillHoldout} (${counts.drillDropped} pre-cut sites dropped), by the export's per-site first-appearance date rather than by a cut sha.`
       : '**Drills carry NO hold-out.** Every case is cut from the sites the rule was mined on, so a passing drill shows only that the rendered check reproduces grain\'s own count. Re-cut with `--holdout <YYYY-MM-DD>`.', '');
+  // Ticket 028: the companion to the report's own "enforced: 0 of N" line, not carried into this file until now.
+  // Fires only where it applies — no Yggdrasil CLI, and at least one aspect with a drill corpus grain is
+  // confident enough in already (`certifiedWithCasesCount`). Never a prediction that a drill would pass, and
+  // silent otherwise: this file's bytes are unchanged wherever the condition does not hold.
+  if (!counts.aspectsVerifiedAgainst && counts.aspectsCertifiedWithCases > 0)
+    L.push(`${counts.aspectsCertifiedWithCases} certified convention(s) with cases already look worth drilling once Yggdrasil is installed: \`npm i -g @chrisdudek/yg\`, then \`grain propose\` again so a real drill can vouch for them, then \`yg adopt\` this proposal.`, '');
   L.push('## Node types', '', mdTable(['type', 'level', 'levels agreeing', 'evidence files', '`when` selects', 'fidelity', 'imports inside', 'grain read', 'rules', 'uses'],
     active.map(a => {
       const m = a.evidence || {};
