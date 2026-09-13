@@ -1,0 +1,32 @@
+flask: 2276 landings, T=aade460f15 at index 1593, candidates 545 of 682 after T
+fix commits after T: 47, blamed (line->landing) pairs: 247, labeled landings: 64
+zstd dictionary: 1048576 bytes from 31 files / 311860 bytes
+vocabulary at T: 3884 identifiers, 120 imports
+grain model at T built in 102.6s (exit 0)
+  100/545 landings featurized (188s)
+  200/545 landings featurized (238s)
+  300/545 landings featurized (289s)
+  400/545 landings featurized (350s)
+  500/545 landings featurized (408s)
+flask: n=545 pos=32 jit=0.871 jit+zstd=0.869 zstd=0.769
+express: 3898 landings, T=856f3b3be6 at index 2728, candidates 935 of 1169 after T
+fix commits after T: 130, blamed (line->landing) pairs: 508, labeled landings: 141
+zstd dictionary: 1048576 bytes from 54 files / 103782 bytes
+vocabulary at T: 1313 identifiers, 61 imports
+grain model at T built in 60.6s (exit 0)
+  100/935 landings featurized (119s)
+  200/935 landings featurized (167s)
+  300/935 landings featurized (211s)
+  400/935 landings featurized (249s)
+  500/935 landings featurized (286s)
+  600/935 landings featurized (329s)
+  700/935 landings featurized (372s)
+  800/935 landings featurized (410s)
+  900/935 landings featurized (454s)
+express: n=935 pos=78 jit=0.838 jit+zstd=0.849 zstd=0.805
+
+repo	n	pos	jit	jit+zstd	zstd
+flask	545	32	0.871	0.869	0.769
+express	935	78	0.838	0.849	0.805
+delta jit+zstd vs jit: mean +0.0044, wins 1/2
+delta zstd vs jit: mean -0.0680, wins 0/2

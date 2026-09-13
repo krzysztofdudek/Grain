@@ -1,0 +1,39 @@
+chi: 607 landings, T=a846defca2 at index 424, candidates 145 of 182 after T
+fix commits after T: 36, blamed (line->landing) pairs: 287, labeled landings: 72
+zstd dictionary: 1048576 bytes from 46 files / 141614 bytes
+vocabulary at T: 2268 identifiers, 0 imports
+grain model at T built in 23.5s (exit 0)
+  100/145 landings featurized (66s)
+chi: n=145 pos=16 jit=0.843 jit+zstd=0.874 zstd=0.780
+CleanArchitecture: 575 landings, T=38eb041a43 at index 402, candidates 137 of 172 after T
+fix commits after T: 27, blamed (line->landing) pairs: 398, labeled landings: 36
+zstd dictionary: 1048576 bytes from 187 files / 1356372 bytes
+vocabulary at T: 5282 identifiers, 93 imports
+grain model at T built in 33.5s (exit 0)
+  100/137 landings featurized (106s)
+CleanArchitecture: n=137 pos=20 jit=0.908 jit+zstd=0.910 zstd=0.898
+spring-petclinic: 912 landings, T=83e074940b at index 638, candidates 218 of 273 after T
+fix commits after T: 29, blamed (line->landing) pairs: 44, labeled landings: 19
+zstd dictionary: 1048576 bytes from 26 files / 54912 bytes
+vocabulary at T: 969 identifiers, 119 imports
+grain model at T built in 22.5s (exit 0)
+  100/218 landings featurized (64s)
+  200/218 landings featurized (103s)
+spring-petclinic: n=218 pos=9 jit=0.680 jit+zstd=0.838 zstd=0.875
+gin: 1298 landings, T=4c64f1c385 at index 908, candidates 311 of 389 after T
+fix commits after T: 86, blamed (line->landing) pairs: 318, labeled landings: 106
+zstd dictionary: 1048576 bytes from 57 files / 193128 bytes
+vocabulary at T: 3352 identifiers, 2 imports
+grain model at T built in 61.2s (exit 0)
+  100/311 landings featurized (120s)
+  200/311 landings featurized (187s)
+  300/311 landings featurized (247s)
+gin: n=311 pos=25 jit=0.639 jit+zstd=0.735 zstd=0.719
+
+repo	n	pos	jit	jit+zstd	zstd
+chi	145	16	0.843	0.874	0.780
+CleanArchitecture	137	20	0.908	0.910	0.898
+spring-petclinic	218	9	0.680	0.838	0.875
+gin	311	25	0.639	0.735	0.719
+delta jit+zstd vs jit: mean +0.0721, wins 4/4
+delta zstd vs jit: mean +0.0510, wins 2/4

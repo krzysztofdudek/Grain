@@ -1,0 +1,25 @@
+labels=all window=0 min_lines=0 code_only=True min_added=0 stratum=-
+repo	n	pos	rate	size	jit	jit+surp	jit+chunk	jit+ngram	jit+local	jit+novel	surp	chunk	jit+zstd
+CleanArchitecture	49	20	0.41	0.700	0.623	0.641	0.661	0.622	0.634	0.609	0.656	0.630	0.602
+Slim	224	21	0.09	0.776	0.793	0.791	0.780	0.791	0.791	0.781	0.654	0.697	0.786
+axum	267	27	0.10	0.819	0.790	0.780	0.798	0.792	0.784	0.783	0.702	0.784	0.794
+chi	96	16	0.17	0.785	0.822	0.777	0.822	0.794	0.815	0.794	0.680	0.702	0.805
+express	508	78	0.15	0.730	0.703	0.692	0.701	0.700	0.696	0.710	0.658	0.630	0.696
+flask	266	32	0.12	0.751	0.756	0.748	0.753	0.752	0.749	0.753	0.696	0.694	0.754
+gin	175	25	0.14	0.631	0.517	0.502	0.481	0.499	0.522	0.501	0.551	0.548	0.554
+sinatra	273	40	0.15	0.698	0.647	0.642	0.678	0.650	0.645	0.667	0.690	0.723	0.660
+spring-petclinic	81	9	0.11	0.624	0.503	0.636	0.581	0.630	0.598	0.621	0.676	0.694	0.676
+mean				0.724	0.684	0.690	0.695	0.692	0.693	0.691	0.663	0.678	0.703
+p@10%				0.401	0.382	0.365	0.385	0.390	0.358	0.361	0.295	0.239	0.390
+delta size vs jit: mean +0.0374 median +0.0317 wins 6/9 ci>0 1/9
+delta jit+surp vs jit: mean +0.0099 median -0.0002 wins 4/9 ci>0 0/9
+delta jit+chunk vs jit: mean +0.0177 median +0.0061 wins 5/9 ci>0 1/9
+delta jit+ngram vs jit: mean +0.0103 median -0.0040 wins 4/9 ci>0 0/9
+delta jit+local vs jit: mean +0.0143 median -0.0009 wins 3/9 ci>0 1/9
+delta jit+novel vs jit: mean +0.0041 median -0.0007 wins 4/9 ci>0 0/9
+delta surp vs jit: mean -0.0244 median -0.0480 wins 4/9 ci>0 0/9
+delta chunk vs jit: mean -0.0050 median +0.0057 wins 5/9 ci>0 0/9
+delta jit+zstd vs jit: mean +0.0184 median -0.0063 wins 3/9 ci>0 1/9
+single-feature mean AUC: log_la=0.745, z_bpb_raw=0.303, z_bpb_dict=0.332, c_excess=0.668, log_nf=0.664, entropy=0.649, log_ld=0.628, s_delta_self=0.621, tests=0.617, v_imp_new=0.604, log_hot=0.599, d_res_dict=0.581, d_res_raw=0.572, ndir=0.567
+dispersion z_bpb_dict: mean_neg 4.237 mean_pos 2.950 cv_neg 0.529 cv_pos 0.342
+dispersion v_new_frac: mean_neg 0.141 mean_pos 0.131 cv_neg 1.186 cv_pos 0.848

@@ -1,0 +1,10 @@
+repo	landings_with_partners	partners	realized	fixed	ctrl_realized	ctrl_fixed	hot_realized	hot_fixed
+CleanArchitecture	6	6	0.17	0.00	0.80	0.20	0.50	0.17
+Slim	70	203	0.34	0.04	0.64	0.03	0.56	0.00
+axum	193	583	0.52	0.10	0.25	0.06	0.61	0.22
+chi	50	129	0.67	0.50	0.57	0.20	0.74	0.36
+express	215	548	0.56	0.13	0.22	0.07	0.67	0.14
+flask	26	29	0.17	0.00	0.60	0.28	0.66	0.31
+gin	62	187	0.53	0.33	0.48	0.19	0.56	0.27
+sinatra	186	350	0.43	0.17	0.62	0.08	0.32	0.03
+ALL	808	2035	0.50	0.16	0.41	0.09	0.58	0.16

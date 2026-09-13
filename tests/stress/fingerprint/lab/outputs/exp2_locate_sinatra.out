@@ -1,0 +1,2 @@
+sinatra	23	chance 0.43	surprise hit1 0.57 mrr 0.70 auc 0.63	self hit1 0.57 mrr 0.70 auc 0.59	size hit1 0.43 mrr 0.69 auc 0.46	hot hit1 0.70 mrr 0.83 auc 0.67	inv_surprise hit1 0.35 mrr 0.64 auc 0.37
+ALL	23	chance 0.43	surprise hit1 0.57 mrr 0.70 auc 0.63	self hit1 0.57 mrr 0.70 auc 0.59	size hit1 0.43 mrr 0.69 auc 0.46	hot hit1 0.70 mrr 0.83 auc 0.67	inv_surprise hit1 0.35 mrr 0.64 auc 0.37

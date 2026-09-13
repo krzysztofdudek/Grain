@@ -1,0 +1,38 @@
+axum: 1862 landings, T=af13c53938 at index 1303, candidates 446 of 558 after T
+fix commits after T: 81, blamed (line->landing) pairs: 593, labeled landings: 130
+zstd dictionary: 1048576 bytes from 164 files / 1010342 bytes
+vocabulary at T: 4368 identifiers, 259 imports
+grain model at T built in 73.3s (exit 0)
+  100/446 landings featurized (140s)
+  200/446 landings featurized (210s)
+  300/446 landings featurized (260s)
+  400/446 landings featurized (315s)
+axum: n=446 pos=27 jit=0.829 jit+zstd=0.847 zstd=0.834
+Slim: 1589 landings, T=a63b393a5d at index 1112, candidates 380 of 476 after T
+fix commits after T: 31, blamed (line->landing) pairs: 102, labeled landings: 29
+zstd dictionary: 1048576 bytes from 46 files / 238507 bytes
+vocabulary at T: 2497 identifiers, 77 imports
+grain model at T built in 113.2s (exit 0)
+  100/380 landings featurized (212s)
+  200/380 landings featurized (298s)
+  300/380 landings featurized (348s)
+Slim: n=380 pos=21 jit=0.885 jit+zstd=0.886 zstd=0.794
+sinatra: 2536 landings, T=4e92d604be at index 1775, candidates 608 of 760 after T
+fix commits after T: 112, blamed (line->landing) pairs: 318, labeled landings: 91
+zstd dictionary: 1048576 bytes from 6 files / 81146 bytes
+vocabulary at T: 2220 identifiers, 54 imports
+grain model at T built in 102.6s (exit 0)
+  100/608 landings featurized (158s)
+  200/608 landings featurized (218s)
+  300/608 landings featurized (252s)
+  400/608 landings featurized (291s)
+  500/608 landings featurized (340s)
+  600/608 landings featurized (386s)
+sinatra: n=608 pos=40 jit=0.723 jit+zstd=0.772 zstd=0.706
+
+repo	n	pos	jit	jit+zstd	zstd
+axum	446	27	0.829	0.847	0.834
+Slim	380	21	0.885	0.886	0.794
+sinatra	608	40	0.723	0.772	0.706
+delta jit+zstd vs jit: mean +0.0234, wins 3/3
+delta zstd vs jit: mean -0.0320, wins 1/3

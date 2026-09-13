@@ -1,0 +1,33 @@
+click: 1381 landings, T=8e98529f56 at index 966, candidates 331 of 414 after T
+fix commits after T: 53, blamed (line->landing) pairs: 337, labeled landings: 71
+zstd dictionary: 1048576 bytes from 41 files / 375398 bytes
+vocabulary at T: 3685 identifiers, 87 imports
+grain model at T built in 63.8s (exit 0)
+  100/331 landings featurized (131s)
+  200/331 landings featurized (195s)
+  300/331 landings featurized (245s)
+click: n=331 pos=26 jit=0.846 jit+zstd=0.869 jit+grain=0.863 jit+zstd+grain=0.892 zstd=0.863 grain=0.781
+koa: 1114 landings, T=2cdbc52e38 at index 779, candidates 267 of 334 after T
+fix commits after T: 61, blamed (line->landing) pairs: 264, labeled landings: 58
+zstd dictionary: 1048576 bytes from 5 files / 36194 bytes
+vocabulary at T: 764 identifiers, 45 imports
+grain model at T built in 18.3s (exit 0)
+  100/267 landings featurized (59s)
+  200/267 landings featurized (178s)
+koa: n=267 pos=25 jit=0.874 jit+zstd=0.888 jit+grain=0.777 jit+zstd+grain=0.772 zstd=0.792 grain=0.459
+mux: 238 landings, T=797e653da6 at index 166, candidates 56 of 71 after T
+fix commits after T: 13, blamed (line->landing) pairs: 38, labeled landings: 10
+zstd dictionary: 1048576 bytes from 7 files / 61802 bytes
+vocabulary at T: 1280 identifiers, 2 imports
+grain model at T built in 12.7s (exit 0)
+mux: n=56 pos=3 
+
+repo	n	pos	jit	jit+zstd	jit+grain	jit+zstd+grain	zstd	grain
+click	331	26	0.846	0.869	0.863	0.892	0.863	0.781
+koa	267	25	0.874	0.888	0.777	0.772	0.792	0.459
+mux	56	3	skipped: too few positives or negatives
+delta jit+zstd vs jit: mean +0.0183, wins 2/2
+delta jit+grain vs jit: mean -0.0414, wins 1/2
+delta jit+zstd+grain vs jit: mean -0.0287, wins 1/2
+delta zstd vs jit: mean -0.0324, wins 1/2
+delta grain vs jit: mean -0.2408, wins 0/2

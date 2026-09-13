@@ -1,0 +1,12 @@
+click: unigram tokens 32814, shape index 1304 commits, 2880 pairs
+click: augmented 331 landings
+json: unigram tokens 37652, shape index 1057 commits, 1797 pairs
+json: augmented 289 landings
+koa: unigram tokens 3200, shape index 812 commits, 1370 pairs
+koa: augmented 267 landings
+logrus: unigram tokens 5970, shape index 688 commits, 369 pairs
+logrus: augmented 160 landings
+mux: unigram tokens 6024, shape index 201 commits, 72 pairs
+mux: augmented 56 landings
+requests: unigram tokens 16012, shape index 3843 commits, 2287 pairs
+requests: augmented 640 landings

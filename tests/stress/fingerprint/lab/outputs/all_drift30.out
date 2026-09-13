@@ -1,0 +1,18 @@
+feature=c_excess window=30
+repo	windows	rho(surprise,fix)	rho|size	rho|size,bigshare	rho(size,fix)	rho(fixmsg,fix)
+CleanArchitecture	1	-
+Slim	7	+0.75	+0.50	+0.54	+0.39	+0.14
+axum	8	+0.45	+0.52	+0.52	+0.29	-0.24
+chi	3	-
+click	4	+0.40	+nan	+nan	+0.00	+0.80
+express	16	+0.27	-0.11	-0.17	+0.21	+0.05
+flask	8	+0.71	+0.36	+0.86	+0.33	+0.57
+gin	5	-0.30	+0.10	+0.70	-0.10	-0.50
+json	7	+0.21	+0.07	-0.43	-0.07	+0.82
+koa	3	-
+logrus	3	-
+mux	0	-
+requests	6	+0.20	+0.03	+0.77	+0.60	+0.09
+sinatra	9	-0.07	-0.03	-0.03	+0.17	+0.23
+spring-petclinic	2	-
+POOLED	70	+0.32	+0.28	+0.25	+0.18	+0.20

@@ -1,0 +1,6 @@
+click: c_ref 1.938 bits/byte over 323 reference chunks; augmented 331
+json: c_ref 2.382 bits/byte over 447 reference chunks; augmented 289
+koa: c_ref 4.358 bits/byte over 61 reference chunks; augmented 267
+logrus: c_ref 2.363 bits/byte over 96 reference chunks; augmented 160
+mux: c_ref 4.792 bits/byte over 82 reference chunks; augmented 56
+requests: c_ref 1.992 bits/byte over 209 reference chunks; augmented 640

@@ -1,0 +1,16 @@
+repo	n_ref	followed	rate	log_la	log_nf	b_overlap	b_code_cov	b_explained	b_zgain	b_log_words	c_excess	z_bpb_dict	size	brief	size+brief	size+bcc
+CleanArchitecture	21	1	skipped
+Slim	213	2	skipped
+axum	236	1	skipped
+chi	78	5	skipped
+click	103	6	skipped
+express	152	4	skipped
+flask	178	1	skipped
+gin	174	5	skipped
+json	79	0	skipped
+koa	70	4	skipped
+logrus	96	3	skipped
+mux	28	1	skipped
+requests	148	2	skipped
+sinatra	213	17	0.08	0.545	0.573	0.475	0.459	0.456	0.474	0.575	0.447	0.500	0.489	0.338	0.380	0.443
+spring-petclinic	8	0	skipped

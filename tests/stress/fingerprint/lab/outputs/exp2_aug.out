@@ -1,0 +1,18 @@
+CleanArchitecture: global dict yes, local dicts 2, trigram tokens 421784
+CleanArchitecture: augmented 137 landings
+Slim: global dict yes, local dicts 1, trigram tokens 55516
+Slim: augmented 380 landings
+axum: global dict yes, local dicts 5, trigram tokens 265178
+axum: augmented 446 landings
+chi: global dict yes, local dicts 2, trigram tokens 38921
+chi: augmented 145 landings
+express: global dict yes, local dicts 2, trigram tokens 31672
+express: augmented 935 landings
+flask: global dict yes, local dicts 2, trigram tokens 62758
+flask: augmented 545 landings
+gin: global dict yes, local dicts 3, trigram tokens 49585
+gin: augmented 311 landings
+sinatra: global dict no, local dicts 0, trigram tokens 18783
+sinatra: augmented 608 landings
+spring-petclinic: global dict yes, local dicts 1, trigram tokens 12168
+spring-petclinic: augmented 218 landings

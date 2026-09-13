@@ -1,0 +1,14 @@
+CleanArchitecture: unigram tokens 121413, shape index 518 commits, 3508 pairs
+CleanArchitecture: augmented 137 landings
+Slim: unigram tokens 18553, shape index 2161 commits, 3780 pairs
+Slim: augmented 380 landings
+axum: unigram tokens 84851, shape index 1304 commits, 9893 pairs
+axum: augmented 446 landings
+express: unigram tokens 10173, shape index 3327 commits, 4620 pairs
+express: augmented 935 landings
+flask: unigram tokens 25828, shape index 2683 commits, 5440 pairs
+flask: augmented 545 landings
+gin: unigram tokens 20756, shape index 1401 commits, 2414 pairs
+gin: augmented 311 landings
+spring-petclinic: unigram tokens 5622, shape index 681 commits, 3642 pairs
+spring-petclinic: augmented 218 landings

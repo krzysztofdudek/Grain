@@ -1,0 +1,9 @@
+CleanArchitecture: c_ref 2.116 bits/byte over 412 reference chunks; augmented 137
+Slim: c_ref 1.716 bits/byte over 328 reference chunks; augmented 380
+axum: c_ref 1.968 bits/byte over 1485 reference chunks; augmented 446
+chi: c_ref 1.929 bits/byte over 212 reference chunks; augmented 145
+express: c_ref 1.638 bits/byte over 165 reference chunks; augmented 935
+flask: c_ref 1.925 bits/byte over 295 reference chunks; augmented 545
+gin: c_ref 1.959 bits/byte over 251 reference chunks; augmented 311
+sinatra: c_ref 4.429 bits/byte over 44 reference chunks; augmented 608
+spring-petclinic: c_ref 1.259 bits/byte over 93 reference chunks; augmented 218

@@ -1,0 +1,21 @@
+labels=issue window=0 min_lines=0 code_only=True min_added=0 stratum=-
+repo	n	pos	rate	size	jit	jit+surp	jit+chunk	jit+zstd	jit+grain
+CleanArchitecture	49	10	0.20	0.669	0.686	0.710	0.788	0.650	0.609
+Slim	224	19	0.08	0.752	0.761	0.775	0.749	0.773	0.708
+axum	267	25	0.09	0.799	0.775	0.766	0.789	0.772	0.758
+chi	96	15	0.16	0.773	0.760	0.717	0.752	0.742	0.711
+express	508	44	0.09	0.752	0.730	0.729	0.743	0.717	0.708
+flask	266	26	0.10	0.747	0.749	0.751	0.723	0.728	0.736
+gin	175	25	0.14	0.631	0.517	0.502	0.481	0.554	0.560
+sinatra	273	35	0.13	0.700	0.656	0.665	0.674	0.659	0.635
+spring-petclinic	81	3	0.04	skipped
+mean				0.728	0.704	0.702	0.712	0.699	0.678
+p@10%				0.337	0.281	0.284	0.297	0.284	0.228
+delta size vs jit: mean +0.0317 median +0.0131 wins 6/8 ci>0 1/8
+delta jit+surp vs jit: mean -0.0019 median +0.0045 wins 5/8 ci>0 0/8
+delta jit+chunk vs jit: mean +0.0092 median -0.0002 wins 4/8 ci>0 0/8
+delta jit+zstd vs jit: mean -0.0052 median -0.0107 wins 3/8 ci>0 0/8
+delta jit+grain vs jit: mean -0.0325 median -0.0236 wins 2/8 ci>0 0/8
+single-feature mean AUC: log_la=0.743, z_bpb_raw=0.316, c_excess=0.677, log_nf=0.656, entropy=0.634, z_bpb_dict=0.370, log_ld=0.626, tests=0.626, d_res_dict=0.610, s_delta_self=0.605, g_new_files=0.597, g_governed=0.594, ndir=0.591, log_hot=0.589
+dispersion z_bpb_dict: mean_neg 4.033 mean_pos 3.020 cv_neg 0.528 cv_pos 0.371
+dispersion v_new_frac: mean_neg 0.129 mean_pos 0.138 cv_neg 1.214 cv_pos 0.777

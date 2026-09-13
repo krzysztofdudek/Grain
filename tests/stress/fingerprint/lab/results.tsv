@@ -1,0 +1,9 @@
+experiment	branch	parent	commit	metric	secondary_metrics	status	duration_s	description
+2	research/fingerprint	1	d91d0c6	0.0280	jit_code=0.684;jit_zstd_code=0.703;wins=4/9	interesting	1500	full corpus v2: all features, all/code-only
+3	research/fingerprint	2	123f75e	-0.0015	size=0.724;size_cx=0.717;transfer_size=0.745;transfer_size_cx=0.747;c_excess_auc_adj=0.543	discard	720	size-controlled surprise (chunks, residuals), strata, issue labels, transfer
+4	research/fingerprint	3	123f75e	+0.0090	transfer_size=0.745;transfer_size_brief=0.754;wins=8/9;within_size_brief=0.698;shape_transfer=0.586	interesting	360	brief-to-code coupling (+merge-inner briefs, b_zgain); change-shape novelty
+5	research/fingerprint	3	123f75e	-0.07	chance_hit1=0.34;surprise_hit1=0.27;size_hit1=0.48;hot_hit1=0.42;n=153	discard	240	locator: surprise vs blamed file within a landing
+6	research/fingerprint	2	123f75e	0.00	partner_fixed=0.16;hot_ctrl_fixed=0.16;partner_realized=0.50;hot_ctrl_realized=0.58;OR_adj=1.09	discard	900	missing-file test with popularity-matched control; partner-as-marker
+7	research/fingerprint	3	5a813ea	+0.25	windows40=49;rho_raw=0.44;rho_size=0.32;rho_size_big=0.24;windows30=70;rho30_size_big=0.25	interesting-underpowered	120	window drift of size-controlled surprise vs fix share
+8	research/fingerprint	4	5a813ea	nan	sinatra_rate=0.08;others<8_cases	discard	120	same-issue return as a delivery label
+9	research/fingerprint	4	04c206c	+0.010	transfer15_size=0.737;transfer15_size_brief=0.747;wins=10/13;within_size=0.719;within_size_brief=0.699;size_cx_transfer=0.741;locator231_surprise=0.31;chance=0.36;partner_fixed=0.17;hot_fixed=0.17	confirmed	2700	replication on six more repositories, fifteen pooled

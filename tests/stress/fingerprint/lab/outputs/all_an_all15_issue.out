@@ -1,0 +1,62 @@
+labels=issue window=0 min_lines=0 code_only=True min_added=0 nonzero=- stratum=- l2=1.0
+repo	n	pos	rate	size	jit	size+brief	jit+brief	size+cx
+CleanArchitecture	49	10	0.20	0.669	0.686	0.532	0.584	0.704
+Slim	224	19	0.08	0.752	0.761	0.744	0.771	0.760
+axum	267	25	0.09	0.799	0.775	0.822	0.793	0.810
+chi	96	15	0.16	0.773	0.760	0.770	0.741	0.747
+click	143	26	0.18	0.636	0.567	0.579	0.563	0.623
+express	508	44	0.09	0.752	0.730	0.747	0.743	0.745
+flask	266	26	0.10	0.747	0.749	0.744	0.744	0.747
+gin	175	25	0.14	0.631	0.517	0.616	0.554	0.621
+json	222	3	0.01	skipped
+koa	94	17	0.18	0.613	0.572	0.538	0.516	0.652
+logrus	102	20	0.20	0.675	0.623	0.723	0.701	0.653
+mux	29	2	0.07	skipped
+requests	205	17	0.08	0.829	0.784	0.796	0.790	0.823
+sinatra	273	35	0.13	0.700	0.656	0.675	0.673	0.696
+spring-petclinic	81	3	0.04	skipped
+mean				0.715	0.682	0.690	0.681	0.715
+p@10%				0.340	0.282	0.336	0.277	0.296
+delta size vs jit: mean +0.0376 median +0.0302 wins 10/12 ci>0 2/12
+delta size+brief vs jit: mean +0.0082 median +0.0157 wins 8/12 ci>0 1/12
+delta jit+brief vs jit: mean -0.0004 median +0.0064 wins 9/12 ci>0 1/12
+delta size+cx vs jit: mean +0.0402 median +0.0212 wins 11/12 ci>0 1/12
+delta jit vs size: mean -0.0376 median -0.0302 wins 2/12 ci>0 0/12
+delta size+brief vs size: mean -0.0294 median -0.0201 wins 4/12 ci>0 0/12
+delta jit+brief vs size: mean -0.0380 median -0.0378 wins 3/12 ci>0 0/12
+delta size+cx vs size: mean +0.0026 median -0.0026 wins 5/12 ci>0 0/12
+feature	AUC	AUC|size	rho(size)
+  log_la	0.729	0.503	+1.00
+  c_excess	0.657	0.566	+0.45
+  log_nf	0.652	0.492	+0.66
+  entropy	0.639	0.515	+0.57
+  b_overlap	0.631	0.552	+0.37
+  tests	0.627	0.442	+0.48
+  log_ld	0.604	0.506	+0.46
+  log_hot	0.601	0.492	+0.45
+  ndir	0.600	0.472	+0.45
+  b_zgain	0.401	0.486	-0.32
+  b_log_words	0.590	0.510	+0.28
+  b_issue_ref	0.545	0.462	+0.11
+  b_explained	0.536	0.558	+0.06
+  b_paths	0.534	0.534	+0.20
+  b_code_cov	0.480	0.556	-0.09
+  is_fix_msg	0.512	0.682	-0.04
+dispersion z_bpb_dict: mean_neg 4.174 mean_pos 3.102 sd_neg 2.265 sd_pos 1.299
+dispersion c_excess: mean_neg 0.304 mean_pos 0.659 sd_neg 0.605 sd_pos 0.531
+dispersion v_new_frac: mean_neg 0.129 mean_pos 0.135 sd_neg 0.155 sd_pos 0.095
+transfer (leave-one-repo-out AUC)
+repo	size	jit	size+brief	jit+brief	size+cx
+CleanArchitecture	0.700	0.738	0.726	0.767	0.746
+Slim	0.768	0.782	0.774	0.785	0.782
+axum	0.804	0.808	0.825	0.827	0.820
+chi	0.796	0.734	0.709	0.682	0.794
+click	0.658	0.670	0.673	0.680	0.662
+express	0.755	0.758	0.770	0.779	0.760
+flask	0.760	0.734	0.771	0.747	0.770
+gin	0.645	0.657	0.682	0.688	0.654
+koa	0.627	0.600	0.616	0.603	0.651
+logrus	0.684	0.696	0.746	0.745	0.679
+requests	0.843	0.829	0.845	0.832	0.839
+sinatra	0.712	0.705	0.725	0.723	0.707
+mean	0.729	0.726	0.738	0.738	0.739
