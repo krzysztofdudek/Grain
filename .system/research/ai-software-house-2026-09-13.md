@@ -20,6 +20,7 @@ Wersja pierwsza przeszła przez dwie recenzje adwersarialne na modelu Opus: jedn
 10. **Dwa założenia wersji pierwszej były fałszywe** i zostały usunięte: że środek pętli działa, więc brakuje tylko końców, oraz że praktyka plus konsekwencja maszyny dają prawo. Środek jest zmierzony kawałkami i każdy szew przy pierwszym kontakcie pękł. Prawo bierze się z decyzji i incydentów, nigdy z większości.
 11. **Jesteśmy blisko w projekcie, nie w dowodach.** Zero prawdziwych misji Hordy na obcym produkcie, brak bazy kosztu, brak miernika pieniędzy, pusty rejestr incydentów, zero wdrożeń zrobionych przez maszynę. Kolejność budowy jest szew po szwie, z prawdziwą misją na każdy szew.
 12. **Warstwa dowodów jest rejestrem scenariuszy.** Pełna suita e2e w środowisku w pełni syntetycznym, stuby dostawców według ich dokumentacji, stand-iny dla tego, co da się postawić, i plik scenariusza w języku człowieka sparowany 1:1 z każdym testem, sprawdzany przez sędziego Yggdrasila przy każdej zmianie testu. Rodzina stawia ten kształt na pierwszym miejscu przy rozpoznawaniu dowodów, a pakiet obietnic ma jego cztery reguły. Rejestr robi realnym intake, straż „dowody nigdy nie słabną”, incydent bez triażu i model flag, a wierność intencji, dotąd niemierzona, staje się liczbą. §2.10 i §9.
+13. **Czterdzieści symulacji, żadna nie zamyka się do końca.** Osiem niezależnych przebiegów po pięć sytuacji, każda złamana dwa razy: 22 luki modelu, 11 luk rzeczywistości, 7 nieredukowalnych. Model zamyka niewidzialność: fakt staje się zapisany, czerwony, z właścicielem. Skutek zamyka człowiek albo pieniądz. Cztery zasady przekrojowe i pięć zmian, które zamykają najwięcej, §10.
 
 ---
 
@@ -62,7 +63,7 @@ Runner zewnętrzny Hordy działa „kosztem tego, że nikt nie odpowie na pytani
 | przynależność skryptem | czy zdarzenie należy do klasy, decyduje sprawdzenie deterministyczne, nie osąd maszyny; „poprawka zależności z identyfikatorem doradztwa bezpieczeństwa” jest klasą, „drobna zmiana” nie jest |
 | zapis i raport | każde zastosowanie polityki jest zapisane w księdze władz i zgłoszone klientowi w jego rytmie |
 | termin i odwołalność | polityka ma datę przeglądu i jest odwoływalna jednym słowem |
-| milczenie nie jest zgodą | brak odpowiedzi w terminie parkuje misję, zwalnia dzierżawy terytorium, informuje klienta; nigdy nie uruchamia zalecenia maszyny |
+| milczenie nie jest zgodą | brak odpowiedzi w terminie parkuje misję na granicy bezpiecznego kroku, zwalnia dzierżawy terytorium poza tymi, na których stoi rozpoczęta sekwencja nieodwracalna, informuje klienta; nigdy nie uruchamia zalecenia maszyny |
 | język produktu | polityki techniczne, źródła zależności, wiek wersji, weryfikacja podpisów pakietów, nie są zadawane klientom; to domyślne polityki domu ustawiane przez strażnika; klient może je tylko zawężać w słowach produktu: „dane moich klientów nie opuszczają Unii” |
 
 Polityka eksperymentalna w słowach produktu: „mój produkt dostaje nasze ulepszenia jako pierwszy, przed innymi klientami, z automatycznym cofnięciem, jeśli cokolwiek się pogorszy”. Na to osoba nietechniczna umie odpowiedzieć. Na „kohortę kanarka wersji maszyny” nie.
@@ -209,7 +210,7 @@ Klasa jest polem biletu i kroku wdrożenia. Nie da się jej obniżyć w tej same
 
 **Dane.** Osobny majątek: próba na kopii, maskowanie danych osobowych jako „nigdy”, kopie zapasowe jako obietnica z sondą w postaci próby odtworzenia. Dzierżawa repozytorium na zasoby wspólne, których węzły nie dzielą: sekwencja migracji, wspólny schemat, plik blokady zależności; sprawdzenie scalenia trunk na trunk przed jakimkolwiek PR, gdy dwie hordy biegną na jednym repozytorium.
 
-**Czas działania.** Każda obietnica nazywa, jak jest obserwowana. Sondy binarne uruchamiają cofnięcie. Odcisk behawioralny, profil względem podobnych cech, jest **wyłącznie rankingiem uwagi**: instrument nadmiaru Graina oznaczał sumarycznie 27,4% plików Yggdrasila i został odrzucony jako flaga; ta sama matematyka podpięta do cofnięcia cofałaby czwartą część wydań.
+**Czas działania.** Każda obietnica nazywa, jak jest obserwowana. Sondy binarne uruchamiają cofnięcie, ale różnicowo: ten sam scenariusz biegnie na kanarku i na celu cofnięcia; cofnięcie tylko, gdy cel zielony, a kanarek czerwony; „oba czerwone” to trzeci stan: wdrożenie zaparkowane, klient obudzony, incydent czeka na podpis, §10. Odcisk behawioralny, profil względem podobnych cech, jest **wyłącznie rankingiem uwagi**: instrument nadmiaru Graina oznaczał sumarycznie 27,4% plików Yggdrasila i został odrzucony jako flaga; ta sama matematyka podpięta do cofnięcia cofałaby czwartą część wydań.
 
 **Zależności i sieć.** Doradztwa i wycofania jako zdarzenia, misje klasy awaryjnej z rezerwą w polityce budżetowej. Polityki źródeł są domu. Każdy fakt z sieci ma proweniencję i status „zweryfikowane” albo „uwierzone” według Urda. Treść pobrana jest danymi; reguła Ratatoskra o wstrzyknięciach rozciąga się na wszystko z zewnątrz. Zewnętrzny kontrakt ma sondę z zegarem świeżości, bo zmiana świata nie zmienia żadnego skrótu w locku.
 
@@ -222,7 +223,7 @@ Klasa jest polem biletu i kroku wdrożenia. Nie da się jej obniżyć w tej same
 ### 2.9 Maszyna jako oprogramowanie
 
 - **Wersja maszyny**: skrót briefów, wersje narzędzi, identyfikatory modeli per rola. Trailer `Machine:` obok `Ticket:`, `Evidence:`, `Law:`. Rozwiązany identyfikator modelu zapisany **obok** werdyktu, nie w jego skrócie: skrót pary jest zamrożony, a jego zmiana przebija każdemu adopterowi każdy werdykt. Atrybucja kohortowa potrzebuje zapisu; unieważnienie pozostaje decyzją protokołu wymiany.
-- **Przypięcie per misja**, nie per produkt. Horde 6.0.0 mówi wprost: misję w locie kończy się na starym wydaniu. Wersja podnosi się na granicy misji; misja dłuższa niż okno wydań dostaje granice fal tylko wtedy, gdy format stanu ma migracje.
+- **Przypięcie per repozytorium**, nie per misja i nie per produkt. Symulacja S19 pokazała, że konfiguracja, dzierżawy, zamek bramki i lock są jedne na repozytorium, więc jednostką przypięcia jest repozytorium; cofnięcie wersji to parkowanie wszystkich misji na tym repozytorium ze zwolnieniem dzierżaw, a dwie wersje współistnieją tylko na osobnych repozytoriach. Horde 6.0.0 mówi wprost: misję w locie kończy się na starym wydaniu.
 - **Drabina zmian maszyny**: szkic, kanarek na podpisanej kohorcie, wszędzie. Dwa zegary: retrodykcja jako wskaźnik zastępczy, prospektywne ucieczki z księgi domu jako prawda. Researcher zostaje szybką pętlą; wolny zegar jest instrumentem księgi, nie Researchera.
 - **Bootstrap**: zmiany repozytoriów maszyny lądują pod bramką poprzedniego wydania narzędzi.
 - **Ewaluacje behawioralne** briefów: brak; drille czterech dyscyplin są. Bez ewaluacji samomodyfikacja jest ruchem niezmierzonym.
@@ -247,7 +248,7 @@ Rodzina już zna ten kształt. Horde przy rozpoznawaniu dowodów stawia „katal
 Trzy poprawki do praktyki:
 
 1. **Kroki, nie tylko proza.** Sędzia ocenia zgodność; straż dwudrzewna musi liczyć: kroki i asercje nie maleją bez pytania do klienta. Struktura krokowa daje jej co liczyć.
-2. **Ten sam scenariusz, trzy wykonania.** Środowisko syntetyczne to dowód hermetyczny; staging to integracja; syntetyczne konto na produkcji, tam gdzie bezpieczne, to sonda per obietnica. Plik się nie zmienia, zmienia się wykonawca.
+2. **Ten sam scenariusz, trzy wykonania, tam gdzie wykonawca istnieje.** Środowisko syntetyczne to dowód hermetyczny; staging to integracja; syntetyczne konto na produkcji, tam gdzie bezpieczne, to sonda per obietnica. Plik się nie zmienia, zmienia się wykonawca. Obietnica, której wykonania na produkcji nie da się zrobić, na przykład zmiana czasu raz w roku, nie parkuje po cichu: jest jawnie „bez wykonawcy sondy”, z wiekiem ostatniego realnego wykonania, czytanym przy zamknięciu fali.
 3. **Stuby według dokumentacji dryfują.** To scenariusz S1: świat zmienia się po cichu, lock niczego nie unieważnia. Uzupełnienia: stub nagrany z prawdziwego dostawcy oraz sonda z zegarem świeżości przeciw prawdziwemu dostawcy.
 
 Czego rejestr nie daje: świata poza stubem, danych w skali produkcyjnej, pieniędzy, podpisów, trwałości stanu misji. I jednego, co daje tylko połowicznie: siły asercji. Sędzia widzi, czy test pokrywa każde zdanie; czy asercja jest mocna, mówi dopiero wariant mutacyjny przy lądowaniu. Rejestr i mutacja idą razem.
@@ -424,7 +425,7 @@ Kolejność, szew po szwie:
 
 1. **Naprawa dwóch błędów i spisanie standardu warstwy dowodów** z istniejącej praktyki do pakietu obietnic. Oba bez misji, oba tanie.
 2. **Jedna prawdziwa misja Hordy na obcym repozytorium pod 6.0.0**, koszt i zdarzenia zapisane przez lądowanie zanim skasuje drzewo. Pierwsza baza kosztu, pierwsze liczby o człowieku na wynik.
-3. **Trwały stan misji i zapis opieki commitowany.** Bez tego nic dalej nie ma sensu, bo nic nie przetrwa.
+3. **Księga domu pisana w chwili aktu.** Trwały stan misji; zapis opieki commitowany przy lądowaniu w treści, nie w identyfikatorze; koszt, wywołania sędziego, klasa i rundy biletu, odmowy reguł, wykonawca dowodu z ostatnim wykonaniem; podpisy z fotelem i chwilą; wszystko poza repozytorium klienta, zakotwiczone w rachunku dostawcy tam, gdzie host go zwraca. Bez tego nic dalej nie ma sensu, bo nic nie przetrwa i nic nie da się przypisać.
 4. **Podpis weryfikowany w miejscu użycia.** Tabela władz zaczyna obowiązywać.
 5. **Pierwszy podpisany incydent** z pierwszej misji, cięcie drillu, pomiar opóźnienia.
 6. **Pierwsze wdrożenie przez maszynę** na produkcie strażnika: klasa odwracalności, podgląd, staging, cofnięcie, sonda binarna.
@@ -438,7 +439,7 @@ Dopiero po siódmym kroku pytanie o osobne repozytorium ma liczby, na których m
 
 Tak. Trzy rodzaje.
 
-**Luki modelu, doprojektowane w tej wersji**, G21–G26: pokrycie zachowania, starzenie się scenariuszy, czas i współbieżność w środowisku syntetycznym, scenariusze negatywne ze standardów świata, zdrowie produktu jako liczba, brief bez tekstu klienta i wymaganie jako dane.
+**Luki modelu, doprojektowane w tej wersji**, G21–G26: pokrycie zachowania, starzenie się scenariuszy, czas i współbieżność w środowisku syntetycznym, scenariusze negatywne ze standardów świata, zdrowie produktu jako liczba, brief bez tekstu klienta i wymaganie jako dane. Po czterdziestu symulacjach doszły G27–G47, §10.
 
 **Luki w rzeczywistości, nie w modelu.** Model je nazywa i mówi, gdzie lądują, ale nic ich jeszcze nie buduje: podpis weryfikowany przy użyciu, trwały stan misji, miernik pieniędzy, warstwa świata, ewaluacje behawioralne briefów. Tabela władz jest literaturą, dopóki pierwsze dwie nie istnieją.
 
@@ -454,3 +455,117 @@ Tak. Trzy rodzaje.
 | zakazy nie wynikają z praktyki | żadna praktyka nie zawiera „nigdy” | liczba „nigdy” podpisanych na produkt i skąd przyszły |
 
 Model bez luk nie istnieje. Model, który wie, gdzie ma luki, i mierzy każdą, którą może, to najwięcej, co da się zaprojektować.
+
+---
+
+## 10. Czterdzieści symulacji
+
+Metoda: katalog czterdziestu sytuacji pokrywających wszystkie płaszczyzny, osiem niezależnych przebiegów po pięć, każdy na modelu z §2 przyjętym jako zainstalowany i z mechanizmami rodziny sprawdzanymi w repozytoriach. Protokół: przebieg, pęka, poprawka zgodna z rozstrzygnięciami, pęka ponownie, ostatecznie. Katalog leży obok memo jako `ai-software-house-simulations-2026-09-13.md`.
+
+| Klasa luki | Ile |
+|---|---|
+| model | 22 |
+| rzeczywistość | 11 |
+| nieredukowalna | 7 |
+
+Żadna z czterdziestu nie zamyka się do końca. Model zamyka niewidzialność: fakt staje się zapisany, czerwony, z właścicielem. Skutek zamyka człowiek albo pieniądz.
+
+### 10.1 Czterdzieści przebiegów
+
+| S | Sytuacja | Klasa | Pęka najpierw | Ostatecznie |
+|---|---|---|---|---|
+| S01 | podpis w sekundę | nieredukowalna | jedno „go” na trzydzieści wierszy; Ratatoskr dopuszcza zbiorczą zgodę; sprzeczne scenariusze podpisane | darmowe okno poprawki liczone stanem wiersza; czas do podpisu i odsetek poprawek po akceptacji |
+| S02 | zmiana zdania codziennie | rzeczywistość | poprawka karty jest dyscypliną, nie mechanizmem; limit niesprawdzany; dwa tygodnie pod porzuconą koncepcją | poprawka karty pokazuje koszt poprzedniej koncepcji i porzucone wiersze; „stop” mówi klient; wymaga miernika pieniędzy |
+| S03 | termin w umowie | model | time-box jako proza w karcie; nic nie czyta kalendarza | time-box jako linia karty czytana przed rozdaniem; zatrzymanie tylko na granicy bezpiecznego kroku; dom sprzedaje wiersze i sufit, nigdy datę |
+| S04 | podszycie się pod klienta | model | weryfikacja uwierzytelnia poświadczenie, nie osobę; bramka czyta rodzaj pytania, nie podpis | kontrasygnata dla obniżeń i otwarcia produkcji; raport w chwili użycia; wiersz „unieważnienie”: przywrócony status unieważnia pary w locku |
+| S05 | następca klienta | model | tożsamości nie ma; „nigdy” kontrasygnowane przez nieobecnego nieobniżalne przez nikogo | podpis związany z fotelem; przekazanie fotela w księdze; obniżenia przez posiadacza bez oryginału do strażnika |
+| S06 | klient nie płaci | rzeczywistość | podstawa faktury w ignorowanym katalogu u dłużnika | księga domu w chwili lądowania, zakotwiczona w rachunku dostawcy; konstytucja: dom nigdy nie trzyma produktu jako zakładnika |
+| S07 | klient techniczny czyta diffy | nieredukowalna | czarna skrzynka jest własnością rozmowy, nie repozytorium; instrukcja techniczna nie ma rodzaju | instrukcja jako ograniczenie karty i rozstrzygnięcie dyrektora, nigdy prawo; obserwacja klienta poza produkcją jako zapis bez pytania |
+| S08 | wspólna biblioteka | model | każda jednostka rodziny kończy się na repozytorium; kontrakt u sąsiada nie działa przez granicę | sondy świeżości między repozytoriami; brak jednostki wielorepozytoryjnej nazwany |
+| S09 | awaria regionu w kanarku | model | sonda binarna nie zna przyczyny; cofnięcie zdrowego wydania w martwy region | sonda różnicowa; trzeci stan „oba czerwone” parkuje wdrożenie; regresja pod awarią świata nieredukowalna |
+| S10 | certyfikat wygasa | model | fakt operacyjny bez autora; status obietnicy nie zna „ważne do” | obietnice operacyjne domu z zegarem o pochodzeniu; bez podpisanej władzy operacyjnej dom patrzy, nie ratuje |
+| S11 | cennik chmury | model | rachunek za infrastrukturę bez czytelnika | koszt jednostkowy produktu jako obietnica z sondą; decyzja klienta; brak winnego wydania |
+| S12 | korupcja danych po trzech tygodniach | nieredukowalna | opieka rozwiązuje się do identyfikatorów w `.horde/` | trailery niosą treść; opieka nad danymi nie istnieje; odtworzenie to strata nazwana klientowi |
+| S13 | usunięcie danych osobowych | nieredukowalna | dziennik append-only ze skrótami; usunięcie łamie lock | dane nie wchodzą na wejściu; dziennik i korpus prawa „nigdy dane osobowe”; żądania niewykonalne liczone |
+| S14 | zmiana czasu raz w roku | model | trzeciego wykonania nie ma; zaparkowana obietnica jest zielona | obietnica bez wykonawcy sondy nie parkuje po cichu; liczba i wiek jawne |
+| S15 | stare aplikacje w terenie | model | port bez wersji; konsumenci tylko w repozytorium; zero konsumentów | konsument spoza repozytorium jako obietnica z sondą; wycofanie jako kompromis klienta |
+| S16 | ruch pięćdziesięciokrotny | model | sezon nie jest wymaganiem; nic nie otwiera misji | obietnica wydolnościowa z zegarem; wygaśnięcie otwiera pytanie „charter” z liczbą z historii sprzedaży; wydolność świata poza stubem |
+| S17 | rotacja sekretów | model | słowa bramki z sekretem idą do biletu i pytania klienta | lista dozwolonych zmiennych w podpisanej konfiguracji; poświadczenie sondy z zegarem; rotacja jako wiersz opieki |
+| S18 | cena modelu trzykrotna | rzeczywistość | księga nie zna pieniędzy ani modelu; wagi klas nie drgną | kwota i model w wierszu tam, gdzie host je zwraca; „szacunek z wagi” jawnie; cezura przy remapowaniu klas |
+| S19 | cofnięcie wersji maszyny | model | konfiguracja, dzierżawy, zamek per repozytorium; brief niesie absolutną ścieżkę | przypięcie per repozytorium; cofnięcie to parkowanie wszystkich misji na repozytorium |
+| S20 | dwie wersje, sprzeczne reguły | model | obie wchodzą, żadna nie wychodzi; nic nie porównuje aspektów | para odmówiona przez dwie reguły to konflikt do klienta; wykrycie przy pierwszej parze; zapadka nie cofa własnego awansu |
+| S21 | reguła kontra „nigdy” | nieredukowalna | retro i legislator nie widzą obietnic klienta | „nigdy” jako wejście legislatora; styk przedmiotów to osąd modelu; asymetria zapadki mierzona |
+| S22 | luka w repozytorium maszyny | rzeczywistość | skrót werdyktu wyklucza wersję narzędzia; łatka nic nie unieważnia | doradztwo jako zdarzenie z pytaniem; wersja w stemplu; werdykty nieaktualnego parsera liczone |
+| S23 | strażnik niedostępny miesiąc | nieredukowalna | pary prozowe czekają na wycofany model; zastępca może przepiąć model jedną linią | klasa delegacji „wznowienie”; absencja to kolejka zaparkowanych misji |
+| S24 | test ma rację, scenariusz stary | rzeczywistość | sędzia par na doradczej; nieprawdy się scalają; brak terminu | data przeglądu obietnicy w bramce; zakleszczenie przy milczeniu zostaje |
+| S25 | wymiana sędziego | model | model spoza skrótu; sekrety per drzewo; werdykty nieodróżnialne | rozwiązany model czytany przez punkt „judge” bramki; zapas zieleni sprzed wymiany zostaje |
+| S27 | staging pada | rzeczywistość | nie ma czwartego poziomu; robotnik już nie istnieje; brak wejścia obserwacji | stub nagrany jako wykonawca; wiek obserwacji w commitowanym pliku; bramka odmawia za wiek, nie dowodzi prawdy stubu |
+| S28 | dług trzystu plików | model | `promote` nie czyta własnej linii bazowej; egzekwowanie nieosiągalne | baza to dług, powyżej nowość; tryb progresywny standardem domu |
+| S29 | spór o fałszywe blokady | model | licznik fałszywych blokad rośnie tylko z aktu, którego brak jest sporem | cisza jako fakt w dzienniku reguły; jedno pytanie na regułę; audyt trwały |
+| S30 | wyłączenie reguły pakietu | model | adaptacja gasi regułę w całym repozytorium; obniżenie na bazie niewidoczne dla straży | obniżenie do „advisory”; spadek widoczny w indeksie; dom nie odmawia obsługi |
+| S31 | przeniesienie cechy | model | terytorium nietrwałe; identyfikator obietnicy to ścieżka | podpis związany z obietnicą, identyfikator niezmienny; przeniesienie jako „charter” z kontrasygnatą |
+| S32 | bilet na trzy węzły | model | jednostka wdrożenia to bilet, obietnica to dwanaście biletów; cofanie własnej migracji | obietnica nazywa komplet; czwarty poziom czyta komplet; kompletność mierzona |
+| S33 | „wip: reclaimed” w kółko | rzeczywistość | odzysk bez wpisu; bramka czerwona za księgowość maszyny; robotnicy nieksięgowani | odzysk jest rundą; śmierć sesji do czerwonych bramek jako sygnał cięcia węzła |
+| S34 | wiersz niemierzalny | nieredukowalna | nic nie odrzuca przymiotnika; napis zamyka wiersz | obietnica „planned” bez miary zastępczej; `done` nie przyjmuje napisu |
+| S35 | lądowanie dłuższe niż tick | rzeczywistość | tick bierze ten sam zamek, czeka dwie minuty, pętla umiera | czekanie wyprowadzone z sufitu bramki; przepustowość jedno lądowanie na czas bramki |
+| S36 | zamek po restarcie | rzeczywistość | brak uprawnień czytany jako „żyje”; zamek nigdy nie przejęty | host i rozruch w zamku; obcy host to nazwana odmowa |
+| S37 | koszt sędziego przy refaktorze | rzeczywistość | wywołania sędziego poza sumą; powstają w kasowanym drzewie | liczone w pliku wyniku bramki; prognoza jako dolna granica |
+| S38 | budżet w połowie migracji | model | limit tnie sumę, nie sekwencję; parkowanie zwalnia dzierżawy rozgrzebanego schematu | limit wiąże na granicy sekwencji; pierwsza sekwencja bez precedensu w księdze |
+| S39 | stała cena | rzeczywistość | brak ceny jednostkowej i liczby; stała cena to estymata | cena per dotrzymana obietnica z rozkładu; dwie liczby obok |
+| S40 | tania klasa pada | model | nikt nie czyta księgi przy rozdaniu; retrospektywa nie ma kubełka | klasa z pochodzenia z księgi domu; nośnik między misjami dopiero z trwałą księgą |
+| S43 | kopia produkcji w środowisku | model | jedyna reguła nad obietnicami widzi kod, nie ludzi; proza bezwładna | maskowanie deterministyczne na kształtach; historia gita nieusuwalna bez zerwania prawa |
+
+### 10.2 Cztery zasady przekrojowe
+
+Osiem przebiegów dało osiem wniosków, które składają się w cztery zasady:
+
+1. **Zapis w chwili aktu, poza stroną związaną, z tożsamością producenta.** Każdy akt klienta ma fotel, chwilę i cenę. Każda władza maszyny ma wpis. Każde lądowanie zapisuje koszt, wywołania sędziego, klasę i rundy, odmowy reguł, wykonawcę dowodu i jego ostatnie wykonanie, w treści, nie w identyfikatorze. Każdy zapisany fakt niesie rozwiązaną tożsamość tego, co go wyprodukowało: model, wersję narzędzia, hosta i rozruch. Księga leży poza repozytorium klienta i jest zakotwiczona w rachunku strony trzeciej. Zamyka lub ogranicza S02, S03, S05, S06, S12, S18, S22, S25, S29, S31, S36, S37, S39, S40.
+2. **Zapis człowieka jest wejściem każdego aktu autonomicznego.** Retro i legislator czytają podpisane „nigdy”. Bramka czyta, który model sądził, i datę przeglądu obietnicy. Awans reguły czyta własną linię bazową. Obserwacja ze stagingu ma wejście. Żaden ruch na własnej władzy nie biegnie przeciw zapisowi, którego nie umie przeczytać. S04, S20, S21, S24, S25, S27, S28.
+3. **Komplet jest jednostką, nie krok.** Obietnica nazywa swój komplet biletów; sekwencja nieodwracalna, życie sesji, okno bramki, rozruch maszyny deklarują komplet i tożsamość wykonania. Bramka wdrożenia, limit budżetu, time-box klienta i zwolnienie dzierżaw czytają komplet. Co przerwane i powtórzone, dostaje własny wiersz kosztu. S03, S32, S33, S35, S36, S38.
+4. **Fakty świata mają właściciela.** Awaria, certyfikat, cennik, sezon, klucz, konsument spoza repozytorium: żadnego nie wyprodukowało zdanie klienta. Dom ma klasę obietnic operacyjnych ustawianych przez strażnika, każda z zegarem o pochodzeniu i sondą wykonywaną różnicowo wobec celu cofnięcia. S09, S10, S11, S15, S16, S17.
+
+### 10.3 Co się zmienia w modelu
+
+- §1.3: milczenie parkuje misję na granicy bezpiecznego kroku; dzierżawy węzłów z rozpoczętą sekwencją nieodwracalną nie są zwalniane.
+- §1.5: sukcesja po stronie klienta: podpis wiąże się z fotelem klienta terytorium, przekazanie fotela jest zdarzeniem w księdze władz.
+- §2.3: nowe wiersze: „unieważnienie” po wykrytym podszyciu, obserwacja klienta poza produkcją jako zapis bez pytania, instrukcja techniczna klienta jako ograniczenie karty; kontrasygnata dla obniżeń prawa i otwarcia produkcji.
+- §2.8: cofnięcie jest różnicowe, z trzecim stanem; poświadczenie sondy ma zegar świeżości; słowa bramki i błędów nie idą do kanału klienta bez skanu.
+- §2.9: przypięcie wersji maszyny per repozytorium, nie per misja.
+- §2.10: trzy wykonania tylko tam, gdzie wykonawca istnieje; obietnica bez wykonawcy sondy jest jawna.
+- §8: krok trzeci to księga domu pisana w chwili aktu.
+
+### 10.4 Nowe luki
+
+| # | Klocek | Z symulacji | Gdzie |
+|---|---|---|---|
+| G27 | księga domu w chwili aktu: podpisy z fotelem, chwilą i ceną; władze; koszt, wywołania sędziego, klasa i rundy, odmowy reguł, wykonawca i ostatnie wykonanie; poza repozytorium klienta, zakotwiczona w rachunku dostawcy; poprawka karty z ceną; cena per dotrzymana obietnica z rozkładu | S02, S03, S06, S12, S37, S39, S40 | Horde: lądowanie i księga |
+| G28 | fotel klienta terytorium i sukcesja; kontrasygnata dla obniżeń i otwarcia produkcji; raport w chwili użycia dla władz nieodwracalnych; „unieważnienie” | S04, S05 | Horde, konstytucja |
+| G29 | obietnice operacyjne domu ustawiane przez strażnika: certyfikat, kopie, koszt jednostkowy, wydolność; zegar o pochodzeniu; zdarzenia kalendarzowe otwierają pytania „charter” | S10, S11, S16 | pakiet obietnic, konstytucja |
+| G30 | sonda różnicowa i trzeci stan; poświadczenie sondy z zegarem; lista dozwolonych zmiennych w podpisanej konfiguracji; rotacja jako wiersz opieki | S09, S17 | Horde: straż |
+| G31 | wykonawca i ostatnie realne wykonanie w każdym wierszu dowodu, commitowane w treści; obietnica bez wykonawcy sondy jawna z wiekiem | S12, S14 | Horde: lądowanie; pakiet obietnic |
+| G32 | konsument spoza repozytorium jako obietnica z wykonaniem produkcyjnym; wycofanie jako kompromis klienta z liczbą z sond | S15 | pakiet obietnic |
+| G33 | maskowanie jako dowód deterministyczny na kształtach nad danymi testowymi i scenariuszami, z drillem; ten sam skan na granicy dziennika; konstytucja: dziennik i korpus prawa „nigdy dane osobowe”; kopiowanie plików z niepodpisanej konfiguracji jako wektor | S43, S13 | pakiet obietnic, Yggdrasil addytywnie, Horde |
+| G34 | tożsamość producenta w każdym fakcie: kwota i model w wierszu, gdzie host zwraca zużycie, inaczej „szacunek z wagi” jawnie; cezura przy remapowaniu klas; model czytany przez punkt „judge”; wersja narzędzia w stemplu; werdykty nieaktualnego parsera liczone | S18, S22, S25 | Horde, Yggdrasil addytywnie |
+| G35 | przypięcie per repozytorium; cofnięcie wersji to parkowanie repozytorium | S19 | Horde |
+| G36 | konflikt dwóch reguł jako pytanie „charter” przy pierwszej wspólnej parze; „nigdy” obietnic jako wejście retro i legislatora | S20, S21 | Horde: role |
+| G37 | zastępca strażnika z klasą „wznowienie”; zmiana modelu bez wpisu odmawiana; absencja jako kolejka | S23 | konstytucja |
+| G38 | data przeglądu obietnicy czytana przez bramkę; sędzia par na egzekwowanej w standardzie domu; obserwacja ze stagingu z wejściem; stub nagrany jako wykonawca z wiekiem w commitowanym pliku | S24, S27 | pakiet obietnic, Horde |
+| G39 | `promote` czyta własną linię bazową; tryb progresywny standardem domu, podpisany raz przy przyjęciu | S28 | Horde, Yggdrasil konfiguracja |
+| G40 | komplet jako jednostka: obietnica nazywa komplet biletów; czwarty poziom czyta komplet; limit wiąże na granicy sekwencji nieodwracalnej; time-box klienta jako linia karty | S03, S32, S38 | Horde |
+| G41 | odzysk sesji jako runda; śmierć sesji do czerwonych bramek jako sygnał cięcia; klasa biletu z pochodzenia z księgi domu | S33, S40 | Horde |
+| G42 | zamek z hostem i rozruchem; czekanie wyprowadzone z sufitu bramki; przepustowość mierzona | S35, S36 | Horde: dwa błędy |
+| G43 | cisza jako fakt w dzienniku reguły po terminie propozycji; jedno pytanie na regułę; audyt prawa trwały poza `.horde/` | S29 | Horde |
+| G44 | wymaganie bez klasy dowodu jako obietnica „planned” w słowach klienta, bez miary zastępczej | S34 | pakiet obietnic |
+| G45 | instrukcja techniczna klienta jako ograniczenie karty; obserwacja klienta poza produkcją jako zapis | S07 | Horde |
+| G46 | produkt wielorepozytoryjny: jednostką rodziny jest repozytorium; sondy świeżości między repozytoriami; obiekt produktu nazwany jako ograniczenie do czasu warstwy świata | S08 | warstwa świata |
+| G47 | obniżenie reguły pakietu domu zatrzymuje się na „advisory”; zmiany na bazie widoczne w indeksie jakości; konsola mówi, czego już nie umie pokazać | S30 | Horde, pakiet obietnic |
+
+### 10.5 Pięć zmian, które zamykają najwięcej
+
+1. Księga domu pisana w chwili aktu, poza repozytorium klienta, z tożsamością producenta w każdym wierszu.
+2. Obietnice operacyjne domu z sondą różnicową i zegarem o pochodzeniu.
+3. Komplet jako jednostka bramki wdrożenia, budżetu, time-boxu i dzierżaw.
+4. „Nigdy” i data przeglądu jako wejście legislatora i bramki; awans czyta własną bazę.
+5. Tożsamość wykonania: host i rozruch w zamku, model przy werdykcie, wersja w stemplu, przypięcie per repozytorium.
+
+Siedem nieredukowalnych, potwierdzonych symulacją, dochodzi do tabeli z §9: podpis nieprzeczytany, kompetencja klienta wchodząca kanałem poza domem, opieka nad danymi po korupcji, utrwalenie kontra usunięcie, styk reguły z „nigdy” jako osąd modelu, absencja strażnika przy wycofaniu modelu, wymaganie bez miary.
