@@ -1,4 +1,4 @@
-// §052 — `what`'s `siblings:` line is deleted. Measured (see .system/issues/052-what-siblings-noise/log.md):
+// §052 — `what`'s `siblings:` line is deleted. Measured (see ticket 052's log (maintainer notes)):
 // per-value precision 0.364 [0.29–0.44] against a pre-registered 0.70 bar and an unsure-counts-as-hit tie-break,
 // over 165 blind hand verdicts across 7 languages; a mean of 72.7 sibling values per firing line, worst single
 // line 759; firing on 218 of 420 of the repositories' own vocabulary queries. The line is a PUSH surface — it is

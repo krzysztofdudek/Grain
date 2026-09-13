@@ -2,8 +2,7 @@
 // the CHANGED file's own forward confidence alone (sup/commitsA when the changed file is `a`, sup/commitsB when
 // it is `b`). For a heavily-committed hub file that denominator is enormous, so a real, reliable partner's ratio
 // reads as noise no matter how tight the coupling actually is — measured at 44 of the 45 hottest files across a
-// 3-repo corpus getting a false `(complete — no file historically changes with these)` (.system/research/
-// question-catalog.md §3.2). The fix: gate/rank by the MAX of the two directional confidences (confidenceAB vs
+// 3-repo corpus getting a false `(complete — no file historically changes with these)` (maintainer note *question-catalog* §3.2). The fix: gate/rank by the MAX of the two directional confidences (confidenceAB vs
 // confidenceBA, both already carried on every model.cochange pair — no new extraction), and for a single changed
 // file additionally apply the same looser 1/3 floor `cochangePartners`'s own single-file mode already uses for
 // `where <file>` on the exact same data (closing the class-C where/completeness contradiction the ticket names).

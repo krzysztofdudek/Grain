@@ -218,7 +218,7 @@ What remains that mathematics does not decide, on the record:
   are not comparable — two declarations in one file move whenever that file moves — so a single ranking is won
   outright by the within-file half on any repository with large files, and the cross-file half is emptied before
   any query sees it. Measured, and the number of pairs retained is unchanged
-  ([`node-cochange-measurement.md`](../.system/research/node-cochange-measurement.md) §9);
+  (maintainer note *node-cochange-measurement* §9);
 - `valueDfMin`/`valueDfMaxShare` — a population gate on what enters the value-concordance index (a value in one
   file has no concordance to report; a value in a fifth of the repository is furniture, not a concept), the same
   kind of floor as the vocabulary support constants above, not a second or third λ; whether anything is SAID about

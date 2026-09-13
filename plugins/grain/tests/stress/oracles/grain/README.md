@@ -75,7 +75,9 @@ updated one has not been run.
 - The test tree by shape: which suites exist, what each imports, what each spawns, how the flat
   conformance suite differs from the split relation suites, and which guardian tests exist.
 - `README.md`, the four documents under `docs/`, `.system/decisions.md` in full, and
-  `.claude/skills/director/reference/system.md`.
+  `.claude/skills/director/reference/system.md`. Both of those, and the `.system/` tree this graph maps, were
+  removed from the repository after the graph was written; the graph describes the repository as it stood at the
+  commit it was measured against.
 - Yggdrasil's own format, from its source of truth only: `yg prime`, every schema under
   `yg schemas`, every topic under `yg knowledge`, and Yggdrasil's own hand-written `.yggdrasil/` read as
   a worked example.

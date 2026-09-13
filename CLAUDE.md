@@ -12,8 +12,6 @@ This repo never names or links Vision (the author's private practice hub) or any
 
 - `docs/` — `reference.md` (every command and flag), `mathematics.md` (the objective and the one loss constant), `results.md` (the complete measurement record, negatives included — the whole claim), `validation.md` (the corpus and the per-grammar table).
 - `tests/` — `fixtures/` (the deterministic fixture repository the plugin's own tests build against) and `stress/`.
-- `.system/` — the repository's own mission bookkeeping: `plan.md`, `decisions.md`, `handoff.md`, `escalations.md`, the queue. It is where work on Grain is planned and recorded; it is not part of the plugin and ships nowhere. Research documents under `.system/research/` keep whatever working version number they were written under; nothing in them is edited to match a release.
-- `.claude/skills/director/` — the director skill this repository's own missions run under. Not the plugin.
 - `.grain/` — Grain's own store on itself: `seeds.jsonl` and `decisions.jsonl` are committed maintainer decisions; `cache/` is gitignored and disposable.
 
 Plugin manifests, and where the version lives:

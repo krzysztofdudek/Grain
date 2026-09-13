@@ -5,7 +5,7 @@ lands in — bits under the repository's own model, novelty of identifiers and f
 co-change instruments, the coupling between the change and its brief — say whether the change will need a fix?
 
 Everything here is an instrument; nothing here ships. The record of what was run and what came out is in
-`.system/research/fingerprint-lab-2026-09-13.md` (Polish) and the rows it adds to `docs/results.md`.
+`lab/log.md` and `lab/results.tsv` here, and in the rows it adds to `docs/results.md` (149–158).
 
 ## Protocol
 

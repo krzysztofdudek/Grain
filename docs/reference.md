@@ -478,7 +478,7 @@ shallowest-first, and an accepted one becomes the parent of its own children, so
 the tree. The second disjunct carries most of it: a directory of files grain parsed NONE of (Java resources,
 templates, test fixtures, shipped docs) is invisible to every other level, because a directory card is published
 only where scopes were mined. **The policy is fitted on those four oracles and must be re-measured when a fifth
-arrives**; the sweep is in `.system/research/type-levels.md`.
+arrives**; the sweep is in the maintainer note *type-levels*, kept outside this repository.
 
 ### How a proposed rule is worded (ticket 109)
 
@@ -576,7 +576,7 @@ merely running `yg check --approve` on the enforced set and calling the rest don
 ### Identifier hygiene (ticket 120)
 
 A mined row can be true, checkable, and still not a rule anyone should read as one. Four such shapes are caught
-at render time, before the row ever becomes an aspect draft — `.system/research/sense-iteration.md` §10 names
+at render time, before the row ever becomes an aspect draft — the maintainer note *sense-iteration* §10 names
 them; here is what `propose` does about each:
 
 - **A parser node type as the identifier.** `call_expression`, `identifier`, `member_expression` — a value that
@@ -745,7 +745,7 @@ A non-contract `survey` block carries the counts a measurement reads — pairs, 
 pairs touching the hottest node, the declared rate over every pair of nodes that owns a file, and the split
 count. It is not part of the contract and a consumer must not read it.
 
-**What the text surface says, and why it is not the same.** `.system/research/node-cochange-measurement.md`
+**What the text surface says, and why it is not the same.** The maintainer note *node-cochange-measurement*
 measured this on four hand-written graphs: the change-together side named two node pairs in total, both of them
 connections those graphs already declared, and every looser reading of the same evidence concentrates on
 whichever place the repository changes most — the finding `where`'s file-level co-change lever was rejected on.

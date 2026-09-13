@@ -6,7 +6,7 @@
 // while a CROSS-file pair needs the same two named declarations edited together eight or more times. On express
 // the consequence was total — all 5000 retained pairs were inside one file and all 36 cross-file pairs the
 // store held were dropped before any consumer saw them, so the surface was 100% within-file by construction
-// (`.system/research/node-cochange-measurement.md` §3). Now each population is entitled to half the same
+// (maintainer note *node-cochange-measurement* §3). Now each population is entitled to half the same
 // budget, each cut by its own descending support, and whatever half one does not use goes to the other.
 //
 // THREE THINGS ARE GUARDED, each with a silent failure mode of its own:

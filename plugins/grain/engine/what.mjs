@@ -143,7 +143,7 @@ export function whatCmd({
 
   // (d) siblings — DELETED (§052). It printed the OTHER members of any container a matched value sits in, which
   // by construction is exactly the set of values that did NOT match the query. Measured across 7 languages
-  // (.system/issues/052-what-siblings-noise/log.md): per-value precision 0.364 [0.29–0.44] over 165 blind hand
+  // (ticket 052's log (maintainer notes)): per-value precision 0.364 [0.29–0.44] over 165 blind hand
   // verdicts, against a pre-registered 0.70 bar and a tie-break that counts every unsure value as a hit — so
   // 0.364 is an upper bound. It fired on 218 of 420 of the repositories' own vocabulary queries and rendered a
   // mean of 72.7 values per line, worst single line 759, all in the `practiced` (statistical-claim) voice. The

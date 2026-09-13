@@ -109,7 +109,7 @@ export function localities(exp, cache, files) {
 // resources, Thymeleaf templates, test fixtures, shipped docs — is invisible to every other level, because a
 // directory card is published only where scopes were mined. That is where 9 of spring-petclinic's 28 hand
 // types live. The policy is FITTED ON THESE FOUR ORACLES and must be re-measured when a fifth arrives; the
-// sweep that produced the table is `.system/research/type-levels.md`.
+// sweep that produced the table is maintainer note *type-levels*.
 // ==================================================================================================
 // How many of a list fall at each key, in `TYPE_LEVELS` order — the shape `counts.typesByLevel` and
 // `counts.alternativesByLevel` take, so a reader gets the levels in one order everywhere.

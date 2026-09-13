@@ -1,11 +1,9 @@
 .temp/
-.system/cache/
 node_modules/
 .grain/
 .DS_Store
 *.log
 .env
-.system/cache/
 # instrument F (scale ladder): per-run result dumps are machine-specific noise; one checked-in baseline stays as a reference point.
 plugins/grain/tests/stress/results/*
 !plugins/grain/tests/stress/results/baseline-*.json

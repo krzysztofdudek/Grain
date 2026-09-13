@@ -153,7 +153,7 @@ export function howEval({ model, H, root, last = 100 }) {
     noMatch,
   };
 }
-// §069 (research/where-lever, `.system/research/where-ranking-design.md` §4.4) — leak subtraction for ANY
+// §069 (research/where-lever, maintainer note *where-ranking-design* §4.4) — leak subtraction for ANY
 // history-reading lever a future `where` ranker might add. `howEval` just above protects itself cheaply: it
 // drops the candidate commit from `fps` before handing history to `howCmd`, because `howCmd` matches directly
 // against `H.fps` and nothing else. A future `where`-side lever (commit-message affinity, co-change propagation,

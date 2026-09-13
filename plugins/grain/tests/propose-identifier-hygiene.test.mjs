@@ -1,4 +1,4 @@
-// IDENTIFIER HYGIENE (ticket 120, `.system/research/sense-iteration.md` §10 (2)-(5)). Four ways a mined row
+// IDENTIFIER HYGIENE (ticket 120, maintainer note *sense-iteration* §10 (2)-(5)). Four ways a mined row
 // reads as nonsense however it is worded, caught in `buildAspects` before the row ever becomes an aspect draft.
 //
 // Three real fixtures drive the actual pipeline (a real temp git repo, a real `grain export`, the real

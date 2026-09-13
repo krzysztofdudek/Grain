@@ -31,7 +31,7 @@ export function completeness(model, changed) {
 // single-file mode already uses below ("one file's history is sparse; a third of its commits is a real signal")
 // — this function was the one place that floor was deliberately withheld, which is exactly what made
 // `completeness` disagree with `where` on the same file (44 of the 45 hottest files in the measured corpus got a
-// false "no file historically changes with these" — see .system/research/question-catalog.md §3.2). A multi-file
+// false "no file historically changes with these" — see maintainer note *question-catalog* §3.2). A multi-file
 // `changed` set (`review` over several touched files) keeps the stricter CFG.cochangeMinConf: more files already
 // means more corroborating evidence, so the sparse-history case for the looser floor doesn't apply.
 // §074: `ambient` on a hit below is structural, not a new tunable — a partner whose OWN global commit count
@@ -39,7 +39,7 @@ export function completeness(model, changed) {
 // picks as whichever direction's denominator cleared the confidence bar and so can legitimately be the CHANGED
 // file's own count instead) already clears the same λ bound `certifyObligationRules`' ambient gate uses, against
 // `model.nonMegaCommits` — the exact population those counts were drawn from (history.mjs). Measured in
-// `.system/research/obligations-design.md` §2: pooled over 20 repos, raw co-change recall@3 (0.285) loses to the
+// maintainer note *obligations-design* §2: pooled over 20 repos, raw co-change recall@3 (0.285) loses to the
 // null "3 hottest recently-changed files" (0.336), and the entire deficit is the ambient half — on companions
 // outside the 10 hottest files co-change alone scores 0.198 against the null's 0.000. Never merge the two: an
 // ambient partner crowds out a specific one at the top of a ranked list an agent has room to read only 3-5 of.
@@ -121,8 +121,7 @@ export function scopeCochangeLines(model, rel, partitionName) {
 // fixture that predates it). The NO-hit case changed under §063: never certify `(complete)` — that phrase claims
 // an absence this model cannot actually see (44 of the 45 hottest files in the measured corpus got exactly that
 // false claim). Name the threshold that was actually applied instead. §074 adds a SEPARATE ambient section
-// (`ambientLines`, shared with `obligationLines`) — never merged into this list: `.system/research/
-// obligations-design.md` §2 measured raw co-change losing to the null "3 hottest recent files" pooled (0.285 vs
+// (`ambientLines`, shared with `obligationLines`) — never merged into this list: maintainer note *obligations-design* §2 measured raw co-change losing to the null "3 hottest recent files" pooled (0.285 vs
 // 0.336), entirely because the ambient half crowds out the non-obvious half worth reading (0.198 vs 0.000 there).
 export function completenessDirectional(model, changed) {
   // ranked by the max of the two directional confidences — see cochangeData's own §063 comment

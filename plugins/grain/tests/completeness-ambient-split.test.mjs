@@ -3,7 +3,7 @@
 // candidate's OWN global rate (commitsX / nonMegaCommits) is tested against the same λ=8 display bound
 // `certifyObligationRules`' ambient gate already applies (`clearsOwnRate`, core.mjs) — no new constant.
 //
-// `.system/research/obligations-design.md` §2: pooled over 20 repos, raw co-change (0.285 recall@3) loses to the
+// maintainer note *obligations-design* §2: pooled over 20 repos, raw co-change (0.285 recall@3) loses to the
 // null "3 hottest recently-changed files" (0.336) — entirely because co-change's value lives in the NON-obvious
 // half (0.198 there vs the null's 0.000). The product fix: split the partner list into "specific to this file"
 // and "ambient (this repo touches these with almost everything)", and never merge them into one ranked list.

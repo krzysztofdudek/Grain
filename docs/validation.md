@@ -288,7 +288,7 @@ Kotlin and Rust move to validated on the same bar the other 16 code grammars alr
 
 `grain advise` reads the architecture graph a repository already has and reports two things about it. One of the
 two ships as advice; the other does not, and the reason is a measurement, not a preference. The full record with
-every table is [`.system/research/node-cochange-measurement.md`](../.system/research/node-cochange-measurement.md);
+every table is the maintainer note *node-cochange-measurement*, kept outside this repository;
 the headline is here because it is the second time this project measured co-change as a lever and the second time
 the numbers said no.
 
@@ -310,7 +310,7 @@ The gate is not what empties this. Cross-FILE scope pairs above the support floo
 must be edited together in eight or more commits before a pair exists at all. And express's 36 are one fact —
 `lib/response.js#send` against thirty-four anonymous blocks of `test/res.send.js` — which is exactly the
 "corroboration selects for hubs" finding that killed the file-level lever
-([`where-cochange-promotion.md`](../.system/research/where-cochange-promotion.md) §3), arriving from the other
+(maintainer note *where-cochange-promotion* §3), arriving from the other
 side. Loosening the gate does not rescue it: the file-level, one-way form — the rejected lever's own shape lifted
 to nodes — gives 6/9/6/57 pairs with **67%/56%/50%/61%** of them touching a single node, and that node is the
 repository's churn centre every time (the changelog and the package manifest, on Yggdrasil). Five undeclared pairs
@@ -368,13 +368,13 @@ out loud, because that graph was not grown from that proposal.
 
 **This first record is a calibration, not new evidence.** Its target is the same repository as one of the four
 hand-written oracles, so it says nothing about a fifth repository — what it shows is that the recorded-oracle
-measure lands where the established instrument lands: `.system/research/oracles-4-measurement.md` scored the same
+measure lands where the established instrument lands: the maintainer note *oracles-4-measurement* scored the same
 comparison at 21/36 type recall (23/36 with alternatives) and 30/393 node recall on an older commit and an older
 engine, against 23/36, 25/36 and 43/402 here. The obligation stated above — that the type-level policy be
 re-measured when a fifth repository arrives — is not discharged by it.
 
 The record is at `plugins/grain/tests/stress/oracles/yggdrasil/`, the memo is
-[`.system/research/oracle-5-yggdrasil.md`](../.system/research/oracle-5-yggdrasil.md), and
+the maintainer note *oracle-5-yggdrasil*, and
 `tests/reconstruct.test.mjs` scores it on every run — with no checkout of Yggdrasil anywhere, because the file
 sets were expanded once, when it was recorded.
 

@@ -193,7 +193,7 @@ test('--graph over a copy of an in-tree graph reproduces the in-place numbers ex
 // ORACLE side of every comparison — the denominators — because those are facts about a committed graph read
 // against a real foreign tree, and a glob, `content:` predicate or mapping that silently stopped matching would
 // move them without failing anything else. Grain's own scores are the measurement, not the guard, and are not
-// pinned here: they are reported in `.system/research/oracles-4-measurement.md`.
+// pinned here: they are reported in maintainer note *oracles-4-measurement*.
 const CLONES = process.env.GRAIN_CORPUS_CLONES;
 const ORACLES = join(here, 'stress', 'oracles');
 const ORACLE_FACTS = {
@@ -265,7 +265,7 @@ for (const [name, F] of Object.entries(ORACLE_FACTS)) {
 // checkout at all — which is why this runs unconditionally where the three graph oracles above skip without one.
 // What is asserted is the ACCEPTED side (the denominators, facts about a committed record) and that the score's
 // tallies close. Grain's own hit counts are the measurement, not the guard, and are reported in
-// `.system/research/oracle-5-yggdrasil.md`.
+// maintainer note *oracle-5-yggdrasil*.
 const RECORDED = {
   yggdrasil: { files: 3056, acceptedTypes: 36, acceptedNodes: 436, acceptedRelations: 1298, acceptedRules: 70, acceptedPorts: 1 },
 };

@@ -1,7 +1,7 @@
 // Ticket 073 — `grain obligation <path>`: what a new file under this (module, suffix) class has historically
 // required (the "birth obligation"). Mined from git status alone (A/M/D/R), gated by the SAME machinery
 // `changeArchetypes` already uses (KT/BIC contrast, the λ=8 display bound, CFG.minRaw=5 support floor) — no new
-// tunable constant. See `.system/research/obligations-design.md` §3/§6 for the full derivation.
+// tunable constant. See maintainer note *obligations-design* §3/§6 for the full derivation.
 //
 // Every fixture below creates its companion/noise files in the SCAFFOLD commit only, so the numbered "birth"
 // commits add exactly one new class-file each and never accidentally trigger a second, spurious birth class from
@@ -214,7 +214,7 @@ test('7a) a repository with no git history at all says so, never a hollow zero',
   const r = grain(['obligation', 'd/new.x'], dir);
   assert.equal(r.code, 0, `exit 0 expected — stderr:\n${r.err}`);
   assert.match(r.out, /no recorded births/, `must name the absence honestly, got:\n${r.out}`);
-  assert.ok(!/\(complete\)/.test(r.out), `must never say "(complete)" — see .system/decisions.md, got:\n${r.out}`);
+  assert.ok(!/\(complete\)/.test(r.out), `must never say "(complete)" — see the maintainer's decision record, got:\n${r.out}`);
 });
 test('7b) a class with zero births (in a repo WITH plenty of other history) says so too', () => {
   const r = grain(['obligation', 'zzznotreal/file.qqqq'], repoA);

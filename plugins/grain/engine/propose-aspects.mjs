@@ -134,7 +134,7 @@ const markerNote = (...groups) => {
   return n ? ` · ${n} language marker file${n === 1 ? '' : 's'} exempted (${names.map(x => `\`${x}\``).join(', ')}) — the language fixes ${names.length === 1 ? 'that name' : 'those names'}, so no naming convention of this repository can apply to ${n === 1 ? 'it' : 'them'}` : '';
 };
 // ==================================================================================================
-// IDENTIFIER HYGIENE (ticket 120, `.system/research/sense-iteration.md` §10). Four ways a mined row reads as
+// IDENTIFIER HYGIENE (ticket 120, maintainer note *sense-iteration* §10). Four ways a mined row reads as
 // nonsense however it is worded — caught here, at render time, before it ever becomes an aspect draft.
 //
 // (1) A PARSER NODE TYPE AS THE IDENTIFIER — `call_expression`, `identifier`, `member_expression` appearing as

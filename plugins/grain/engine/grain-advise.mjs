@@ -1,7 +1,7 @@
 // grain engine · query surface · `advise` — the hidden edges and the contexts that outgrew themselves
 //
 // `grain advise [--json] [--graph <dir>]` reads the repository's OWN `.yggdrasil/` architecture graph and
-// emits `grain-advice/1` (the contract in `.system/research/mission-one-system.md` §3): node pairs whose
+// emits `grain-advice/1` (the contract in maintainer note *mission-one-system* §3): node pairs whose
 // code changes together without the graph declaring a relation, and nodes a finer cut beats on their own
 // evidence. It never writes to the graph and never proposes one — `grain propose` does that.
 //
@@ -12,7 +12,7 @@
 //    which is exactly the shape a `yg node --json` document carries. When that command exists the body of that
 //    one function is replaced and nothing else here moves.
 //
-// 2. IT DOES NOT REPEAT THE FILE-LEVEL LEVER'S FAILURE. `.system/research/where-cochange-promotion.md`
+// 2. IT DOES NOT REPEAT THE FILE-LEVEL LEVER'S FAILURE. maintainer note *where-cochange-promotion*
 //    measured co-change promoted above `where`'s lexical cards across three repositories: it fired on 7–27% of
 //    queries and named ONE file each time — the repository's hottest. Two findings from that measurement are
 //    built into the aggregation here rather than left as advice:
@@ -383,7 +383,7 @@ export async function cmdAdvise({ model, head, root, args, opts, stamp }) {
   const split = doc.items.filter(i => i.kind === 'split');
   const lines = [];
   lines.push(`${s.nodesWithFiles} of ${s.nodes} places in the architecture own files here.`);
-  // THE VERDICT OF THE MEASUREMENT, APPLIED (`.system/research/node-cochange-measurement.md`). The change-together
+  // THE VERDICT OF THE MEASUREMENT, APPLIED (maintainer note *node-cochange-measurement*). The change-together
   // side is NOT advice and is not listed here: across four hand-written graphs it named two pairs in total, both
   // of them connections the architecture already made, and the looser gates that name more name whichever place
   // changes most. It stays a machine surface — `--json` carries every pair with its evidence — and what the text
@@ -409,7 +409,7 @@ export async function cmdAdvise({ model, head, root, args, opts, stamp }) {
   return lines;
 }
 // THE DISCLOSURE, printed on every run, whatever the numbers are. Measured on four hand-written graphs
-// (`.system/research/node-cochange-measurement.md`): what the change-together evidence surfaces is either nothing
+// (maintainer note *node-cochange-measurement*): what the change-together evidence surfaces is either nothing
 // or connections the architecture already draws, and every looser reading of it concentrates on whichever place
 // the repository changes most — the same finding `where`'s file-level co-change lever was rejected on. The
 // concentration and the two rates are recomputed on every run and printed with it, so a repository where this

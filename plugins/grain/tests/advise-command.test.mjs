@@ -2,8 +2,7 @@
 //
 // The command reads the architecture graph a repository already has and reports two things about it from the
 // repository's own history and imports: places that change together with nothing in the graph connecting them,
-// and places a finer cut of their own files beats on their own evidence. `.system/research/
-// node-cochange-measurement.md` is the measurement that decided how much of that ships as advice; this file is
+// and places a finer cut of their own files beats on their own evidence. maintainer note *node-cochange-measurement* is the measurement that decided how much of that ships as advice; this file is
 // the guard on the parts of it that can fail silently.
 //
 // FOUR THINGS ARE GUARDED, each with a silent failure mode of its own:
@@ -12,7 +11,7 @@
 //      schema string, the item kinds, and the promise that `rule` and `port` are reserved and never fabricated.
 //      A drifted key here breaks a consumer with no error anywhere.
 //   2. THE MUTUAL GATE. The whole reason this instrument is not the file-level lever that was measured and
-//      rejected (`.system/research/where-cochange-promotion.md`) is that both directions must clear the floor.
+//      rejected (maintainer note *where-cochange-promotion*) is that both directions must clear the floor.
 //      A regression to one-way confidence would still emit pairs — more of them — and nothing would look wrong.
 //      So the fixture below contains a HUB whose one-way confidence is 1.00 and whose mutual confidence is
 //      under the floor, and the test proves both that it is absent AND that the pair exists in the model, so

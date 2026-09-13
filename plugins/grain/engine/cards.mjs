@@ -391,7 +391,7 @@ export function inLineForCard(model, h) {
 // that ancestor's own layer and fan-in, which are the only measured numbers available.
 //
 // Deliberately claims nothing further. Ticket 080 asked whether a new directory's COMPANIONS could be mined
-// the way ticket 073 mines a new file's; `.system/research/where-new-directory.md` measured five candidate
+// the way ticket 073 mines a new file's; maintainer note *where-new-directory* measured five candidate
 // directory-birth classes over 1050 real directory births in 11 repos and every one of them failed 073's own
 // published acceptance bar (coverage 0.008 against its 0.08 floor, repo-macro precision@1 0.33 against its
 // 0.80 bar, firing on 2 of 11 repos — and naming repo furniture when it did), so there is no certified

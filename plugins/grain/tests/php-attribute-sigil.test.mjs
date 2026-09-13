@@ -2,8 +2,8 @@
 // decoration-attribution walk (`take()`, core.mjs) tested a candidate node's text with a sigil regex that only
 // accepted `@` (Java/Python/C# decorators) and `[` (C# attributes), never PHP's `#[Attr]` form — so a real
 // Symfony codebase with 6,305 PHP attributes mined ZERO `auto.deco:` facts and produced `"conventions": []` on
-// every PHP partition (§054, disease 2 of 3 — see .system/decisions.md's
-// `zero-conventions-is-three-diseases-not-lambda` and .system/issues/054*/log.md; disease measured, not
+// every PHP partition (§054, disease 2 of 3 — see the maintainer's decision record's
+// `zero-conventions-is-three-diseases-not-lambda` and ticket 054's log (maintainer notes); disease measured, not
 // hypothesized, by widening the sigil in a trial run: 0 -> 37 attribute facts on the ticket's own planted-omission
 // case, `SecretsFooCommand.php` omitting `#[AsCommand]` among ~30 peers that all carry it).
 //
