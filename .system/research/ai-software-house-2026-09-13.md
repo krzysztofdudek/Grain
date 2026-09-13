@@ -19,6 +19,7 @@ Wersja pierwsza przeszła przez dwie recenzje adwersarialne na modelu Opus: jedn
 9. **Nie ma nowego repozytorium.** Rozstrzygnięcie użytkownika brzmi wprost: „factory to rodzina działająca razem, nie nowe repo”. Wszystkie klocki lądują addytywnie w istniejących repozytoriach. Jedyny kandydat na osobne repo w przyszłości to warstwa świata: wdrożenie, obserwacja, harmonogram wielu misji, i to dopiero, gdy będą miały własne liczby.
 10. **Dwa założenia wersji pierwszej były fałszywe** i zostały usunięte: że środek pętli działa, więc brakuje tylko końców, oraz że praktyka plus konsekwencja maszyny dają prawo. Środek jest zmierzony kawałkami i każdy szew przy pierwszym kontakcie pękł. Prawo bierze się z decyzji i incydentów, nigdy z większości.
 11. **Jesteśmy blisko w projekcie, nie w dowodach.** Zero prawdziwych misji Hordy na obcym produkcie, brak bazy kosztu, brak miernika pieniędzy, pusty rejestr incydentów, zero wdrożeń zrobionych przez maszynę. Kolejność budowy jest szew po szwie, z prawdziwą misją na każdy szew.
+12. **Warstwa dowodów jest rejestrem scenariuszy.** Pełna suita e2e w środowisku w pełni syntetycznym, stuby dostawców według ich dokumentacji, stand-iny dla tego, co da się postawić, i plik scenariusza w języku człowieka sparowany 1:1 z każdym testem, sprawdzany przez sędziego Yggdrasila przy każdej zmianie testu. Rodzina stawia ten kształt na pierwszym miejscu przy rozpoznawaniu dowodów, a pakiet obietnic ma jego cztery reguły. Rejestr robi realnym intake, straż „dowody nigdy nie słabną”, incydent bez triażu i model flag, a wierność intencji, dotąd niemierzona, staje się liczbą. §2.10 i §9.
 
 ---
 
@@ -154,7 +155,7 @@ Ekspozycja i pieniądze są faktami producenta: bramka lądowania pisze wynik do
 ### 2.5 Jedno wymaganie od zdania do produkcji
 
 1. Klient pisze zdanie. Ratatoskr odczytuje je z powrotem: co się zmieni, czego nie, kogo dotyczy, odwracalność, jak sprawdzić.
-2. Intake zapisuje **obietnicę ze statusem „planowane”**: wymaganie, „po czym poznasz”, „nigdy”, klient terytorium, pierwszeństwo, wierność, podpis. To istniejący pakiet obietnic z dwiema nowymi sekcjami, nie nowy format. Konflikt z istniejącymi obietnicami jest wykryty tu.
+2. Intake zapisuje **scenariusz ze statusem „planowane”** w kształcie kroków: wymaganie, „po czym poznasz”, „nigdy”, klient terytorium, pierwszeństwo, wierność, podpis. Test do niego jeszcze nie istnieje; sędzia sprawdzi zgodność, gdy powstanie. To istniejący pakiet obietnic z dwiema nowymi sekcjami, nie nowy format. Konflikt z istniejącymi scenariuszami jest wykryty tu.
 3. Wiedza: maszyna sprawdza świat i proponuje granice do podpisu; wyprowadza progi z pochodzeniem.
 4. Harmonogram otwiera misję Hordy w budżecie klienta, z wersją maszyny przypiętą do misji. Karta z katalogiem dowodów, każdy wiersz z klasą dowodu.
 5. Cięcie, konsultacja, przegląd architekta, ramka dla klienta. „Go” asynchroniczne albo polityka o przynależności skryptem.
@@ -180,12 +181,14 @@ Ekspozycja i pieniądze są faktami producenta: bramka lądowania pisze wynik do
 | Klasa dowodu | Co dowodzi | Wykonawca | Uwaga |
 |---|---|---|---|
 | test hermetyczny | nasz kod bez świata | bramka lądowania | |
+| scenariusz e2e w środowisku syntetycznym | zachowanie całej aplikacji przy dostawcach zastąpionych stubami według ich dokumentacji i stand-inami dla tego, co da się postawić | bramka lądowania | klasa domyślna domu; każdy scenariusz sparowany 1:1 z plikiem w języku człowieka, §2.10 |
+| stub nagrany z prawdziwego dostawcy | że stub mówi to, co dostawca, nie to, co jego dokumentacja | straż, z poświadczeniami | uzupełnienie stubu z dokumentacji, nie zamiennik |
 | test odwrócony lub mutacja | test umie być czerwony | bramka | |
 | scenariusz, film, zrzut | zachowanie widoczne | robotnik, sprawdzone przez bramkę | |
 | charakteryzacja | co kod robi dziś | robotnik, brownfield | |
 | próba danych | migracja na kopii produkcyjnego kształtu | straż, poza limitem czasu bramki, wynik jako plik ze skrótem | bramka nie ma bazy danych ani czasu; próba biegnie w straży, `done` weryfikuje plik |
 | próba obciążeniowa | gorąca ścieżka pod ruchem | straż | jak wyżej |
-| sonda produkcyjna | obietnica trzyma się w działaniu | straż | binarna: transakcja syntetyczna przechodzi albo nie |
+| sonda produkcyjna | obietnica trzyma się w działaniu | straż | ten sam scenariusz z syntetycznym kontem na produkcji, tam gdzie bezpieczny; binarna: przechodzi albo nie |
 | sonda z zegarem świeżości | kontrakt zewnętrzny nadal obowiązuje | straż | maksymalny wiek obserwacji jest parametrem obietnicy w słowach klienta |
 | pomiar z progiem o pochodzeniu | metryka produktu | Researcher | próg wyprowadzony, ujawniony, do weta |
 | dowód własności | maszyna stanów, niezmienniki | robotnik, na żądanie klasy Nieodwracalne | |
@@ -226,13 +229,38 @@ Klasa jest polem biletu i kroku wdrożenia. Nie da się jej obniżyć w tej same
 - **Konstytucja egzekwowana** trzema drogami, bo `yg check` sądzi pliki, a władza nie zostawia pliku: narzędzia odmawiają, jak dziś odmawia obniżenie bez `--by user`; każda wykonana władza zostawia podpisany wpis w księdze władz; drille i `yg check` na repozytoriach maszyny czytają tę księgę.
 - **Wymiana i wycofanie modelu**: protokół parowany uruchamiany przed datą wycofania, nie po; dwa źródła modeli dla sędziego jako polityka domu.
 
+### 2.10 Warstwa dowodów: rejestr scenariuszy
+
+Praktyka, którą dom przyjmuje jako standard: pełna suita e2e w środowisku w pełni syntetycznym; wszystko, czego nie da się traktować jak zależności deweloperskiej, zastąpione stubem według dokumentacji dostawcy; to, co da się postawić, na przykład baza, postawione jako stand-in; każdy test sparowany przez Yggdrasil z plikiem markdown, który opisuje scenariusz 1:1 w języku człowieka; zmiana testu uruchamia sędziego, który mówi, czy plik opisuje to, co robi test; testu nigdy się nie osłabia, chyba że to intencja zleceniodawcy.
+
+Rodzina już zna ten kształt. Horde przy rozpoznawaniu dowodów stawia „katalog obietnic, plik na obietnicę, ze statusem, z lustrem w testach” przed suitą testów i runnerem scenariuszy, a pakiet obietnic ma cztery reguły tego kształtu: kształt pliku, język produktu, dokładnie jedna rzecz pilnująca obietnicy, sędzia sprawdzający, czy test pokrywa każde zdanie.
+
+| Blok projektu | Jak go realizuje rejestr |
+|---|---|
+| intake | wymaganie to scenariusz „planowane” bez testu; maszyna pisze scenariusz ze słów klienta, klient czyta i mówi „tak”, robotnik pisze test, sędzia sprawdza zgodność w obie strony |
+| wierność intencji | dotąd niemierzona; teraz: odsetek par odrzuconych przez sędziego i odsetek scenariuszy poprawianych po przeczytaniu przez klienta; sam sędzia mierzony próbkowaniem do drugiego sędziego z przedziałem Wilsona, które Horde już ma |
+| dowody nigdy nie słabną | zapadka rodziny zastosowana do dowodów; wyjątek ma kanał: zmiana wiersza katalogu dowodów jest pytaniem rodzaju „charter” do klienta |
+| incydent bez triażu | skarga klienta trafia w plik scenariusza; klient podpisuje fakt, maszyna proponuje przyczynę |
+| flagi | status „wyłączona” |
+| konsola | zbiór dotrzymanych scenariuszy jest czytelnym dla klienta opisem tego, co produkt robi; „jak to zobaczyć” jest w każdym pliku |
+
+Trzy poprawki do praktyki:
+
+1. **Kroki, nie tylko proza.** Sędzia ocenia zgodność; straż dwudrzewna musi liczyć: kroki i asercje nie maleją bez pytania do klienta. Struktura krokowa daje jej co liczyć.
+2. **Ten sam scenariusz, trzy wykonania.** Środowisko syntetyczne to dowód hermetyczny; staging to integracja; syntetyczne konto na produkcji, tam gdzie bezpieczne, to sonda per obietnica. Plik się nie zmienia, zmienia się wykonawca.
+3. **Stuby według dokumentacji dryfują.** To scenariusz S1: świat zmienia się po cichu, lock niczego nie unieważnia. Uzupełnienia: stub nagrany z prawdziwego dostawcy oraz sonda z zegarem świeżości przeciw prawdziwemu dostawcy.
+
+Czego rejestr nie daje: świata poza stubem, danych w skali produkcyjnej, pieniędzy, podpisów, trwałości stanu misji. I jednego, co daje tylko połowicznie: siły asercji. Sędzia widzi, czy test pokrywa każde zdanie; czy asercja jest mocna, mówi dopiero wariant mutacyjny przy lądowaniu. Rejestr i mutacja idą razem.
+
+Standard domu: reguły pakietu obietnic przyjmują te konwencje jako wzorzec, a akapit „dowody w tym repozytorium” w karcie misji przestaje być sądem per misja i staje się standardem domu, z sądem tylko dla brownfieldu, który przychodzi z własnym kształtem.
+
 ---
 
 ## 3. Luki wobec tego, co jest, i gdzie lądują
 
 | # | Klocek | Stan | Gdzie |
 |---|---|---|---|
-| G1 | intake: obietnice „planowane” z sekcjami wymagania; kompilator zdania w obietnicę i dowody | pakiet `promises` istnieje; sekcje: brak | pakiet obietnic; kompilator przy rendererze propozycji Graina, bo pisze te same obiekty |
+| G1 | intake: scenariusze „planowane” w kształcie kroków z sekcjami wymagania; kompilator zdania w scenariusz i dowody | pakiet `promises` istnieje; sekcje i kroki: brak | pakiet obietnic; kompilator przy rendererze propozycji Graina, bo pisze te same obiekty |
 | G2 | podpis weryfikowany przy użyciu | napis w ignorowanym pliku | Horde: `bind`, `land`, `demote`, `ask answer` czytają zapis podpisany |
 | G3 | trwały stan misji; zapis opieki commitowany przy lądowaniu | ginie z maszyną | Horde |
 | G4 | miernik pieniędzy; limit sprawdzany przed rozdaniem | przebiegi razy wagi; `limit-reached` istnieje, tick go nie wywołuje | Horde: błąd do naprawy i nowy instrument |
@@ -245,13 +273,19 @@ Klasa jest polem biletu i kroku wdrożenia. Nie da się jej obniżyć w tej same
 | G11 | odcisk cechy | blok `missing:` | Grain, jako instrument uwagi |
 | G12 | bezpieczeństwo: uprawnienia, sekrety na granicy dziennika, konfiguracja wykonywalna podpisana | drzewa per robotnik | Horde |
 | G13 | klasy odwracalności i dowodów jako pola | słownik | Horde |
-| G14 | „dowody nigdy nie słabną” | test odwrócony pilnuje nowych | Horde: straż dwudrzewna obok strażnika prawa; nie aspekt, bo aspekt widzi jedno drzewo |
+| G14 | „dowody nigdy nie słabną”: kroki i asercje scenariuszy nie maleją bez pytania „charter” | test odwrócony pilnuje nowych; sędzia ocenia zgodność, nie liczy | Horde: straż dwudrzewna obok strażnika prawa; nie aspekt, bo aspekt widzi jedno drzewo |
 | G15 | konflikty między klientami: kontrasygnata, pierwszeństwo, przejęcie terytorium tylko z podpisem klienta | przejęcie na własne pytanie hordy | Horde |
 | G16 | obniżenie zakresowe: reguła i pliki biletu, nie cała misja | `--scope mission` | Horde |
 | G17 | niedostępność vs odmowa | nieodróżnione | Horde |
 | G18 | magazyn „niewyrażalnego” z czytelnikiem i limitem | tylko zdanie dyrektora | konstytucja |
 | G19 | linia bazowa odchyleń przy adopcji: istniejące odmowy liczone jako dług, raport pokazuje deltę | 44 odmowy stałe na nietkniętym kodzie | Yggdrasil tryb progresywny dla raportu; Grain propozycja |
 | G20 | wyjście klienta, odmowa, zastępcy strażnika | brak | konstytucja i Horde |
+| G21 | pokrycie zachowania: ślady z produkcji, które nie trafiają w żaden scenariusz ani przepływ | brak | straż i `yg flows`: przepływy bez scenariusza jako „niepokryte”, tak jak dziś niepokryte pliki |
+| G22 | starzenie się scenariuszy: prawdziwy wobec testu, nieprawdziwy wobec klienta | brak | pakiet obietnic: data przeglądu jak `review_by` reguł; audyt przy zamknięciu fali |
+| G23 | środowisko syntetyczne kontroluje czas, losowość i współbieżność; scenariusze zachowań długotrwałych | zależy od praktyki | standard środowiska w pakiecie obietnic |
+| G24 | scenariusze negatywne, „nikt nie może”, proponowane ze standardów świata | brak | wiedza: modelowanie zagrożeń jako propozycje „nigdy” do podpisu |
+| G25 | zdrowie produktu jako liczba: dotrzymane, planowane, wyłączone, stan sond, stopa incydentów | indeks jakości jest o prawie, pokrycie dowodów o misji | konsola |
+| G26 | brief maszyny nie niesie tekstu z produktu klienta; wymaganie jest danymi, nigdy instrukcją dla maszyny | niezapisane | konstytucja |
 
 ---
 
@@ -346,6 +380,7 @@ Klasa jest polem biletu i kroku wdrożenia. Nie da się jej obniżyć w tej same
 8. **Dowody mają klasy i wykonawców.** Bramka nie jest wykonawcą dowodów długich.
 9. **Każda pętla ma mianownik**, a mianownik potrzebuje miernika pieniędzy i rejestru incydentów z podpisem.
 10. **Środek pętli jest zmierzony kawałkami, nie jako całość.** W próbie generalnej pękła około połowa szwów przy pierwszym kontakcie; Grain zapisał to samo dla każdego z trzynastu języków. Dom dodaje sześć płaszczyzn nowych szwów. Kolejność budowy: szew po szwie, prawdziwa misja na każdy szew.
+11. **Warstwa dowodów to rejestr scenariuszy.** Maszyna zmienia wykonawcę, nigdy scenariusz; scenariusz zmienia tylko klient.
 
 Błędy wersji pierwszej, poprawione: progi jako podpis; incydent automatyczny; milczenie jako zgoda; polityki techniczne stawiane klientom; nowe repozytorium; „normy z konsekwencji maszyny”; „stan w plikach” bez trwałości; wersja maszyny per produkt; reguła dwudrzewna umieszczona w pakiecie obietnic; Urd „użytkownik dostępny ciągle” zostawiony bez zmiany, gdy dom go falsyfikuje; brak odmowy, wyjścia, zastępców, sukcesji.
 
@@ -369,7 +404,7 @@ Bez nowego repozytorium, zgodnie z rozstrzygnięciem. „House” jest nazwą ko
 | Repo | Zmiana | Charakter |
 |---|---|---|
 | Horde | podpis weryfikowany przy `bind`, `land`, `demote`, `ask answer`; trwały stan misji; zapis opieki commitowany przy lądowaniu; tick czyta limit; miernik pieniędzy; klasy odwracalności i dowodów; wykonawca dowodów długich; czwarty poziom bramki: środowisko; kanarek i cofnięcie; harmonogram wielu misji; pytania z terminem i parkowanie; straż „dowody nigdy nie słabną”; obniżenie zakresowe; niedostępność osobno; dzierżawa zasobów wspólnych; konfiguracja wykonywalna podpisana; konsola; trailer `Machine:`; przypięcie wersji per misja; naprawa `model.md`, które mówi, że tick nic nie uruchamia | addytywne; dwa błędy |
-| pakiet obietnic | sekcje wymagania; status jako model flagi; sonda jako pole obietnicy | addytywne |
+| pakiet obietnic | wchłania konwencje rejestru scenariuszy: kształt krokowy, sekcje wymagania, status jako model flagi, sonda jako to samo wykonanie, stub nagrany, data przeglądu, standard środowiska syntetycznego | addytywne |
 | Grain | odcisk cechy jako instrument uwagi; kompilator zdania w obietnicę i dowody przy rendererze propozycji; linia bazowa odchyleń w propozycji | nowa zdolność |
 | Yggdrasil | pomocnik cięcia drillu z incydentu; rozwiązany model obok werdyktu; skanowanie sekretów na granicy dziennika | addytywne, rdzeń nietknięty |
 | Ratatoskr | wstrzyknięcia: treść z sieci jako dane; polityki w słowach produktu jako przykład | jedno zdanie i przykład |
@@ -387,7 +422,7 @@ Blisko w projekcie. W dowodach nie. Zero prawdziwych misji Hordy na obcym produk
 
 Kolejność, szew po szwie:
 
-1. **Naprawa dwóch błędów**: tick czyta limit; `model.md` zgodny z `tick.mjs`.
+1. **Naprawa dwóch błędów i spisanie standardu warstwy dowodów** z istniejącej praktyki do pakietu obietnic. Oba bez misji, oba tanie.
 2. **Jedna prawdziwa misja Hordy na obcym repozytorium pod 6.0.0**, koszt i zdarzenia zapisane przez lądowanie zanim skasuje drzewo. Pierwsza baza kosztu, pierwsze liczby o człowieku na wynik.
 3. **Trwały stan misji i zapis opieki commitowany.** Bez tego nic dalej nie ma sensu, bo nic nie przetrwa.
 4. **Podpis weryfikowany w miejscu użycia.** Tabela władz zaczyna obowiązywać.
@@ -396,3 +431,26 @@ Kolejność, szew po szwie:
 7. **Intake jako obietnice „planowane”** i pierwszy klient, który nie jest strażnikiem.
 
 Dopiero po siódmym kroku pytanie o osobne repozytorium ma liczby, na których można je rozstrzygnąć.
+
+---
+
+## 9. Czy model ma luki
+
+Tak. Trzy rodzaje.
+
+**Luki modelu, doprojektowane w tej wersji**, G21–G26: pokrycie zachowania, starzenie się scenariuszy, czas i współbieżność w środowisku syntetycznym, scenariusze negatywne ze standardów świata, zdrowie produktu jako liczba, brief bez tekstu klienta i wymaganie jako dane.
+
+**Luki w rzeczywistości, nie w modelu.** Model je nazywa i mówi, gdzie lądują, ale nic ich jeszcze nie buduje: podpis weryfikowany przy użyciu, trwały stan misji, miernik pieniędzy, warstwa świata, ewaluacje behawioralne briefów. Tabela władz jest literaturą, dopóki pierwsze dwie nie istnieją.
+
+**Luki nieredukowalne, które model może tylko mierzyć:**
+
+| Luka | Dlaczego nie da się jej zamknąć | Co model mierzy |
+|---|---|---|
+| klient mówi „tak” scenariuszowi, którego nie przeczytał | akceptacja jest jedynym sprawdzeniem zgodności scenariusza z intencją | czas między pokazaniem a podpisem; odsetek scenariuszy poprawianych po akceptacji |
+| zbiór scenariuszy jest wierny, a mimo to niepełny | żaden test nie dowodzi nieobecności przypadku, o którym nikt nie pomyślał | ślady z produkcji poza scenariuszami; incydenty; kupka „niewyrażalne” |
+| stub mówi to, co maszyna wierzy o dostawcy | dowód hermetyczny z definicji nie widzi świata | sonda z zegarem świeżości; stub nagrany |
+| sędzia par jest modelem | osąd, nie skrypt; ma ślepe plamy systematyczne | próbkowanie do drugiego sędziego; wariant mutacyjny na siłę asercji |
+| ciekawe konflikty między klientami | nieklasyfikowalne z góry | liczba konfliktów eskalowanych na misję |
+| zakazy nie wynikają z praktyki | żadna praktyka nie zawiera „nigdy” | liczba „nigdy” podpisanych na produkt i skąd przyszły |
+
+Model bez luk nie istnieje. Model, który wie, gdzie ma luki, i mierzy każdą, którą może, to najwięcej, co da się zaprojektować.
