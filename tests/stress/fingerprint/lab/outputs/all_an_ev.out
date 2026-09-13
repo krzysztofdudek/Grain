@@ -1,0 +1,71 @@
+labels=all window=0 min_lines=0 code_only=True min_added=0 nonzero=- stratum=- l2=1.0
+repo	n	pos	rate	size	jit	ev	size+ev	jit+ev	size+brief+ev
+CleanArchitecture	49	20	0.41	0.700	0.623	0.423	0.571	0.553	0.533
+Slim	224	21	0.09	0.776	0.793	0.668	0.763	0.796	0.767
+axum	267	27	0.10	0.819	0.790	0.477	0.787	0.758	0.801
+chi	96	16	0.17	0.785	0.822	0.710	0.821	0.834	0.828
+click	143	26	0.18	0.636	0.567	0.562	0.577	0.554	0.519
+express	508	78	0.15	0.730	0.703	0.642	0.726	0.700	0.712
+flask	266	32	0.12	0.751	0.756	0.651	0.748	0.755	0.777
+gin	175	25	0.14	0.631	0.517	0.583	0.589	0.513	0.594
+json	222	6	0.03	skipped
+koa	94	25	0.27	0.678	0.673	0.648	0.707	0.679	0.691
+logrus	102	20	0.20	0.675	0.623	0.553	0.602	0.570	0.653
+mux	29	3	0.10	skipped
+requests	205	22	0.11	0.841	0.807	0.675	0.820	0.794	0.795
+sinatra	273	40	0.15	0.698	0.647	0.651	0.674	0.640	0.697
+spring-petclinic	81	9	0.11	0.624	0.503	0.504	0.562	0.513	0.502
+mean				0.719	0.679	0.596	0.688	0.666	0.682
+p@10%				0.398	0.371	0.290	0.362	0.320	0.360
+delta size vs jit: mean +0.0360 median +0.0317 wins 9/13 ci>0 1/13
+delta ev vs jit: mean -0.0857 median -0.1055 wins 4/13 ci>0 0/13
+delta size+ev vs jit: mean +0.0038 median +0.0082 wins 8/13 ci>0 0/13
+delta jit+ev vs jit: mean -0.0106 median -0.0070 wins 5/13 ci>0 0/13
+delta size+brief+ev vs jit: mean +0.0003 median +0.0096 wins 7/13 ci>0 0/13
+delta jit vs size: mean -0.0360 median -0.0317 wins 4/13 ci>0 0/13
+delta ev vs size: mean -0.1217 median -0.0867 wins 0/13 ci>0 0/13
+delta size+ev vs size: mean -0.0322 median -0.0236 wins 2/13 ci>0 0/13
+delta jit+ev vs size: mean -0.0466 median -0.0497 wins 3/13 ci>0 0/13
+delta size+brief+ev vs size: mean -0.0357 median -0.0159 wins 2/13 ci>0 0/13
+feature	AUC	AUC|size	rho(size)
+  log_la	0.737	0.497	+1.00
+  log_nf	0.660	0.494	+0.66
+  entropy	0.649	0.524	+0.58
+  b_overlap	0.635	0.557	+0.36
+  t_assert_added	0.628	0.493	+0.46
+  tests	0.621	0.428	+0.48
+  log_hot	0.611	0.490	+0.46
+  log_ld	0.610	0.509	+0.48
+  b_zgain	0.397	0.476	-0.30
+  ev_untested	0.398	0.514	-0.34
+  ndir	0.588	0.454	+0.44
+  b_log_words	0.583	0.493	+0.29
+  t_share	0.561	0.470	+0.32
+  t_assert_removed	0.547	0.394	+0.18
+  b_code_cov	0.467	0.544	-0.08
+  b_issue_ref	0.531	0.443	+0.12
+  b_paths	0.529	0.531	+0.20
+  b_explained	0.523	0.549	+0.06
+  t_weaken	0.512	0.379	+0.08
+  merge	0.511	0.409	+0.06
+  is_fix_msg	0.493	0.667	-0.04
+  log_exp	0.498	0.478	+0.06
+dispersion z_bpb_dict: mean_neg 4.314 mean_pos 3.058 sd_neg 2.336 sd_pos 1.203
+dispersion c_excess: mean_neg 0.312 mean_pos 0.636 sd_neg 0.623 sd_pos 0.571
+dispersion v_new_frac: mean_neg 0.138 mean_pos 0.128 sd_neg 0.161 sd_pos 0.100
+transfer (leave-one-repo-out AUC)
+repo	size	jit	ev	size+ev	jit+ev	size+brief+ev
+CleanArchitecture	0.716	0.734	0.647	0.747	0.745	0.755
+Slim	0.794	0.795	0.691	0.768	0.770	0.784
+axum	0.822	0.820	0.579	0.804	0.803	0.825
+chi	0.812	0.784	0.600	0.776	0.778	0.709
+click	0.658	0.660	0.668	0.654	0.652	0.658
+express	0.735	0.730	0.664	0.743	0.741	0.758
+flask	0.767	0.750	0.695	0.784	0.771	0.781
+gin	0.645	0.645	0.627	0.649	0.651	0.698
+koa	0.690	0.673	0.672	0.702	0.689	0.686
+logrus	0.684	0.697	0.670	0.699	0.713	0.731
+requests	0.850	0.833	0.727	0.850	0.834	0.847
+sinatra	0.705	0.708	0.676	0.713	0.718	0.725
+spring-petclinic	0.707	0.688	0.596	0.729	0.725	0.725
+mean	0.737	0.732	0.655	0.740	0.738	0.745

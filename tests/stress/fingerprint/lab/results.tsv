@@ -7,3 +7,5 @@ experiment	branch	parent	commit	metric	secondary_metrics	status	duration_s	descr
 7	research/fingerprint	3	5a813ea	+0.25	windows40=49;rho_raw=0.44;rho_size=0.32;rho_size_big=0.24;windows30=70;rho30_size_big=0.25	interesting-underpowered	120	window drift of size-controlled surprise vs fix share
 8	research/fingerprint	4	5a813ea	nan	sinatra_rate=0.08;others<8_cases	discard	120	same-issue return as a delivery label
 9	research/fingerprint	4	04c206c	+0.010	transfer15_size=0.737;transfer15_size_brief=0.747;wins=10/13;within_size=0.719;within_size_brief=0.699;size_cx_transfer=0.741;locator231_surprise=0.31;chance=0.36;partner_fixed=0.17;hot_fixed=0.17	confirmed	2700	replication on six more repositories, fifteen pooled
+10	research/fingerprint	9	e960d23	0.62	OR_untested_adj=0.62;OR_tests_touched=1.59;OR_assert_removed=1.39;OR_assert_removed_within_tests=1.15;transfer_size_ev=0.740	discard-as-marker	360	evidence carried by the landing
+11	research/fingerprint	10	e960d23	0.83	OR_has_unobs_adj=0.83;covgap_auc=0.489;covgap_auc_adj=0.523;transfer_size=0.706;transfer_size_covgap=0.706;n=278;pos=66	discard	3900	diff coverage at every landing (Go, Python)

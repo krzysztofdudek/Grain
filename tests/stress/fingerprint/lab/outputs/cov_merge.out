@@ -1,0 +1,5 @@
+chi: merged 96 landings; profile ok 96, with statement lines 60, suite green 96
+gin: merged 100 landings; profile ok 100, with statement lines 60, suite green 96
+mux: merged 29 landings; profile ok 29, with statement lines 15, suite green 29
+logrus: merged 102 landings; profile ok 102, with statement lines 48, suite green 81
+click: merged 143 landings; profile ok 143, with statement lines 110, suite green 74

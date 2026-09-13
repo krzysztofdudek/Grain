@@ -1,0 +1,36 @@
+marker=cov_has_unobs labels=all within=cov_stmts
+repo	n	with	rate_with	rate_without	OR_adj(size)	OR_raw
+CleanArchitecture	0	0	-	-	-	-
+Slim	0	0	-	-	-	-
+axum	0	0	-	-	-	-
+chi	60	24	0.250	0.222	1.59	1.17
+click	110	40	0.250	0.214	0.96	1.22
+express	0	0	-	-	-	-
+flask	0	0	-	-	-	-
+gin	60	10	0.200	0.200	0.75	1.00
+json	0	0	-	-	-	-
+koa	0	0	-	-	-	-
+logrus	48	22	0.273	0.346	0.30	0.71
+mux	15	4	-	-	-	-
+requests	0	0	-	-	-	-
+sinatra	0	0	-	-	-	-
+spring-petclinic	0	0	-	-	-	-
+POOLED	278	96	0.250	0.231	0.83	1.11
+marker=cov_has_unobs labels=issue within=cov_stmts
+repo	n	with	rate_with	rate_without	OR_adj(size)	OR_raw
+CleanArchitecture	0	0	-	-	-	-
+Slim	0	0	-	-	-	-
+axum	0	0	-	-	-	-
+chi	60	24	0.208	0.222	1.13	0.92
+click	110	40	0.250	0.214	0.96	1.22
+express	0	0	-	-	-	-
+flask	0	0	-	-	-	-
+gin	60	10	0.200	0.200	0.75	1.00
+json	0	0	-	-	-	-
+koa	0	0	-	-	-	-
+logrus	48	22	0.273	0.346	0.30	0.71
+mux	15	4	-	-	-	-
+requests	0	0	-	-	-	-
+sinatra	0	0	-	-	-	-
+spring-petclinic	0	0	-	-	-	-
+POOLED	278	96	0.240	0.231	0.78	1.05

@@ -35,6 +35,10 @@ Everything here is an instrument; nothing here ships. The record of what was run
 | `locate.py` | inside a defective landing, does surprise point at the blamed file |
 | `drift.py` | window-level: is a period's mean surprise a leading indicator of its fix share |
 | `followup.py` | same-issue return within a window as a "not done the first time" label |
+| `features5.py` | evidence carried by the landing: test lines, assertions added/removed, net removal |
+| `marker_effect.py` | defect rate with vs without a binary marker and its size-adjusted odds ratio, optionally within a stratum |
+| `gocov.py`, `pycov.py` | diff coverage at every code landing (Go: `go test -coverprofile`; Python: coverage.py around pytest) |
+| `merge_cov.py`, `post_cov.sh` | merge coverage results into the caches and run the coverage analyses |
 
 ## Running
 

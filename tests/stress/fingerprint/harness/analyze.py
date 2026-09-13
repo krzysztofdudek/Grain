@@ -99,6 +99,10 @@ EXTRA_SETS = {
     'brief': ['b_log_words', 'b_overlap', 'b_code_cov', 'b_explained', 'b_paths', 'b_issue_ref', 'b_zgain'],
     'bcc': ['b_code_cov', 'b_explained', 'b_zgain'],
     'shape': ['a_nn_jac', 'a_dir_nn_jac', 'a_pair_unseen', 'a_dirext_unseen'],
+    'ev': ['t_share', 't_weaken', 't_assert_added', 't_assert_removed', 'ev_untested'],
+    'cov': ['cov_gap', 'cov_unobs', 'cov_has_unobs'],
+    'cov1': ['cov_unobs'],
+    'covgap': ['cov_gap'],
 }
 
 

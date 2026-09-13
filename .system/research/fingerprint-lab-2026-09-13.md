@@ -25,7 +25,10 @@ przetrwała kontrolę rozmiaru i przeniesienie: sprzężenie briefu z kodem, czy
 „opłaca" bitami; kod, którego brief nie wyjaśnia, jest później naprawiany częściej, o około 0,01 AUC ponad sam
 rozmiar, w 8 z 9 repozytoriów w przeniesieniu, a po replikacji w 10 z 13. To za mało na dowód, dość na miękką bramkę
 wyjaśnialności. Dowodu dowiezienia cechy nie da się z tego korpusu zmierzyć w ogóle: nie istnieje etykieta
-„niedowiezione", którą można by z historii odczytać.
+„niedowiezione", którą można by z historii odczytać. Koncepcja zmieniona, z kodu na dowody, też nie przechodzi
+przez historię: lądowania bez testów są poprawiane rzadziej, nie częściej, bo testy w historii znaczą „dodano
+zachowanie", a nowy kod bez pokrycia testami nie wraca jako poprawka częściej niż pokryty. Etykieta z historii
+widzi ekspozycję, nie ochronę.
 
 ## 2. Koncepcja, którą sprawdzano
 
@@ -241,6 +244,47 @@ spraw) bez ani jednego przedziału ufności powyżej zera; zaskoczenie dalej wsk
 co-change to dalej jego popularność. Dryf w oknach zostaje na granicy istotności (+0,25 przy 70 oknach, które w
 obrębie repozytorium nie są niezależne): sugestia, nie wynik.
 
+### 4.9 Koncepcja zmieniona: dowody niesione przez lądowanie (eksperyment 10)
+
+Po zamknięciu odcisku kodu sprawdzono drugą stronę tezy: nie „jak kod odbiega od historii", tylko „co dowody widzą
+ze zmiany". Najpierw to, co lądowanie samo niesie: linie testów, asercje, ich ubytek. 13 repozytoriów, 2705
+lądowań z kodem.
+
+| znacznik | odsetek poprawianych ze znacznikiem | bez znacznika | iloraz szans po korekcie rozmiaru |
+| --- | --- | --- | --- |
+| dodany kod bez ani jednej linii testu | 0,082 | 0,195 | **0,62** (etykiety ze spraw 0,65) |
+| dotknięty jakikolwiek plik testów | 0,192 | 0,081 | 1,59 |
+| dodane asercje, wśród lądowań dotykających testów | 0,232 | 0,129 | 1,36 |
+| usunięte asercje | 0,222 | 0,120 | 1,39; wśród dotykających testów 1,15 |
+| netto ubytek linii testów | 0,161 | 0,130 | 1,10, znaki mieszane |
+
+Znak jest odwrotny od tezy: lądowanie bez testów jest później poprawiane rzadziej, nie częściej. Wyjaśnienie
+jest proste i ważne: w historii publicznej „lądowanie niesie testy" znaczy „lądowanie dodaje zachowanie", a to
+zachowanie dostaje później poprawki. Etykieta z poprawek widzi ekspozycję, nie ochronę. Usuwanie asercji zostawia
+małą resztę (1,15–1,39), zgodną z regułą „dowody nigdy nie słabną", ale nie jest jej dowodem. Modele: size + dowody
+0,740 w przeniesieniu wobec 0,737 dla samego rozmiaru; wewnątrz repozytorium 0,688 wobec 0,719.
+
+### 4.10 Koncepcja zmieniona: pokrycie nowego kodu testami (eksperyment 11)
+
+Najczystszy instrument dowodowy, jaki historia publiczna daje: czy jakikolwiek test wykonuje linie, które lądowanie
+dodało. Suita uruchomiona z pomiarem pokrycia na każdym lądowaniu z kodem w chi, gin (100 losowych ze 175), mux,
+logrus (Go) i click (Python, pytest 7 w osobnym środowisku). 470 lądowań, profil dla wszystkich, 293 z dodanymi
+instrukcjami wykonywalnymi. Suity zielone: chi 96/96, gin 96/100, mux 29/29, logrus 81/102, click 74/143 (stare
+testy pod nowym interpreterem). Do oceny 4 repozytoria, 278 lądowań, 66 pozytywów.
+
+| miara | AUC | AUC po usunięciu rozmiaru |
+| --- | --- | --- |
+| udział dodanych instrukcji bez wykonania | 0,489 | 0,523 |
+| liczba dodanych instrukcji bez wykonania | 0,524 | 0,431 |
+| znacznik „ma niewykonane instrukcje": odsetek 0,250 wobec 0,231 | iloraz szans 0,83 | etykiety ze spraw 0,78 |
+
+Modele: wewnątrz repozytorium size 0,686, size + pokrycie 0,632–0,651; przeniesienie size 0,706, size + luka
+pokrycia 0,706. Per repozytorium iloraz szans 1,59 (chi), 0,96 (click), 0,75 (gin), 0,30 (logrus). Brak sygnału,
+próbka mała, a znak nie jest nawet właściwy. Razem z 4.9 zamyka to zmienioną koncepcję na historii commitów:
+polityki dowodowej nie da się ocenić z historii, bo etykieta „później poprawione" mierzy ekspozycję nowego
+zachowania, nie ochronę przez dowody. Potrzebne są etykiety, które dom robi sam: zwroty, incydenty przypisane do
+kompletu, obietnice otwarte ponownie.
+
 ## 5. Co to znaczy dla koncepcji
 
 1. **Odchylenie bajtowe od środowiska nie jest odciskiem wadliwości.** W każdej postaci, po kontroli rozmiaru,
@@ -262,6 +306,11 @@ obrębie repozytorium nie są niezależne): sugestia, nie wynik.
    syntetycznym. Matematyka zmiany może co najwyżej powiedzieć „ten komplet jest duży" i „tego kodu brief nie
    tłumaczy".
 
+6. **Etykieta z historii widzi ekspozycję, nie ochronę.** Polityki dowodowej nie da się ocenić na historii
+   commitów, ani przez „czy lądowanie niesie testy", ani przez „czy testy wykonują nowy kod". Jedyne etykiety,
+   które widzą ochronę, robi dom sam: zwroty klienta, incydenty przypisane do kompletu, obietnice otwarte
+   ponownie. To jest właściwe miejsce dla matematyki dowodów i tam trzeba ją mierzyć.
+
 Odpowiedź na pytanie „jak daleko można pójść": do dwóch liczb na komplet, rozmiaru i udziału kodu opłaconego
 briefem, obu jako miękkich bramek. Dalej, do „odcisk mówi, czy wadliwe", nie da się pójść tą drogą przy tej
 jakości etykiet i tej wielkości próbki; a dowodu, że się da przy lepszych, nie ma.
@@ -277,6 +326,11 @@ jakości etykiet i tej wielkości próbki; a dowodu, że się da przy lepszych, 
   sesja nie budowała go od nowa.
 - **Partnerzy co-change** zostają przypomnieniem dla robotnika w chwili edycji; nie liczą się jako dowód
   niekompletności w bramce lądowania.
+- **Bramki pokrycia nie da się uzasadnić tym pomiarem.** Nie znaczy to, że pokrycie nie ma znaczenia; znaczy, że
+  historia commitów nie potrafi go ocenić. Reguła „każda linia nowego kodu w bilecie ma test" zostaje decyzją
+  polityki, mierzoną w domu etykietami domu.
+- **„Dowody nigdy nie słabną"** dostaje słabe potwierdzenie (usuwanie asercji: iloraz szans 1,15–1,39) i zostaje
+  jak jest.
 - **Ratchet jakości** nie dostaje wskaźnika z zaskoczenia; dryf w oknach zostaje w laboratorium do czasu, gdy
   ktoś zmierzy go na większym korpusie z mocą.
 
@@ -302,7 +356,8 @@ jakości etykiet i tej wielkości próbki; a dowodu, że się da przy lepszych, 
 
 ## 9. Ślad
 
-- Harness: `tests/stress/fingerprint/harness/` (README w środku), commity laboratorium w archiwum przebiegów.
-- Dziennik: `tests/stress/fingerprint/lab/log.md` (THINK, eksperymenty 1–9), `results.tsv`, `config.md`.
+- Harness: `tests/stress/fingerprint/harness/` (README w środku), commity laboratorium w archiwum przebiegów;
+  pokrycie: `gocov.py`, `pycov.py`, `merge_cov.py`, `post_cov.sh`; dowody: `features5.py`, `marker_effect.py`.
+- Dziennik: `tests/stress/fingerprint/lab/log.md` (THINK, eksperymenty 1–11), `results.tsv`, `config.md`.
 - Wyjścia analiz: `tests/stress/fingerprint/lab/outputs/` (tekstowe wyjścia każdego przebiegu analizatora).
 - Korpus i pamięci podręczne (kilkaset MB) nie są w repozytorium; przebieg odtwarza je z klonów.

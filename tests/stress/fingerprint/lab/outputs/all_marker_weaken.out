@@ -1,0 +1,18 @@
+marker=t_weaken labels=all
+repo	n	with	rate_with	rate_without	OR_adj(size)	OR_raw
+CleanArchitecture	49	4	-	-	-	-
+Slim	224	21	0.048	0.099	0.30	0.46
+axum	267	8	0.125	0.100	0.79	1.28
+chi	96	5	0.000	0.176	0.21	0.00
+click	143	11	0.182	0.182	1.34	1.00
+express	508	39	0.205	0.149	1.72	1.47
+flask	266	33	0.152	0.116	0.76	1.36
+gin	175	12	0.250	0.135	2.23	2.14
+json	222	11	0.000	0.028	0.31	0.00
+koa	94	7	0.000	0.287	0.06	0.00
+logrus	102	6	0.167	0.198	0.50	0.81
+mux	29	2	-	-	-	-
+requests	205	4	-	-	-	-
+sinatra	273	29	0.276	0.131	2.29	2.52
+spring-petclinic	81	11	0.182	0.100	1.95	2.00
+POOLED	2451	193	0.161	0.130	1.10	1.28

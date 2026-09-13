@@ -1,0 +1,7 @@
+Traceback (most recent call last):
+  File "/tmp/claude-0/-home-user/924c5dcb-7a7c-5d94-8c1b-d485e1257d98/scratchpad/lab/harness/gocov.py", line 151, in <module>
+    main()
+  File "/tmp/claude-0/-home-user/924c5dcb-7a7c-5d94-8c1b-d485e1257d98/scratchpad/lab/harness/gocov.py", line 95, in main
+    cache = json.load(open(os.path.join(args.out, 'cache', f'{args.repo}.json')))
+                      ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+FileNotFoundError: [Errno 2] No such file or directory: '.lab/workspace/exp2/cache/mux.json'
