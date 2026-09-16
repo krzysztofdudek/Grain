@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- `grain where` given a file or directory path now answers for that path, as `grain check` does: which part of the repository it belongs to, or that its directory does not exist yet and which nearest one does, and where files with a similar name usually live. The ranked results below are unchanged.
+
 ## [6.0.0] - 2026-09-12
 
 ### Added
