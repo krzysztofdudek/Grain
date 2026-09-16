@@ -14,7 +14,7 @@ worktree.
 
 | command | flags | answer |
 | --- | --- | --- |
-| `where <intent words>` | `--top N`, `--map-rows N`, `--json` | ranked cards (group, marker, directory, file) with conventions, exemplars, superposition, structural twins, co-change; a compact map when nothing matches lexically; an `example` voice line for words only the commits know |
+| `where <intent words>` (a single argument containing `/` is read as a path instead of words when it names a file that exists, carries a recognised source extension, or sits under a directory that exists) | `--top N`, `--map-rows N`, `--json` | ranked cards (group, marker, directory, file) with conventions, exemplars, superposition, structural twins, co-change; a compact map when nothing matches lexically; an `example` voice line for words only the commits know. For a path argument, the same module/placement locator `check <file>` prints for that path (in place, or the nearest existing ancestor when the file is new) is added alongside the ranking; the ranking itself is exactly what the same argument would produce as ordinary words |
 | `how <intent words>` | `--top N`, `--json` | the past commits that look like the intent, cited as evidence (`example` voice), the files such a change touched (`k/K`), the certified change shape it matches if any, and a `missing:` block for those files; falls back to `where`'s compact map on zero matches |
 | `what <words>` | `--json` | the concept card for a word or phrase: declarations, matching indexed values, spread across modules, commit mentions, file-level fan-in |
 | `map` | `--json` | a structural overview: dependency layers (leaves to top), the repo's top concepts where commits and code agree, certified change shapes, how many maintainer decisions are in force |
