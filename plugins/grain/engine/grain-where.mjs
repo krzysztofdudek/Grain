@@ -1,19 +1,55 @@
 // grain engine · query surface · `where` and `how`, and the bounded raw-text hedges they fall back on
 // Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { execFileSync } from 'node:child_process';
+import { EXT2GRAMMAR } from './config.mjs';
 import { whereCmd, howCmd, blindFiles, ungrammaredFiles, verbalize, scopeLine, part } from './core.mjs';
 import { loadHistory } from './history.mjs';
 import { DIRTY_TREE_NOTE } from './core.mjs';
-import { existsMemo, log } from './grain-context.mjs';
+import { existsMemo, log, relPath } from './grain-context.mjs';
 import { signal } from './grain-report.mjs';
+
+// Is a single `where` argument shaped like a repo path, worth routing to whereCmd's path-aware disclosure (the same
+// module/placement locator `check <file>` already prints — `inLineForFile`/`placementHit`) instead of leaving it to
+// `tokenize`, which turns it into loose words with no path-aware evidence at all
+// (`src/Domain/Constants/Roles.cs` → `src domain constant role cs`)? A bare word containing `/` is ambiguous on its
+// own — an idiom name like `async/await` has one too — so this only fires when something already in the tree backs
+// it up: a known grammar extension on its last segment (`Roles.cs` need not exist yet), or the resolved path itself,
+// or one of its ancestor directories, being live on disk. No new constant: both signals are facts
+// `EXT2GRAMMAR`/the filesystem already carry, never a threshold. This never changes which card `where` ranks
+// first — that was measured (see whereCmd in where.mjs) and did not clear the bar.
+export function pathQueryFor(root, arg) {
+  if (!arg || /\s/.test(arg) || !arg.includes('/')) return null;
+  let rel;
+  try {
+    rel = relPath(root, arg);
+  } catch {
+    return null;
+  }
+  if (!rel) return null;
+  if (EXT2GRAMMAR[extname(rel)] || existsSync(join(root, rel))) return rel;
+  let anc = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
+  while (anc) {
+    if (existsSync(join(root, anc))) return rel;
+    anc = anc.includes('/') ? anc.slice(0, anc.lastIndexOf('/')) : '';
+  }
+  return null;
+}
 
 // ----- commands -----
 export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
   if (!args.length) throw new Error('usage: grain where <intent words>');
   const query = args.join(' ');
-  const whereArgs = { model, query, top: +opts.top || 3, mapRows: +opts['map-rows'] || 60, exemplarOk: existsMemo(root) };
+  const pathQuery = args.length === 1 ? pathQueryFor(root, args[0]) : null;
+  const whereArgs = {
+    model,
+    query,
+    top: +opts.top || 3,
+    mapRows: +opts['map-rows'] || 60,
+    exemplarOk: existsMemo(root),
+    pathQuery,
+  };
   let { lines, hits, unknownIdent, disclosures } = whereCmd(whereArgs);
   // §057 — a zero-hit answer reads as "this concept isn't in the repository". Before accepting that, a bounded
   // scan (never a repo-wide grep) checks whether the query's exact text lives, verbatim, in a tracked file grain
@@ -54,6 +90,7 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
       top: +opts.top || 3,
       mapRows: +opts['map-rows'] || 60,
       exemplarOk: existsMemo(root),
+      pathQuery,
     });
     return [
       JSON.stringify({

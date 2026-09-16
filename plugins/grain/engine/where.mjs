@@ -8,6 +8,7 @@ import {
   buildCards,
   cochangePartners,
   inLineForCard,
+  inLineForFile,
   normTok,
   practicedBy,
 } from './cards.mjs';
@@ -15,7 +16,7 @@ import { decoLabel, factLabel, part, pct, ptr, scopeLabel } from './facts.mjs';
 import { scopeLine, scopeLineEnd } from './lexical.mjs';
 import { authorConcClause, deviantLine, factNotes, mine, skipLineNote, voice } from './mine.mjs';
 import { tokenize } from './parse.mjs';
-import { QSTOP, bridgeLines } from './placement.mjs';
+import { QSTOP, bridgeLines, placementHit } from './placement.mjs';
 import { ANON_SCOPE_KINDS, scopeBacktick, verbalize } from './verbalize.mjs';
 import { heritageKindOf } from './weights.mjs';
 
@@ -26,6 +27,7 @@ export function whereCmd({
   mapRows = 60,
   exemplarOk = () => true,
   ungrammaredHit = null,
+  pathQuery = null,
 }) {
   const q = query;
   const qt = new Set(tokenize(q).map(normTok));
@@ -132,6 +134,25 @@ export function whereCmd({
   // whatever internal name already distinguishes the case (matching whatCmd's own `note.kind` vocabulary where
   // the same concept applies — `ungrammared` is shared with whatCmd on purpose).
   const disclosures = [];
+  // Routing, not ranking: `pathQuery` is a repo-relative path `cmdWhere` (grain-where.mjs's `pathQueryFor`) has
+  // already recognised as path-shaped. Without it a path reached this function only as loose words, because
+  // `tokenize` destroys its structure. What it adds is DISCLOSURE only — the same locator `check <file>` already
+  // prints for a path: the module it resolves into, or that the path does not exist yet and the nearest ancestor
+  // that does, with THAT ancestor's own real numbers, plus `placementHit`'s naming-pattern signal ("*.cs files
+  // named like Roles live in Domain/") when one applies. Neither call is new extraction or mining, both already
+  // tolerate a path that is not in the tree, and neither touches `c.score`. Forcing the exact-matching
+  // file/directory card's score to 1 was measured against `whereEval`'s own protocol restricted to file-adding
+  // commits, over 6 repos (CleanArchitecture, spring-petclinic, gin, telescope.nvim, express, flask): repo-macro
+  // hit@3/MRR for a directory-shaped query came out forced=0.981/0.909 vs the naive path-token baseline
+  // `whereEval` already carries =1.000/0.958 — tied with or worse than the baseline it had to beat, so that
+  // ranking change is not here. The lines below change no score and no order, only what is printed alongside
+  // whatever already wins.
+  if (pathQuery) {
+    const inl = inLineForFile(model, pathQuery);
+    if (inl) lines.push(inl);
+    const ph = placementHit(model, pathQuery);
+    if (ph) lines.push(ph.text);
+  }
   // a steer renders wherever its topic meets the query or its exemplar lives in the card: decided, beside what is practiced
   const steers = (model.steers || []).filter(st => st.found);
   const steerLine = st =>
