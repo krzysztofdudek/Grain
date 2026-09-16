@@ -147,9 +147,16 @@ export function whereCmd({
   // `whereEval` already carries =1.000/0.958 — tied with or worse than the baseline it had to beat, so that
   // ranking change is not here. The lines below change no score and no order, only what is printed alongside
   // whatever already wins.
+  // `pathLine` is remembered (not just pushed) so the hits loop below can skip re-printing it: the path's own
+  // location line and the top hit's `inLineForCard` line resolve the SAME module more often than not (a
+  // directory/file query routinely wins its own card outright, see the cover>=0.5 pin above), and without this
+  // the reader saw "in: src/Domain/ · used by 4 modules" twice in a row. Compared by VALUE, not by skipping
+  // `inLineForCard` outright whenever `pathQuery` is set: a lower-ranked hit that lands in a different module
+  // still gets its own, different, location line.
+  let pathLine = null;
   if (pathQuery) {
-    const inl = inLineForFile(model, pathQuery);
-    if (inl) lines.push(inl);
+    pathLine = inLineForFile(model, pathQuery);
+    if (pathLine) lines.push(pathLine);
     const ph = placementHit(model, pathQuery);
     if (ph) lines.push(ph.text);
   }
@@ -299,7 +306,7 @@ export function whereCmd({
       : `is usually added to an existing file (${pct(f.share)}% of ${f.sraw})`;
   for (const h of hits) {
     const inl = inLineForCard(model, h);
-    if (inl) lines.push(inl);
+    if (inl && inl !== pathLine) lines.push(inl);
     const stLines = steers.filter(st => cardHit(st, h)).flatMap(steerLine); // decided, printed right under the card's header
     if (h.type === 'file') {
       const qs = [...qt];
