@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- `grain where` given a single argument that contains a `/` and names a real place in the repository — an existing file or directory, or a path that at least looks like a source file — now answers for that path too, as `grain check` does: which part of the repository it belongs to, or that it doesn't exist yet and which nearest part does, and where files with a similar name usually live. A slash-containing word that names nothing in the tree (an idiom like `async/await`) is still read as ordinary words, and the ranked results themselves are unchanged either way.
+- `grain where` given a single argument that contains a `/` and names a real place in the repository — an existing file or directory, a path that looks like a source file by its extension, or one that sits under a directory that already exists — now answers for that path too, as `grain check` does: which part of the repository it belongs to, or that it doesn't exist yet and which nearest part does, and where files with a similar name usually live. A slash-containing word that names nothing in the tree (an idiom like `async/await`) is still read as ordinary words, and the ranked results themselves are unchanged either way.
 
 ## [6.0.0] - 2026-09-12
 
