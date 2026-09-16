@@ -63,3 +63,14 @@ test('an ordinary multi-word intent is unaffected by the routing check', () => {
   assert.equal(code, 0, `${out}\n${err}`);
   assert.match(out, /→ file src\/domain\/entities\/todoItem\.ts/, out);
 });
+
+test('`grain where <existing directory path>` does not repeat its own location line when the path also wins its own card', () => {
+  // the path's own `in: …` locator (printed once, up front, from pathQuery) must not repeat when the top-ranked
+  // hit resolves to the SAME module — it did, verbatim, before this fix (`in: src/ · used by 0 modules` twice)
+  const { out, code, err } = grain(['where', 'src/domain']);
+  assert.equal(code, 0, `${out}\n${err}`);
+  const locationLines = out.split('\n').filter(l => l.startsWith('in: '));
+  const first = locationLines[0];
+  const repeats = locationLines.filter(l => l === first).length;
+  assert.equal(repeats, 1, out);
+});

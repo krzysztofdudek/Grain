@@ -1,5 +1,7 @@
-// grain engine · query surface · `where` and `how`, and the bounded raw-text hedges they fall back on
-// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// grain engine · query surface · `where` and `how`, the bounded raw-text hedges they fall back on, and
+// `pathQueryFor`, which recognises a path-shaped `where` argument before `tokenize` destroys its structure.
+// Split out of grain.mjs (ticket 124): the `where`/`how`/hedge statements below are the ones that stood there,
+// unchanged. `pathQueryFor` was added afterward, alongside where.mjs's path-aware disclosure.
 import { readFileSync, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { execFileSync } from 'node:child_process';
