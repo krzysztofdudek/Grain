@@ -35,7 +35,7 @@ import { TYPE_LEVELS } from './propose-levels.mjs';
 // Everything else — prose drafts, no-catch drafts, finer type alternatives, the conventions skipped as not a
 // rule — is written to disk exactly as before and summarised here in ONE counted line naming the file that
 // holds it. `--full` prints it all.
-export function proposeReport(r, { outDir, root, full = false } = {}) {
+export function proposeReport(r, { outDir, root, full = false, familyCandidates = null } = {}) {
   const rel = p => (root && p.startsWith(root + '/') ? p.slice(root.length + 1) : p);
   const out = rel(outDir);
   const ygg = `${out}/.yggdrasil`;
@@ -103,6 +103,12 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason, certifiedWithCases: c.aspectsCertifiedWithCases },
     enforced: enforced.map(aspectJson),
     candidates: candidates.map(aspectJson),
+    // `familyCandidates` (additive): where the `.family-candidates.json` this run wrote went and how many
+    // families it holds — `null` when the run was told not to write one. `droppedByFit` is what the
+    // predicate-fit gate removed (members and whole families) before the file was written.
+    familyCandidates: familyCandidates
+      ? { path: rel(familyCandidates.path), families: familyCandidates.families, droppedByFit: familyCandidates.droppedByFit || { members: 0, families: 0 } }
+      : null,
     alternatives: c.alternatives,
     skippedNotARule: c.aspectsSkippedNotARule,
     // ticket 120, additive: WHY (`parser-node-type-as-identifier` | `generic-type-parameter-as-domain-type` |
@@ -176,6 +182,15 @@ export function proposeReport(r, { outDir, root, full = false } = {}) {
     const altLevels = TYPE_LEVELS.filter(l => c.alternativesByLevel?.[l]).map(l => `${c.alternativesByLevel[l]} ${l}`).join(', ');
     L.push(`== ${c.alternatives} finer type alternative(s), not cut as types${altLevels ? ` (${altLevels})` : ''} — ${out}/alternatives.md ==`);
     for (const alt of r.alternatives) L.push(`  ${alt.id} [${alt.level}] — ${alt.why}`);
+  }
+  // The family-without-law signal `yg advise` reads: groups of structurally uniform files that no rule covers.
+  // Written beside the graph so `yg adopt` carries it in with the rest; this line says where it went and what
+  // it holds, and only appears when the run wrote one.
+  if (familyCandidates) {
+    const where = rel(familyCandidates.path);
+    L.push(familyCandidates.families
+      ? `family candidates: ${familyCandidates.families} group(s) of structurally uniform files with no rule of their own — ${where}; once it sits in \`.yggdrasil/\` (\`yg adopt\` puts it there), \`yg advise\` names each as a rule to draft`
+      : `family candidates: none — no group of structurally uniform files is left without a rule (${where} written empty, so \`yg advise\` knows the question was asked)`);
   }
   // ticket 123: the acceptance is now a named TRANSACTION (`yg adopt`), not a manual `mv` — it refuses to
   // merge over an existing graph, checks the proposal loads before moving anything, and baselines every
