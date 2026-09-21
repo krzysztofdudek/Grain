@@ -43,7 +43,6 @@ import { fileURLToPath } from 'node:url';
 import { readGraph } from './stress/reconstruct.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
-const PROPOSE = join(here, 'stress', 'propose.mjs');
 const GRAIN_BIN = join(here, '..', 'bin', 'grain.mjs');
 
 const YG_BIN = process.env.YG_BIN || '/home/user/Yggdrasil/source/cli/dist/bin.js';
@@ -110,21 +109,21 @@ before(() => {
     exclude: ['.yggdrasil', 'source/cli/node_modules', 'source/cli/dist'],
   });
   yggProposalOut = join(tmp, 'ygg-proposal');
-  yggFamilyCandidates = join(tmp, 'ygg-family-candidates.json');
-  const r = spawnSync('node', [
-    PROPOSE, yggStage, yggProposalOut, '--no-history',
-    '--family-candidates', yggFamilyCandidates,
-  ], { encoding: 'utf8', maxBuffer: 1 << 29, timeout: 10 * 60_000 });
+  // The real command, run from inside the stage: `grain propose` writes `.family-candidates.json` into the
+  // proposal's own `.yggdrasil/` by default, beside the graph, so nothing below copies it by hand.
+  yggFamilyCandidates = join(yggProposalOut, '.yggdrasil', '.family-candidates.json');
+  const r = spawnSync('node', [GRAIN_BIN, 'propose', yggProposalOut, '--no-history'], {
+    cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 29, timeout: 10 * 60_000,
+  });
   if (r.status !== 0) {
     yggProposeError = `propose.mjs exited ${r.status} on a ${nFiles}-file stage of Yggdrasil:\n${(r.stderr || '').slice(0, 4000)}`;
     return;
   }
   yggProposeCounts = JSON.parse(readFileSync(join(yggProposalOut, 'proposal.json'), 'utf8')).counts;
-  // Overlay the rendered proposal AND the family-candidates adapter's own output onto the staged repo — this is
-  // the exact seam a maintainer would perform by hand: drop `.yggdrasil/` in, drop `.family-candidates.json`
-  // beside it, run `yg`.
+  // Overlay the rendered proposal onto the staged repo — a plain copy standing in for `yg adopt`, which installs
+  // the proposal's `.yggdrasil/` (family candidates included) into the repository. The file rides along with the
+  // graph; there is no second copy step.
   cpSync(join(yggProposalOut, '.yggdrasil'), join(yggStage, '.yggdrasil'), { recursive: true });
-  cpSync(yggFamilyCandidates, join(yggStage, '.yggdrasil', '.family-candidates.json'));
 });
 
 after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
@@ -217,8 +216,8 @@ test('the adapter emits exactly the planted family on family-planted-mono, and n
   const stage = join(tmp, 'mono-stage');
   stageGitRepo(MONO_FIXTURE, stage); // keep this fixture's own `.yggdrasil/` — it is what "no certified convention" is measured against
   const out = join(tmp, 'mono-out');
-  const fc = join(tmp, 'mono-family-candidates.json');
-  const r = spawnSync('node', [PROPOSE, stage, out, '--no-history', '--family-candidates', fc], { encoding: 'utf8', maxBuffer: 1 << 28, timeout: 60_000 });
+  const fc = join(out, '.yggdrasil', '.family-candidates.json');
+  const r = spawnSync('node', [GRAIN_BIN, 'propose', out, '--no-history'], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 28, timeout: 5 * 60_000 });
   assert.equal(r.status, 0, r.stderr);
   const written = JSON.parse(readFileSync(fc, 'utf8'));
   assert.equal(written.families.length, 1, `expected exactly one planted family, got ${written.families.length}: ${written.families.map(f => f.id).join(', ')}`);

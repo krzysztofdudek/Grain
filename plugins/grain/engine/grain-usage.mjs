@@ -18,11 +18,13 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
                                           reader with no terminal or no grain plugin; \`grain rules > CONVENTIONS.md\` also works
   export [--out <file>] [--max-sites N] [--compact] [--no-anchors]  the whole model as JSON: every convention with all its sites, anchors, trends,
                                           groups, markers, directories, co-change (for training pipelines and audits)
-  propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>]   a PROPOSED Yggdrasil \`.yggdrasil/\` architecture graph for this repository —
+  propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--family-candidates <path> | --no-family-candidates]   a PROPOSED Yggdrasil \`.yggdrasil/\` architecture graph for this repository —
                                           nodes, relations and mined rules with evidence attached — written to <out-dir> (default
                                           .yggdrasil-proposal/, never over your own .yggdrasil/) for you to read and move in. The report
                                           names the architecture, the rules a real \`yg drill\` proved, and the candidates; \`--full\` adds
-                                          every draft it kept back
+                                          every draft it kept back. It also writes the family-without-law signal \`yg advise\` reads,
+                                          \`<out-dir>/.yggdrasil/.family-candidates.json\` (\`--family-candidates <path>\` writes it
+                                          elsewhere, \`--no-family-candidates\` not at all), so \`yg adopt\` installs it with the graph
   advise [--json] [--graph <dir>]         read the architecture graph this repository ALREADY has (never a proposed one) and report
                                           what its own history and imports say about it: places a finer cut of their own files beats,
                                           which is advice — and, as data rather than advice, places that change together with nothing
