@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- `grain propose` now writes `.family-candidates.json` into the proposal's `.yggdrasil/`, beside the graph, so `yg adopt` installs it and `yg advise` names each group of similar files no rule covers as a rule to draft. Before, the file was only ever written by Grain's own measurement script, so an adopter never had it. `--family-candidates <path>` writes it somewhere else (a repository that adopted earlier points it at its own `.yggdrasil/`), and `--no-family-candidates` writes none. The report gains a `family candidates:` line and the JSON a `familyCandidates` field.
+
 ### Fixed
 
 - `grain where` given a single argument that contains a `/` and names a real place in the repository — an existing file or directory, a path that looks like a source file by its extension, or one that sits under a directory that already exists — now answers for that path too, as `grain check` does: which part of the repository it belongs to, or that it doesn't exist yet and which nearest part does, and where files with a similar name usually live. A slash-containing word that names nothing in the tree (an idiom like `async/await`) is still read as ordinary words, and the ranked results themselves are unchanged either way.

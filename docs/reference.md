@@ -384,8 +384,9 @@ at the top level; `existingViolations` per aspect) — see "The proposal contrac
 `schemaNotes.provenance`.
 
 The same renderer is also driven by the measurement instrument `node tests/stress/propose.mjs <repo> <out-dir>`,
-which adds `--score <repo>` (compare against a hand-written graph, both directions) and `--family-candidates
-<out.json>`. The instrument and the command write byte-identical trees — the renderer lives behind the
+which adds `--score <repo>` (compare against a hand-written graph, both directions) and its own
+`--family-candidates <out.json>`, which writes the file to a path of its own choosing (the command writes it into
+the proposal by default — see below). The instrument and the command write byte-identical trees — the renderer lives behind the
 `plugins/grain/engine/propose.mjs` facade, in the fifteen `engine/propose-*.mjs` modules it re-exports, and
 neither surface has a rendering path of its own.
 
@@ -644,8 +645,12 @@ rather than as it stood the moment `grain propose` ran.
 **`sizing.json`** (ticket 098) is unchanged by this contract — see its own header comment in
 `plugins/grain/engine/propose-sizing.mjs` for the field-by-field explanation.
 
-**The `.family-candidates.json` adapter** — the instrument's `--family-candidates <out.json>` writes a SEPARATE file
-(not part of `proposal.json`) in the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
+**The `.family-candidates.json` adapter** — `grain propose` writes a SEPARATE file (not part of `proposal.json`) into
+the proposal's `.yggdrasil/`, beside the graph, so `yg adopt` installs it with the rest and `yg advise` reads it from
+the adopted repository; `--family-candidates <path>` writes it to that path instead (a repository that adopted earlier
+points it at its own `.yggdrasil/`; a directory gets `.family-candidates.json` inside it) and `--no-family-candidates`
+writes none. The report carries one `family candidates:` line, and `--json` a `familyCandidates` field
+(`{path, families, droppedByFit}`, `null` when none was written). The file has the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
 `advise-nominations.ts`): `{v: 1, ts, families: [{id, language, members, fittedPredicate: {kind, value},
 scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `ts` MUST be a parseable calendar instant (Yggdrasil's
 freshness gate runs `Date.parse` on it and silently drops the whole file otherwise) — grain's own `asOf` is a git
@@ -654,8 +659,8 @@ role group (093/094's structural cluster within a partition) that clears the sam
 offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `plugins/grain/engine/propose-base.mjs`) and carries no certified
 convention of its own — whether that group ended up as a finer `-content` alternative (a subset of its host
 type) or, when the group coincides with its whole host type, was cut directly as an active type with no
-alternative offered. Dropping the file into an existing `.yggdrasil/` at `.family-candidates.json` and running
-`yg advise` there makes Yggdrasil nominate the family with zero code changes on Yggdrasil's side —
+alternative offered. With the file in `.yggdrasil/` at `.family-candidates.json`, running `yg advise` there makes
+Yggdrasil nominate the family with zero code changes on Yggdrasil's side —
 `plugins/grain/tests/seams.test.mjs` proves this against a real `yg` binary and against Yggdrasil's own
 planted-family precision fixtures.
 

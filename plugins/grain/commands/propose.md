@@ -1,6 +1,6 @@
 ---
 description: Mine a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository — nodes, relations and rules with evidence — into a staging directory for a human to accept with `yg adopt`
-argument-hint: [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>]
+argument-hint: [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--family-candidates <path> | --no-family-candidates]
 allowed-tools: Bash(node:*)
 ---
 ## grain propose: $ARGUMENTS
@@ -49,6 +49,12 @@ real coverage, but nothing there is a rule yet. A row measured within a role-gro
 directory it would otherwise enforce, and that cannot be scoped to that cluster exactly, shows up among the
 drafts as `cluster-narrower-than-scope` rather than being enforced against files the measurement never looked
 at.
+
+The run also writes `.family-candidates.json` into the proposal's `.yggdrasil/`, beside the graph: the groups of
+structurally uniform files no rule covers, in the shape `yg advise` reads. `yg adopt` installs it with the graph,
+and from then on `yg advise` names each group as a rule to draft. The line that starts `family candidates:` says how
+many there are and where the file went. For a repository that adopted earlier, `--family-candidates <path>` writes the
+file to its own `.yggdrasil/` (or any path) instead; `--no-family-candidates` writes none.
 
 Do not edit any file, do not run `yg adopt` (dry-run or real) or `yg check --approve` yourself, unless the user
 asks — the run above may already have shown a real `yg adopt --dry-run` preview, which is read-only and writes

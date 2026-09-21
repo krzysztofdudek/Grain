@@ -203,7 +203,7 @@ same records, same effect.
 - **`map [--json]`** — a structural overview: dependency layers from leaves to top, the repo's top concepts where
   commit messages and code vocabulary agree, the certified change shapes, and how many maintainer decisions are in
   force. Good for orienting in an unfamiliar repository before asking anything more specific.
-- **`propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>]`** — for a repository with no
+- **`propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--family-candidates <path> | --no-family-candidates]`** — for a repository with no
   `.yggdrasil/` yet: mine one. Writes a PROPOSED Yggdrasil architecture graph — node types, nodes, relations,
   dependency cycles and mined rules, each with the evidence that produced it — into `<out-dir>` (default
   `.yggdrasil-proposal/`, self-ignoring; the repository's own `.yggdrasil/` is never written). The default
@@ -212,6 +212,10 @@ same records, same effect.
   everything else is on disk and summarised in one counted line, with `--full` to print it. With no Yggdrasil
   CLI (`YG_BIN`, or `yg` on PATH) nothing can be drilled, so nothing is enforced and the report says so. It is
   a proposal: a human reviews it and moves it in. Never move it in, and never run `yg check --approve`, unbidden.
+  It also writes `.family-candidates.json` beside the graph (`<out-dir>/.yggdrasil/`): groups of structurally
+  uniform files no rule covers, which `yg advise` names as rules to draft once `yg adopt` has installed the file.
+  `--family-candidates <path>` writes it elsewhere (a repository that adopted earlier points it at its own
+  `.yggdrasil/`), `--no-family-candidates` writes none.
 - **`oracle record [--proposal <dir>] [--graph <dir>] [--name <n>] [--out <dir>] [--yes]` / `oracle score
   <name-or-dir> [--json]`** — after a proposal has been read and a graph accepted, the difference between the
   two is a measurement oracle. `record` keeps it (both graphs' structure, the tracked paths each element
