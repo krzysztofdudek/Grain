@@ -233,7 +233,9 @@ function writeAspectFiles(ygg, repo, aspects, opts, ev) {
       '', `Provenance: ${a.provenance}`, '', ...lines, '',
       'Layout is Yggdrasil\'s: each source file under a `satisfies-*` / `violates-*` directory is one case;',
       'a `violates-*` case MUST be refused and a `satisfies-*` case MUST pass. Score with:', '',
-      '```', `yg drill --aspect ${a.id} --dir .yggdrasil/aspects/${a.id}/drills --corpus grain-proposal`, '```', '',
+      // The rule's own corpus, read where Yggdrasil reads it. `--dir` would name it an EXTERNAL hold-out, and
+      // `yg advise` and the health reading drop hold-out runs, so a regression drilled that way is never raised.
+      '```', `yg drill --aspect ${a.id}`, '```', '',
     ].join('\n'));
   }
   return { drillCases, drillDropped };
