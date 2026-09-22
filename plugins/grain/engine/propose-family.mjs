@@ -87,6 +87,7 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
     if (g.files.size < minMembers) continue;
     if (certifiedGroups.has(key)) continue;
     const host = active.find(a => a.dir && jaccard(g.files, a.files) >= 0.9);
+    const overlap = host ? jaccard(g.files, host.files) : 0;
     if (!host) continue; // not coincident with any active type — (i) above should have offered it as an alternative instead
     const cr = contentRegexFor(g.group);
     if (!cr) continue;
@@ -97,7 +98,8 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
       members: [...g.files].sort(),
       fittedPredicate: { kind: 'regex', value: cr.regex },
       scopeFilesDraft: [`${host.dir}/**`],
-      evidence: { clusterSize: g.files.size, tightness: 1 }, // exact match to the host type — the strongest fit this adapter reports
+      // How far the group and its host type coincide (at least 0.9 to get here), measured rather than rounded up.
+      evidence: { clusterSize: g.files.size, tightness: overlap },
     });
   }
   for (const f of families) delete f._groupId;

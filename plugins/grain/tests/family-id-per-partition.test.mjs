@@ -25,3 +25,16 @@ test('a certified convention on one partition\'s group does not silence the same
   assert.equal(out.families.length, 1, 'only the lawed partition\'s group may drop');
   assert.ok(out.families[0].members.every(m => m.startsWith('web/')), 'the surviving family is the unlawed partition\'s');
 });
+
+// A group that coincides with its whole host type is reported with how far the two coincide. The branch takes
+// any group whose Jaccard with the host is at least 0.9, and wrote 1 for every one of them, so `yg advise`
+// printed an exact fit for a group that shared nine files in ten with its type.
+test('a group coinciding with its host type reports the measured overlap as its tightness', () => {
+  const files = n => new Set(Array.from({ length: n }, (_, i) => `src/repo/F${i}.ts`));
+  const group = { id: 'r0', markers: [{ type: 'decorator', name: 'Repository', carriers: [1, 2, 3] }], members: [] };
+  const g = { part: { name: 'api' }, group: { ...group }, files: files(9) };
+  const host = { dir: 'src/repo', files: files(10) };
+  const out = buildFamilyCandidates([], { indexedAt: '2026-09-22T00:00:00Z' }, {}, { active: [host], groups: [g] });
+  assert.equal(out.families.length, 1);
+  assert.equal(out.families[0].evidence.tightness, 0.9);
+});
