@@ -1,6 +1,6 @@
 // Cross-check: `check <file>` (one file, full detail) and `review` (`check` over many files, aggregated) must
 // never disagree about the SAME file — class C ("two outputs over one model disagree") applied to this specific
-// pair. §053 (already merged) fixed ONE instance of this drift: a degraded parse (`r.hasError`) survived into
+// pair. The check/review parity fix (already merged) fixed ONE instance of this drift: a degraded parse (`r.hasError`) survived into
 // `check`'s output but silently vanished from `review`'s aggregate whenever the parseable remainder deviated from
 // nothing — the file dropped out of review's "no finding at all" skip exactly like a genuinely clean file, with
 // nothing saying so. This file's job (per the instr-cross-check task) is to (1) pin that fix as a cross-check
@@ -10,15 +10,15 @@
 // (2) turned up a real candidate — `checkFile`'s `newScopeHits` ("scopes new to the index — judged against the
 // package baseline only", never classified conforming or deviant) has the IDENTICAL absence: `fileFindings`'s own
 // `lines` array never includes it, so a file whose only content is unclassified-in-change scopes is dropped by
-// review's "no finding at all" skip exactly like §053's hasError case, and neither `check --json` nor `review
+// review's "no finding at all" skip exactly like the check/review parity fix's hasError case, and neither `check --json` nor `review
 // --json` carries the fact in machine-readable form at all (not even for `check`'s own single file).
 //
-// UNLIKE §053, propagating this one turned out to be the WRONG call, discovered only by actually wiring it up and
+// UNLIKE the check/review parity fix, propagating this one turned out to be the WRONG call, discovered only by actually wiring it up and
 // running the full suite: `hasError` is a rare, always-worth-surfacing "something is broken" signal, but
 // `newScopeHits` fires on EVERY qualifying scope of EVERY brand-new file, matched or not — see checkFile
 // (core.mjs): every branch of its bucket-building loop (below-floor, bestCert, secondCert, nocert) pushes a hit;
 // there is no "matched well enough to not bother" exit. A first attempt wired this into `review` exactly like
-// §053 (making an otherwise-clean new file survive review's skip, plus new `unclassifiedInChange`/
+// the check/review parity fix (making an otherwise-clean new file survive review's skip, plus new `unclassifiedInChange`/
 // `unclassifiedPreExisting` --json fields) and broke two settled, pre-existing tests that encode the OPPOSITE,
 // deliberate decision: review-command.test.mjs's own "only the file WITH a finding appears in findings — a clean
 // file, tracked or untracked, contributes nothing" (a brand-new file matching an established convention EXACTLY
@@ -93,7 +93,7 @@ before(() => {
   wIn(repo, 'src/handlers/NewThing.ts', `export class NewThingWidget {\n  render(): string {\n    return 'ok';\n  }\n  reset(): void {}\n}\n`);
 
   // broken.ts: untracked, a real parse error inside a real function (r.hasError, scopesN>0 — "parse degraded",
-  // not the separate "parse failed" branch) — the exact snippet disclosure-fixtures.test.mjs's §053 fixture uses
+  // not the separate "parse failed" branch) — the exact snippet disclosure-fixtures.test.mjs's check/review parity fixture uses
   wIn(repo, 'src/broken.ts', 'export function util99() { return 99; }\n\nexport function broken(x: <<not valid) {\n  return x\n');
 });
 after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
@@ -143,5 +143,5 @@ test('CHARACTERIZATION: an unclassified-only file (no deviation, no error) is di
 
   const reviewJson = JSON.parse(grainIn(repo, ['review', '--json']).out);
   assert.ok(reviewJson.files.includes(rel), `${rel} is still counted in the "files in scope" list: ${JSON.stringify(reviewJson.files)}`);
-  assert.ok(!reviewJson.findings.some(f => f.file === rel), `but it has NO findings[] entry at all — dropped silently, same "no finding at all" skip §053 patched for hasError, left as-is here for this caveat: ${JSON.stringify(reviewJson.findings.map(f => f.file))}`);
+  assert.ok(!reviewJson.findings.some(f => f.file === rel), `but it has NO findings[] entry at all — dropped silently, same "no finding at all" skip the check/review parity fix patched for hasError, left as-is here for this caveat: ${JSON.stringify(reviewJson.findings.map(f => f.file))}`);
 });

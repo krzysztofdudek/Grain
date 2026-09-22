@@ -173,7 +173,7 @@ export function relFactsFor(rel, content, tree, grammar) {
 // workspace packages: bare specifiers (`@scope/name`, `name/sub`) resolve to the package's own files — a pnpm/yarn
 // monorepo's ENTIRE cross-package architecture flows through these, and the path resolver rightly refuses to guess them
 //
-// §017: the SAME channel also carries Cargo workspaces. The vendored rust-resolve.mjs's `resolveRustPath` can only
+// the SAME channel also carries Cargo workspaces. The vendored rust-resolve.mjs's `resolveRustPath` can only
 // ever resolve a `use` path back into the CALLING file's own crate (it derives `crate`/root-name meaning purely from
 // `deps.crateRootFor(fromFile)`, which walks UP from fromFile — it has no notion of a sibling crate at all), so
 // `use axum_core::extract::Request` written inside `axum` never resolves there. `model.workspaces` (core.mjs) now

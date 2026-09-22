@@ -17,7 +17,7 @@
 // FIXTURE NUMBERS (the gates this must clear, all measured on this tree, not assumed):
 //   · `groupPartitions`: `src/handlers` holds 103 scopes (>= 100) and is its own partition; `src/fillers` holds
 //     49 and survives as the single small package's own bucket (>= 30). The 12 `run`-method handler classes alone
-//     land at 85 scopes post-§075 (that fix deduped a catch/finally clause claimed by both its method AND that
+//     land at 85 scopes after the catch/finally dedup (that fix deduped a catch/finally clause claimed by both its method AND that
 //     method's enclosing class down to one scope each, dropping this directory's count below the 100 floor) — 6
 //     `SupportNService` filler files, shaped like `src/fillers`' own and clustering into no role of their own, sit
 //     alongside them purely to keep `src/handlers` above the floor without touching the 12-member `run` group.
@@ -63,7 +63,7 @@ let tmp, repo, model, profile;
 before(() => {
   ({ tmp, repo } = initRepo('grain-skeleton-diff-'));
   NAMES.forEach(n => wIn(repo, `src/handlers/${n.toLowerCase()}.handler.ts`, handler(`${n}Handler`, GROUP_BODY)));
-  // §075: the 12 `run`-method handlers alone land at 85 scopes now that a catch/finally clause is claimed by its
+  // the 12 `run`-method handlers alone land at 85 scopes now that a catch/finally clause is claimed by its
   // NEAREST enclosing scope only (previously double-counted under both the method and its enclosing class) — 6
   // filler files, shaped like `src/fillers`' own and clustering into no role of their own, keep this directory
   // above `groupPartitions`' 100-scope floor without touching the 12-member `run` group's n/shared/req numbers.

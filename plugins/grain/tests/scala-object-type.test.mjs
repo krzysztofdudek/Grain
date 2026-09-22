@@ -1,4 +1,4 @@
-// §050 — a bodiless Scala `object` (and a bodiless companion `object` extending its class) must classify as
+// a bodiless Scala `object` (and a bodiless companion `object` extending its class) must classify as
 // kind `type`, exactly like a real `class`. Root cause: `TYPE_LIKE_RE` (core.mjs) carried Kotlin's node-type
 // name `object_declaration` but not Scala's `object_definition` — a Scala `object` reached kind `type` only
 // through `extractScopes`'s `hasChildScope` fallback (a nested scope-bearing declaration inside its body), so a
@@ -24,7 +24,7 @@ async function scopesOf(src) {
 }
 const byName = (ss, name, nt) => ss.find(s => s.name === name && (!nt || s.nt === nt));
 
-test('§050: a bodiless `object` holding no braces at all classifies as type, same as a real class', async () => {
+test('a bodiless `object` holding no braces at all classifies as type, same as a real class', async () => {
   const ss = await scopesOf('class ExecCtxUtils\n\nobject ExecCtxUtils extends ExecCtxUtils\n');
   const cls = byName(ss, 'ExecCtxUtils', 'class_definition');
   const obj = byName(ss, 'ExecCtxUtils', 'object_definition');
@@ -34,7 +34,7 @@ test('§050: a bodiless `object` holding no braces at all classifies as type, sa
   assert.equal(obj.kind, 'type', 'a bodiless companion object extending its class must classify as type, not method');
 });
 
-test('§050: an `object` with a body holding only vals (no nested scope for the hasChildScope fallback) still classifies as type', async () => {
+test('an `object` with a body holding only vals (no nested scope for the hasChildScope fallback) still classifies as type', async () => {
   const ss = await scopesOf('object DummyPlaceHolder {\n  val x = 1\n  val y = "constant"\n}\n');
   const obj = byName(ss, 'DummyPlaceHolder', 'object_definition');
   assert.ok(obj, 'sanity: the object declaration must be extracted');
@@ -42,7 +42,7 @@ test('§050: an `object` with a body holding only vals (no nested scope for the 
   assert.equal(obj.kind, 'type', 'a vals-only object must classify as type even though it has no child scope to fall back on');
 });
 
-test('§050: a real Scala class with only vals (control) was already type — unaffected by this fix', async () => {
+test('a real Scala class with only vals (control) was already type — unaffected by this fix', async () => {
   const ss = await scopesOf('class DummyPlaceHolder {\n  val x = 1\n}\n');
   const cls = byName(ss, 'DummyPlaceHolder', 'class_definition');
   assert.equal(cls.kind, 'type');

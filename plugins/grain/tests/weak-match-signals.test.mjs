@@ -85,7 +85,7 @@ test('a genuinely well-matched multi-signal query (full word coverage, agreeing 
   // "handler create dispute" (3 words) lands on the real dispute handler file, covering all three words, with
   // the runner-up groups agreeing on the same directory (src/handlers/) — the shape check (2) must NOT flag.
   //
-  // §012/G2: this hit used to print `match 100%`. It no longer does, and should not: `handler` and `dispute` are
+  // G2: this hit used to print `match 100%`. It no longer does, and should not: `handler` and `dispute` are
   // the file's own name (full weight, unchanged), but `create` names only 2 of its 4 scopes, and a scope-name
   // token is now worth the share of the file it names rather than a flat 1. The file still LEADS, ahead of both
   // agreeing groups — which is what this test is about — it simply no longer claims a perfect match to a word

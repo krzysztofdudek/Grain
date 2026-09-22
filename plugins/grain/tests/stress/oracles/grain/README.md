@@ -21,7 +21,7 @@ would be worth nothing.
 
 ### Updated since
 
-**2026-09-06 — ticket 131: one new dispatcher module.** `grain advise` landed as
+**2026-09-06 — one new dispatcher module.** `grain advise` landed as
 `plugins/grain/engine/grain-advise.mjs`, an eleventh module of the query surface. The `cli-dispatch`
 type's `when` is a prefix (`plugins/grain/engine/grain*.mjs`), so it classified the file the day it was
 written and nothing about the type moved; the `Query Dispatcher` node's `mapping` is an explicit list, so
@@ -46,7 +46,7 @@ Dispatcher` nodes map seventeen and ten files instead of one. The node count did
 two is still one owner, one charter, one context. No aspect, no rule, no threshold and no verdict moved —
 except that `engine/file-size-budget` now refuses nothing at all, and its description says so.
 
-**2026-09-06 — ticket 123: `engine/file-size-budget` promoted, `max_prompt_chars` measured down.** With
+**2026-09-06 — `engine/file-size-budget` promoted, `max_prompt_chars` measured down.** With
 the debt 117/124 paid and `engine/file-size-budget` costing nothing to satisfy, its `status` moved
 `advisory` → `enforced` — nothing else about the rule changed, and a staged `yg check --approve
 --only-deterministic` before and after is byte-identical output. Separately, `reviewer.tiers.standard.

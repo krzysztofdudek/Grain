@@ -2,7 +2,7 @@
 // table, the same automatically-derived ground truth `selftest --how`/`selftest --where` already run (a past
 // commit that ADDED a file IS a recorded obligation; nobody labels anything). This file guards the ONE property
 // that makes the harness trustworthy: the candidate's own commit must never be part of the table that scores it
-// (the prospective analogue of `leakSubtractedH`'s discipline, §069) — mirrored here the same way
+// (the prospective analogue of `leakSubtractedH`'s discipline, the leak-subtraction discipline) — mirrored here the same way
 // tests/where-eval-leak-subtraction.test.mjs guards `whereEval`.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -142,9 +142,9 @@ test('selftest --obligation reports every share within [0,1], and coverage is ge
   assert.equal(JSON.parse(r2.out).n, 2);
 });
 
-// ===== ticket 078 (a): the harness's support floor is EXACTLY the engine's, not one birth stricter =====
+// ===== (a) the harness's support floor is EXACTLY the engine's, not one birth stricter =====
 // The leak guard above pins the SILENT side of this boundary (4 prior births < CFG.minRaw ⇒ nothing may fire).
-// This pins the SPEAKING side, which is the half ticket 078 had to measure: the hypothesis under test was that
+// This pins the SPEAKING side, which is the half that had to be measured: the hypothesis under test was that
 // `obligationEval`'s per-event, strictly-prior protocol accidentally demands SIX prior births where the engine's
 // own gate is `CFG.minRaw = 5`, and so under-reports real coverage. It does not — the two agree exactly, and this
 // test is what keeps them agreeing.

@@ -1,5 +1,5 @@
 // grain engine · card building and the card-level line renderers every answer is assembled from
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { dirname, extname } from 'node:path/posix';
 import { EXT2GRAMMAR, CFG } from './config.mjs';
 import { refineModOf } from './relations.mjs';
@@ -50,7 +50,7 @@ export function buildCards(model) {
       }
       const topDirs = [...dirs].sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1)).slice(0, 3);
       for (const [d] of topDirs) for (const t of tokenize(d)) addTok(toks, t, TOKW.fact); // the directory a group lives in is context for it, not its name — a directory named `middleware` outranks a 4-member group that merely lives there
-      // §012/G2 — a group's member NAMES are the same volume channel a file card's scope names are, and are
+      // G2 — a group's member NAMES are the same volume channel a file card's scope names are, and are
       // separated for the same reason (see `tw` in whereCmd). The member loop moved below the others only so
       // `baseToks` can be snapshotted before it; `addTok` keeps a max, so the order never changed `toks`.
       const gBaseToks = new Map(toks);
@@ -159,7 +159,7 @@ export function buildCards(model) {
         ))
           addTok(toks, t, TOKW.fact); // `cli command` reaches @click.command through cli.py
       const degenerate = carrierNames.size === 1 && keys.length > 1; // three fixtures all named `test` are not a pattern to copy (three commands in one cli.py are)
-      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — §048, decoLabel's sigil call
+      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — decoLabel's sigil call
       const label =
         pre === 'deco'
           ? decoLabel(name, markerG)
@@ -219,7 +219,7 @@ export function buildCards(model) {
       for (const t of tokenize(rel)) addTok(toks, t, TOKW.fact);
       for (const t of part.fileDocs?.[rel] || []) addTok(toks, t, TOKW.doc); // what the doc comments say this file is for
       for (const x of part.fileSups?.[rel] || []) for (const t of tokenize(x)) addTok(toks, t, TOKW.name); // the interfaces its types implement ARE what the file is
-      // §012/G2 — the two channels kept apart, because `where` weighs them differently (see `tw` in whereCmd).
+      // G2 — the two channels kept apart, because `where` weighs them differently (see `tw` in whereCmd).
       // `baseToks` is what the file IS (name, path, docs, supertypes); `memberTok` counts how many of the file's
       // OWN scopes carry each token, so a name that covers the whole file can be told from one mentioned once in
       // a 169-scope test. `toks` below is left exactly as it was — every other consumer of a card reads it
@@ -284,7 +284,7 @@ export const normTok = t => {
 export function cochangePartners(model, dirs, max = 3, file = null) {
   const out = [];
   const minConf = file ? 1 / 3 : CFG.cochangeMinConf; // one file's history is sparse; a third of its commits is a real signal
-  // §020: a partner is a HISTORICAL fact — the pair really did co-change — but the path itself may be gone by HEAD
+  // a partner is a HISTORICAL fact — the pair really did co-change — but the path itself may be gone by HEAD
   // (renamed away, deleted). Same liveness source `howCmd`'s places[] uses for its own `exists` flag (core.mjs
   // ~2817): `model.pathsAll` (every tracked path, code or not) ∪ `model.filesAll` (defensive union, same idiom).
   const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
@@ -361,7 +361,7 @@ function cardModule(h) {
 // STRUCTURE, not a claim (never voice()'d): the same category as the card's own unvoiced `lives in:`/`depends
 // on:`/`used by:` lines. `(layer n)` (J4.3) reads straight off the resolved moduleGraph node — omitted only if
 // the module somehow resolves to no node at all (never crashes on it).
-// §067c: the trailing `/` on the printed module is the SAME directory marker `lives in:`/`depends on:`/`used
+// the trailing `/` on the printed module is the SAME directory marker `lives in:`/`depends on:`/`used
 // by:`/a directory card's own `label` already use — `cardModule`'s `module` itself stays bare (moduleGraph node
 // ids and edge endpoints are unslashed, and this value feeds both the node lookup two lines below and the edge
 // filter), so the slash is appended only at render time, never on the value used to resolve or match anything.
@@ -378,20 +378,20 @@ export function inLineForCard(model, h) {
 }
 // the same locator for a single checked file — the SAME refined module assignment moduleGraph's own nodes/edges
 // use (computeArchHits' own memoization pattern: a closure can't survive model.json serialization, so it is
-// recomputed once per in-memory model and cached on it, never persisted). §067c: trailing `/` for the same reason
+// recomputed once per in-memory model and cached on it, never persisted). A trailing `/` for the same reason
 // as inLineForCard above — `check <file>`'s own first line is this same locator, so it gets the same marker.
-// §080 — and it must not read as a MEASUREMENT of a place that is not there. `refineModOf` is a pure path
+// and it must not read as a MEASUREMENT of a place that is not there. `refineModOf` is a pure path
 // function: it names a module for any string, existing or not, and `moduleGraph` has no node to contradict it,
 // so the first file of a brand-new top-level or second-level directory (`tools/Codegen/Gen.cs` — trial-0.4.0
 // §4b's case, an author creating a directory that does not exist yet) used to print
 // `in: tools/Codegen/ · used by 0 modules`: a module id no file lives under, and a fan-in of 0 that reads as
-// an observation about a real module rather than the absence of one. Same disease class as §057's "this
-// concept isn't in the repository" and §070's no-content-foothold banner — a confident shape outrunning what
+// an observation about a real module rather than the absence of one. Same disease class as the never-parsed-files note's "this
+// concept isn't in the repository" and the no-content-foothold banner — a confident shape outrunning what
 // was observed. The hedge states the absence and hands back the nearest ancestor that DOES hold files, with
 // that ancestor's own layer and fan-in, which are the only measured numbers available.
 //
 // Deliberately claims nothing further. Ticket 080 asked whether a new directory's COMPANIONS could be mined
-// the way ticket 073 mines a new file's; maintainer note *where-new-directory* measured five candidate
+// the way the obligation miner mines a new file's; maintainer note *where-new-directory* measured five candidate
 // directory-birth classes over 1050 real directory births in 11 repos and every one of them failed 073's own
 // published acceptance bar (coverage 0.008 against its 0.08 floor, repo-macro precision@1 0.33 against its
 // 0.80 bar, firing on 2 of 11 repos — and naming repo furniture when it did), so there is no certified

@@ -1,4 +1,4 @@
-// §012 / question-catalog recommendation 2 — `where`'s ranking on the NAMED stratum (the query contains a word
+// the member-names fix / question-catalog recommendation 2 — `where`'s ranking on the NAMED stratum (the query contains a word
 // from the answer file's own name), measured by `selftest --where` as its worst: hit@3 0.443 against a naive
 // path-match baseline's 0.881 over 11 repositories.
 //
@@ -14,7 +14,7 @@
 // card's own `n`. A second, independent change removes a constant — a directory whose name matches a minority
 // of the query is now worth exactly the coverage it earned, not a flat +0.25.
 //
-// The model here is hand-built (the idiom weak-match-signals.test.mjs and where-eval.test.mjs's §068 cases use):
+// The model here is hand-built (the idiom weak-match-signals.test.mjs and where-eval.test.mjs's the symbol-stratum scoring cases use):
 // `whereCmd` consumes nothing but `buildCards(model)`'s output, so no git repository, no CLI and no indexing run
 // is needed to pin the scoring maths.
 import { test } from 'node:test';
@@ -58,7 +58,7 @@ const RESPONSE = [
   ['method', 'links', 50],
 ];
 
-test('§012: the small file the query NAMES outranks the large test file that merely mentions the word', () => {
+test('the small file the query NAMES outranks the large test file that merely mentions the word', () => {
   const model = fileModel({ 'lib/response.js': RESPONSE, 'test/res.send.js': RES_SEND });
   const order = rank(model, 'json');
   assert.equal(
@@ -81,7 +81,7 @@ test('§012: the small file the query NAMES outranks the large test file that me
   );
 });
 
-test('§012: a word carried by more of the file counts for more — the same file, the same word, two densities', () => {
+test('a word carried by more of the file counts for more — the same file, the same word, two densities', () => {
   // identical everything except how much of the file the word names: 3 of 6 versus 3 of 60.
   const dense = Array.from({ length: 6 }, (_, i) =>
     i < 3 ? ['case', `should send json body ${i}`, i] : ['case', `should send chunk ${i}`, i]
@@ -96,7 +96,7 @@ test('§012: a word carried by more of the file counts for more — the same fil
 // The leak-free guard. `where`'s other stratum — the query names no part of the file's path — can only ever be
 // answered THROUGH the scope-name channel, so the change above must not blind it. A word that appears in no
 // filename and no path, only in one declaration, must still find its file and still rank it first.
-test('§012 guard: a file found ONLY through a scope name it declares is still ranked first (leak-free shape)', () => {
+test('guard: a file found ONLY through a scope name it declares is still ranked first (leak-free shape)', () => {
   const model = fileModel({ 'lib/response.js': RESPONSE, 'test/res.send.js': RES_SEND });
   const order = rank(model, 'vary');
   assert.equal(
@@ -106,16 +106,16 @@ test('§012 guard: a file found ONLY through a scope name it declares is still r
   );
 });
 
-test('§012 guard: a single-token query still pins the file that declares the symbol', () => {
+test('guard: a single-token query still pins the file that declares the symbol', () => {
   // recommendation 2's own worked example (`where sendStatus` → lib/response.js at 100%). The ≥2-token gate that
-  // §037's disclosure logic depends on lives in `what`, not here, and is reached by neither channel — but a
+  // the weak-answer disclosure's disclosure logic depends on lives in `what`, not here, and is reached by neither channel — but a
   // one-word `where` query is the case most exposed to a per-word re-weighting, so it is pinned explicitly.
   const model = fileModel({ 'lib/response.js': RESPONSE, 'test/res.send.js': RES_SEND });
   assert.equal(rank(model, 'links')[0], 'lib/response.js');
   assert.equal(rank(model, 'status')[0], 'lib/response.js');
 });
 
-test('§012 guard: every OTHER consumer of a card sees it unchanged — `toks` still holds scope names at full weight', () => {
+test('guard: every OTHER consumer of a card sees it unchanged — `toks` still holds scope names at full weight', () => {
   // the two new fields are additive. `toks` is what `what`'s fan-in, the bridge lines and the weak-answer
   // disclosure all read; if this drifts, a change scoped to `where`'s ranking has silently changed other
   // commands' answers.
@@ -130,7 +130,7 @@ test('§012 guard: every OTHER consumer of a card sees it unchanged — `toks` s
 });
 
 // The second change: the flat +0.25 for a directory whose name matches part of the query is gone.
-test('§012: a directory matching one word of four is worth that quarter, not a flat +0.25 on top of its score', () => {
+test('a directory matching one word of four is worth that quarter, not a flat +0.25 on top of its score', () => {
   const assignments = {};
   for (let i = 0; i < 10; i++) assignments[`src/handlers/h${i}.js#method#run${i}`] = -1;
   const model = fileModel(

@@ -1,9 +1,9 @@
-// §064 — `used by: N files` was the ONE answer measured strictly worse than a plain `grep` in the question-catalog
+// `used by: N files` was the ONE answer measured strictly worse than a plain `grep` in the question-catalog
 // study (asked 19 times): a bare count cannot be acted on, so a reader falls back to grep anyway to find the
 // actual files. The names were already sitting in `model.edges` (file-level fan-in, no new extraction) — this
 // file pins the fix at both `what --json`'s `usedBy` field and `what`'s text rendering, for a small fan-in (well
 // under the display cap) and a large one (over it, to prove truncation is stated, not swallowed — the same
-// `+N more` idiom §039 already established for `defined`).
+// `+N more` idiom the full-set ranking already established for `defined`).
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';

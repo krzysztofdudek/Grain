@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Graph currency at wave close (ticket 098) — turns the reconstruction instrument (093) into a DRIFT sensor a
+// Graph currency at wave close — turns the reconstruction instrument (093) into a DRIFT sensor a
 // steward runs at every wave close, per the ecosystem design's I5 ("the graph stays current",
 // ecosystem-design-2026-09-05.md §4.1): "graph-debt rows per 100 commits", instrument "reconstruct.mjs at wave
 // close (098)".

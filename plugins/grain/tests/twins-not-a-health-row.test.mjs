@@ -1,4 +1,4 @@
-// §044 — structural twins are an OBSERVATION, not an instruction.
+// structural twins are an OBSERVATION, not an instruction.
 //
 // `model.twins` (J3.4) fed two renderers: `where`'s group card (`twin: structurally the same as «B» …`, one
 // line, at most one per group, printed only to a reader who asked about that group) and a `== health ==` row

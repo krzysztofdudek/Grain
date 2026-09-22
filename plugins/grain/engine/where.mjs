@@ -1,5 +1,5 @@
 // grain engine · whereCmd — intent to place, expectations and a pattern to copy
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { extname } from 'node:path/posix';
 import { EXT2GRAMMAR } from './config.mjs';
 import {
@@ -67,7 +67,7 @@ export function whereCmd({
   const idf = new Map();
   for (const t of qt) idf.set(t, df.get(t) ? Math.log2(1 + cards.length / df.get(t)) : maxIdf);
   const idfSum = [...idf.values()].reduce((a, b) => a + b, 0);
-  // §012/G2 — what one query word is WORTH to a card. Every card but a file card answers with its own token
+  // G2 — what one query word is WORTH to a card. Every card but a file card answers with its own token
   // weights unchanged. A file card's weight is the max of two channels, because they are different evidence:
   //   · what the file IS — its own basename, its path, its doc comments, the supertypes it implements — at full
   //     weight, exactly as before (`baseToks`);
@@ -85,19 +85,19 @@ export function whereCmd({
           (c.memberW ?? TOKW.name) * ((c.memberTok.get(t) || 0) / Math.max(1, c.n || 1))
         )
       : c.toks.get(t) || 0;
-  let anyExact = false; // §085 — set inside the scoring loop below; see `unknownIdent` at the return
+  let anyExact = false; // set inside the scoring loop below; see `unknownIdent` at the return
   for (const c of cards) {
     let s = 0;
     for (const [t, w] of idf) s += tw(c, t) * w;
     c.score = idfSum ? s / idfSum : 0;
-    // §070 — snapshot the score BEFORE the exact-name/dirName pins below can lift it off zero. This is the
+    // snapshot the score BEFORE the exact-name/dirName pins below can lift it off zero. This is the
     // card's own bag-of-words overlap with the query and nothing else: a card can only clear zero here by
     // sharing an actual query token with its content (doc comments, member names, values — whatever `c.toks`
     // indexes), never by an identifier or directory NAME merely matching. Read-only bookkeeping: nothing past
     // this line changes what `c.score` becomes or how `hits` gets filtered/sorted/sliced.
     c.lex0 = c.score;
     c.exact = c.names ? [...qraw].some(t => c.names.has(t)) : false; // a query word that IS a function/class name in this file
-    if (c.exact) anyExact = true; // §085 — read-only bookkeeping: does the PARSED model declare any of the query's identifier words, anywhere?
+    if (c.exact) anyExact = true; // read-only bookkeeping: does the PARSED model declare any of the query's identifier words, anywhere?
     // a pinned identifier that IS most of the query wins outright (`where sendStatus`); one that covers a minority of the
     // query's words only adds to the lexical score — `where command handler for TodoList archive` must rank the command
     // handlers carrying `command`+`handler`+`todo`+`list` above `Entities/TodoList.cs`, which carries only the name (measured)
@@ -110,7 +110,7 @@ export function whereCmd({
       const hit = [...qt].filter(t => c.dirName.has(t));
       if (hit.length) {
         const cover = hit.length / Math.max(1, qt.size);
-        // §012/G2 — a directory whose NAME is most of the query still wins outright. One that matches a minority
+        // G2 — a directory whose NAME is most of the query still wins outright. One that matches a minority
         // of it is worth exactly the share of the query it covers, not a flat +0.25: that constant routinely lifted
         // a wide directory card above the file the query actually named (petclinic: `src/test/` over
         // ValidatorTests.java on one shared word). Measured: it lifts BOTH strata, and deletes a tuned number.
@@ -127,7 +127,7 @@ export function whereCmd({
     .sort((a, b) => b.score - a.score || rank(b) - rank(a) || b.n - a.n || (a.label < b.label ? -1 : 1))
     .slice(0, top);
   const lines = [];
-  // §089 — the disclosure register: every hedge/caveat line pushed below that qualifies an otherwise-confident
+  // the disclosure register: every hedge/caveat line pushed below that qualifies an otherwise-confident
   // answer is ALSO recorded here as { kind, text }, at the exact site that builds the text — never recomputed
   // from the rendered string later. `text` is the verbatim line as it appears in `lines` (or would, before any
   // stamp/dirty-tree suffix), so a JSON consumer and a text reader are told the identical thing. `kind` reuses
@@ -191,14 +191,14 @@ export function whereCmd({
   }
   let noConfidentHit = false,
     suppressedScore = 0; // set when the top hit is demoted to "untrustworthy" below — distinct wording from a genuine zero-hit
-  // §070 (research/where-lever) — on the leak-free stratum, 36% of the files `where` should have named share zero
+  // (research/where-lever) on the leak-free stratum, 36% of the files `where` should have named share zero
   // content-lexical overlap with the query (`lex0` above). Most of those are NOT the `!hits.length` case below —
   // something ELSE in the repo still scores — so the reader sees a normal-looking ranked list built entirely on an
   // identifier or directory NAME pin, with zero corroborating content-word overlap anywhere in the top hits — the exact shortcut
   // §2.1 of the research doc measured directly ("cards lifted off zero by the exact-name pin without any token
   // match"). Checked before `weak match` below because a name pin can win outright (`score` reaches 1, well past
   // 0.34), so the flat-score banner never catches it — the structural fact that NO shown card's content shares a
-  // query word is the one signal here, not a new cutoff (§018/§037's rule: an already-weak answer cannot be made
+  // query word is the one signal here, not a new cutoff (the weak-answer rule: an already-weak answer cannot be made
   // overconfident by saying so, so this fires regardless of how high the pinned score climbed).
   const noContentFoothold = hits.length > 0 && hits.every(h => h.lex0 === 0);
   if (noContentFoothold) {
@@ -246,8 +246,8 @@ export function whereCmd({
       }
     }
   }
-  // §085 — the THIRD path into §057's honest negative, and the only one neither §057 nor §070 could reach.
-  // §057 asks for the never-parsed file only when `hits` is EMPTY; §070 only when every shown hit has zero
+  // the THIRD path into the never-parsed honest negative, and the only one neither the never-parsed note nor the zero-foothold banner could reach.
+  // The never-parsed note asks for the never-parsed file only when `hits` is EMPTY; the zero-foothold banner only when every shown hit has zero
   // content overlap (`lex0`). Between them sits the measured failure: a compound identifier (`indent_style`,
   // `AppleScript`, `ClangFormat`) that `tokenize` SPLITS into ordinary words, each of which really does occur in
   // the code — so hits are non-empty AND `lex0 > 0`, the score clears the 0.34 floor, and a one-word query never
@@ -255,12 +255,12 @@ export function whereCmd({
   // out of fragments of a name the parsed model never declares. `ungrammaredHit` arrives here exactly when the
   // caller (grain.mjs's `cmdWhere`) found that same text verbatim in a file grain has no grammar for, so the
   // answer the reader wants sits in a file grain cannot read. Nothing new is tuned: the gate is `unknownIdent`
-  // (see the return) plus the deterministic verbatim scan §057 already owns.
+  // (see the return) plus the deterministic verbatim scan the never-parsed note already owns.
   //
   // Placed AFTER the whole ladder above and gated on `hits.length` on purpose. The ladder's last arm can SUPPRESS
   // an uncorroborated top hit (`hits = []`, `noConfidentHit`) — a stronger honest negative than any banner — and
   // an earlier placement pre-empted it, measurably: it kept 6 of opencode's rankings that the suppression arm had
-  // been discarding. Running last means a suppressed answer stays suppressed and falls through to §057's own
+  // been discarding. Running last means a suppressed answer stays suppressed and falls through to the never-parsed note's own
   // message below, which names this same file anyway; only an answer that SURVIVES the ladder is disclosed here.
   if (ungrammaredHit && hits.length) {
     const text = `"${q}" is not a name grain parsed anywhere — the ranking below matches its separate words, not the whole. That exact text appears in ${ungrammaredHit.file}, and grain has no grammar for "${ungrammaredHit.ext}" (never reads that format at all, so this file was never parsed). The answer may be there, unreadable to grain: verify before building on it.`;
@@ -268,7 +268,7 @@ export function whereCmd({
     disclosures.push({ kind: 'ungrammared', text });
   }
   if (!hits.length) {
-    // §057 — a zero-hit answer here reads as "this concept isn't in the repository", which is only true of the
+    // a zero-hit answer here reads as "this concept isn't in the repository", which is only true of the
     // code grain actually reads. `ungrammaredHit` (supplied by the caller — grain.mjs's `findUngrammaredHit`, a
     // bounded substring scan over `ungrammaredFiles`, never a repo-wide grep) says the query's exact text lives,
     // verbatim, in a tracked file whose extension has no grammar at all: a stronger, deterministic sibling of the
@@ -341,7 +341,7 @@ export function whereCmd({
       const carried = (h.carried || [])
         .filter(([mk]) => !mk.startsWith('ret:') || !TRIVIAL.test(mk.slice(4)))
         .sort((a, b) => b[1] - a[1]);
-      const cardG = EXT2GRAMMAR[extname(h.label)]; // `h.label` is this card's own file rel path — §048
+      const cardG = EXT2GRAMMAR[extname(h.label)]; // `h.label` is this card's own file rel path
       if (carried.length)
         lines.push(
           `  carries: ${carried
@@ -397,7 +397,7 @@ export function whereCmd({
       const [rel2, kind, name] = k.split('#');
       const ln = scopeLine(P, k);
       const end = scopeLineEnd(P, k);
-      // §061: `name` for a catch/finally member is its enclosing method/type's OWN name — scopeBacktick already
+      // `name` for a catch/finally member is its enclosing method/type's OWN name — scopeBacktick already
       // says so ("catch in `findOwner`"), so the trailing "(kind)" would just repeat it; kept only for a genuine
       // declaration, exactly as before this fact existed.
       const tag = ANON_SCOPE_KINDS.has(kind) ? scopeBacktick({ kind, name }) : `\`${name}\` (${kind})`;
@@ -580,13 +580,13 @@ export function whereCmd({
       );
   }
   lines.push(...bridged);
-  // §085 `unknownIdent` — the caller's cue to pay for §057's bounded never-parsed scan on a RANKED answer. Three
+  // `unknownIdent` — the caller's cue to pay for the bounded never-parsed scan on a RANKED answer. Three
   // structural facts, no tunable among them:
   //   · the whole query is ONE word — this is an identifier lookup, not a sentence. It is also what makes the
-  //     scan able to succeed at all: §057 matches the query's text VERBATIM, and a multi-word intent ("add rate
+  //     scan able to succeed at all: the never-parsed scan matches the query's text VERBATIM, and a multi-word intent ("add rate
   //     limiting") essentially never appears verbatim in a config file, so scanning for it is pure cost.
   //     Measured on spec-kit before this clause: `unknownIdent` was true for 36.9% of commit-message queries and
-  //     found something in 0% of them — the scan discipline §057 states ("every other query never opens a file
+  //     found something in 0% of them — the scan discipline the never-parsed note states ("every other query never opens a file
   //     at all") is kept by this line.
   //   · it is identifier-SHAPED (`qraw`: `tokenize` splits it in two, or it holds a `.`/`_`/`$`). A plain word is
   //     not, so `where users` never asks — and must not: answering a common word from code is correct, not a

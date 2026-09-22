@@ -132,7 +132,7 @@ test('(observed, not asserted) stderr across the whole matrix', () => {
   assert.ok(true);
 });
 
-// §029: five of the six hooks gate their catch-block stderr behind `GRAIN_DEBUG`; `session-context` does not, by
+// five of the six hooks gate their catch-block stderr behind `GRAIN_DEBUG`; `session-context` does not, by
 // deliberate choice (see engine/grain.mjs, session-context's catch block, for the one-sentence reason: it runs
 // once per session rather than once per edit/prompt, so the noise cost is low, while a broken repo path there
 // silently drops grain's entire SessionStart context with no other signal). This pins that asymmetry so a future
@@ -141,7 +141,7 @@ test('(observed, not asserted) stderr across the whole matrix', () => {
 // commit-hook and how-hook are the two OTHER rows whose own `badPath` fixture (above) already sets `cwd:
 // MISSING_DIR()` — the same "no such directory" throw session-context's badPath hits — so they are the rows that
 // actually exercise the GRAIN_DEBUG gate here, not merely rows that happen to stay quiet for an unrelated reason.
-test('§029: without GRAIN_DEBUG, only session-context speaks on stderr for a bad repo path — the gated hooks stay silent', () => {
+test('without GRAIN_DEBUG, only session-context speaks on stderr for a bad repo path — the gated hooks stay silent', () => {
   const env = { ...process.env }; delete env.GRAIN_DEBUG;
   const cases = [['session-context', []], ['commit-hook', []], ['how-hook', []]];
   for (const [cmd, extra] of cases) {
@@ -154,7 +154,7 @@ test('§029: without GRAIN_DEBUG, only session-context speaks on stderr for a ba
   }
 });
 
-test('§029: with GRAIN_DEBUG set, the gated hooks now speak too — proving the asymmetry is the gate, not a difference in what actually failed', () => {
+test('with GRAIN_DEBUG set, the gated hooks now speak too — proving the asymmetry is the gate, not a difference in what actually failed', () => {
   const env = { ...process.env, GRAIN_DEBUG: '1' };
   const cases = [['session-context', []], ['commit-hook', []], ['how-hook', []]];
   for (const [cmd, extra] of cases) {

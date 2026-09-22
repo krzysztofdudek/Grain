@@ -1,4 +1,4 @@
-// §054a — the shallow-clone history gate used to key on the git-reported BOOLEAN `is-shallow-repository` flag
+// the shallow-clone history gate used to key on the git-reported BOOLEAN `is-shallow-repository` flag
 // alone, regardless of how much history that flag's clone actually carries. `loadHistory` returned `H: null`
 // for ANY shallow clone, which forces core.mjs's per-scope survival check (`ageFn` defaults to a constant-zero
 // function when `H` is null) to be unsatisfiable for every single cell in the repository — including cells that

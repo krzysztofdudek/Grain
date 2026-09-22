@@ -503,7 +503,7 @@
      "b": 2,
      "c": 8
     },
-    "typeLedgerNote": "a 7, b 2, c 8 — as ticket 093 recorded, reproduced here.",
+    "typeLedgerNote": "a 7, b 2, c 8 — as the earlier run recorded, reproduced here.",
     "nodeRecallAt50": 0.211,
     "nodesAt50": 83,
     "nodesAt80": 53,
@@ -535,7 +535,7 @@
      "b": 0,
      "c": 2
     },
-    "notes": "Classification carried over from ticket 093, whose counts this run reproduces exactly: the 131 are relations declared for a dependency reached through an intermediary, so no direct import exists to resolve."
+    "notes": "Classification carried over from the earlier run, whose counts this run reproduces exactly: the 131 are relations declared for a dependency reached through an intermediary, so no direct import exists to resolve."
    },
    "cycles": {
     "oracleDeclared": null,

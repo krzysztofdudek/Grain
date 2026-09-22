@@ -1,5 +1,5 @@
 // grain engine · the measured architecture: dependency norms, architecture hits, and the relation layer of a learn pass
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { basename, dirname, join as pjoin, normalize as pnormalize } from 'node:path/posix';
@@ -252,7 +252,7 @@ export function applyRelationLayer(model, { root, files, pkgs, tree, relFacts, l
     const fileSet2 = new Set(files);
     // workspace members: each is discovered from ITS OWN manifest, never a hardcoded name ("kod to kod") — an npm
     // package (name + resolvable entry file) and/or a Cargo crate (name + src/ dir) can both live at the same `d`,
-    // so a directory contributes 0, 1 or 2 entries. §017: the Cargo half feeds the Rust branch of wsResolverFor's
+    // so a directory contributes 0, 1 or 2 entries. The Cargo half feeds the Rust branch of wsResolverFor's
     // cross-crate `use crate_name::...` resolution (relations.mjs) exactly the way the npm half already feeds its
     // bare-specifier branch — the same mechanism, not a new one.
     const workspaces = pkgs

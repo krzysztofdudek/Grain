@@ -1,4 +1,4 @@
-// §033 — `auto.extends:X` is rendered "extend" for every heritage relationship, in every language, even where the
+// `auto.extends:X` is rendered "extend" for every heritage relationship, in every language, even where the
 // target is an INTERFACE the class only `implements` (PHP/Java/TS all distinguish the two keywords syntactically).
 // The pid stays `auto.extends:` (see the issue — renaming it is a breaking change to a published schema for a
 // cosmetic gain); only the SENTENCE changes, and only where the grammar's own AST already carries the distinction

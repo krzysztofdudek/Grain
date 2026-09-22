@@ -1,9 +1,9 @@
-// §036 — regression in §032's own fix: `exactLocal` (the gate that decides "external/vendor type, no declaration
+// regression in the external-type fix itself: `exactLocal` (the gate that decides "external/vendor type, no declaration
 // here") was computed from `defined` AFTER `defined.sort(...).splice(12)` had already thrown away everything past
 // the 12th entry, and that sort was by PATH then LINE — not by relevance. On a query with heavy token collision
 // (a common word/suffix shared by a dozen unrelated local declarations), the real exact-name declaration is easily
 // pushed past position 12 by nothing more than alphabetically-earlier paths, and `exactLocal` goes false — which is
-// PRECISELY §032's gate for "no declaration anywhere in this repository (likely an external/vendor type)". So the
+// PRECISELY the external-type fix's gate for "no declaration anywhere in this repository (likely an external/vendor type)". So the
 // display cap manufactured a false claim about a type that IS declared right here.
 //
 // Measured live: Kotlin/okhttp, `grain what Interceptor` — `Interceptor.kt` declares `fun interface Interceptor`,

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 //
-// law-loop.mjs — THE LAW LOOP, MEASURED (ticket 097).
+// law-loop.mjs — THE LAW LOOP, MEASURED.
 //
 // The question: can rules RENDERED from grain's mined practice reproduce, IN VERDICT, the deterministic rules a
 // maintainer wrote by hand — with a hold-out by TIME that keeps the rule and the drill from being the same data

@@ -1,4 +1,4 @@
-// Guard for the law-loop instrument (ticket 097): tests/stress/law-loop.mjs.
+// Guard for the law-loop instrument: tests/stress/law-loop.mjs.
 //
 // The instrument's headline claims rest on two pieces of arithmetic, and both are the kind that fails silently:
 //

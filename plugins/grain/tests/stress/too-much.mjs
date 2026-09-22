@@ -153,7 +153,7 @@ export function loadCache(repo) {
  * files (a rename or delete drops out), uncapped. The model's own `part.fileScopes` is capped at 200 scopes per
  * file, which saturates precisely on the files this instrument exists to rank — the LIST is still read from
  * here when tree.json is unavailable (a repository indexed without git writes `scopes.json` instead), but the
- * per-file scope COUNT no longer needs this file at all: `part.fileScopesTotal` (§099) now carries the true
+ * per-file scope COUNT no longer needs this file at all: `part.fileScopesTotal` now carries the true
  * count for exactly the files whose list was truncated, so `collectStatistics` reads that field first and only
  * falls back to this tree when the field itself is absent (a model cache built before that field existed).
  * Returns Map(rel -> [{ kind, name, line, endLine }]) or null.
@@ -256,7 +256,7 @@ export function collectStatistics({ exp, cache, fps, tree = null }) {
   // ---- per-file scope inventory + role spread (model cache: fileScopes, assignments, medoids) ----
   const fileScopeCount = new Map();
   const scopeSpans = []; // { rel, part, kind, name, line, endLine, t }
-  // how each file's true scope count (§099) was actually obtained, across every partition — surfaced in
+  // how each file's true scope count was actually obtained, across every partition — surfaced in
   // `analyse`'s disclosure so a reader can tell when the number came from the model's own truncation record
   // versus a stale cache still silently saturating at 200.
   const scopeCountSource = { fileScopesTotal: 0, staleCapped: 0 };
@@ -279,7 +279,7 @@ export function collectStatistics({ exp, cache, fps, tree = null }) {
       m.set(r, (m.get(r) || 0) + 1);
     }
     // size (file): one pass over every file of the partition, including the ones with no scope at all — merged
-    // with the scope-inventory pass below it used to be a separate loop from (a bug fixed on sight, §099: that
+    // with the scope-inventory pass below it used to be a separate loop from (a bug fixed on sight, the file-scope-total fix: that
     // second loop read `tree?.get(rel) || []` with NO fileScopes fallback at all, so `byKind`/`widest`/
     // `spannedLines` silently went empty for every file whenever tree.json was unavailable, even though the
     // very same file's `list` one loop up already had the data, capped or not).
@@ -289,12 +289,12 @@ export function collectStatistics({ exp, cache, fps, tree = null }) {
       // carries that file's own pseudo-scope entry. Left in, every file counted through tree.json read one
       // scope too many versus the exact same file counted through `fileScopes`/`fileScopesTotal` — a real,
       // pre-existing off-by-one between the two paths this instrument already straddled, fixed on sight here
-      // because §099 depends on both paths agreeing on one true count for the same file.
+      // because the file-scope-total fix depends on both paths agreeing on one true count for the same file.
       const fromTree = tree?.get(rel)?.filter(s => s.kind !== 'file' && s.kind !== 'module');
       const list = fromTree
         ? fromTree
         : (p.fileScopes?.[rel] || []).map(([kind, name, line, endLine]) => ({ kind, name, line, endLine: endLine ?? line }));
-      // The true per-file scope count (§099): tree.json, when present, is already uncapped truth. Otherwise
+      // The true per-file scope count: tree.json, when present, is already uncapped truth. Otherwise
       // prefer the model's own `fileScopesTotal` — cheap, no extra file to read, and sparse (only present for a
       // file actually truncated at the 200-per-file cap) — and fall back further to tree.json's own length only
       // when that field itself is absent (a model cache built before it existed). With neither, `list.length`
@@ -306,7 +306,7 @@ export function collectStatistics({ exp, cache, fps, tree = null }) {
           countSource = 'fileScopesTotal';
         } else if (list.length === 200) {
           // neither tree.json nor `fileScopesTotal` can say whether this is exactly 200 or truncated — a model
-          // cache built before §099 (or, with tree.json present, a rel it happens to have no entry for, e.g. a
+          // cache built before the file-scope-total fix (or, with tree.json present, a rel it happens to have no entry for, e.g. a
           // rename tree.json's current-files-only shape drops). Silently saturated, same as pre-fix.
           countSource = 'stale-capped';
         }
@@ -667,14 +667,14 @@ export function analyse({ exp, cache, fps, tree = null }) {
     'The scope-size and responsibilities dimensions see only files grain has a grammar for; fan-in/fan-out see only files the relation layer resolves (export.relCoverage names the gap).',
     'Duplication, twins and cycles are reported as ranked gains, not as fired excesses: a template is repeated by definition, so no population makes one of them excessive.',
   ];
-  // §099 — the size dimension's true per-file scope count, disclosed by how it was obtained this run.
+  // the size dimension's true per-file scope count, disclosed by how it was obtained this run.
   if (scopeCountSource.fileScopesTotal > 0)
     disclosure.push(
-      `${scopeCountSource.fileScopesTotal} file(s) had a scope list truncated at the model cache's 200-per-file cap; the size dimension's count for them came from the model's own \`fileScopesTotal\` field (§099), not the capped list length.`
+      `${scopeCountSource.fileScopesTotal} file(s) had a scope list truncated at the model cache's 200-per-file cap; the size dimension's count for them came from the model's own \`fileScopesTotal\` field, not the capped list length.`
     );
   if (scopeCountSource.staleCapped > 0)
     disclosure.push(
-      `${scopeCountSource.staleCapped} file(s) show a size count saturated at exactly 200 with no way to tell "exactly 200" from "truncated" — their model cache predates the \`fileScopesTotal\` field (§099); re-run \`grain export\`/\`grain check\` to rebuild it.`
+      `${scopeCountSource.staleCapped} file(s) show a size count saturated at exactly 200 with no way to tell "exactly 200" from "truncated" — their model cache predates the \`fileScopesTotal\` field; re-run \`grain export\`/\`grain check\` to rebuild it.`
     );
   return {
     instrument: 'too-much/1',
@@ -817,7 +817,7 @@ export async function run(opts) {
   if (!cache) throw new Error(`no model cache at ${join(repo, '.grain', 'cache', 'model.json')} — run \`grain export\` against this repo first`);
   const fps = opts.noHistory ? null : await loadFootprints(repo);
   const tree = loadTree(repo);
-  say(`${(cache.partitions || []).length} partitions, ${(cache.filesAll || []).length} indexed files, ${fps ? fps.length : 0} commit footprints, ${tree ? tree.size + ' files with an uncapped scope inventory' : 'no tree cache (per-file scope counts above the model cache\'s 200 come from its fileScopesTotal field, §099, when present)'}`);
+  say(`${(cache.partitions || []).length} partitions, ${(cache.filesAll || []).length} indexed files, ${fps ? fps.length : 0} commit footprints, ${tree ? tree.size + ' files with an uncapped scope inventory' : 'no tree cache (per-file scope counts above the model cache\'s 200 come from its fileScopesTotal field, the file-scope-total fix, when present)'}`);
   const res = analyse({ exp, cache, fps, tree });
   res.wallSeconds = r2((Date.now() - t0) / 1000);
   return res;

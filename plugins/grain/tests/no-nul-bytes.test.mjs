@@ -1,9 +1,9 @@
-// Guard against ticket 103 (NUL) and ticket 117 (every other C0 control byte): an instrument or engine
+// Guard against NUL and every other C0 control byte: an instrument or engine
 // module that writes a raw separator character through a JS string/template literal, instead of its
 // `\xNN` escape, puts a LITERAL control byte into the `.mjs` source file. `reconstruct.mjs` (9 literal
 // NULs, fixed at the 093 merge), `too-much.mjs` (3 NULs, fixed 2026-09-05), `core.mjs:2629` (one literal
 // SOH in a comment) and two history tests, `history-large-state.test.mjs` (3 literal SOHs) and
-// `history-path-quoting.test.mjs` (1), all did this — the last four fixed together under ticket 117. Git
+// `history-path-quoting.test.mjs` (1), all did this — the last four fixed together. Git
 // then treats the file as BINARY (diffs stop rendering as text, `git log -p` shows "Binary files
 // differ"), which is silent damage no lint step catches: the file still parses and runs fine, so nothing
 // red-flags it short of noticing the diff went binary. Escaping the byte as `\x00`, `\x01`, etc. in
@@ -74,5 +74,5 @@ test('no *.mjs file under plugins/grain contains a raw C0 control byte other tha
       }
     }
   }
-  assert.deepEqual(offenders, [], `raw C0 control byte(s) found — git will show these as binary files (tickets 103, 117):\n${offenders.join('\n')}`);
+  assert.deepEqual(offenders, [], `raw C0 control byte(s) found — git will show these as binary files:\n${offenders.join('\n')}`);
 });

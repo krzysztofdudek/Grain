@@ -1,5 +1,5 @@
 // grain engine · learn — the current tree plus history folded into the model every query is answered from
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename, dirname } from 'node:path/posix';
 import { CFG } from './config.mjs';
 import { refineModOf } from './relations.mjs';
@@ -117,7 +117,7 @@ export async function learn({
   };
   const devCostCand = []; // { ef, dv, all } per candidate fact — scored once the whole repo's candidate count is known
   const model = { engine: 'grain', repo: basename(root), pkgs, cuts, generatedAt: 0, partitions: [] };
-  // heritageKind (§033): repo-wide, name → 'ext'/'impl', from every type-kind scope's own supKind (§extractScopes).
+  // heritageKind: repo-wide, name → 'ext'/'impl', from every type-kind scope's own supKind (§extractScopes).
   // A name classified the SAME way everywhere it's the target of a heritage clause is trustworthy; one classified
   // BOTH ways (a class and an interface sharing a name in different files — rare, but not impossible) is not, and
   // is dropped rather than guessed. A name never classified at all (C#, Kotlin, Rust, Go, Python — see
@@ -285,7 +285,7 @@ export async function learn({
           share: +f.srawShare.toFixed(3),
           bpi: +f.bpi.toFixed(2),
           tau: calib.available ? calib.tauC : f.tau,
-          // §033: 'ext'/'impl'/undefined, read by verbalize/deviationPhrase off the fact object itself — never a
+          // 'ext'/'impl'/undefined, read by verbalize/deviationPhrase off the fact object itself — never a
           // threaded render-time parameter, so every helper that only ever saw `f` (factNotes, deviantLine, the
           // rejected-values line) keeps working unchanged and still gets it right.
           heritageKind: heritageKindOf(f.pid, model),
@@ -501,7 +501,7 @@ export async function learn({
       for (const x of s.sup) if (d.size < 12) d.add(x);
     } // file-kind sups are macro-emitted definitions; markers still skip files
     for (const rel of Object.keys(fileSups)) fileSups[rel] = [...fileSups[rel]].sort();
-    // fileSups' own sibling (§032): a file's declared parameter/return TYPE HINTS, not its heritage. `fileSups`
+    // fileSups' own sibling: a file's declared parameter/return TYPE HINTS, not its heritage. `fileSups`
     // alone answers "which files `implements`/`extends` type X" but has nothing for a type used only as a type
     // hint (e.g. a psr/http-message interface that is never locally `implements`-ed, only accepted/returned) —
     // exactly `whatCmd`'s external-type undercount (measured on Slim: `ResponseInterface` has 0 heritage sites
@@ -520,7 +520,7 @@ export async function learn({
     for (const rel of Object.keys(fileTypeRefs)) fileTypeRefs[rel] = [...fileTypeRefs[rel]].sort();
     for (const rel of Object.keys(fileDocs)) fileDocs[rel] = [...fileDocs[rel]].sort();
     // fileScopes caps at 200 scopes/file so the model stays a bounded, diffable summary rather than a second
-    // copy of tree.json (§099) — memory over completeness, kept. But a capped list alone cannot tell "this file
+    // copy of tree.json — memory over completeness, kept. But a capped list alone cannot tell "this file
     // has exactly 200 scopes" from "this file was truncated at 200", which is exactly the ambiguity that made a
     // consumer ranking files by size (the `too-much` instrument) silently under-report core.mjs's own 326 as
     // 200. fileScopesTotal repairs that additively and sparsely: only a file whose list was actually truncated
@@ -609,7 +609,7 @@ export async function learn({
         .sort((a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1))
         .slice(0, 5000)
     : []; // cap by descending support
-  // §074: the exact population `model.cochange`'s own `commitsA`/`commitsB` were drawn from (state.fileCommits,
+  // the exact population `model.cochange`'s own `commitsA`/`commitsB` were drawn from (state.fileCommits,
   // history.mjs) — carried onto the model so `cochangeData` can test a co-change partner's OWN global rate
   // (commitsX / nonMegaCommits) against the same λ bound `certifyObligationRules`' ambient gate uses, without
   // re-deriving it from `H.fps` (which `buildObligationTable` does for a DIFFERENT reason — current-path-keying —
@@ -631,7 +631,7 @@ export async function learn({
     const remapped = H.scopeCochange
       .map(p => ({ ...p, a: remapScopeKey(p.a), b: remapScopeKey(p.b) }))
       .sort(bySup);
-    // TWO POPULATIONS, ONE BUDGET (ticket 146, escalation 23). A single descending-support cut over the whole
+    // TWO POPULATIONS, ONE BUDGET (escalation 23). A single descending-support cut over the whole
     // list is saturated by WITHIN-file pairs on any repository with large files: two scopes in one file are
     // touched together whenever that file is touched, so their support rises with the file's own commit count,
     // while a cross-file pair needs the SAME two named declarations edited together eight or more times. On
@@ -686,9 +686,9 @@ export async function learn({
       }
   }
   applyChangeArchetypes(model, H);
-  // birth obligations (ticket 073): see `buildObligationTable` (above `induceClusters`) for the full derivation —
+  // birth obligations: see `buildObligationTable` (above `induceClusters`) for the full derivation —
   // reuses the SAME `_archModOf`/liveness-set idioms `changeArchetypes` (just above) and `cochangeData`/`howCmd`
-  // (ticket 066) already use, so a re-learn never computes a second, differently-scoped notion of "live".
+  // already use, so a re-learn never computes a second, differently-scoped notion of "live".
   model.obligations =
     H && H.fps && H.fps.length
       ? buildObligationTable(H.fps, {

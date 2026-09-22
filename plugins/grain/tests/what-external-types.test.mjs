@@ -1,4 +1,4 @@
-// §032 — `what <external type>` silently undercounted real usage 4-8x while looking like a complete answer.
+// `what <external type>` silently undercounted real usage 4-8x while looking like a complete answer.
 // Measured on PHP/Slim: `what MiddlewareInterface` said "6 hits / used by: 5 files" against a real 21; `what
 // ResponseInterface` said "1 file" against a real 41. Root cause: `MiddlewareInterface`/`ResponseInterface` are
 // vendor types (psr/*), never declared in the repo. With no local declaration (no card of its own) to anchor on,
@@ -15,7 +15,7 @@
 //      tokens with it?) and, when false, consults `fileSups`/`fileTypeRefs` for an EXACT-name (not token-overlap)
 //      match — `typeRefHits`. A hit renders as a new, clearly hedged `referenced` line/field: the count is real
 //      (an exact-name structural match) but the queried name resolves to no local declaration, so it is
-//      disclosed exactly that way, never presented as an ordinary `defined:`/`used by:` fact (§032 fix 2, same
+//      disclosed exactly that way, never presented as an ordinary `defined:`/`used by:` fact (the external-type fix's second part, same
 //      register as 011/018's "Seen, not absent").
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -49,7 +49,7 @@ const fillers = (dir, n) => { for (let i = 1; i <= n; i++) w(dir, `src/filler${i
 //   - `RouteInterface` — the LOCAL control: declared in this repo (`src/Interfaces/RouteInterface.php`), 2
 //     classes implement it. Must keep resolving through the existing (a) declaration path, untouched by this fix.
 //   - `RouteResolverInterface` — an unrelated SIBLING type (also declared locally) that shares both of
-//     `RouteInterface`'s query tokens ("route", "interface") — the pre-existing token-overlap blending §032's own
+//     `RouteInterface`'s query tokens ("route", "interface") — the pre-existing token-overlap blending the external-type fix's own
 //     issue flagged in the *working* case. This fixture measures it; the fix does not touch it (see test 3).
 //   - `TotallyAbsentInterface` — used nowhere, declared nowhere: the honest-negative control.
 // ===========================================================================================================
@@ -113,12 +113,12 @@ test('(2) the locally-declared control still resolves correctly through the exis
 
 test('(3) sibling-type noise in the locally-declared case is unchanged by this fix (measured, not silently fixed here)', () => {
   const j = JSON.parse(grainIn(repo, ['what', 'RouteInterface', '--json']).out);
-  // §032 is explicit that this pre-existing token-overlap blend (RouteResolverInterface shares both of
+  // the external-type fix is explicit that this pre-existing token-overlap blend (RouteResolverInterface shares both of
   // RouteInterface's query tokens) is a SEPARATE concern from the external-type undercount this ticket fixes —
   // measured here so a future fix has a baseline, not asserted as correct behavior.
   const names = j.defined.map(d => d.name);
   assert.ok(names.includes('RouteInterface'), JSON.stringify(names));
-  assert.ok(names.includes('RouteResolverInterface'), `sibling-noise baseline: RouteResolverInterface is still blended in by (a)'s token-overlap match, unchanged by §032's fix — got ${JSON.stringify(names)}`);
+  assert.ok(names.includes('RouteResolverInterface'), `sibling-noise baseline: RouteResolverInterface is still blended in by (a)'s token-overlap match, unchanged by the external-type fix — got ${JSON.stringify(names)}`);
   assert.equal(names.length, 2, `exactly the real match plus the one sibling — no further drift: ${JSON.stringify(names)}`);
 });
 

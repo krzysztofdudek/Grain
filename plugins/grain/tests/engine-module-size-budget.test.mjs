@@ -10,8 +10,8 @@
 // single definition: change it there and this test changes with it. It runs that check over every
 // first-party engine module and fails naming each one over the line.
 //
-// KNOWN_OVER was a shrinking list, and it has shrunk to nothing: ticket 117 split the mining core and
-// ticket 124 the proposal writer and the dispatcher, so the rule now holds for every first-party engine
+// KNOWN_OVER was a shrinking list, and it has shrunk to nothing: one split took apart the mining core and
+// another the proposal writer and the dispatcher, so the rule now holds for every first-party engine
 // module with no exception at all. The list stays in the file, empty, with a test of its own asserting
 // it is empty — because an exception list that is gone is easy to re-introduce, and one that is present
 // and provably empty is not.
@@ -28,7 +28,7 @@ const ROOT = join(here, '..'); // plugins/grain
 const ENGINE = join(ROOT, 'engine');
 
 // EMPTY, AND IT STAYS EMPTY. Nothing may be added here: a name in this set turns the budget rule off
-// for that file. `core.mjs` left it in ticket 117; `propose.mjs` and `grain.mjs` left it in ticket 124,
+// for that file. `core.mjs` left it in the first split; `propose.mjs` and `grain.mjs` left it in the second,
 // when each became a facade over the modules that had been inside it.
 const KNOWN_OVER = new Set();
 

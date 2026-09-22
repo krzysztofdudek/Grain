@@ -6,7 +6,7 @@
 // both ways: 319 scopes / 45 types under C, 515 / 163 under C++.
 //
 // The fix does not write down which projects use `.h` for what. `parseFile` asks BOTH grammars the extension may
-// denote and keeps the one that actually parsed the bytes — the same instinct as §018 phase 2, where a macro
+// denote and keeps the one that actually parsed the bytes — the same instinct as the macro-body re-parse, where a macro
 // body's re-parse is kept only if the grammar accepts it. Three properties, pinned below:
 //
 //   1. The grammar decides. No name list, no project detection, no content sniffing beyond "did this parse".

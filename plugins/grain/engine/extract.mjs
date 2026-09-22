@@ -1,5 +1,5 @@
 // grain engine · the node-type predicates and the declaration, member and modifier helpers extraction is built from
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename } from 'node:path/posix';
 import { tokenize, wordBounded } from './parse.mjs';
 
@@ -25,8 +25,8 @@ export function scopeName(ch) {
   if (leaf && /identifier/.test(leaf.type) && !leaf.text.includes('\n')) return leaf.text;
   return '<anon>';
 }
-// §050 — `object`, not the FULL node-type name `object_declaration` (Kotlin's own name for this construct, the
-// PRE-§050 entry here — and exactly the near-miss this bug was: Scala's equivalent construct is named
+// `object`, not the FULL node-type name `object_declaration` (Kotlin's own name for this construct, the
+// entry here from before the Scala-object fix — and exactly the near-miss this bug was: Scala's equivalent construct is named
 // `object_definition`, one word off, so a companion object holding only vals — no nested scope for
 // `extractScopes`'s `hasChildScope` fallback to catch — was silently invisible as a type). TYPE_LIKE_RE is ONLY
 // ever tested against a node type already gated through `isScope` (b.scope — a real name+body/loosebody
@@ -46,12 +46,12 @@ export function scopeName(ch) {
 // C/C++/Rust/TS/Solidity — the bulk of TYPE_LIKE_RE's existing entries — and gains only the two Scala node types
 // already covered here; "declares no `parameters` field" wrongly promotes Java/Groovy's `record_declaration`,
 // which legitimately carries one for its primary constructor.
-// §076 — the SAME childless-companion gap §050 fixed for Scala's `object`, now for five more node types that
-// §050's own type-like-coverage.test.mjs surfaced: a bodiless/vals-only Java or Groovy `module_declaration`, Ruby
+// the SAME childless-companion gap the Scala-object fix closed for Scala's `object`, now for five more node types that
+// that fix's own type-like-coverage.test.mjs surfaced: a bodiless/vals-only Java or Groovy `module_declaration`, Ruby
 // `module`, TS `internal_module`/`module` (`namespace Foo {}`/`module Foo {}`), and Solidity `library_declaration`
 // all fell through to kind `method` for want of a nested child scope, exactly like the pre-fix Scala `object`.
 // Fixed the same way: add the bare words `module` and `library` to this list. Verified against all 23 shipped
-// node-types.json (tests/type-like-coverage.test.mjs) by the same method as §050 — since TYPE_LIKE_RE only ever
+// node-types.json (tests/type-like-coverage.test.mjs) by the same method as the Scala-object fix — since TYPE_LIKE_RE only ever
 // runs on a node already gated through `isScope` (b.scope), the census that matters is over EACH GRAMMAR'S OWN
 // `b.scope` set, not the grammar's raw node-types.json: `module` occurs in exactly seven b.scope node types
 // across all 23 grammars — groovy/java `module_declaration`, ruby `module`, tsx/typescript `internal_module` and
@@ -93,8 +93,8 @@ export const FUNC_LIKE_RE = wordBounded([
   'destructor',
 ]);
 // the identifier node types a declared TYPE reference resolves to, in document order so the OUTER name wins
-// (`Stack[T]` -> `Stack`, `Promise<void>` -> `Promise`). Hoisted to module scope: return-type extraction (§021)
-// and receiver extraction (§016) must resolve a type reference the same way, or one of them will read a generic
+// (`Stack[T]` -> `Stack`, `Promise<void>` -> `Promise`). Hoisted to module scope: return-type extraction
+// and receiver extraction must resolve a type reference the same way, or one of them will read a generic
 // instantiation where the other reads the type.
 export const TYPE_REF_ID_TYPES = [
   'type_identifier',
@@ -113,7 +113,7 @@ export const TYPE_REF_ID_TYPES = [
 // `dotted_key` are TOML's data-grammar KEY types (JSON/YAML have no key-shaped node of their own — a JSON key IS a
 // `string`, a YAML key IS a scalar — so only TOML needs its key types listed here; JSON/YAML keys are told apart
 // from values by `isKeyNode` below, via `b.keyField`, not by node type). `key`/`value` are `.properties`' own two
-// node types (§006) — unlike JSON/YAML/TOML, tree-sitter-properties declares neither a `key` FIELD on its
+// node types — unlike JSON/YAML/TOML, tree-sitter-properties declares neither a `key` FIELD on its
 // `property` node nor a dedicated `*_key` type name, just a plain child literally typed `key`; without these two
 // entries the scan never visits a `.properties` file's scalars at all (`b.data` alone gets you nothing to collect).
 export const STR_TYPES = [
@@ -331,16 +331,16 @@ export const nameSuffix = name => {
   const t = tokenize(name);
   return t.length >= 2 ? t[t.length - 1] : 'none';
 };
-// §082: resolve a heritage-shaped clause node (`c2` below — an extends/implements/base clause, or Python's bare
-// `superclasses` argument_list) to its real base-name candidates, applying the §049 call-argument exclusion and
-// the §062 qualified/member-chain leaf resolution. Shared by the generic per-clause walk AND Python's dedicated
+// resolve a heritage-shaped clause node (`c2` below — an extends/implements/base clause, or Python's bare
+// `superclasses` argument_list) to its real base-name candidates, applying the call-argument exclusion and
+// the qualified/member-chain leaf resolution. Shared by the generic per-clause walk AND Python's dedicated
 // `superclasses` field, which used to bypass both fixes entirely: it read `sc.descendantsOfType('identifier')`
 // PLUS `sc.descendantsOfType('attribute')`, collecting every nesting level of a dotted base as its own candidate
 // (`class Foo(pkg.sub.Type)` recorded `pkg`, `pkg.sub`, AND `pkg.sub.Type`) instead of routing through the same
-// leaf-only resolution already correct for every other grammar's qualified heritage names since §062. Fixed by
+// leaf-only resolution already correct for every other grammar's qualified heritage names since the leaf resolution landed. Fixed by
 // deleting that duplicate, narrower walk and calling this shared one instead — no `lang === 'python'` check;
 // `sc` is simply passed in as another `c2`-shaped root, and `b.qualName` (already populated for Python's
-// `attribute` node type by §062's own structural derivation, verified in bindingFor) does the rest.
+// `attribute` node type by the leaf resolution's own structural derivation, verified in bindingFor) does the rest.
 export function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
   const out = [];
   for (const id of c2.descendantsOfType(heritageIdTypes)) {
@@ -356,7 +356,7 @@ export function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
         inArg = true;
         break;
       } // `AbstractValidator<TQuery>`: TQuery sits under a type_argument_list — a slot, not a base type. `AbstractController(cc)`: cc sits under an argument list — a call operand, not a base type
-      // §084: `anc` is a LIFETIME node (Rust's `'static`, `'a`, `'de`) — a lifetime annotation, never a
+      // `anc` is a LIFETIME node (Rust's `'static`, `'a`, `'de`) — a lifetime annotation, never a
       // trait or type, however deep the walk needs to climb to find it (a generic bound's own
       // `lifetime_parameter`, `for_lifetimes`'s children). `Sync + Send + 'static`: `static` sits under a
       // `lifetime` node — a lifetime bound, not a base type.
@@ -364,7 +364,7 @@ export function heritageNamesOf(c2, b, heritageIdTypes, heritageIdTypeSet) {
         inLifetime = true;
         break;
       }
-      // §083: `anc` is a TYPE-vs-EXPRESSION duality clause (Kotlin's `explicit_delegation` — `Bar by
+      // `anc` is a TYPE-vs-EXPRESSION duality clause (Kotlin's `explicit_delegation` — `Bar by
       // expr`) and `prevChild` is whichever of its two children `id` descends through. Only the child
       // that resolves into the TYPE side's own supertype closure (`b.typeSuperSet`) is real heritage;
       // the delegate expression — a bare identifier, a function call, anything — is excluded here,

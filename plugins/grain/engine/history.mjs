@@ -78,7 +78,7 @@ export function isShallow(gitdir) {
     return false;
   }
 }
-// §054a: the earliest commit VISIBLE from HEAD — for a full clone this is the root commit; for a shallow clone
+// the earliest commit VISIBLE from HEAD — for a full clone this is the root commit; for a shallow clone
 // it is the shallow boundary (`git log` simply stops there, no error, no network — unlike partial-clone's
 // blob-fetch crawl, walking a shallow repo is exactly as cheap as walking a full one down to its boundary).
 // Used only to size the visible window (headTs - this), never to date any individual file — that stays H.lc's job.
@@ -93,7 +93,7 @@ export function oldestCommitTs(gitdir) {
     return 0;
   }
 }
-// §035: a `blob:none`/`tree:0`/`blob:limit=N` partial clone (the default shape of `actions/checkout` and most CI)
+// a `blob:none`/`tree:0`/`blob:limit=N` partial clone (the default shape of `actions/checkout` and most CI)
 // makes the history walk crawl — every historical blob not already present triggers its own serialized `git
 // fetch` to the promisor remote (measured: 16+ min to reach 8000/8502 blobs) — or hard-fail outright on a ref the
 // remote will no longer serve. Detected exactly as diagnosed live, 15ms, no network: `remote.*.promisor` is set
@@ -176,7 +176,7 @@ function atomicWrite(path, data) {
 
 // ----- blob cache: blobs/<SHARD_HEX hex>.json = { "<sha>": scopeRecords[] } -----
 // How wide the shard key is decides how much of the cache one flush cycle has to move, and on a big history that
-// is the difference between linear and quadratic work (§087). `parseBlobs` walks blobs in batches of 400 and calls
+// is the difference between linear and quadratic work. `parseBlobs` walks blobs in batches of 400 and calls
 // `flush()` after each, and `flush()` must evict what it writes to keep the live heap bounded (see its own note).
 // Eviction means the next batch RE-READS every shard it touches. With a 2-hex key there are only 256 shards, so a
 // 400-blob batch touches essentially all of them — every batch re-read, re-parsed, re-serialized and rewrote the
@@ -297,7 +297,7 @@ async function walk(gitdir, range) {
       path = n;
     }
     if (HARD_EXCL.test(path)) continue; // only grain's own store is invisible — a path committed at the time was the repo's code at the time
-    // §073: the one status byte a birth-obligation rule needs — carried ALONGSIDE `files`, never replacing it, so
+    // the one status byte a birth-obligation rule needs — carried ALONGSIDE `files`, never replacing it, so
     // every existing `fp.files` consumer (a plain path array) is untouched. Only `A` (a genuine add) is recorded:
     // an `R`(ename)'s new path must never be mined as a birth (git's own `-M` above already folds a detected
     // rename into one `R` line, never a separate `D`+`A` pair), and `M`/`D` carry no birth signal either way, so
@@ -369,7 +369,7 @@ export async function parseBlobs(gitdir, cache, blobExt, log) {
       // language from the HISTORICAL path's extension recorded in the walk — never by sniffing content (§13.2).
       // `parseFile` keeps that: the path still picks the candidates, and for the one extension that names two
       // grammars (`.h`) it reads off the bytes which of those two spelled them. It must be the same call HEAD
-      // makes (§040) — a `.h` that reads as C++ at HEAD but as C in its old blobs makes every scope in it look
+      // makes — a `.h` that reads as C++ at HEAD but as C in its old blobs makes every scope in it look
       // newborn at every commit.
       try {
         const { p, tree: tr } = await parseFile(ext, normalizeCR(body.toString()));
@@ -437,12 +437,12 @@ export const freshState = () => ({
   scopeCommits: Object.create(null),
 }); // §J5.7b: the scope-level mirror of pairSup/fileCommits — a SEPARATE accumulator, gated by its own scopePairCap (megaCap bounds files per commit, not scopes)
 
-// ----- history state persistence: newline-delimited, never one monolithic JSON.stringify (§054/§055) -----
+// ----- history state persistence: newline-delimited, never one monolithic JSON.stringify -----
 // `freshState()`'s scalar fields fit in one row each; its object fields (`blobShas`, `msgAff`, `pairSup`, `lc`, …)
 // are accumulators with one entry per distinct blob/pair/path ever seen across the WHOLE history — on a
 // repository the size of Symfony (82,946 commits) that is millions of entries, and `JSON.stringify(state)` over
 // all of them at once builds a single JS string past V8's own hard string-length cap: measured, `RangeError:
-// Invalid string length` after a full, otherwise-successful 82,946-commit walk (§054 D3). No single entry is
+// Invalid string length` after a full, otherwise-successful 82,946-commit walk. No single entry is
 // remotely that large — every value here is bounded by a per-commit cap (`CFG.megaCap`/`CFG.scopePairCap`) or is
 // a lifecycle record for one path/scope — so writing and reading ONE JSON value per line, streamed, keeps every
 // string either side of this round-trip ever holds down to the size of one record, however large the file grows.
@@ -605,7 +605,7 @@ function replay(state, events, commits, cache) {
   // co-change (mega-commit cap excludes mass refactors and lockfile sweeps that would couple everything to everything)
   for (const c of commits) {
     const fs2 = [...new Set(c.files)].filter(f => !HARD_EXCL.test(f)).sort();
-    // §073: the birth signal, filtered/deduped/sorted the SAME way as `fs2` (and always a subset of it — `c.added`
+    // the birth signal, filtered/deduped/sorted the SAME way as `fs2` (and always a subset of it — `c.added`
     // is built from the same per-path loop `c.files` is) so a footprint's `added` never names a file its own
     // `files` does not also carry.
     const added2 = [...new Set(c.added || [])].filter(f => !HARD_EXCL.test(f) && fs2.includes(f)).sort();
@@ -616,7 +616,7 @@ function replay(state, events, commits, cache) {
           .filter(t2 => t2.length >= 3 && !QSTOP.has(t2) && !DOC_STOP.has(t2))
           .slice(0, 12)
       : [];
-    // §071 — `toks` above is exactly what `tokenize`+`normTok` were built to do: split `sendStatus` into `send`
+    // `toks` above is exactly what `tokenize`+`normTok` were built to do: split `sendStatus` into `send`
     // + `status` so lexical matching is case/word-shape-agnostic. That is also why NO query built from `toks`
     // alone can ever contain the verbatim identifier `sendStatus` — `selftest --where`'s own harness therefore
     // has a hard 0% ceiling on measuring `where`'s symbol-first pin (`whereCmd`'s `qraw`/`c.exact`, core.mjs
@@ -625,7 +625,7 @@ function replay(state, events, commits, cache) {
     // touches it: any whitespace-delimited word shaped like an identifier (an inner lower→upper boundary as in
     // `sendStatus`, or an inner underscore as in `send_status`) is kept whole, case and all, alongside — never
     // instead of — `toks`. Nothing here reads or writes `msgAff`/`msgTokCommits`/any other aggregate, so there is
-    // no new leak surface to subtract (§069's `leakSubtractedH` needs no change): this is per-commit data a
+    // no new leak surface to subtract (`leakSubtractedH` needs no change): this is per-commit data a
     // consumer (`whereEval`) can fold into ITS OWN candidate's query, exactly the way `toks` already is.
     const symToks = c.msg
       ? [...new Set((c.msg.match(/[A-Za-z_][A-Za-z0-9_]*/g) || []).filter(w => w.length >= 4 && (/[a-z][A-Z]/.test(w) || /[A-Za-z0-9]_[A-Za-z0-9]/.test(w))))].slice(0, 12)
@@ -746,7 +746,7 @@ function toH(state, gitdir) {
 export async function loadHistory({ gitdir, store, log = () => {}, full = false }) {
   const head = headSha(gitdir);
   if (!head) return { H: null, mode: 'none', reason: 'not a git repository (or no commits yet)' };
-  // §054a: "shallow" is a boolean git flag with no notion of depth — a repo cloned `--depth=1` and one cloned
+  // "shallow" is a boolean git flag with no notion of depth — a repo cloned `--depth=1` and one cloned
   // `--depth=5000` (or `--shallow-since=<2 years ago>`) both report `is-shallow-repository=true`, but only the
   // first genuinely lacks the signal core.mjs's survival gate needs. That gate requires, per scope, age ≥
   // CFG.freshDays (§9.4c fail-closed default); the OLDEST a scope's recorded first-touch can ever be is the
@@ -764,7 +764,7 @@ export async function loadHistory({ gitdir, store, log = () => {}, full = false 
       return { H: null, mode: 'none', reason: 'shallow clone — history unavailable, weights flat' };
   }
   const pcf = partialCloneFilter(gitdir);
-  // §035: same guard site, same shape, same "degrade, never crawl or crash" verdict as the shallow-clone check
+  // same guard site, same shape, same "degrade, never crawl or crash" verdict as the shallow-clone check
   // just above — checked independently, so neither detection interferes with the other. `git backfill` is named
   // as the remedy but never run automatically: it is a real network operation on the user's repository, and a
   // tool that promises "no network, never blocks" must not start fetching gigabytes uninvited.
@@ -781,7 +781,7 @@ export async function loadHistory({ gitdir, store, log = () => {}, full = false 
     try {
       state = await readHistoryState(store.historyPath);
     } catch (e) {
-      // never swallowed silently (§055): a corrupt file, a pre-migration single-JSON-object history.json, or any
+      // never swallowed silently: a corrupt file, a pre-migration single-JSON-object history.json, or any
       // other read failure all land here — loud on purpose, since the only consequence is a slower full re-walk,
       // never a wrong answer, and a user watching a long `refresh` deserves to know why it isn't resuming.
       state = null;
@@ -822,7 +822,7 @@ export async function loadHistory({ gitdir, store, log = () => {}, full = false 
   try {
     await writeHistoryState(store.historyPath, state);
   } catch (e) {
-    // never swallowed silently (§055): this walk's results are already fully computed in memory and are returned
+    // never swallowed silently: this walk's results are already fully computed in memory and are returned
     // below regardless — a save failure here costs only the NEXT run's ability to resume (it re-walks from the
     // root instead), never this run's answer, so it must say so plainly rather than either crashing the whole
     // command or vanishing with no trace. Streaming the write (writeHistoryState, above) already keeps any single

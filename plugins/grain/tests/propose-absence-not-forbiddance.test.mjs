@@ -1,4 +1,4 @@
-// AN IMPORT THAT IS ABSENT IS NOT AN IMPORT THAT IS FORBIDDEN (ticket 115).
+// AN IMPORT THAT IS ABSENT IS NOT AN IMPORT THAT IS FORBIDDEN.
 //
 // The sub-gate lattice reports the MAJORITY value of a cell. For a boolean class — `imp`, `call`, `deco`,
 // `extends`, `returns` — a cell whose majority value is `false` says only "most things here do not use X". The

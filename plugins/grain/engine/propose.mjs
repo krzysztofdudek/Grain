@@ -1,11 +1,11 @@
 // The proposal renderer — turn grain's model into a PROPOSED `.yggdrasil/` graph.
 //
 // The north star (decisions.md `north-star-brownfield-miner`) is a maintainer adopting Yggdrasil on a brownfield
-// repository. `tests/stress/reconstruct.mjs` (ticket 093) measured how much of a hand-written graph grain's
+// repository. `tests/stress/reconstruct.mjs` measured how much of a hand-written graph grain's
 // export ALREADY holds; this module is the other half — it writes the graph grain can propose, so the maintainer
 // starts from a draft with evidence attached instead of from an empty directory.
 //
-// It was an instrument (`tests/stress/propose.mjs`, ticket 094) until ticket 104 made `grain propose` a product
+// It was an instrument (`tests/stress/propose.mjs`) until `grain propose` became a product
 // command: the whole render pipeline moved here VERBATIM, and the instrument is now a thin wrapper that imports
 // this module, adds the `--score` comparison against a hand-written graph, and keeps its own CLI flags. The
 // dispatcher's `propose` command (`cmdPropose`, engine/grain.mjs) drives `propose()` below and renders the
@@ -14,7 +14,7 @@
 // THREE RULES THIS MODULE OBEYS.
 //
 //   1. NEVER write into the repository's own `.yggdrasil/`. Everything lands under `<out-dir>/.yggdrasil/`, a
-//      directory the maintainer reads and edits, then accepts with `yg adopt <out-dir>` (ticket 123) rather
+//      directory the maintainer reads and edits, then accepts with `yg adopt <out-dir>` rather
 //      than moving by hand. The repository is untouched but for one
 //      thing, named here rather than glossed over: the export this module spawns for itself is written to
 //      `.grain/cache/`, the disposable half of grain's own store, which `.grain/.gitignore` already ignores —
@@ -25,7 +25,7 @@
 //      `# evidence:` comment in the YAML and a row in `<out-dir>/proposal.json`.
 //   3. NOTHING IS ASSERTED AS TRUE UNTIL IT HAS EARNED IT. Every aspect ships `status: draft` by default (the
 //      reviewer is skipped, no verdict, no baseline); no type ever carries `enforce: strict`. A prose aspect
-//      (`content.md`, an LLM judgment call) NEVER leaves draft here — ticket 101 measured its sense rate under
+//      (`content.md`, an LLM judgment call) NEVER leaves draft here — a measurement found its sense rate under
 //      a keyless gate at 0% (ruling `prose-aspects-draft-by-default`) — and its `content.md` says so. A
 //      deterministic aspect (`check.mjs`) is promoted to `status: enforced` ONLY when a Yggdrasil CLI resolves
 //      and a REAL `yg drill` on the just-written proposal, in a throwaway staging copy, confirms it: zero

@@ -1,4 +1,4 @@
-// §063: `completeness <file>` (completenessDirectional/cochangeData, core.mjs) used to gate a candidate partner on
+// `completeness <file>` (completenessDirectional/cochangeData, core.mjs) used to gate a candidate partner on
 // the CHANGED file's own forward confidence alone (sup/commitsA when the changed file is `a`, sup/commitsB when
 // it is `b`). For a heavily-committed hub file that denominator is enormous, so a real, reliable partner's ratio
 // reads as noise no matter how tight the coupling actually is — measured at 44 of the 45 hottest files across a
@@ -24,7 +24,7 @@ const hubModel = () => ({
 test('a hub file (huge own commit count) gets its tightly-coupled partner printed with the PARTNER\'S OWN support numbers, not the hub\'s', () => {
   const hits = cochangeData(hubModel(), ['src/hub.ts']);
   assert.equal(hits.length, 1, `expected exactly one partner surfaced: ${JSON.stringify(hits)}`);
-  // §074: `ambient` is false here because the fixture carries no `nonMegaCommits` (no history at all to test the
+  // `ambient` is false here because the fixture carries no `nonMegaCommits` (no history at all to test the
   // partner's own global rate against) — see completeness-ambient-split.test.mjs for the ambient=true case.
   assert.deepEqual(hits[0], { file: 'src/partner.ts', sup: 8, commits: 8, dead: false, ambient: false });
 });

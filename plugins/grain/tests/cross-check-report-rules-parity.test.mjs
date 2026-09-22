@@ -1,6 +1,6 @@
 // Cross-check: `report` and `rules` are two different commands surfacing overlapping convention/architecture
 // content over the SAME model — class C territory. cross-check-disclosure-parity.test.mjs already proves this for
-// the two coverage/aggregation DISCLOSURES (§004/§G21's relCoverageNote/intraModuleNote) and documents, by design,
+// the two coverage/aggregation DISCLOSURES (relCoverageNote and intraModuleNote) and documents, by design,
 // why it stops there (the per-convention listing itself is excluded from that file's scope, on the argument that
 // `rulesMarkdown` and `report` share `factTiers`/`verbalize`/`factLabel` end to end so they "can never disagree").
 // This file is the audit that argument earns nothing until it is actually checked: a PROPERTY test, over a real

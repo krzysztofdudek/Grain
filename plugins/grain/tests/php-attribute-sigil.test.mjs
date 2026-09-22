@@ -2,14 +2,14 @@
 // decoration-attribution walk (`take()`, core.mjs) tested a candidate node's text with a sigil regex that only
 // accepted `@` (Java/Python/C# decorators) and `[` (C# attributes), never PHP's `#[Attr]` form — so a real
 // Symfony codebase with 6,305 PHP attributes mined ZERO `auto.deco:` facts and produced `"conventions": []` on
-// every PHP partition (§054, disease 2 of 3 — see the maintainer's decision record's
-// `zero-conventions-is-three-diseases-not-lambda` and ticket 054's log (maintainer notes); disease measured, not
+// every PHP partition (disease 2 of 3 — see the maintainer's decision record's
+// `zero-conventions-is-three-diseases-not-lambda` and the maintainer notes' log; disease measured, not
 // hypothesized, by widening the sigil in a trial run: 0 -> 37 attribute facts on the ticket's own planted-omission
 // case, `SecretsFooCommand.php` omitting `#[AsCommand]` among ~30 peers that all carry it).
 //
 // tree-sitter-php's own grammar already names the node `attribute_list`, already matched by the pre-existing
 // `/decorator|annotation|attribute_list/` node-type vocabulary in `bindingFor` — only the TEXT-sigil test in
-// `take()` needed widening, the same way §043 widened it for Solidity's sigil-less modifiers. `#[` joins `@` and
+// `take()` needed widening, the same way the sigil-less decoration derivation widened it for Solidity's sigil-less modifiers. `#[` joins `@` and
 // `[` as a decoration sigil there: a character-pattern widening, not a `if (lang === 'php')` special case.
 //
 // Storage/display follow the SAME "self-delimiting sigil" convention `[Route]` (C#) already used — a stored deco
@@ -61,7 +61,7 @@ class AlphaCommand extends Command
   );
   const cls = got.find(s => s.kind === 'type' && s.name === 'AlphaCommand');
   assert.ok(cls, `expected a type scope named AlphaCommand: ${JSON.stringify(got)}`);
-  // rendered exactly as written, like `[Route]` (C#) and unlike bare-stored `@Test` (Java) — §054b
+  // rendered exactly as written, like `[Route]` (C#) and unlike bare-stored `@Test` (Java)
   assert.deepEqual(
     cls.decos,
     ['#[AsCommand]'],
@@ -94,7 +94,7 @@ class SecretsFooCommand extends Command
 // A Symfony-shaped repo of console-command classes, all carrying `#[AsCommand(name: '...')]` above the class
 // declaration, in one directory (`src/Command/`) — same shape and proportions as the ticket's own real-world
 // measurement (~30 peers, one omitting it). Built with a scripted, backdated history (three waves) so the
-// convention is established by HEAD, exactly the technique `solidity-modifiers.test.mjs` (§043) used for the
+// convention is established by HEAD, exactly the technique `solidity-modifiers.test.mjs` used for the
 // same class of bug (a sigil `take()` didn't recognize yet).
 let tmp, repo;
 const NAMES = [
@@ -175,7 +175,7 @@ test('054b: `#[AsCommand]` certifies as a convention of its own', () => {
 });
 
 test('054b: a peer that omits the attribute is flagged by check as a known deviation', () => {
-  // planted as an uncommitted edit — the shape `check`/`review` are made to catch, same technique §043 used
+  // planted as an uncommitted edit — the shape `check`/`review` are made to catch, same technique the sigil-less decoration derivation used
   const f = join(repo, 'src/Command/SecretsFooCommand.php');
   const src = readFileSync(f, 'utf8');
   const attrLine = `#[AsCommand]\n`;
@@ -192,7 +192,7 @@ test('054b: a peer that omits the attribute is flagged by check as a known devia
   // members) that the attribute's own AST nodes also surface as a structural-shape "practiced" convention
   // (`auto.shape:attribute`) alongside the marker one (`auto.deco:#[AsCommand]`) — two independent surfaces
   // correctly reporting the same real omission, not a double-count bug.
-  // "known deviation(s)" only appears when a new-scope disclosure is ALSO pending (§010-c) — SecretsFooCommand is
+  // "known deviation(s)" only appears when a new-scope disclosure is ALSO pending — SecretsFooCommand is
   // an already-known (sticky) member here, so the plain "deviation(s)" wording is the correct one to expect.
   assert.match(chk.stdout, /[1-9]\d* deviation\(s\) in your change/, chk.stdout);
   assert.match(chk.stdout, /types here are annotated with `#\[AsCommand\]`/, chk.stdout);

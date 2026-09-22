@@ -1,4 +1,4 @@
-// §035 — a `blob:none`/`tree:0`/`blob:limit=N` partial clone (the default shape of `actions/checkout` and most CI)
+// a `blob:none`/`tree:0`/`blob:limit=N` partial clone (the default shape of `actions/checkout` and most CI)
 // made grain's history walk crawl — every historical blob not already present triggers its own serialized `git
 // fetch` to the promisor remote (measured: 16+ min to reach 8000/8502 blobs) — or hard-fail outright on a ref the
 // remote will no longer serve. grain said nothing either way; it just hung.

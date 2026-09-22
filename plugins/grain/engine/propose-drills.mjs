@@ -1,5 +1,5 @@
 // grain engine · proposal writer · the drill corpora and the aspect bodies they accompany
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { lstatSync, readFileSync } from 'node:fs';
 import { resolve, sep } from 'node:path';
 import { PREAMBLE, pct } from './propose-base.mjs';
@@ -56,7 +56,7 @@ export function contentMd(c, profile, evidenceLine, whyProse, name) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
   // The heading and "## The rule" are the aspect's OWN `name` — the obligation the reviewer is asked to judge
-  // against — not the indicative sentence grain mined it from (ticket 109). A `content.md` whose first line
+  // against — not the indicative sentence grain mined it from. A `content.md` whose first line
   // disagrees with the `name:` in the yaml beside it gives the reviewer two rules and no way to pick.
   L.push('', `# ${name}`, '', '## The rule', '', name, '', '## Evidence', '', evidenceLine, '',
     '## Why this is prose and not a check', '',
@@ -83,7 +83,7 @@ export function contentMd(c, profile, evidenceLine, whyProse, name) {
 export function subGateMd(r, statement, evidenceLine, whyProse, absence = false) {
   const L = [];
   L.push(...PREAMBLE.map(l => (l ? `> ${l}` : '>')));
-  // AN ABSENCE ROW IS NOT HEADED "The rule" (ticket 115). Its own sentence says it is not one, and a heading
+  // AN ABSENCE ROW IS NOT HEADED "The rule". Its own sentence says it is not one, and a heading
   // that contradicts the sentence under it is the whole failure this section exists to stop.
   L.push('', `# ${statement}`, '', absence ? '## The observation' : '## The rule', '', statement, '', '## Evidence', '', evidenceLine, '',
     absence ? '## Why this is an OBSERVATION and not a rule' : '## Why this is a DRAFT and not a certified convention', '',

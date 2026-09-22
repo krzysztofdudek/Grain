@@ -1,26 +1,26 @@
-// §037 (+ §039) — every honest-negative disclosure grain shipped fired ONLY on an EMPTY answer, and the field
+// the weak-answer disclosure (+ the full-set ranking) — every honest-negative disclosure grain shipped fired ONLY on an EMPTY answer, and the field
 // showed that is the wrong half of the problem. An empty result already reads as "grain found nothing"; a page of
 // unrelated token-overlap hits reads as "grain found your thing" — which is exactly when the caveat is most needed
 // and was least present.
 //
-//   §037, measured on Kotlin/okhttp: `what MAX_CONCURRENT_STREAMS` returned ONE unrelated test method
+//   the weak-answer disclosure, measured on Kotlin/okhttp: `what MAX_CONCURRENT_STREAMS` returned ONE unrelated test method
 //   (`settingsLimitsMaxConcurrentStreams`) and no warning, missing the real `const val` — because `Settings.kt`
 //   parses to zero scopes on a genuine tree-sitter-kotlin defect (a class carrying both a property and a
 //   same-named `operator fun` throws one ERROR node for the whole body). grain HAD the blind-file caveat built for
 //   exactly this; a weak, unrelated match suppressed it.
 //
 // The gate that makes this safe is measured, not guessed. Attaching the caveat whenever any blind file contains
-// the query fires on 18.6% of non-empty answers across nine real repos — the same over-hedging §018 already tried
+// the query fires on 18.6% of non-empty answers across nine real repos — the same over-hedging the Rust macro-body fix already tried
 // and the cross-check oracle already rejected. Three conditions together bring that to 1.7%:
-//   (1) no exact-name match anywhere in the answer — trustworthy only since §036 computes `exactLocal` over the
+//   (1) no exact-name match anywhere in the answer — trustworthy only since the full-set computation computes `exactLocal` over the
 //       full set, before the display cap;
-//   (2) the query carries >= 2 name tokens — §002's own cut, for §002's own reason: a single token's verbatim
+//   (2) the query carries >= 2 name tokens — the two-token cut, for its own reason: a single token's verbatim
 //       appearance in some file is the birthday paradox, not evidence;
 //   (3) the blind file is peer-ANOMALOUS (its grammar yields scopes elsewhere here) and the match is at identifier
 //       boundaries with exact case.
-// §011's clean "not found" is guarded below and must stay exactly as terse as it always was.
+// the df-gated value disclosure's clean "not found" is guarded below and must stay exactly as terse as it always was.
 //
-// §039 rides along because it is the same defect class as §036 one step further: `spread`, `used by: N files` and
+// the full-set ranking rides along because it is the same defect class as the full-set computation one step further: `spread`, `used by: N files` and
 // `howCmd`'s archetype cover all read the DISPLAY-CAPPED `defined` list, so each understated a measurement. They
 // now read the full set; only the rendering stays capped, and its truncation is stated (`+N more`).
 import { test, before, after } from 'node:test';
@@ -48,7 +48,7 @@ const fillers = (dir, n) => { for (let i = 1; i <= n; i++) w(dir, `src/filler${i
 // ===========================================================================================================
 // The okhttp shape, reproduced without needing the Kotlin grammar's own defect: `src/settings.ts` holds ONLY
 // top-level `const` bindings, which grain's binding does not turn into scopes — the same zero-scope outcome
-// §018's own fixture already relies on. `MAX_CONCURRENT_STREAMS` is declared there and NOWHERE else as a real
+// the Rust macro-body fix's own fixture already relies on. `MAX_CONCURRENT_STREAMS` is declared there and NOWHERE else as a real
 // scope; meanwhile a test file declares `settingsLimitsMaxConcurrentStreams`, which shares all three of the
 // query's tokens and so is a legitimate `coversQt` hit — the weak answer that used to suppress the caveat.
 // ===========================================================================================================
@@ -69,7 +69,7 @@ before(() => {
   fillers(repo, 15);
   gitIn(repo, 'add', '-A'); gitIn(repo, 'commit', '-qm', 'the weak-answer fixture');
   const st = grainIn(repo, ['status']); assert.equal(st.code, 0, st.err);
-  // fixture premises, pinned directly against the model the same way §018's own test does
+  // fixture premises, pinned directly against the model the same way the Rust macro-body fix's own test does
   const m = modelIn(repo);
   const seen = new Set(); for (const p of m.partitions || []) for (const rel of Object.keys(p.fileScopes || {})) seen.add(rel);
   assert.ok((m.filesAll || []).includes('src/settings.ts'), 'premise: the const file must be indexed');
@@ -79,7 +79,7 @@ before(() => {
 });
 after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
 
-test('(1) §037: a weak, non-empty answer that names nothing carries the blind-file caveat', () => {
+test('(1) the weak-answer disclosure: a weak, non-empty answer that names nothing carries the blind-file caveat', () => {
   const r = grainIn(repo, ['what', 'MAX_CONCURRENT_STREAMS']);
   assert.equal(r.code, 0, r.err);
   // the weak match is still returned — this fix changes the disclosure, not the matching
@@ -127,12 +127,12 @@ test('(5) a single-token query never earns the caveat — one token is the birth
 });
 
 // ===========================================================================================================
-// §011's guard, restated here so this fix owns it too: the three answers that must be UNCHANGED. The naive
-// version of §037 (attach whenever any blind file exists) makes a genuinely-absent query and a real one read
+// the df-gated value disclosure's guard, restated here so this fix owns it too: the three answers that must be UNCHANGED. The naive
+// version of the weak-answer disclosure (attach whenever any blind file exists) makes a genuinely-absent query and a real one read
 // identically on any repo with a single blind file — nearly always — which is what the cross-check oracle caught
-// during §018 and what these three pin down.
+// during the Rust macro-body fix and what these three pin down.
 // ===========================================================================================================
-test('(6) §011 unchanged: a genuinely absent symbol still gets the short, clean "not found"', () => {
+test('(6) the df-gated value disclosure unchanged: a genuinely absent symbol still gets the short, clean "not found"', () => {
   const r = grainIn(repo, ['what', 'totallyNonexistentSymbolXyz']);
   assert.equal(r.code, 0, r.err);
   const lines = r.out.split('\n');
@@ -141,9 +141,9 @@ test('(6) §011 unchanged: a genuinely absent symbol still gets the short, clean
   assert.ok(!r.out.includes('nothing above IS'), r.out);
 });
 
-test('(7) §018 unchanged: the EMPTY-answer blind note still fires, on its own looser scan', () => {
+test('(7) the Rust macro-body fix unchanged: the EMPTY-answer blind note still fires, on its own looser scan', () => {
   // `HEADER_TABLE_SIZE` lives only in the blind file and matches no other declaration at all — the empty path,
-  // which deliberately keeps §018's substring scan: an answer already saying "nothing found" cannot be made
+  // which deliberately keeps the Rust macro-body fix's substring scan: an answer already saying "nothing found" cannot be made
   // overconfident by a hedge.
   const j = JSON.parse(grainIn(repo, ['what', 'HEADER_TABLE_SIZE', '--json']).out);
   assert.equal(j.note?.kind, 'blind', JSON.stringify(j.note));
@@ -151,7 +151,7 @@ test('(7) §018 unchanged: the EMPTY-answer blind note still fires, on its own l
 });
 
 // ===========================================================================================================
-// §039 — the display cap must decide nothing but what is displayed.
+// the display cap must decide nothing but what is displayed.
 // ===========================================================================================================
 let tmp2, repo2;
 test('setup: a symbol with far more than the cap of declaration hits', () => {
@@ -191,7 +191,7 @@ test('(9) `spread` counts every hit file, not just the twelve shown', () => {
 test('(10) `used by:` names fan-in into the true top declaration files', () => {
   const j = JSON.parse(grainIn(repo2, ['what', 'payment handler', '--json']).out);
   assert.ok(Array.isArray(j.usedBy.files) && j.usedBy.files.length > 0, `fan-in must be reported: ${JSON.stringify(j.usedBy)}`);
-  assert.ok(j.usedBy.files.every(f => typeof f === 'string' && f.startsWith('src/')), `§064: names, not a count: ${JSON.stringify(j.usedBy)}`);
+  assert.ok(j.usedBy.files.every(f => typeof f === 'string' && f.startsWith('src/')), `the used-by names fix: names, not a count: ${JSON.stringify(j.usedBy)}`);
   assert.equal(j.usedBy.total, j.usedBy.files.length, 'no truncation expected — only 3 importers exist here');
   // the ranking that picks the top-3 files now runs over all 30 hits; under the cap it could only ever consider
   // the 12 that survived an alphabetical sort

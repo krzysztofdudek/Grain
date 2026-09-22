@@ -1,4 +1,4 @@
-// Guard for the graph-currency instrument (ticket 098): tests/stress/graph-currency.mjs.
+// Guard for the graph-currency instrument: tests/stress/graph-currency.mjs.
 //
 // This is a thin wrapper over reconstruct.mjs's own comparisons, so the guard's job is narrow: prove the
 // wave-close report actually surfaces a PLANTED graph-debt row (a declared relation no import backs) as class

@@ -1,5 +1,5 @@
 // grain engine · proposal writer · the admission constants, the Yggdrasil CLI resolution, the file walk and the YAML emitter
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
@@ -37,7 +37,7 @@ export const MIN_GROUP_MEMBERS = 3;
 export const MIN_WHEN_FIDELITY = 0.5;
 // A convention is drafted as an aspect only once this many sites carry it.
 export const MIN_CONVENTION_SITES = 5;
-// FAMILY-WITHOUT-LAW FLOOR (ticket 100). Yggdrasil's own offline miner (`scripts/family-without-law.mjs`)
+// FAMILY-WITHOUT-LAW FLOOR. Yggdrasil's own offline miner (`scripts/family-without-law.mjs`)
 // requires 5 members before a structurally-tight cluster is a "family" worth naming rather than an anecdote
 // (`MIN_CLUSTER_SIZE`); the adapter below reuses that SAME number rather than inventing a second one for the
 // identical concept. Stated here, not hidden, per ruling `instrument-floors-allowed-if-stated-and-measured` —
@@ -66,7 +66,7 @@ export function resolveYg(explicit) {
     : { have: false, label: null, cmd: null, pre: [] };
 }
 // A type is a GROUP of files: one file is a member, not a group. This is the definition of the object being cut, not an
-// admission threshold — ticket 101 §5 measured that 1 vs 2 changed no count on 17 repos, which is why the former
+// admission threshold — a measurement found that 1 vs 2 changed no count on 17 repos, which is why the former
 // MIN_TYPE_FILES knob was removed (ruling `root-fix-accepted-min-type-files-goes`).
 export const GROUP_MIN = 2;
 
@@ -78,7 +78,7 @@ export const uniq = a => [...new Set(a)];
 export const pct = x => `${(x * 100).toFixed(0)}%`;
 // The tracked files. `git ls-files` where there is a git repository; a worktree walk where there is not.
 //
-// A DIRECTORY OF CODE WITH NO `.git` IS NOT AN ERROR (ticket 101). `grain export` itself handles it — it stamps
+// A DIRECTORY OF CODE WITH NO `.git` IS NOT AN ERROR. `grain export` itself handles it — it stamps
 // its answer `no-git` and reports "extracted 154 files (worktree — no git)" — and `edge-cases.mjs` has a case
 // for exactly that shape. This renderer used to call `git ls-files` unconditionally and died with
 // `fatal: not a git repository`, exit 128, on the one hostile repository whose whole point is the absence of
@@ -144,7 +144,7 @@ export function gitFiles(repo) {
     };
   }
 }
-// THE BRANCH A CHANGE IS MEASURED AGAINST (ticket 118).
+// THE BRANCH A CHANGE IS MEASURED AGAINST.
 //
 // Ticket 109 measured what an earned `enforced` actually costs on delivery: all 21 enforced rules across the
 // 17-repo corpus block between 1 and 18 EXISTING files at the first `yg check`. The drill that earned the

@@ -1,4 +1,4 @@
-// §061 (instrument A, petclinic corpus) — a catch/finally clause has no name field of its own in any shipped
+// the catch-scope naming fix (instrument A, petclinic corpus) — a catch/finally clause has no name field of its own in any shipped
 // grammar (a catch/finally block is anonymous by nature: it is not a named declaration). `extractScopes`'
 // blockScope still gives such a clause a `.name` — borrowed from its enclosing method/type ("named after its
 // owner") — purely so the clause survives as its own mined population instead of being swept up by the
@@ -62,7 +62,7 @@ public class PetController {
   const tree = p.parse(src);
   const scopes = extractScopes('PetController.java', tree, b, p._g);
   const byKindName = (kind, name) => scopes.find(s => s.kind === kind && s.name === name);
-  // §075 fixed the double-walk this comment used to document: the SAME physical catch_clause used to be walked
+  // the catch/finally dedup fixed the double-walk this comment used to document: the SAME physical catch_clause used to be walked
   // once per enclosing body-bearing ancestor (class AND method both contain it) and showed up TWICE, borrowing
   // BOTH names. It is now claimed by its NEAREST enclosing scope only (see tests/catch-double-walk-dedup.test.mjs
   // for the dedicated red→green coverage of that fix) — here, the method, never the outer class.
@@ -158,7 +158,7 @@ public class PetController {
   };
   const model = { pkgs: ['.'], partitions: [{ name: '_root', vocab, medoids: [], assignments: {}, facts: [factExport] }] };
   const r = await checkFile({ model, root: process.cwd(), rel: 'src/PetController.java', content: JAVA_SRC, exemplarOk: () => true });
-  // §075: the source's ONE catch clause now produces exactly one scope (claimed by its nearest enclosing scope,
+  // the source's ONE catch clause now produces exactly one scope (claimed by its nearest enclosing scope,
   // the method) rather than one per enclosing ancestor, so the deviation fires once, not twice.
   assert.equal(r.msgs.length, 1, 'the deviation fires once — one physical clause, one scope, one deviation');
   for (const m of r.msgs) {

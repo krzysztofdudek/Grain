@@ -1,5 +1,5 @@
 // grain engine · proposal writer · sizing.json — what the graph costs to review
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { expandMapping } from './yggdrasil-graph.mjs';

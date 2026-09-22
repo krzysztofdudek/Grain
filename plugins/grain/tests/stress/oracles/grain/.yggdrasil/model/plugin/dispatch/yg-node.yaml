@@ -7,7 +7,7 @@ description: >-
   computed from, and a hook never blocks. Uncommitted work never feeds the norm — only the file a
   check-shaped command was asked about is ever read from the worktree.
 
-  Eleven files since ticket 131, not one: `grain.mjs` is the doc header, the imports and `main` — the single
+  Eleven files since `grain advise` landed, not one: `grain.mjs` is the doc header, the imports and `main` — the single
   command switch — and ten siblings carry the store and the commands it dispatches to. One owner, one
   charter, one context; the split moved statements between files and changed none of them.
 relations:

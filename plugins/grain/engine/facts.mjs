@@ -1,5 +1,5 @@
 // grain engine · the objective and the fact vocabulary: KT posteriors, Jaccard, feature weights, cell labels and ordering
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { GRAMMARS, CFG } from './config.mjs';
 import { bindingFor, bindings } from './parse.mjs';
 
@@ -19,12 +19,12 @@ const inGrammar = (s, nt) => {
 };
 // a deco string already carries its own wrapping sigil — `[Route]` (C#), `#[AsCommand]` (PHP) — versus a bare
 // name (`Test`) that still needs its `@` prefix reconstructed wherever a deco is turned into a pid or a display
-// label (§054b: `#[` joins `[` here as a self-delimiting sigil, the same way it joined `take()`'s sigil test above).
-// §048 — a bare-stored name is ambiguous by itself: it means "strip the `@` off Java/TS/…" for every sigiled
+// label (`#[` joins `[` here as a self-delimiting sigil, the same way it joined `take()`'s sigil test above).
+// a bare-stored name is ambiguous by itself: it means "strip the `@` off Java/TS/…" for every sigiled
 // grammar, but for a grammar whose ENTIRE decoration vocabulary is sigil-less in the source (Solidity's
-// `modifier_invocation`, §043's `b.decoBare`) it means the opposite — there was never an `@` to strip, and
+// `modifier_invocation`, the `b.decoBare` flag) it means the opposite — there was never an `@` to strip, and
 // reconstructing one prints syntax the language does not have (`@onlyOwner`). Resolved with the caller's grammar,
-// derived from the SAME structural set §043 already built (never a language name): a grammar is sigil-less only
+// derived from the SAME structural set the decoration derivation already built (never a language name): a grammar is sigil-less only
 // when every node type its `b.deco` derivation found is also in `b.decoBare` — today that is Solidity alone.
 const sigilLessGrammar = g => {
   if (!g || !GRAMMARS.includes(g)) return false;
@@ -55,7 +55,7 @@ export function applyVocab(s, vb) {
   if (s.kind === 'method' && inDom(vb.PNT, s.nt))
     for (const r of vb.PT || []) s.preds['auto.ptype:' + r] = (s.ptypes || []).includes(r) ? 'true' : 'false';
   if (s.kind === 'file') {
-    // §058: a data grammar (JSON/YAML/TOML/properties, `b.data` — no name+body scope at all) has no import
+    // a data grammar (JSON/YAML/TOML/properties, `b.data` — no name+body scope at all) has no import
     // construct to begin with, so scoring one against another grammar's import vocabulary is vacuously always
     // `false` — noise, not a fact ("composer.json does not import PHPUnit\Framework\TestCase"). Same category
     // boundary as `inGrammar` above (undecidable ⇒ absent, never `false`), keyed on `b.data` instead of a node
@@ -75,10 +75,10 @@ export const isBool = pid => /^auto\.(has|call|deco|extends|imp|stshape|returns|
 // shape): the null-model family that speaks only as a local contrast, never repo-wide — shared by mine() (the contrast
 // gate) and report() (the presentation split), so the two never drift apart on what counts as "just syntax". `ret`
 // here is the return-SHAPE fact (the first return statement's own child node type — `identifier`, `call_expression`,
-// `bare`) — NOT the declared return-TYPE fact `auto.returns:`, which is a domain/semantic marker (§022, on par with
+// `bare`) — NOT the declared return-TYPE fact `auto.returns:`, which is a domain/semantic marker (on par with
 // `auto.extends:`/`auto.deco:`/`auto.ptype:`, none of which are in this family) and MUST be free to certify `_all:`.
 // `(?=:|$)` is load-bearing: without it, unanchored `ret` prefix-matches `auto.returns:...` too, silently barring
-// every declared-return-type fact in every language from ever certifying repo-wide (§022 — bug since inception,
+// every declared-return-type fact in every language from ever certifying repo-wide (bug since inception,
 // found only after 021 gave C# `rets` for the first time and the missing `_all:` return-type fact stood out).
 export const STRUCT_PID = /^auto\.(has|stshape|varshape|first1|ret|arity)(?=:|$)/;
 export const BODY_KINDS = new Set(['method', 'catch', 'finally', 'case']); // kinds whose bodies carry behaviour surfaces
@@ -110,7 +110,7 @@ export const jacW = (A0, B0) => {
 };
 // a role-scoped NORM whose pid's own feature already sits in the group's medoid bag: the marker that FORMED the
 // group at featW's 3× weight, so every certified member holds it BY CONSTRUCTION. Unanimity here is not a followed
-// convention, it is the group's own definition read back (§003 resolution — measured 82%/55%/33%/100% of role
+// convention, it is the group's own definition read back (marker-tautology resolution — measured 82%/55%/33%/100% of role
 // facts across four partitions in three repos are exactly this). Shared by factTiers (report/rulesMarkdown, which
 // SUPPRESSES these from the listing) and checkFile (which does NOT suppress — see the `defining` field on
 // `governed`, spoken as a clause instead).
@@ -129,8 +129,8 @@ export const kt = (c, K, x, n) =>
 // the "ambient" acceptance test, shared: a candidate's OWN global rate (`k` of `n`) already clears the λ=8 display
 // bound (docs/mathematics.md, "naming an expected value") with no look at whatever specific relationship is under
 // test — the exact judgment call "this repo touches these with almost everything" needs, independent of which
-// pairing produced the candidate. `certifyObligationRules` (ticket 073, birth-obligation companions) and
-// `cochangeData` (ticket 074, co-change partners) both call this SAME function so the two callers can never drift
+// pairing produced the candidate. `certifyObligationRules` (birth-obligation companions) and
+// `cochangeData` (co-change partners) both call this SAME function so the two callers can never drift
 // on what counts as background versus a genuine, specific pattern — no new constant, CFG.lambda is the one this
 // repo's other display-bound checks already use.
 const K2 = 2;

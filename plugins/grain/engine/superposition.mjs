@@ -1,5 +1,5 @@
 // grain engine · skeletons, role profiles, templates and twins: the structural superposition a scope is read against
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { dirname } from 'node:path/posix';
 import { tokenize } from './parse.mjs';
 

@@ -1,4 +1,4 @@
-// GRAIN'S OWN STATE IS NEVER PART OF THE ARCHITECTURE IT PROPOSES (ticket 116, part 3).
+// GRAIN'S OWN STATE IS NEVER PART OF THE ARCHITECTURE IT PROPOSES (part 3).
 //
 // `grain export` filters grain's own store out of the file universe it mines (`HARD_EXCL`), but the proposal
 // renderer resolved its own file list with a bare `git ls-files` and filtered nothing. That is invisible on a

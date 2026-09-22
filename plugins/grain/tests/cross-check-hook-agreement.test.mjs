@@ -10,7 +10,7 @@
 //                                                                               PLUS the §J6.4 shared cochange:<rel>
 //                                                                               suppression key, both fire orders
 //   how-hook    (UserPromptSubmit)          vs  `how --json` / `howCmd`      — containment; `how --json` drops
-//                                                                               `score` (ticket 009), so the score
+//                                                                               `score`, so the score
 //                                                                               gate is verified via `howCmd` direct
 //   session-context (SessionStart)          vs  `status`/`report`/`map`     — exact count/fact agreement
 //
@@ -209,7 +209,7 @@ describe('edit-hook / check-hook co-change agrees with `completeness <file>`, an
 });
 
 // ===================================================================================================================
-describe('how-hook agrees with `how --json` (places/shape); howCmd direct (score visible — ticket 009 hides it from --json) proves the >=0.5/>=2 gate is real', () => {
+describe('how-hook agrees with `how --json` (places/shape); howCmd direct (score visible — `--json` hides it) proves the >=0.5/>=2 gate is real', () => {
   // duplicated from how-hook.test.mjs's own buildFixture, on the same principle that file's own header states: every
   // assertion here is about which commits cluster and what a query's own words land on, so this file owns every
   // commit message and file name too, rather than importing a fixture another file might change out from under it.
@@ -271,14 +271,14 @@ describe('how-hook agrees with `how --json` (places/shape); howCmd direct (score
       if (ctx.includes(p.rel)) assert.match(ctx, new RegExp(`${esc(p.rel)} \\(${p.k}/${p.of}\\)`), `place ${p.rel}'s own k/of must match how --json's: ${ctx}`);
   });
 
-  test('the gate is real: howCmd direct (score visible) shows THIS query fires the hook via the certified-shape disjunct, not a fabricated strong-match count — and `how --json` (score hidden, ticket 009) computes over the IDENTICAL match set', async () => {
+  test('the gate is real: howCmd direct (score visible) shows THIS query fires the hook via the certified-shape disjunct, not a fabricated strong-match count — and `how --json` (score hidden) computes over the IDENTICAL match set', async () => {
     resetSeen(repo);
     const model = JSON.parse(readFileSync(join(repo, '.grain', 'cache', 'model.json'), 'utf8'));
     const history = await readHistoryState(join(repo, '.grain', 'cache', 'history.json'));
     const direct = howCmd({ model, H: { fps: history.fps || [] }, query: 'please add status', top: 3, msgOf: null, shapes: true, exemplarOk: () => true });
     // how-hook's own gate (grain.mjs): `certified = shape && shape.cells.some(c => c.certified)`; `strong =
     // matches.filter(m => m.score >= 0.5).length >= 2`; speaks iff `certified || strong`. `how --json` cannot show
-    // which disjunct fired (ticket 009 drops `score` entirely) — howCmd direct can, and here it shows scores of
+    // which disjunct fired (`--json` drops `score` entirely) — howCmd direct can, and here it shows scores of
     // ~0.405 (BELOW the 0.5 strong-match floor), so `certified` — not `strong` — is what the hook is really acting
     // on for this query; a hook that claimed "strong match evidence" here would be claiming something false.
     const certified = !!(direct.shape && (direct.shape.cells || []).length);
@@ -288,7 +288,7 @@ describe('how-hook agrees with `how --json` (places/shape); howCmd direct (score
     assert.equal(strong, false, `fixture precondition: scores must stay below the strong-match floor here, so the earlier test's "certified shape" line is verifiably NOT smuggling in strong-match evidence instead: ${JSON.stringify(direct.matches.map(m => m.score))}`);
     const cliJson = JSON.parse(grainIn(repo, ['how', 'please add status', '--json', '--top', '3']).out);
     assert.deepEqual(cliJson.matches.map(m => m.sha).sort(), direct.matches.map(m => m.sha).sort(),
-      'how --json and howCmd direct must compute over the identical match set (only the score field is hidden by --json, per ticket 009) — the certified/strong gate the hook applies is checking real, visible-if-you-look evidence, not a different computation');
+      'how --json and howCmd direct must compute over the identical match set (only the score field is hidden by --json) — the certified/strong gate the hook applies is checking real, visible-if-you-look evidence, not a different computation');
   });
 
   test('honest silence agrees too: an unmatched prompt is silent in the hook AND has zero matches in `how --json`', () => {

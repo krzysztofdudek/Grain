@@ -1,7 +1,7 @@
 name: Engine Facade
 type: mining-core
 description: >-
-  The engine's front door. Until ticket 117 this file WAS the engine — one 572 KB module, the largest
+  The engine's front door. Until the split this file WAS the engine — one 572 KB module, the largest
   standing structural debt in the product. It is now a facade and nothing else: comments and
   `export … from` lines, one per module, which makes it the map of the engine as well as its surface.
 

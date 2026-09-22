@@ -113,12 +113,12 @@ node_types:
       subprocess, no network, no first-party dependency except the relation pass, the constants and the
       parser runtime. Nothing about a language, a framework or a role may be written down here by NAME.
 
-      Until ticket 117 this was one file, `core.mjs`, and the `when` below was that one path. The split
+      Until the split this was one file, `core.mjs`, and the `when` below was that one path. The split
       moved the same statements into thirty modules along the section boundaries the file already
       carried, so the type now names the whole of `engine/` except the seven things that are something
       else: the dispatcher, the constant table, the history walker, the proposal writer, the relation
       pass, the export serializer and the Yggdrasil-graph reader. Stated as a complement rather than a
-      list, so a module split out tomorrow is classified the day it lands — and after ticket 124 two of
+      list, so a module split out tomorrow is classified the day it lands — and after the proposal writer's split two of
       those exclusions are prefixes (`grain*.mjs`, `propose*.mjs`) rather than single files, because the
       dispatcher and the proposal writer are ten and seventeen modules now.
     enforce: strict
@@ -202,7 +202,7 @@ node_types:
 
       Named as a list of three rather than as a complement, because that is what the type IS: the three
       modules of the engine that are neither the mining engine nor one of its four named exceptions.
-      Before ticket 117 the complement form was the shorter one; now that the mining engine is thirty
+      Before the split the complement form was the shorter one; now that the mining engine is thirty
       modules, this one is.
     enforce: strict
     when:

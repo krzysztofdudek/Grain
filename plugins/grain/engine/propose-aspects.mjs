@@ -1,5 +1,5 @@
 // grain engine · proposal writer · the obligation form and the aspect drafts
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { isLanguageMarkerFile, EXT2GRAMMAR, GRAMMAR_DIR } from './config.mjs';
@@ -58,7 +58,7 @@ export const obligationOfStatement = statement => {
 // The mined predicate of a LATTICE ROW, in words. A wording table and nothing else: the row, its id, its
 // counts and the `check.mjs` rendered beside it are untouched by every line of it.
 //
-// THE CATEGORICAL FAMILIES CARRY THEIR VALUE IN THE ROW, NOT IN THE PID (ticket 109). `auto.nameshape` has no
+// THE CATEGORICAL FAMILIES CARRY THEIR VALUE IN THE ROW, NOT IN THE PID. `auto.nameshape` has no
 // argument at all, and `auto.lex:quote` names the SURFACE (`quote`), never the value (`single`). The value
 // grain measured — and the value the rendered check compiles, since every template in `renderCheck` reads
 // `expected` and none reads `argument` for these classes — is the row's own `exp`. Reading the pid alone
@@ -109,7 +109,7 @@ const holdsPhrase = (holds, breaks, unitPlural) => {
     : `holds for ${holds} of ${total} ${unitPlural} in scope; ${breaks} break it today`;
 };
 const NOT_A_RULE = new Set(['filebirth']);
-// EXEMPTING THE NAMES A LANGUAGE FIXES FROM A FILE-NAME RULE (ticket 116). `auto.filenameshape` is the one
+// EXEMPTING THE NAMES A LANGUAGE FIXES FROM A FILE-NAME RULE. `auto.filenameshape` is the one
 // enumerator whose subject is the file NAME, and a handful of names in most languages are not the project's to
 // choose: `package-info.java`, `__init__.py`, `index.ts`, `mod.rs`. Measured on spring-petclinic, five of the
 // forty-four standing advisory refusals were `package-info.java` — a rule refuted by the language on the day it
@@ -134,7 +134,7 @@ const markerNote = (...groups) => {
   return n ? ` · ${n} language marker file${n === 1 ? '' : 's'} exempted (${names.map(x => `\`${x}\``).join(', ')}) — the language fixes ${names.length === 1 ? 'that name' : 'those names'}, so no naming convention of this repository can apply to ${n === 1 ? 'it' : 'them'}` : '';
 };
 // ==================================================================================================
-// IDENTIFIER HYGIENE (ticket 120, maintainer note *sense-iteration* §10). Four ways a mined row reads as
+// IDENTIFIER HYGIENE (maintainer note *sense-iteration* §10). Four ways a mined row reads as
 // nonsense however it is worded — caught here, at render time, before it ever becomes an aspect draft.
 //
 // (1) A PARSER NODE TYPE AS THE IDENTIFIER — `call_expression`, `identifier`, `member_expression` appearing as
@@ -223,7 +223,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     if (!grammarsByHostId.has(host.id)) grammarsByHostId.set(host.id, grammarsForFiles(host.files || []));
     return grammarsByHostId.get(host.id);
   };
-  // §class 2's OWNER lookup (ticket 123/issue 125): the type parameters a `type`-kind scope declares in its OWN
+  // §class 2's OWNER lookup (issue 125): the type parameters a `type`-kind scope declares in its OWN
   // header, keyed by name, so a member whose site names an owner (`site.own`, set only where the grammar exposes
   // a detached receiver) can be tested against that owner's `tparams` rather than its own empty one. Drawn from
   // the two places the export schema carries a scope's kind/name/tparams together: every certified convention's
@@ -241,7 +241,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
   }
   const asOf = (exp.asOf || '').slice(0, 8);
   const reviewBy = ((y) => `${y + 1}-01-15`)(new Date(exp.indexedAt || Date.now()).getUTCFullYear());
-  // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH (ticket 119). The first two clauses are the
+  // A PARTITION NAME IS GRAIN'S LABEL, NOT NECESSARILY A PATH. The first two clauses are the
   // path ones and are unchanged, so a partition that names a directory resolves exactly as it always did. The
   // third is the one `_root` and `_repo` need: `buildTypes` above resolved every label partition to the emitted
   // type that actually holds its files, and the answer rides on the type as `labelPartitions`. Reached only
@@ -274,9 +274,9 @@ export function buildAspects(exp, active, sub, opts = {}) {
     return { pred: { per: 'file', files: { path: typeGlob(host) } }, why: `scoped to partition \`${c.partition}\``, glob: typeGlob(host) };
   };
 
-  // §class 3 (ticket 120): a sub-gate row measured within one ROLE-GROUP cluster is judged, by grain's own
+  // §class 3: a sub-gate row measured within one ROLE-GROUP cluster is judged, by grain's own
   // measurement, only over that cluster's members — but the scope every sub-gate row was rendered against
-  // (below, before this ticket) was unconditionally the WHOLE host type's directory glob. When the cluster
+  // (below, before this fix) was unconditionally the WHOLE host type's directory glob. When the cluster
   // covers fewer files than that glob selects, the sentence and the check disagree about what was measured.
   // Fixed here, not by picking a threshold: either the cluster's own scope can be stated EXACTLY — an explicit
   // path list, when the export's own (200-capped) member list is not itself truncated, or the same shared
@@ -284,7 +284,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
   // — or it cannot, and `ok: false` tells the caller to ship no check at all rather than an approximate one.
   // The STATEMENT keeps naming the host's own glob either way (same convention `scopeFor`'s group branch
   // already follows for certified rows): `which` carries the qualifier a reader needs, the glob stays the
-  // sentence a human recognizes, and the evidence line already discloses the cluster (ticket 109).
+  // sentence a human recognizes, and the evidence line already discloses the cluster.
   const clusterScopeFor = (r, host) => {
     const wholeGlob = typeGlob(host);
     const whole = { pred: { per: 'file', files: { path: wholeGlob } }, glob: wholeGlob, which: null, ok: true };
@@ -309,14 +309,14 @@ export function buildAspects(exp, active, sub, opts = {}) {
   // (i) the certified set
   for (const c of exp.conventions || []) {
     if (NOT_A_RULE.has(c.feature.enumerator)) { skipped.notARule++; continue; }
-    // §class 1/2 (ticket 120): an identifier that is the grammar's own vocabulary, or one shaped exactly like a
+    // §class 1/2: an identifier that is the grammar's own vocabulary, or one shaped exactly like a
     // generic type parameter and never a real declaration in this repository, is not a rule whatever else is
     // true of it — checked before the floor and before any rendering, on the same identifier `describeRow` and
     // `renderCheck` would otherwise word into a sentence and a check nobody could obey or nobody should.
     const host0 = typeForPartition(c.partition);
     const idUnderTest0 = identifierUnderTest(c.feature.enumerator, c.feature.argument, c.expected);
     if (isParserNodeTypeIdentifier(idUnderTest0, grammarsForHost(host0))) { bumpNotARule('parser-node-type-as-identifier'); continue; }
-    // The row's own host site (ticket 123): the first site the export actually measured this convention on —
+    // The row's own host site: the first site the export actually measured this convention on —
     // exemplars are render-only and never carry `tparams`, so `conformingSites`/`deviatingSites` (which do) are
     // read first and exemplars are the fallback only when neither is populated.
     const hostSite0 = (c.conformingSites && c.conformingSites[0]) || (c.deviatingSites && c.deviatingSites[0]) || (c.exemplars && c.exemplars[0]) || null;
@@ -336,7 +336,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const adoption = n / Math.max(1, n + dev);
     const ctxLabel = c.context?.type === 'group' ? `role group \`${c.context.label || c.context.group}\`` : c.context?.type === 'directory' ? `directory \`${c.context.dir}\`` : `partition \`${c.partition}\``;
     const provenance = `share ${(c.share ?? 0).toFixed(3)} · n ${n} conforming, ${dev} deviating (adoption ${pct(adoption)}) · ${((c.bitsPerInstance ?? 0)).toFixed(1)} bits/instance · ${ctxLabel} of \`${c.partition}\` · asOf ${asOf}`;
-    // THE EVIDENCE LINE LEADS WITH THE NUMBER THAT DECIDES WHETHER TO BELIEVE THE SENTENCE (ticket 109), then
+    // THE EVIDENCE LINE LEADS WITH THE NUMBER THAT DECIDES WHETHER TO BELIEVE THE SENTENCE, then
     // where the rule applies, then what to copy, and only then how grain came to propose it. The counts are
     // the same counts `provenance` carries — read in the direction a reader needs them ("9 deviating" and "9
     // break it today" are one fact, and only the second says what to do next). `provenance` itself is
@@ -362,7 +362,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
       : `Under \`${scope.glob}\`: ${c.statement}.`;
     out.push({
       id, origin: 'certified-convention', host: host?.id || null, evidenceLine, provenance, reviewBy,
-      // The whole statement, not a truncated prefix (ticket 106: `slice(0, 70)` used to cut mid-word — `yg
+      // The whole statement, not a truncated prefix (`slice(0, 70)` used to cut mid-word — `yg
       // schemas read aspect` sets no length limit on `name`, so there is no honest reason to cut it at all).
       name, holds: holdsPhrase(n, dev, `${unitOne(c.kind)}s`),
       // The description carries the RULE, how far it already holds, and what its status does — and stops
@@ -375,12 +375,12 @@ export function buildAspects(exp, active, sub, opts = {}) {
       content: check ? null : contentMd(c, profile, evidenceLine, proseReason, name),
       drills: { satisfies: conf.kept.slice(), violates: devi.kept.slice() },
       enumerator: c.feature.enumerator, argument: c.feature.argument, expected: c.expected, kind: c.kind,
-      // structured fields for provenance.json (ticket 100) — parallel to the prose already in `provenance`,
+      // structured fields for provenance.json — parallel to the prose already in `provenance`,
       // never re-derived from it by regex the way a POST-HOC reader of a written proposal has to (097's
       // law-loop.mjs `provenanceFor`, which reads back a file this renderer did not annotate at write time)
       partition: c.partition, share: c.share ?? null, n, deviating: dev,
       exemplars: (c.exemplars || []).slice(0, 3).map(e => ({ rel: e.rel, line: e.line, name: e.name })),
-      // A CERTIFIED `false` direction STAYS ELIGIBLE (ticket 115). It cleared grain's own certification bound,
+      // A CERTIFIED `false` direction STAYS ELIGIBLE. It cleared grain's own certification bound,
       // so it is a real "this partition never uses X" and not a majority of absences — but a reader deciding
       // whether to turn it on still needs to know it is a statement about something NOT being there, so the
       // direction is recorded in its provenance rather than left to be inferred from `expected`.
@@ -404,22 +404,22 @@ export function buildAspects(exp, active, sub, opts = {}) {
     if (!fam || NOT_A_RULE.has(fam)) continue;
     const host = typeForPartition(r.partition);
     if (!host) continue;
-    // §class 1/2 (ticket 120) — same identifiers, same tests, as the certified branch above.
+    // §class 1/2 — same identifiers, same tests, as the certified branch above.
     const idUnderTest = identifierUnderTest(fam, identifierOf(r.pid), r.exp);
     if (isParserNodeTypeIdentifier(idUnderTest, grammarsForHost(host))) { bumpNotARule('parser-node-type-as-identifier'); continue; }
-    // `r.tparams`/`r.own` (ticket 123): the sub-gate lattice's own row now carries the same host-site fact a
+    // `r.tparams`/`r.own`: the sub-gate lattice's own row now carries the same host-site fact a
     // certified convention's sites do (`propose-lattice.mjs`), read off the majority-side scope the row was cut
     // from — a hand-built test row that omits them reads as "declares nothing", same as any other absent fact.
     if (isDeclaredTypeParam(fam, idUnderTest, { kind: r.kind, tparams: r.tparams, own: r.own }, typeTparamsByName)) { bumpNotARule('generic-type-parameter-as-domain-type'); continue; }
     const id = `grain/${slug(r.partition)}/candidate-${slug(r.pid)}`.slice(0, 120);
     if (out.some(o => o.id === id)) continue;
     seen.push(id);
-    // THE ROLE GROUP LEAVES THE SENTENCE AND STAYS IN THE EVIDENCE (ticket 109). The old statement said
+    // THE ROLE GROUP LEAVES THE SENTENCE AND STAYS IN THE EVIDENCE. The old statement said
     // "methods in `Slim/Routing` (role group r5) …" while the scope predicate written three lines below it is
     // `Slim/Routing/**` — the WHOLE directory. A sentence that names a narrower subject than the check
     // enforces is a sentence a future session is right to argue with. The cluster is where grain MEASURED the
     // row and it says so in the evidence; the rule speaks about the scope it is actually judged over.
-    // §class 3 (ticket 120): the scope actually ENFORCED is now narrowed to the cluster's own files wherever
+    // §class 3: the scope actually ENFORCED is now narrowed to the cluster's own files wherever
     // that can be said exactly (`cScope.ok`) — `glob` stays the host's own glob for the sentence, matching the
     // certified group-scoped convention's own wording convention above.
     const cScope = clusterScopeFor(r, host);
@@ -427,7 +427,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     const devi = exemptMarkers(fam, r.deviants);
     const deviants = devi.kept;
     const markers = markerNote({ names: devi.names, exempted: r.deviants.length - deviants.length });
-    // AN ABSENCE IS NOT A FORBIDDANCE (ticket 115). ORIGIN decides, not a number: a sub-gate row sits below
+    // AN ABSENCE IS NOT A FORBIDDANCE. ORIGIN decides, not a number: a sub-gate row sits below
     // grain's own certification bound by construction, so a `false` majority in a class that spells "does not
     // use X" says only that most things here happen not to use it today — and the minority that does is
     // routinely the point of the code. Such a row is kept, in full, with its counts, as an OBSERVATION: worded
@@ -459,7 +459,7 @@ export function buildAspects(exp, active, sub, opts = {}) {
     }
     out.push({
       id, origin: 'sub-gate-lattice', host: host.id, evidenceLine, provenance, reviewBy,
-      // See the certified-convention branch above (ticket 106) — same fix, same reason.
+      // See the certified-convention branch above — same fix, same reason.
       name: statement, holds: holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`),
       description: `${statement} It already ${holdsPhrase(r.ne, deviants.length, `${unitOne(r.kind)}s`)}.`,
       scope: cScope.pred, check,

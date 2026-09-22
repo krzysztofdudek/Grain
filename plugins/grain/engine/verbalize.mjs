@@ -1,5 +1,5 @@
 // grain engine · the verbalizer: units, shapes, and the English a convention or a deviation is said in
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 
 // ===== VERBALIZER =====
 export const unitOf = kind =>
@@ -12,7 +12,7 @@ export const unitOf = kind =>
     finally: 'finally blocks',
     case: 'named callbacks',
   })[kind] || kind;
-// §061 — a catch/finally clause has no name field of its own in any shipped grammar (a catch/finally block is
+// a catch/finally clause has no name field of its own in any shipped grammar (a catch/finally block is
 // anonymous by nature — it is not a named declaration); `extractScopes`' blockScope still gives it a `.name`
 // (borrowed from its enclosing method/type, "named after its owner") purely so it survives as its own mined
 // population instead of being swept up by the anonymous-scope filter (`all[i].name === '<anon>'`). That borrowed
@@ -86,7 +86,7 @@ export function verbalize(f, exNames) {
   if (p.startsWith('auto.deco:'))
     return `${unit} here ${neg ? 'are not annotated with' : 'are annotated with'} ${ownPhrase(p.slice(10))}`;
   if (p.startsWith('auto.imp:')) return `${unit} here ${neg ? 'do not import' : 'import'} \`${p.slice(9)}\``;
-  // §033: the pid stays `auto.extends:` (a breaking rename for a cosmetic gain — see the issue), but the SENTENCE
+  // the pid stays `auto.extends:` (a breaking rename for a cosmetic gain — see the issue), but the SENTENCE
   // says "implement" when the target is known, repo-wide, to be an interface conformed to rather than a class
   // inherited from — `f.heritageKind`, attached once per fact wherever one is built (§heritageKindOf), from
   // extractScopes' own supKind. Unclassified — every language without a syntactic extends/implements distinction,
@@ -188,7 +188,7 @@ export function deviationPhrase(f, obs) {
     return neg ? `is annotated with \`${p.slice(10)}\`` : `is not annotated with \`${p.slice(10)}\``;
   if (p.startsWith('auto.imp:'))
     return neg ? `imports \`${p.slice(9)}\`` : `does not import \`${p.slice(9)}\``;
-  // §033 — see verbalize's own note just above it; `f.heritageKind` is attached wherever the fact/steer object is built
+  // see verbalize's own note just above it; `f.heritageKind` is attached wherever the fact/steer object is built
   if (p.startsWith('auto.extends:')) {
     const isImpl = f.heritageKind === 'impl';
     return neg
@@ -215,7 +215,7 @@ export function deviationPhrase(f, obs) {
   return `is \`${obs}\``;
 }
 // Cargo.toml's OWN declared crate name (the `[package] name = "..."` line, dash/underscore-normalized exactly as
-// Rust `use` paths reference it — §017): a small, independent re-implementation of the identical parse the vendored
+// Rust `use` paths reference it): a small, independent re-implementation of the identical parse the vendored
 // rust-resolve.mjs already does for the CALLING file's own crate. Duplicated, not imported: the vendored module's
 // `readCrateName` isn't exported (and is "do not edit" — regenerated from Yggdrasil), and workspace discovery here
 // runs at model-BUILD time (this file walks every workspace member), while the vendored one runs at resolve time

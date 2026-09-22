@@ -37,7 +37,7 @@
 // that touched two declarations in one node. The document says which pair the numbers came from so the claim
 // can be checked by hand.
 //
-// THE SPLIT SIDE reuses the measured policy of ticket 110 (`propose-levels.mjs`, `propose-types.mjs`) without
+// THE SPLIT SIDE reuses the measured policy of the proposal's level cut (`propose-levels.mjs`, `propose-types.mjs`) without
 // restating it: a finer directory is a candidate only where it beats the level above it ON THAT LEVEL'S OWN
 // EVIDENCE — strictly more of the imports that touch it stay inside than the parent's do, or grain could read
 // none of its files while it could read the parent's. The parent here is the node's own mapped file set instead
@@ -389,7 +389,7 @@ export async function cmdAdvise({ model, head, root, args, opts, stamp }) {
   // changes most. It stays a machine surface — `--json` carries every pair with its evidence — and what the text
   // surface says about it is the count and this disclosure, which is all the numbers support.
   lines.push(...weakSignalNote(s));
-  // The split side IS advice: the policy behind it was fitted and measured on these same four graphs (ticket 110)
+  // The split side IS advice: the policy behind it was fitted and measured on these same four graphs
   // and on each of them it named a place holding a pile the evidence separates, never a place that was already one
   // thing. So it is listed.
   if (split.length) {

@@ -1,5 +1,5 @@
 // grain engine · proposal writer · which lattice rows are renderable, which direction they hold in, and why
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 
 // The classes that render, and — for everything else — the reason it does not, stated in the aspect itself
 // rather than approximated into a check that would be wrong.
@@ -16,7 +16,7 @@ export const RENDERABLE = new Set(['imp', 'call', 'deco', 'extends', 'returns', 
 // import, a file name, a lexical layer, or a name shape the whole partition shares. A NEGATIVE rule ("nothing
 // here does X") renders in every class, because it fires only on evidence it can see and never on absence.
 export const BOOLEAN_CLASS = new Set(['imp', 'call', 'deco', 'extends', 'returns']);
-// WHICH CLASSES SPELL "DOES NOT USE X" WITH `expected: false` (ticket 115) — and so cannot state a prohibition
+// WHICH CLASSES SPELL "DOES NOT USE X" WITH `expected: false` — and so cannot state a prohibition
 // from a majority. For every one of these the enumerator names a THING (an import specifier, a callee, a
 // marker, a supertype, a declared return type, a syntactic construct, a parameter type) and `false` says only
 // that the thing is not there. Nothing about a MAJORITY of absences is a rule: "files in `src/main/java` do not
@@ -55,7 +55,7 @@ export function renderableDirection(enumerator, expected, kind, ctxType) {
   return true; // filenameshape and lex: the file itself is the subject either way
 }
 export const WHY_PROSE = {
-  // ticket 120 §class 3: the row was measured within one role-group cluster narrower than the host type's own
+  // class 3 of the not-a-rule reasons: the row was measured within one role-group cluster narrower than the host type's own
   // directory glob, and neither an explicit path list (the export's own member list for that group is truncated)
   // nor a shared `content:` predicate (the group offers no marker, name shape or import to draft one from) can
   // state the cluster's own scope exactly. Rendering a check against the wider glob would enforce a rule beyond
@@ -85,7 +85,7 @@ export const WHY_PROSE = {
 
 
 // ==================================================================================================
-// 7.5 Sizing — `sizing.json` (ticket 098 / ecosystem-design-2026-09-05.md §2.4).
+// 7.5 Sizing — `sizing.json` (ecosystem-design-2026-09-05.md §2.4).
 //
 // Horde's only cutting rule (skills/horde/reference/model.md, "The node"): "a node is cut correctly when its
 // charter, its contracts and its code fit one Sonnet context with room to work". `node.mjs map` needs a NUMBER

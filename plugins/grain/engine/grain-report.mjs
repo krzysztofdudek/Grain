@@ -1,5 +1,5 @@
 // grain engine · query surface · `status`, `report` and `rules`, and the freshness lines they end with
-// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of grain.mjs: the statements below are the ones that stood there, unchanged.
 import { join, resolve, isAbsolute } from 'node:path';
 import {
   report,
@@ -117,12 +117,12 @@ export async function cmdReport({ model, meta, head, isGit, args, opts, stamp, s
           })),
           total: p.facts.length,
         })),
-        // ticket 072: `report` (text, report() in core.mjs) also renders an `== architecture — N modules · N
+        // `report` (text, report() in core.mjs) also renders an `== architecture — N modules · N
         // directed dependencies · N cycle(s) ==` section — modules, their layer placement, directed dependency
         // edges, cycles, and the relation-resolution coverage note (§G21) — none of which `--json` carried before
         // this, a strictly poorer machine-readable answer than the human-readable one for a published-interface
-        // command (same failure family as §041/§051/§066/§059). Additive only (no existing field touched):
-        // `modules`/`edges` are the same `model.moduleGraph` arrays `map --json` already surfaces (§066/051,
+        // command (the same failure family as the other JSON/text parity gaps). Additive only (no existing field touched):
+        // `modules`/`edges` are the same `model.moduleGraph` arrays `map --json` already surfaces (
         // `nodes`/`edges` there); `layers` reuses `moduleLayers()` — the same grouping mapSections' own text
         // `layers:` line computes, here UNCAPPED (mapSections' 4-per-layer "+K more" cap is a display concern, the
         // same relationship cmdMap's `changes` field already has to its own text line's top-4 slice); `cycles` is
@@ -154,7 +154,7 @@ export async function cmdReport({ model, meta, head, isGit, args, opts, stamp, s
 export async function cmdRules({ model, isGit, head, args, opts, stamp, store, treeDirty }) {
   if (args.length) throw new Error('usage: grain rules [--out <file>] [--top N] — takes no arguments');
   const outcomes = readJson(join(store.dir, 'check-outcomes.json'));
-  // `dirty` here is a document-content fact (§024c), the same footing as `sha`/`date` just above it — not the
+  // `dirty` here is a document-content fact, the same footing as `sha`/`date` just above it — not the
   // CLI's own ephemeral stamp(), which stays off stdout in the no-`--out` path below on purpose (see the note atop
   // this function): the generated document should say so wherever it ends up, `--out` file included.
   const text = rulesMarkdown(model, {

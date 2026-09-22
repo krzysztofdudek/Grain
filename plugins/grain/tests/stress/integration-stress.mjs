@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// The integration stress test (instrument, ticket 101) — how much of what grain PROPOSES does Yggdrasil
+// The integration stress test (instrument) — how much of what grain PROPOSES does Yggdrasil
 // actually OPERATE ON, at what granularity, and does the proposal degrade honestly on hostile repositories.
 //
 //   node tests/stress/integration-stress.mjs --clones <dir> --out <dir> [options]
@@ -60,9 +60,9 @@
 // FLOORS (ruling `instrument-floors-allowed-if-stated-and-measured`). This script adds none of its own. It
 // EXPOSES propose.mjs's, so their cost can be measured rather than defended: `--subgate-per-partition` (the
 // READING cap, lifted for measurement exactly as 097 lifted it). `--min-type-files` (094's MIN_TYPE_FILES) was
-// the other one — §5 of ticket 101's own report ran 2 against 1 on three repositories and found it not
+// the other one — §5 of this instrument's own report ran 2 against 1 on three repositories and found it not
 // load-bearing (aspects, pairs, refusals, drill outcomes and FALSE-ALARMs were byte-identical between the two
-// runs), so ruling `root-fix-accepted-min-type-files-goes` retired it and ticket 102 removed the flag from
+// runs), so ruling `root-fix-accepted-min-type-files-goes` retired it and the flag was removed from
 // `propose.mjs` entirely. This script has nothing left to expose for it.
 //
 // Yggdrasil is READ-ONLY here: the only thing this script runs of Yggdrasil's is its built `bin.js`, always

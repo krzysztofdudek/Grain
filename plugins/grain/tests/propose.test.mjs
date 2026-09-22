@@ -179,8 +179,8 @@ test('every aspect ships draft, enforced or advisory status, and exactly one rul
   if (!existsSync(dir)) return; // a fixture this small may certify nothing — that is an honest outcome
   for (const p of walkFiles(dir, x => x.endsWith('yg-aspect.yaml'))) {
     const doc = parseYaml(readFileSync(p, 'utf8'));
-    // ticket 102: prose NEVER leaves draft; a deterministic check earns `enforced` only from a real `yg drill`
-    // (0 FALSE-ALARM, >= 1 catch) AND a certified-convention origin (ticket 107) — the identical drill result
+    // prose NEVER leaves draft; a deterministic check earns `enforced` only from a real `yg drill`
+    // (0 FALSE-ALARM, >= 1 catch) AND a certified-convention origin — the identical drill result
     // on a sub-gate-lattice origin earns `advisory` instead. This fixture is too small to grow a sub-gate
     // lattice (`MIN_SUPPORT` sites per cell) so it will not exercise `advisory` in practice, but the assertion
     // states the real three-way contract rather than a fixture-specific accident.
@@ -194,7 +194,7 @@ test('every aspect ships draft, enforced or advisory status, and exactly one rul
   }
 });
 
-// ---------- 2a. status is EARNED, not declared (ticket 102, sharpened by 107) ----------
+// ---------- 2a. status is EARNED, not declared (sharpened by 107) ----------
 //
 // `promoteEnforceableAspects` is the only place anything leaves `draft`, and it does so from a REAL `yg drill`
 // run, never a claim this renderer computes on its own. This drives it directly against hand-authored
@@ -232,7 +232,7 @@ test('promoteEnforceableAspects earns `enforced` only for a certified-convention
   };
   const aspects = [
     // identical drill (1 violates case, correctly flagged, no satisfies case -> catches, no FA) on the two
-    // origins ticket 107 tells apart — only the origin should decide `enforced` vs. `advisory`.
+    // origins the status rule tells apart — only the origin should decide `enforced` vs. `advisory`.
     writeAspect('catches-clean-certified', { violatesHasBad: true, origin: 'certified-convention' }),
     writeAspect('catches-clean-subgate', { violatesHasBad: true, origin: 'sub-gate-lattice' }),
     writeAspect('never-catches', { violatesHasBad: false, origin: 'certified-convention' }), // 1 violates case the check does NOT flag -> MISS -> no-catch
@@ -272,8 +272,7 @@ test('promoteEnforceableAspects earns `enforced` only for a certified-convention
     assert.equal(doc.status, 'draft', `${id} must stay draft in its own yg-aspect.yaml`);
   }
 
-  // provenance.json carries all three ticket-102 fields, in Yggdrasil's own status vocabulary (ticket 107 —
-  // `enforced`/`advisory`/`draft`, not a separate Grain-internal word), and the evidence row was annotated in place
+  // provenance.json carries all three ticket-102 fields, in Yggdrasil's own status vocabulary (// `enforced`/`advisory`/`draft`, not a separate Grain-internal word), and the evidence row was annotated in place
   const prov = JSON.parse(readFileSync(join(ygg, 'aspects', 'false-alarms', 'provenance.json'), 'utf8'));
   assert.equal(prov.status, 'draft');
   assert.equal(prov.draftReason, 'file-scope-approximation-fa');
@@ -290,8 +289,8 @@ test('promoteEnforceableAspects earns `enforced` only for a certified-convention
   rmSync(t2, { recursive: true, force: true });
 });
 
-// ---------- ticket 106: an aspect's `name` is the whole statement, never a prefix cut mid-word ----------
-test('buildAspects never truncates `name` (ticket 106 — `.slice(0, 70)` used to cut mid-word)', () => {
+// ---------- an aspect's `name` is the whole statement, never a prefix cut mid-word ----------
+test('buildAspects never truncates `name` (`.slice(0, 70)` used to cut mid-word)', () => {
   const longStatement = 'this convention has a genuinely long statement that runs well past seventy characters on purpose (`WordBoundary`)';
   assert.ok(longStatement.length > 70, 'the fixture statement must actually exceed the old cutoff to be a real regression check');
   const active = [{ id: 'src', dir: 'src' }];
@@ -312,7 +311,7 @@ test('buildAspects never truncates `name` (ticket 106 — `.slice(0, 70)` used t
   assert.ok(aspects[0].description.startsWith(aspects[0].name), 'the report and the yaml must agree — both read the same `name`/`description` off the same aspect object');
 });
 
-// ---------- ticket 109: the obligation form, and the two things it may never do ----------
+// ---------- the obligation form, and the two things it may never do ----------
 test('buildAspects words a rule as an obligation with its scope inside it, and keeps every word of the mined predicate', () => {
   const active = [{ id: 'src', dir: 'src' }];
   const conv = (statement, expected, enumerator, argument) => ({
@@ -339,7 +338,7 @@ test('buildAspects words a rule as an obligation with its scope inside it, and k
   }
 });
 
-test('a lattice row is worded from the value it was measured at, not from its pid (ticket 109)', () => {
+test('a lattice row is worded from the value it was measured at, not from its pid', () => {
   const active = [{ id: 'src', dir: 'src' }];
   const row = (pid, exp) => ({ partition: 'src', pid, exp, share: 0.8, n: 10, ne: 8, bits: 1, kind: 'method', role: 3, deviants: ['a.ts#x', 'b.ts#y'] });
   const { aspects } = buildAspects({ conventions: [] }, active, [
@@ -353,7 +352,7 @@ test('a lattice row is worded from the value it was measured at, not from its pi
     'Every method under `src/**` must be named PascalCase.',
     'Every method under `src/**` must quote strings with single quotes.',
     'Every method under `src/**` must carry the modifiers `public`.',
-    // ticket 115: a `false`-direction row of an absence class, mined in the sub-gate band, states what it
+    // a `false`-direction row of an absence class, mined in the sub-gate band, states what it
     // measured — it is not turned into `No method under \`src/**\` may import \`lodash\`.`, which 24-of-30
     // majorities made the most visible wrong sentence in the whole proposal.
     '8 of 10 methods under `src/**` do not import `lodash` — an absence, not a rule.',
@@ -367,7 +366,7 @@ test('a lattice row is worded from the value it was measured at, not from its pi
   }
 });
 
-// ---------- ticket 109 (defect): a lattice row's rule names the value it was measured at ----------
+// ---------- (defect) a lattice row's rule names the value it was measured at ----------
 //
 // The categorical families carry their value in the ROW, not in the predicate id: `auto.nameshape` has no
 // argument at all and `auto.lex:quote` names the surface, never `single`. Reading the pid alone produced a
@@ -557,7 +556,7 @@ test('the YAML emitter quotes what YAML would otherwise re-read as something els
   assert.deepEqual(parseYaml(yamlEmit(doc)), doc);
 });
 
-// ---------- 13. a node's description carries what a charter's first paragraph used to (ticket 026) ----------
+// ---------- 13. a node's description carries what a charter's first paragraph used to ----------
 //
 // `grain propose` no longer writes a `charter.md` beside every node. What its opening paragraph said — file
 // counts, own files vs. a nested node's, the root-glob edge case where a node has no directory of its own — is
@@ -644,7 +643,7 @@ test('promotion rewrites the check.mjs header, so a promoted check never says th
 
 // ---------- 15. the sentence a rule states about itself (dry run 112) ----------
 //
-// `describeRow` (ticket 109 folded ticket 112`s `describePid` into it) writes the statement that becomes the aspect's `name:` and `description:`, and so the
+// `describeRow` (which absorbed `describePid`) writes the statement that becomes the aspect's `name:` and `description:`, and so the
 // line an agent reads in `yg context --file`, `yg aspects` and every `yg check` warning. Three of its
 // classes were wrong on a real repository: a decorator identifier already carries its `@`, so the
 // statement doubled it; a name-shape rule keeps its shape in `expected`, not in the pid, so the
@@ -663,7 +662,7 @@ test('a rule states itself in words, with no doubled marker, no empty shape and 
   assert.doesNotMatch(describeRow('auto.mods', 'true'), /auto\./);
 });
 
-// ---------- 16. no `charter.md` anywhere in a proposal, and the audit trail no longer claims one (ticket 026) ----------
+// ---------- 16. no `charter.md` anywhere in a proposal, and the audit trail no longer claims one ----------
 //
 // The renderer used to write one `charter.md` per node, beside its `yg-node.yaml`, and an audit-trail row of
 // `kind: 'charter'` for each. Both are gone: the assertion is recursive over the whole output tree, not one
@@ -709,7 +708,7 @@ test('every yg-node.yaml written by a real run has a real description, never the
   }
 });
 
-// ---------- 18. two runs over the same fixture write byte-identical proposals (ticket 026) ----------
+// ---------- 18. two runs over the same fixture write byte-identical proposals ----------
 //
 // The fixture is fully deterministic (fixed author/dates, `--no-history`), and nothing in this renderer reads
 // wall-clock time or process-order-dependent state — a regression here would most likely come from this
@@ -758,7 +757,7 @@ test('a charter.md left behind by an older run of grain (or planted by hand) is 
   rmSync(out3, { recursive: true, force: true });
 });
 
-// ---------- 17. an enforced rule says how much of TODAY it already refuses (ticket 118) ----------
+// ---------- 17. an enforced rule says how much of TODAY it already refuses ----------
 //
 // Ticket 109 measured it on the whole corpus: all 21 enforced rules block 1-18 EXISTING files at the first
 // `yg check`. The drill that earned `enforced` proves the CHECK correct; it never asks whether the repository

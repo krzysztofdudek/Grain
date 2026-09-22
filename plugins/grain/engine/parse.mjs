@@ -1,5 +1,5 @@
 // grain engine · generic language binding derived from each grammar's node-types.json, the parser pool, and the file/token primitives
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { Parser, Language } from './vendor/web-tree-sitter/web-tree-sitter.js';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
@@ -27,7 +27,7 @@ export function bindingFor(gname) {
     heritageRe:
       /heritage|extends|implements|superclass|super_interfaces|base_|superclasses|argument_list|interface_clause|delegation_specifier|inheritance_specifier|trait_bounds/,
     // two narrower refinements of heritageRe, for CLASSIFYING (never for finding) a heritage identifier as
-    // inheritance-of-a-superclass or conformance-to-an-interface (§033) — read off the SAME structural node-type-name
+    // inheritance-of-a-superclass or conformance-to-an-interface — read off the SAME structural node-type-name
     // vocabulary heritageRe/TYPE_LIKE_RE already use, never the language's identity. Verified per-grammar against each
     // shipped node-types.json: PHP's `base_clause`/`class_interface_clause`, Java/Groovy's `superclass`/`super_interfaces`
     // (plus `extends_interfaces`, an interface extending interfaces — still the `extends` keyword), and TS/TSX's
@@ -35,7 +35,7 @@ export function bindingFor(gname) {
     // Deliberately excluded: C#'s `base_list` (one undifferentiated list for the base class AND every implemented
     // interface — no syntactic marker at all) and Kotlin/Rust/Scala/Solidity's single shared heritage clause. Where
     // neither regex matches, the relationship is left unclassified and verbalize/deviationPhrase fall back to their
-    // pre-existing "extends" wording — never a guess (§033 test: Go/Rust/Python byte-identical).
+    // pre-existing "extends" wording — never a guess (tested: Go/Rust/Python byte-identical).
     extendsClauseRe:
       /^(?:superclass|extends_interfaces|base_clause|base_class_clause|extends_clause|extends_type_clause)$/,
     implementsClauseRe: /^(?:super_interfaces|class_interface_clause|implements_clause)$/,
@@ -79,19 +79,19 @@ export function bindingFor(gname) {
     // TYPE reference wherever one of these sits inside a return-type expression — nothing here is Go- or Scala-
     // specific, it is the same field-driven derivation `b.scope`/`b.imp`/`b.deco` above already use (§G26 bugfix)
     paramLike: new Set(),
-    // per-node-type declared-RESULT field name (§auto.returns, §021): a callable node (one with BOTH a `body`
+    // per-node-type declared-RESULT field name (§auto.returns): a callable node (one with BOTH a `body`
     // and a `parameters` field) may declare its result under a field of its own choosing — Go `result`, TS/PHP/
     // Rust/Scala `return_type`, Java/Groovy/C# `type` — and, discovered the same way, C# `method_declaration`'s
     // own `returns`. Never a 4th hardcoded name: the field is found by asking node-types.json which of a
     // callable's OWN fields (besides its structural ones — body/name/parameters/type_parameters/receiver) admits
     // a "type"-shaped child, using the same word-bounded technique TYPE_LIKE_RE/FUNC_LIKE_RE already use elsewhere
     // (RESULT_FIELD_RE, defined below with those). Verified across every shipped grammar: exactly one such field
-    // per callable node type, never zero-or-ambiguous (§014/§021 log).
+    // per callable node type, never zero-or-ambiguous (see the measurement log).
     retField: new Map(),
-    // §014 — node types shaped like a MULTI-NAME value binding with no body of its own (Go's const_spec/var_spec).
+    // node types shaped like a MULTI-NAME value binding with no body of its own (Go's const_spec/var_spec).
     // See the derivation rule below, in the main field loop.
     namedValueSpec: new Set(),
-    // §016 — a callable that states, in its own signature, the NAMED TYPE it is bound to: a callable-shaped node
+    // a callable that states, in its own signature, the NAMED TYPE it is bound to: a callable-shaped node
     // (its own `body` AND its own `parameters`) that ALSO declares its own `receiver` field. Derived, never named:
     // across every shipped grammar exactly one node type qualifies (Go's `method_declaration`) — Ruby's `call` also
     // declares a `receiver`, but has neither a body nor a parameter list of its own and so is correctly excluded.
@@ -131,7 +131,7 @@ export function bindingFor(gname) {
     }
     // a MULTI-NAME value spec with no body (Go's `const_spec`/`var_spec`): one `name` field whose OWN cardinality
     // is `multiple` (it can bind SEVERAL identifiers — `a, b := f()` — to one shared `value`), never a scope
-    // (no body field at all). This is the load-bearing, non-Go-specific test (§014): measured against every
+    // (no body field at all). This is the load-bearing, non-Go-specific test: measured against every
     // shipped grammar's own name+value-no-body node (JS/TS `variable_declarator`, Python `keyword_argument`,
     // Rust `const_item`, PHP `enum_case`, …) — every one of those binds exactly ONE name; only Go's const/var
     // spec declares `name.multiple: true`, so this fires there and nowhere else, without naming Go.
@@ -160,7 +160,7 @@ export function bindingFor(gname) {
       .filter(n => n.type === 'type_parameters' || (TPARAM_RE.test(n.type) && wordBounded(['list']).test(n.type)))
       .map(n => n.type)
   );
-  // §018 phase 2 — an UNPARSED TOKEN REGION and the CALL that consists of one, both read off node-types.json:
+  // Macro-body re-parse — an UNPARSED TOKEN REGION and the CALL that consists of one, both read off node-types.json:
   //   · a token region is a NAMED node type with no fields of its own whose own declared children include ITSELF
   //     — a nested, structureless run of tokens the grammar deliberately declined to analyse (Rust `token_tree`);
   //   · a macro-shaped call is a node type that is not one of those and whose EVERY declared non-field child is.
@@ -199,7 +199,7 @@ export function bindingFor(gname) {
   // extractScopes below, which halves the re-parse cost without losing a single name anywhere on the corpus.
   const kw = [...b.anonTypes].filter(t => /^[A-Za-z_]\w*$/.test(t));
   b.kwRe = kw.length ? new RegExp('\\b(?:' + kw.join('|') + ')\\b') : null;
-  // §043 — a SIGIL-LESS decoration, derived instead of named. The `/decorator|annotation|attribute_list/` match
+  // a SIGIL-LESS decoration, derived instead of named. The `/decorator|annotation|attribute_list/` match
   // above reads a node-type NAME; some grammars mark the same construct structurally instead, with a node type
   // whose name says nothing (Solidity's `modifier_invocation` — `onlyOwner`, `nonReentrant`: the language's
   // decorator equivalent, and the one that carries its access-control meaning). Read off node-types.json: a node
@@ -229,11 +229,11 @@ export function bindingFor(gname) {
       }
     }
   }
-  // §062 — QUALIFIED/MEMBER-NAME node types: `ns.Base` (JS/TS member_expression), a Java/Groovy FQN
+  // QUALIFIED/MEMBER-NAME node types: `ns.Base` (JS/TS member_expression), a Java/Groovy FQN
   // (scoped_identifier/scoped_type_identifier), C#'s qualified_name, Kotlin's user_type/qualified_identifier,
   // Scala's stable_type_identifier, Ruby's scope_resolution, … Reading a compound name's identifiers naively
   // (every identifier-shaped DESCENDANT of a heritage clause) records the NAMESPACE half too — `extends
-  // ethers.AbstractSigner` recorded `ethers`, never `AbstractSigner` (§049 fixed the analogous constructor-
+  // ethers.AbstractSigner` recorded `ethers`, never `AbstractSigner` (the call-argument exclusion fixed the analogous constructor-
   // argument shape; this is the member-access shape). A node type qualifies, without ever naming a language,
   // when its own field shape is a genuine two-part chain: exactly two "relevant" fields (its REQUIRED fields,
   // plus any OPTIONAL field that can itself carry a name-shaped value — Ruby's optional `scope`, absent on a
@@ -286,7 +286,7 @@ export function bindingFor(gname) {
       b.qualName.add(n.type);
     }
   }
-  // §083 — a TYPE-vs-EXPRESSION duality clause: a node type declaring no FIELDS of its own (node-types.json's
+  // a TYPE-vs-EXPRESSION duality clause: a node type declaring no FIELDS of its own (node-types.json's
   // `fields` empty) whose only two possible unnamed children are exactly the two categories `type` and
   // `primary_expression` — Kotlin's own vocabulary for "a type reference" and "any expression". This is
   // Kotlin's `by`-delegation clause, `explicit_delegation` (`class Foo : Bar by expr`): `Bar` fills the TYPE
@@ -312,7 +312,7 @@ export function bindingFor(gname) {
   // whichever of a delegate clause's two children resolves into THIS set is the real heritage half; the other
   // is the delegate expression, excluded below regardless of its own shape (identifier, call, lambda, …).
   b.typeSuperSet = qnExpand('type', new Set());
-  // §056 — a DATA-GRAMMAR mapping container, derived from node-types.json alone (never consulted for a code
+  // a DATA-GRAMMAR mapping container, derived from node-types.json alone (never consulted for a code
   // grammar — see the `b.data` guard at its one call site, core.mjs's value-scan walk): CONTAINER_RE below
   // already recognizes JSON's own container node-type NAME ("object"), but YAML's `block_mapping`/`flow_mapping`
   // are named nothing CONTAINER_RE's plain keyword list matches. A node type qualifies here when its OWN
@@ -322,7 +322,7 @@ export function bindingFor(gname) {
   // itself. Left unfixed, a mapping's own top-level string/number/boolean children were never grouped as
   // siblings of the container they actually share for YAML specifically, which is what made a service id
   // declared once in one YAML mapping indistinguishable, container-wise, from an unrelated string anywhere else
-  // in the same file (§056's own field report). TOML's `pair` carries no `key` FIELD at all (only a
+  // in the same file (the YAML-mapping fix's own field report). TOML's `pair` carries no `key` FIELD at all (only a
   // `bare_key`/`quoted_key`/`dotted_key` CHILD) and stays exactly as gated before this change — a real,
   // separately pre-existing gap (already measured and flagged as "reported to the orchestrator, out of scope"
   // by container-keypath.test.mjs) that a fieldless-pair heuristic could chase, but only by risking the walk
@@ -361,7 +361,7 @@ export async function getParser(ext) {
   if (!g) throw new Error(`no grammar for extension "${ext}"`);
   return parserForGrammar(g);
 }
-// §040 — how many places a grammar gave up on: ERROR nodes plus MISSING ones, because a grammar records a failure
+// how many places a grammar gave up on: ERROR nodes plus MISSING ones, because a grammar records a failure
 // as either (measured: C leaves 4 ERRORs on `class LEVELDB_EXPORT Comparator {`, C++ leaves 0 ERRORs and 1
 // MISSING). Descends only into subtrees that carry a failure, so a clean file costs one check at the root.
 const parseErrors = tree => {
@@ -374,8 +374,8 @@ const parseErrors = tree => {
   }
   return n;
 };
-// §040 — parse `src`, choosing between the extension's declared grammar and the second grammar that extension may
-// denote (`EXT_ALT`, config.mjs — one entry, `.h`). THE GRAMMAR DECIDES, the same instinct as §018 phase 2: ask
+// parse `src`, choosing between the extension's declared grammar and the second grammar that extension may
+// denote (`EXT_ALT`, config.mjs — one entry, `.h`). THE GRAMMAR DECIDES, the same instinct as the macro-body re-parse: ask
 // both and keep the one that actually parsed the bytes, rather than writing down a rule about which projects use
 // `.h` for what. Three properties, in order of how load-bearing they are:
 //   · the DECLARED mapping wins ties. A genuine C header parses cleanly under both (C++ is very nearly a
@@ -404,7 +404,7 @@ export async function parseFile(ext, src) {
   t2.delete();
   return { p, tree };
 }
-// §018 phase 2: a SECOND parser per grammar, used only to re-parse a macro invocation's token region while the
+// Macro-body re-parse: a SECOND parser per grammar, used only to re-parse a macro invocation's token region while the
 // file's own tree is still being walked. A dedicated instance, not `parsers[g]`, so that re-entrant parse can
 // never interact with the outer walk in any way — one extra object per grammar, created on first macro body seen.
 const macroParsers = {};
@@ -491,12 +491,12 @@ export const hashStr = s => {
 // whole word, so `struct` matches the segment `struct` in `struct_declaration` but not the letters s-t-r-u-c-t
 // buried inside `constructor_declaration` — a raw substring test misclassified every constructor as `typeLike`
 export const wordBounded = words => new RegExp('(?:^|_)(?:' + words.join('|') + ')(?:_|$)');
-// §bindingFor's sigil-less-decoration derivation (§043): the two halves a decoration's OWN declared children must
+// §bindingFor's sigil-less-decoration derivation: the two halves a decoration's OWN declared children must
 // show — something it NAMES, and an application of that name to ARGUMENTS. Same word-bounded node-TYPE-NAME
 // technique as the two above; neither is ever matched against a language's own identifiers.
 const DECO_NAME_RE = wordBounded(['identifier', 'name']);
 const DECO_ARG_RE = wordBounded(['call', 'argument', 'arguments', 'invocation']);
-// §bindingFor's `b.qualName` (§062): a "qualified/member name" node type's own leaf constituents — every
+// §bindingFor's `b.qualName`: a "qualified/member name" node type's own leaf constituents — every
 // concrete node type this touches, whether a plain identifier or another qualified-name node one level in,
 // happens to end in one of these three words across every shipped grammar. Same word-bounded node-TYPE-NAME
 // technique as the two above.
@@ -507,5 +507,5 @@ const QUAL_NAME_LEAF_RE = wordBounded(['identifier', 'name', 'constant']);
 // C#'s `type`, and C#'s own `returns` (declares `type`), while correctly rejecting every OTHER leftover field on a
 // callable node measured across the shipped grammars (`dimensions`, `operator`, `reference_modifier`,
 // `static_modifier`, `interfaces`, `object`, `arguments`, a lone unparenthesized arrow `parameter`) — none of
-// those fields' declared child types contain the word "type" (§014/§021 log).
+// those fields' declared child types contain the word "type" (see the measurement log).
 const RESULT_FIELD_RE = wordBounded(['type']);

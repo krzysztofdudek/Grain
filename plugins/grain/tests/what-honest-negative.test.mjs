@@ -1,16 +1,16 @@
-// §018/§011/§014 — the shared defect behind three separate field-test findings: `what` answers "has no
+// the shared defect behind three separate field-test findings: `what` answers "has no
 // declarations or values anywhere in this repository's code" in situations where that claim is not true, because
 // grain already HAD the evidence to hedge and threw it away.
-//   - §011 (df-gated value): a literal exists in exactly one file, so `CFG.valueDfMin=2` correctly excludes it
+//   - the df-gated value disclosure: a literal exists in exactly one file, so `CFG.valueDfMin=2` correctly excludes it
 //     from `model.valueIndex` — but `what` then reports the same bare "nothing" it would for a value that was
 //     never in the source at all. Seen-and-gated must read differently from never-seen.
-//   - §018/§014 (extraction gap): a file parses cleanly but yields zero real scopes (a macro-only body in Rust,
+//   - the Rust-macro-body and Go-package-const (extraction gap): a file parses cleanly but yields zero real scopes (a macro-only body in Rust,
 //     a package-level `const`/`var` block in Go — and, reproduced here without either language, a bare top-level
 //     `const` in TypeScript: grain's own binding does not turn it into a scope either). `defined`/`values` for a
 //     symbol living only in such a file come back empty in a way indistinguishable from the symbol not existing.
 // The fix (core.mjs, `whatCmd`'s empty branch — see `gatedValueNote`/`unseenFilesNote`) makes the empty answer
 // name which of the two cases applies, and leaves the case where NEITHER applies exactly as terse as before: a
-// competent reader must not conclude "multi-word queries are broken" (§011's own retest damage) from a hedge that
+// competent reader must not conclude "multi-word queries are broken" (the df-gated value disclosure's own retest damage) from a hedge that
 // was never warranted.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -70,9 +70,9 @@ test('(1) a genuinely absent symbol gets a short, clean "not found" — not verb
 test('teardown: absent repo', () => { if (tmpAbsent) rmSync(tmpAbsent, { recursive: true, force: true }); });
 
 // ===========================================================================================================
-// repo GATED — case 2 (§011): a JSON key that is real, verbatim in the source, appearing in exactly ONE file —
+// repo GATED — case 2: a JSON key that is real, verbatim in the source, appearing in exactly ONE file —
 // below CFG.valueDfMin=2, so `model.valueIndex` correctly excludes it. The pre-fix answer is byte-identical to
-// case 1's "has no declarations or values anywhere", which is the exact defect §011 reported on express's
+// case 1's "has no declarations or values anywhere", which is the exact defect the df-gated value disclosure reported on express's
 // package.json (every key there has df=1 in a single-package repo).
 // ===========================================================================================================
 let tmpGated, repoGated;
@@ -82,7 +82,7 @@ test('setup: repo with a real, single-file (df=1) value', () => {
   fillers(repoGated, 15);
   gitIn(repoGated, 'add', '-A'); gitIn(repoGated, 'commit', '-qm', 'a single-file config value');
   const st = grainIn(repoGated, ['status']); assert.equal(st.code, 0, st.err);
-  // confirm the premise directly against the model, the same way §011's own report did
+  // confirm the premise directly against the model, the same way the df-gated value disclosure's own report did
   const m = modelIn(repoGated);
   assert.ok(!Object.keys(m.valueIndex || {}).some(k => k.endsWith(':deploymentRegion')),
     `deploymentRegion must be excluded from valueIndex by the df floor for this test to mean anything: ${JSON.stringify(Object.keys(m.valueIndex || {}))}`);
@@ -101,7 +101,7 @@ test('(2) a df-gated value is distinguished from case 1 — seen and why it is n
 test('teardown: gated repo', () => { if (tmpGated) rmSync(tmpGated, { recursive: true, force: true }); });
 
 // ===========================================================================================================
-// repo BLIND — case 3 (§018/§014 shape): `src/onlyConsts.ts` parses without error and contributes to
+// repo BLIND — case 3 (the Rust-macro-body and Go-package-const shape): `src/onlyConsts.ts` parses without error and contributes to
 // `model.filesAll`, but its ONLY content is top-level `const` bindings — grain's own binding does not turn
 // these into scopes (confirmed directly against a real build: the file is present in `filesAll` and absent from
 // every partition's `fileScopes`), the exact shape of axum's macro-only rejection.rs and gin's package-level
@@ -149,10 +149,10 @@ test('setup: regression repo — a real declaration and a real df=2 value', () =
   const st = grainIn(repoReg, ['status']); assert.equal(st.code, 0, st.err);
 });
 
-test('(4a) a real declaration renders exactly as before, plus §065\'s own honest "tested by" negative — no OTHER hedge text leaks into a found answer', () => {
+test('(4a) a real declaration renders exactly as before, plus the tested-by negative\'s own honest "tested by" negative — no OTHER hedge text leaks into a found answer', () => {
   const r = grainIn(repoReg, ['what', 'widgetHandler']);
   assert.equal(r.code, 0, r.err);
-  // §065: a real declaration with no test coverage by any of the three signals now also carries the honest
+  // a real declaration with no test coverage by any of the three signals now also carries the honest
   // "tested by: no test file identified" negative — header + defined + spread + tested-by + stamp.
   assert.equal(r.out.split('\n').length, 5, `expected header + defined + spread + tested-by + stamp only, got:\n${r.out}`);
   assert.match(r.out, /defined: src\/widget\.ts:1 `widgetHandler` \(method\)/, r.out);

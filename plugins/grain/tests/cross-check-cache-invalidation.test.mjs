@@ -55,7 +55,7 @@ import { fileURLToPath } from 'node:url';
 // READ-ONLY import: used only to assert a healed cache file was restamped with the LIVE constant, never assigned
 // to, never used to "bump" anything — the whole point of this file is testing a bump from the OUTSIDE.
 import { EXTR_V, HIST_V, MODEL_V } from '../engine/config.mjs';
-// history.json is newline-delimited, not one JSON object (§055) — read/written through history.mjs's own
+// history.json is newline-delimited, not one JSON object — read/written through history.mjs's own
 // (de)serializer everywhere below, never through the generic readJ/writeJ this file uses for every other cache file.
 import { readHistoryState, writeHistoryState } from '../engine/history.mjs';
 

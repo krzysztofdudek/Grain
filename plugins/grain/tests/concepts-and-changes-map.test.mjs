@@ -183,10 +183,10 @@ test('(c2) session-context adds concepts:/changes: lines only when populated, an
   const text = JSON.parse(r.out).hookSpecificOutput.additionalContext;
   const lines = text.split('\n');
   // 5 unconditional lines (intro, where, check, status|report, Index:) + Architecture (edges exist here) +
-  // the `propose` line (ticket 104: this fixture has an index and no .yggdrasil/ of its own) + concepts: +
+  // the `propose` line (this fixture has an index and no .yggdrasil/ of its own) + concepts: +
   // changes: = 9 observed for this fixture (no steers recorded, so the "Maintainer decisions in force" line
   // does not fire). The budget is ARITHMETIC, not taste: 5 unconditional lines plus the 5 conditional ones the
-  // renderer can emit (Architecture, propose, concepts, changes, decisions) = 10, raised from 9 by ticket 104's
+  // renderer can emit (Architecture, propose, concepts, changes, decisions) = 10, raised from 9 by the product's
   // single new conditional line, which a repository that already carries a `.yggdrasil/` never sees at all.
   assert.equal(lines.length, 9, `expected exactly 9 lines for this fixture, got ${lines.length}:\n${text}`);
   assert.ok(lines.length <= 10, `session-context must stay within the <= 10 line budget, got ${lines.length}`);

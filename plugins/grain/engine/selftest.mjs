@@ -1,5 +1,5 @@
 // grain engine · selftest — the mutation harness and the extraction-recall oracle behind `grain selftest` (dev and test only)
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { extname } from 'node:path/posix';
@@ -81,7 +81,7 @@ export async function mutateTest({ model, root }) {
   const res = { detected: 0, missed: 0, silentOK: 0, falseFire: 0, unsupported: 0, cases: [] };
   for (const part of model.partitions) {
     const withExemplars = part.facts.filter(f => f.exemplars.length);
-    // §046: a certified fact whose pid carries no mutation strategy below (lexical/shape/birth facts, not
+    // a certified fact whose pid carries no mutation strategy below (lexical/shape/birth facts, not
     // deco/extends/imp/call/nameshape) used to be dropped HERE, before the loop, so it never touched `unsupported`
     // either — a repo whose only certified conventions are of such a kind (telescope.nvim: auto.has/auto.filebirth/
     // auto.lex/auto.stshape) got a bare, unexplained 0/0/0/0 instead of an accounted "N unsupported". Count it now,
@@ -117,7 +117,7 @@ export async function mutateTest({ model, root }) {
       }
       if (mut.candidates) {
         // injected mutations: keep the candidate where the planted artifact really lands (ground truth = extraction)
-        // the grammar is resolved from the file's OWN content once (§040: `.h` names two), never re-decided per
+        // the grammar is resolved from the file's OWN content once (`.h` names two), never re-decided per
         // mutated candidate — a mutation must not be able to flip the grammar the comparison is made under
         const { p: pp, tree: t00 } = await parseFile(extname(ex.rel), src);
         t00.delete();

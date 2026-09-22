@@ -1,5 +1,5 @@
 // grain engine · proposal writer · candidate localities and the words that describe a level
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { MIN_GROUP_MEMBERS, underDir, uniq } from './propose-base.mjs';
 
 export function localities(exp, cache, files) {
@@ -49,7 +49,7 @@ export function localities(exp, cache, files) {
 //   3. directory cards strictly BELOW a partition root (grain publishes a card only for a directory that
 //      carries scopes, so a published card is evidence of its own; this is the level that holds `portal-server`
 //      and `portal-engine-api` in 093 §2's class-a table);
-//   4. any FINER directory that beats the level above it on that level's own evidence (ticket 110, below), and
+//   4. any FINER directory that beats the level above it on that level's own evidence (below), and
 //      then the top-level directory of any tracked file all of the above leave uncovered (no grain evidence at
 //      all, and the evidence line says so in those words).
 //
@@ -60,7 +60,7 @@ export function localities(exp, cache, files) {
 // exact count of tracked files that predicate selects, so the maintainer chooses the level rather than
 // discovering one was chosen for them.
 //
-// THE LEVEL IS PUBLISHED, AND THE CUT IS DERIVED FROM MEASURED NUMBERS (ticket 110)
+// THE LEVEL IS PUBLISHED, AND THE CUT IS DERIVED FROM MEASURED NUMBERS
 // ---------------------------------------------------------------------------------
 // Ticket 108 measured four hand-written oracles and found no single level wins: the module level recovers most
 // of express, the directory level most of spring-petclinic, the role group most of Yggdrasil and of grain
@@ -76,7 +76,7 @@ export function localities(exp, cache, files) {
 //   directory   a directory that carries declarations grain parsed. Usually a published directory card — grain
 //               publishes one only where it mined scopes — and otherwise a directory of parsed code that no
 //               card named, admitted by the policy below.
-//   domain      ticket 116's cut: a role group whose members all live under one directory below their host, so
+//   domain      the domain cut: a role group whose members all live under one directory below their host, so
 //               the membership is a `path:` glob rather than a guest list and a file added there joins by
 //               itself.
 //   role group  a structurally-uniform cluster INSIDE a partition. It is not a place in the layout, so it can
@@ -90,7 +90,7 @@ export function localities(exp, cache, files) {
 // over the SAME directory separated by a `content:` predicate have no such order, and a file matching both
 // would have two owners. So `role group` is an alternatives-only level by construction, not by preference.
 //
-// THE SELECTION POLICY, MEASURED (ticket 110). Fourteen intrinsic-only policies were scored against all four
+// THE SELECTION POLICY, MEASURED. Fourteen intrinsic-only policies were scored against all four
 // oracles at Jaccard >= 0.5, in both directions. Recall is MONOTONE in the candidate set — a finer type can
 // only add a match — so "maximise recall" alone selects "every directory", which is 418 types on Yggdrasil and
 // not a proposal anyone reads. The policy that wins on all four repositories without losing on any is a
@@ -177,7 +177,7 @@ const fileNameShape = f => f.slice(f.lastIndexOf('/') + 1).replace(/[A-Z]+/g, 'U
 export const purityOf = m => (m.importsInside + m.importsCrossing ? m.importsInside / (m.importsInside + m.importsCrossing) : null);
 // `a`, `a and b`, `a, b and c` — an English list, because a sentence a maintainer reads is not a join.
 const andList = xs => (xs.length <= 1 ? (xs[0] || '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
-// THE LEVEL AND THE NUMBERS BEHIND IT, IN ONE CLAUSE (ticket 110, worded under ticket 109's rules).
+// THE LEVEL AND THE NUMBERS BEHIND IT, IN ONE CLAUSE (worded under the wording rules for levels).
 //
 // Facts, in the order a maintainer needs them to decide whether this is the right cut: which level it came from
 // and which other levels agree, how big it is, how much of its dependency traffic it keeps inside, how much of
@@ -242,7 +242,7 @@ export function contentRegexFor(group) {
   // lowercases; the export publishes them as `tok:` features), NOT a literal that appears in the source. Every
   // other branch above anchors on something spelled exactly as the code spells it — a decorator name, a
   // supertype, a member identifier, an import specifier — so only this one has to be rendered case-tolerantly.
-  // Measured (ticket 101) on Yggdrasil's own planted-family fixtures: rendered case-sensitively, the token
+  // Measured on Yggdrasil's own planted-family fixtures: rendered case-sensitively, the token
   // `first` selected 0 of the 5 `*Repository.ts` members of `family-planted-mono` (their subword is `findFirst`,
   // capital F) and 0 of 6 on `family-planted-polyglot`, while selecting all 5 snake_case Python members
   // (`find_first`) — i.e. the predicate silently worked in one casing convention and was vacuous in the other.

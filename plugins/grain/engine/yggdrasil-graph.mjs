@@ -4,7 +4,7 @@
 // Shared engine code, not an instrument. `grain propose` (engine/propose.mjs) writes such a graph and has to
 // expand its own drafted predicates to know what they select; `tests/stress/reconstruct.mjs` reads a
 // hand-written one to score grain against it. Both used to import this from reconstruct.mjs, which put a
-// product command downstream of a test instrument — the code below moved here VERBATIM (ticket 104) and
+// product command downstream of a test instrument — the code below moved here VERBATIM and
 // reconstruct.mjs re-exports it, so every existing consumer keeps the same names and the same behaviour.
 import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { join, dirname, relative, sep } from 'node:path';

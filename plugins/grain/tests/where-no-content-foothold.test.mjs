@@ -1,4 +1,4 @@
-// §070 (research/where-lever) — on the leak-free stratum, 36% of the files `where` should have named score EXACTLY
+// the zero-foothold banner (research/where-lever) — on the leak-free stratum, 36% of the files `where` should have named score EXACTLY
 // zero on `where`'s own lexical scale (maintainer note *where-ranking-design* §1/§2.1). Ground truth is not
 // available at query time, so `whereCmd` cannot detect "the right file scored zero" directly — but it CAN detect
 // the reachable half of the same shape: a query whose surviving words carry no content-lexical weight at all (they

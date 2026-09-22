@@ -1,8 +1,8 @@
 // INVARIANT under audit (ticket .temp/issues/020-where-leaks-deleted-files/issue.md, OPEN): no grain surface may
 // name a repo-relative PATH that is absent from HEAD without marking it as such — OR omit it outright. The house
 // shape for that already exists in three independent places — `model.waivers`/`model.steers` render "not found in
-// HEAD — inert", `model.boundaries` renders "a side names no indexed files — inert", and (since §066, superseding
-// the `(deleted)` label ticket 020 originally put here) `how`'s places[] OMITS a dead path entirely rather than
+// HEAD — inert", `model.boundaries` renders "a side names no indexed files — inert", and (since the JSON/text parity fixes, superseding
+// the `(deleted)` label originally put here) `how`'s places[] OMITS a dead path entirely rather than
 // marking it — measured on a real corpus, marking still put 13 of 28 CleanArchitecture places on files gone from
 // HEAD, which still reads as "somewhere to edit" to an agent skimming the list. Ticket 020 shows `where`'s
 // "historically co-changes with:" co-change line naming a long-deleted file with NO marker at all — same
@@ -20,7 +20,7 @@
 // path must not appear on that surface at all — omission is compliant per the ticket's own acceptance text
 // ("marks it OR omits it — decide which and document why").
 //
-// A RED result here is INFORMATION, not a bug in this test: ticket 020 is OPEN, so `where`'s sweep entry is
+// A RED result here is INFORMATION, not a bug in this test: the liveness fix is not complete everywhere, so `where`'s sweep entry is
 // EXPECTED to fail today (a regression guard for whenever it's fixed), and any OTHER surface that goes red is a
 // newly-discovered instance of the same class of leak, to be reported — never silently weakened into passing.
 import { test, before, after } from 'node:test';
@@ -136,7 +136,7 @@ before(() => {
   gitIn(repo, dateEnv(day(12)), 'rm', '-q', 'lib/zqdeadrouter.js');
   commit(12, 'remove dead router zqdeadrouter no longer needed');
 
-  // C13..C15: "several commits before HEAD" after the deletion (ticket 020's own fixture shape: "deleted 15
+  // C13..C15: "several commits before HEAD" after the deletion (the reported fixture shape: "deleted 15
   // versions ago"), touching only the unrelated zqpad.js so neither zqalpha's nor zqdeadrouter's commit counts
   // computed above are disturbed.
   wIn(repo, 'lib/zqpad.js', 'export const zqPad = 1;\n'); commit(13, 'add zqpad helper');
@@ -178,7 +178,7 @@ test('PRECONDITION: model.moves carries an entry for the lib/ -> lib/moved/ rena
   assert.ok(hit, `expected a model.moves entry recording the lib -> lib/moved rename: ${JSON.stringify(moves)}`);
 });
 
-test('PRECONDITION / REGRESSION GUARD (§066, superseding ticket 020\'s original fix): `how` OMITS the dead place entirely and still reports the live one, exists:true', () => {
+test('PRECONDITION / REGRESSION GUARD (superseding the original fix): `how` OMITS the dead place entirely and still reports the live one, exists:true', () => {
   const j = JSON.parse(grainIn(repo, ['how', HOW_QUERY, '--json']).out);
   const byRel = Object.fromEntries(j.places.map(p => [p.rel, p]));
   const live = byRel[LIVE_PATH];
@@ -194,15 +194,15 @@ test('PRECONDITION / REGRESSION GUARD (§066, superseding ticket 020\'s original
   assert.doesNotMatch(liveLine, /\(deleted\)/, `the live file must not be marked deleted: ${liveLine}`);
 });
 
-test('PRECONDITION: at least one OTHER surface mentions the dead path — the sweep is non-vacuous (ticket 020\'s own reproduction)', () => {
+test('PRECONDITION: at least one OTHER surface mentions the dead path — the sweep is non-vacuous (the original reproduction)', () => {
   const out = outputs[WHERE_ALPHA_KEY].out;
-  assert.ok(out.includes(DEAD_PATH), `expected \`grain where zqalpha\`'s co-change line to name ${DEAD_PATH} (ticket 020) — without this the whole sweep would prove nothing: ${out}`);
-  console.log(`[ticket 020 repro] ${WHERE_ALPHA_KEY} → ${out.split('\n').find(l => l.includes(DEAD_PATH))}`);
+  assert.ok(out.includes(DEAD_PATH), `expected \`grain where zqalpha\`'s co-change line to name ${DEAD_PATH} — without this the whole sweep would prove nothing: ${out}`);
+  console.log(`[liveness repro] ${WHERE_ALPHA_KEY} → ${out.split('\n').find(l => l.includes(DEAD_PATH))}`);
 });
 
 // ===== THE SWEEP — every read surface, one test each, same generic check. A surface that never mentions
 // DEAD_PATH passes trivially (compliant by omission); one that mentions it must mark it; one that mentions it
-// without marking it is a genuine finding (ticket 020's own `where` case, or a new one). =====
+// without marking it is a genuine finding (the original `where` case, or a new one). =====
 for (const c of CMDS) {
   test(`SWEEP: ${c.key} — every mention of the deleted file is marked, or the file is not named at all`, () => {
     const r = outputs[c.key];

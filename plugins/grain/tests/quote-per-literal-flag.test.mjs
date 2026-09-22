@@ -1,13 +1,13 @@
-// §077 (director-approved follow-up to §042, esc-1): §042 shipped honest disclosure for the quote-style
+// The per-literal quote flag (a follow-up to the quote-style disclosure): the quote-style disclosure shipped honest disclosure for the quote-style
 // convention's per-FILE vote (`governed[].withinFile` + a `conforms to:` clause) but deliberately left the 22
 // (express) / 12 (flask) minority literals that depart their file's majority WITHOUT a forcing delimiter counted,
 // never flagged. This ticket adds the per-literal flag for exactly those genuine departures, reusing the same
-// delimiter-forced content test §042 already measured (11/11 telescope.nvim, 19/31 flask, 2/24 express minority
+// delimiter-forced content test the quote-style disclosure already measured (11/11 telescope.nvim, 19/31 flask, 2/24 express minority
 // literals contain the majority delimiter in their own body and are therefore forced, not chosen) — see
-// `quoteFlags`/`lexTally` in core.mjs and docs/validation.md's §042/§077 entries.
+// `quoteFlags`/`lexTally` in core.mjs and docs/validation.md's entries for the quote-style disclosure and the per-literal quote flag.
 //
 // No new constant: the flag exists only where the file-level convention already governs this file (the same
-// `governed[].withinFile` gate §042 built), and renders as part of that SAME clause — never a new line/section.
+// `governed[].withinFile` gate the quote-style disclosure built), and renders as part of that SAME clause — never a new line/section.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';

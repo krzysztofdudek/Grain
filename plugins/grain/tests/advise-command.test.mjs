@@ -1,4 +1,4 @@
-// `grain advise` — node-level co-change and split candidates as `grain-advice/1` (ticket 131).
+// `grain advise` — node-level co-change and split candidates as `grain-advice/1`.
 //
 // The command reads the architecture graph a repository already has and reports two things about it from the
 // repository's own history and imports: places that change together with nothing in the graph connecting them,

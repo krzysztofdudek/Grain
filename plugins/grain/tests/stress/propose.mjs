@@ -2,7 +2,7 @@
 // The proposal instrument (G'') — a thin CLI wrapper around the renderer, plus the one thing only a measurement
 // run needs: SCORING a rendered proposal against a repository's HAND-WRITTEN `.yggdrasil/`.
 //
-// The renderer itself moved to `engine/propose.mjs` when `grain propose` became a product command (ticket 104).
+// The renderer itself moved to `engine/propose.mjs` when `grain propose` became a product command.
 // Nothing about the rendering changed with the move — this file re-exports every name it used to export, from
 // there, so `integration-stress.mjs`, `law-loop.mjs`, `propose.test.mjs` and `integration-stress.test.mjs`
 // import exactly what they imported before, and the CLI below keeps every flag it had.

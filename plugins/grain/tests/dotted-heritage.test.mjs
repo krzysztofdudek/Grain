@@ -6,18 +6,18 @@
 // `importTargets` — even though the bare `MethodView` would resolve correctly. Heritage-claim fabrication
 // rate on flask: 78/158 = 49.4%, all of this shape.
 //
-// NOT the same bug as §049 (a constructor-CALL argument mistaken for a base type) or §062 (a qualified/member
+// NOT the same bug as the constructor-argument fix (a constructor-CALL argument mistaken for a base type) or the qualified-heritage fix (a qualified/member
 // clause resolving to the NAMESPACE instead of the MEMBER — one wrong name per clause). This is Python-grammar-
 // specific: tree-sitter-python nests a dotted heritage target as a chain of `attribute` nodes, each of which is
 // independently identifier-shaped, and Python's dedicated `class_definition.superclasses` field (added to
-// heritageRe by §049, since it's an argument_list) was read with its OWN naive walk —
-// `sc.descendantsOfType('identifier').concat(sc.descendantsOfType('attribute'))` — that never applied §062's
+// heritageRe by the constructor-argument fix, since it's an argument_list) was read with its OWN naive walk —
+// `sc.descendantsOfType('identifier').concat(sc.descendantsOfType('attribute'))` — that never applied the qualified-heritage fix's
 // leaf-only resolution at all. Every nesting level's identifier AND every intermediate `attribute` node's own
 // (partial) dotted text landed in `sup` independently.
 //
 // Fixed in core.mjs by routing the `superclasses` field through the same `heritageNamesOf` helper the generic
 // per-clause heritage walk already uses — no `lang === 'python'` check: `b.qualName` already recognizes
-// Python's `attribute` node as a qualified-name chain (§062's own structural derivation off node-types.json,
+// Python's `attribute` node as a qualified-name chain (the qualified-heritage fix's own structural derivation off node-types.json,
 // verified in bindingFor), so the shared resolver suppresses every non-leaf node in the chain the same way it
 // already does for JS/TS/Java/C#/Kotlin/Scala/Ruby's own qualified-name shapes.
 import { test } from 'node:test';
@@ -37,7 +37,7 @@ const supOf = (scopes, name) => {
   return s.sup;
 };
 
-test('§082: `class Foo(pkg.sub.Type)` records exactly ONE supertype, the resolved leaf `Type`', async () => {
+test('`class Foo(pkg.sub.Type)` records exactly ONE supertype, the resolved leaf `Type`', async () => {
   const scopes = await typeScopes(`class Foo(pkg.sub.Type):
     pass
 `);
@@ -46,10 +46,10 @@ test('§082: `class Foo(pkg.sub.Type)` records exactly ONE supertype, the resolv
   assert.ok(!sup.includes('pkg'), '`pkg` is a namespace segment, never its own claim');
   assert.ok(!sup.includes('pkg.sub'), '`pkg.sub` is a namespace prefix, never its own claim');
   assert.equal(scopes.find(s => s.name === 'Foo').supKind.Type, 'ext',
-    'Python\'s superclasses field is always inheritance-shaped (§033)');
+    'Python\'s superclasses field is always inheritance-shaped');
 });
 
-test('§082: the flask shape — `class BaseView(flask.views.MethodView)` — records only `MethodView`', async () => {
+test('the flask shape — `class BaseView(flask.views.MethodView)` — records only `MethodView`', async () => {
   // The exact reported reproduction (tests/test_views.py:201 in flask/flask), reduced to a standalone fixture:
   // a locally-declared MethodView so the correctly-resolved leaf is also independently checkable as a real
   // declared type — the fabricated versions (`flask`, `flask.views`, `flask.views.MethodView`) never are.
@@ -65,14 +65,14 @@ class BaseView(flask.views.MethodView):
     assert.ok(!sup.includes(bogus), `${bogus} must never be recorded — it is a namespace prefix, not a base type`);
 });
 
-test('§082: multiple bases mixing plain and dotted names all resolve correctly, in order', async () => {
+test('multiple bases mixing plain and dotted names all resolve correctly, in order', async () => {
   const scopes = await typeScopes(`class Foo(Bar, pkg.sub.Type, Baz):
     pass
 `);
   assert.deepEqual(supOf(scopes, 'Foo'), ['Bar', 'Type', 'Baz']);
 });
 
-test('§082: a deeper dotted chain (four segments) still collapses to just the leaf', async () => {
+test('a deeper dotted chain (four segments) still collapses to just the leaf', async () => {
   const scopes = await typeScopes(`class Foo(a.b.c.d.Type):
     pass
 `);

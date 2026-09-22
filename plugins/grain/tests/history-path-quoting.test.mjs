@@ -10,7 +10,7 @@
 //     just mis-keyed. This holds through a rename too: the renamed-to path is quoted the same way, so it also
 //     never reaches replay()'s "a renamed file's scopes keep their timelines" transfer logic pre-fix.
 // This reads .grain/cache/history.json directly (the persisted replay state) since that is where the corruption
-// lives, before it ever reaches a query surface. (§055: that file is now newline-delimited, not one JSON object —
+// lives, before it ever reaches a query surface. (that file is now newline-delimited, not one JSON object —
 // read back through history.mjs's own `readHistoryState`, the same reconstruction `loadHistory` itself uses.)
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

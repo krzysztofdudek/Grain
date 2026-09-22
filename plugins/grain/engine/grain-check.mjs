@@ -1,5 +1,5 @@
 // grain engine · query surface · `check` and `review` — one file, and a whole uncommitted change
-// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of grain.mjs: the statements below are the ones that stood there, unchanged.
 import { existsSync, readFileSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { execFileSync } from 'node:child_process';
@@ -29,7 +29,7 @@ import { recordCheckFeedback } from './grain-session.mjs';
 // per-scope conformance tally from a checkFile() result — shared by `check` (its own "conforms to:" line) and
 // `review`'s --json (the same `governed` shape, per file). `touched` (optional, cmdCheck's own line-range test)
 // additionally tallies `inChange`: how many of THIS fact's governing scopes fall inside the reader's own edit — the
-// count `check`'s "conforms to:" line filters on (§003-A1: a fact governing only untouched scopes must not read as
+// count `check`'s "conforms to:" line filters on (a fact governing only untouched scopes must not read as
 // the CHANGE conforming to it). Omitted (review's callers, and check on a path with no diff to scope against),
 // every governed scope counts as "in change" — the original, unscoped behavior.
 function govFactsOf(r, touched) {
@@ -132,9 +132,9 @@ function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp, location = null })
       share: e.g.fact.share,
       scopes: e.n,
       conforming: e.ok,
-      // §042 — present only for a per-file lexical vote that hid departing instances: `conforming`/`scopes` above
+      // present only for a per-file lexical vote that hid departing instances: `conforming`/`scopes` above
       // count SCOPES (a file is one), and for a style surface the file's verdict is a majority over its instances.
-      // Absent means nothing was hidden, never that the surface was not checked. `flagged`/`flagLines` (§077) are
+      // Absent means nothing was hidden, never that the surface was not checked. `flagged`/`flagLines` are
       // present only when the quote surface's hidden instances include genuine, non-delimiter-forced violations —
       // the same per-literal flag the printed `conforms to:` line's clause now carries (lexTally's `note`).
       ...(e.g.tally
@@ -185,7 +185,7 @@ function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp, location = null })
           statement: r.placeHit.text.replace(/^\[grain\] /, ''),
         }
       : null,
-    // §089 — the exact caveat `check`'s own text renderer prints under the headline for this same `r.hasError`
+    // the exact caveat `check`'s own text renderer prints under the headline for this same `r.hasError`
     // flag (already present above as a plain boolean); review's text prints the identical sentence per file, or
     // (over its display cap) an aggregate line naming the count instead — either way the underlying fact is the
     // same, so it is always disclosed here structurally, one place, matching `check`'s own wording verbatim.
@@ -218,7 +218,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   if (!EXT2GRAMMAR[extname(rel)]) {
     const ph = placementHit(model, rel);
     const dirty0 = fileDirty(root, rel, isGit, refs?.diffArgs);
-    // §089 — the same sentence the text branch below prints, kept in one place so JSON and text can never drift
+    // the same sentence the text branch below prints, kept in one place so JSON and text can never drift
     const noGrammarText = `check ${rel}: no grammar for "${extname(rel) || 'a file without extension'}" — grain parses ${GRAMMARS.join(', ')}`;
     if (opts.json)
       return [
@@ -241,7 +241,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   const lines = [];
   if (!r.partition) {
     const arch = (r.archHits || []).map(h => h.text);
-    // §089 — same sentence as the text branch below, one place so JSON and text can never drift
+    // same sentence as the text branch below, one place so JSON and text can never drift
     const noPartitionText = `check ${rel}: ${r.reason} — grain has no norm to hold this file against`;
     if (opts.json)
       return [
@@ -277,7 +277,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   const scopesN = r.scopes.filter(s => s.kind !== 'file').length;
   if (r.hasError && scopesN === 0) {
     // a real parse failure, not a genuinely trivial file — the ONLY case this branch may fire for now (it used to be permanently dead: r.scopes.length is never 0 because extractScopes always pushes a file-kind pseudo-scope)
-    // §089 — same sentence as the text branch below, one place so JSON and text can never drift
+    // same sentence as the text branch below, one place so JSON and text can never drift
     const parseFailedText = `check ${rel}: parse failed — this file is largely unparseable (unsupported syntax or a grammar limitation); its scope list is empty and may be missing real content`;
     if (opts.json)
       return [
@@ -302,7 +302,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
       wholeFile: fromFlag !== undefined,
       diffArgs: refs?.diffArgs,
     });
-  // §003-A1: "conforms to:" is scoped to the reader's own change (below) whenever we actually KNOW what changed —
+  // "conforms to:" is scoped to the reader's own change (below) whenever we actually KNOW what changed —
   // `dirty` false (nothing differs from HEAD) or `touched` null (no git / diff unavailable) both mean there is no
   // real change-range to scope against, so govFactsOf's unscoped default (every governed scope counts) is kept,
   // exactly as before this fix.
@@ -326,7 +326,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
     ]; // machine-readable verdict: the same facts `check` prints, as data (consumers: harnesses, training pipelines)
   const inl = inLineForFile(model, opts.as || rel);
   if (inl) lines.push(inl);
-  // §010(c): computed here, ahead of the headline, so a pending new-scope disclosure can qualify the headline's own
+  // computed here, ahead of the headline, so a pending new-scope disclosure can qualify the headline's own
   // "0 deviation(s)" IN PLACE rather than being disclosed only in lines a reader may never reach below it — a dev
   // skimming just the headline must not read an unqualified clean bill of health while grain is disclosing it
   // cannot judge part of the change. `newCount` is the raw SCOPE count (checkFile's `count` field), not the
@@ -334,7 +334,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   const newIn = (r.newScopeHits || []).filter(h => !touched || touched(h.line, h.endLine));
   const newPre = (r.newScopeHits || []).filter(h => touched && !touched(h.line, h.endLine));
   const newCount = newIn.reduce((a, h) => a + (h.count || 1), 0);
-  // byte-identical to the pre-§010 wording whenever nothing is pending (newCount === 0) — only a real disclosure
+  // byte-identical to the earlier wording whenever nothing is pending (newCount === 0) — only a real disclosure
   // changes the headline's shape, never its absence
   lines.push(
     `check ${rel} — ${scopeLabel(r.partition)} · ${scopesN} scopes + file · governed by ${govFacts.size} convention(s) · ${inChange.length} ${newCount ? 'known deviation(s)' : 'deviation(s)'} in your change, ${preOnly.length} pre-existing${newCount ? `, ${newCount} unclassified scope(s)` : ''}${steerIn.length ? ` · ${steerIn.length} maintainer decision(s) your change departs from` : ''}`
@@ -366,8 +366,8 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
       `  (${steerPre.length} more existing ${steerPre.length > 1 ? 'scopes' : 'scope'} still on the retired pattern — a transition in progress, not yours to fix)`
     );
   if (steerPre.length && opts.all) for (const h of steerPre) lines.push(h.text);
-  // §003-B: scopes checkFile found genuinely new to the index — already collapsed one line per (kind, neighbour)
-  // by checkFile itself (§010-a); capped and scoped to the change the same way steer/waiver/architecture hits
+  // scopes checkFile found genuinely new to the index — already collapsed one line per (kind, neighbour)
+  // by checkFile itself; capped and scoped to the change the same way steer/waiver/architecture hits
   // above are, mirroring check-hook's own speak.slice(0, 8) + "+N more" idiom. `newIn`/`newCount` were computed
   // above, ahead of the headline.
   for (const h of newIn.slice(0, 8)) lines.push(h.text);
@@ -410,7 +410,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
           .join(' · ')}${preOnly.length > 4 ? ` · +${preOnly.length - 4} more` : ''}`
       );
   }
-  // §003-A1: `e.inChange` is 0 for a fact whose only governed scopes sit outside the reader's own change (see
+  // `e.inChange` is 0 for a fact whose only governed scopes sit outside the reader's own change (see
   // govFactsOf above) — such a fact must not read as "the change conforms to it". `e.inChange` defaults to `e.n`
   // (always > 0) whenever govFacts was built unscoped, so this adds no new gate on that path.
   const ok = [...govFacts.values()].filter(
@@ -421,12 +421,12 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   );
   const supNote = e =>
     e.g.fact.contested ? ` — superseded by maintainer decision ${e.g.fact.contested}` : '';
-  // §003-A2: a marker-tautology fact (its pid IS the feature that formed the group — see isDefiningFact) is not
+  // a marker-tautology fact (its pid IS the feature that formed the group — see isDefiningFact) is not
   // suppressed here, but it is not left to read as an ordinary followed convention either: the clause says what it
   // actually is — the group's own definition, enforceable on members and, by construction, on no one else.
   const defNote = e =>
     e.g.defining ? ` — defines this group; grain enforces it on members, not on a non-member` : '';
-  // §042: a style surface's verdict is a per-file majority, so "conforms" can be true while instances in this very
+  // a style surface's verdict is a per-file majority, so "conforms" can be true while instances in this very
   // file depart. Say so on the line that claims conformance, never only in --json.
   const tallyNote = e => (e.g.tally ? e.g.tally.note : '');
   if (ok.length)
@@ -442,7 +442,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
         )
         .join(' · ')}${ok.length > 6 ? ` · +${ok.length - 6} more` : ''}`
     );
-  // §042 — the same disclosure, for a governed lexical fact that never reached the line above: `ok` requires
+  // the same disclosure, for a governed lexical fact that never reached the line above: `ok` requires
   // `inChange > 0`, and a file-kind fact's pseudo-scope sits at line 1, so an edit deeper in the file scopes it out
   // (G10's line-range mismatch, here on the conforming side) — exactly the reported case, where 7 added single-quoted
   // literals produced no output at all. What the vote could not see must not depend on where in the file you typed.
@@ -463,7 +463,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
   // `review`'s many-file changed set, where that test is meaningful
   lines.push(...missingLines(model, files, { sources: ['cochange'], newFileScopes }));
   lines.push(...scopeCochangeLines(model, rel, r.partition));
-  // §073: the birth-obligation table's own structural silence — a file `--as` simulates at a path that does not
+  // the birth-obligation table's own structural silence — a file `--as` simulates at a path that does not
   // exist yet has no co-change history (the block above), but its (module, suffix) CLASS may still certify a
   // specific companion. One line, top rule only (`obligationLines`' full two-set report is `grain obligation`'s
   // own job); silent when nothing certifies, the same restraint `scopeCochangeLines` already shows here.
@@ -594,7 +594,7 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
         f.inChange,
         content ?? readFileSync(join(root, rel), 'utf8')
       );
-    // §053: a degraded parse (r.hasError — part of the file sat in error nodes) must survive into review even
+    // a degraded parse (r.hasError — part of the file sat in error nodes) must survive into review even
     // when the parseable remainder deviates from nothing, or the file vanishes from the aggregate exactly like a
     // clean one — the same absence `check` never allows (grain.mjs's check branch always prints the caveat).
     if (!f.lines.length && !r.hasError) continue; // no finding at all and nothing to disclose — contributes nothing, not even a placeholder
@@ -615,7 +615,7 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
     return a.rel < b.rel ? -1 : 1;
   });
   const totalFindings = perFile.reduce((a, e) => a + e.f.lines.length, 0);
-  // §053: which of THIS review's files carry the same parse-degraded caveat `check` prints for them individually
+  // which of THIS review's files carry the same parse-degraded caveat `check` prints for them individually
   // (r.hasError — part of the file sat in error nodes, so its scope list may be incomplete). Named here, once, so
   // both the text and JSON renderers below read one list rather than recomputing it two different ways.
   const degradedRels = perFile.filter(e => e.r && e.r.hasError).map(e => e.rel);
@@ -631,7 +631,7 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
   if (opts.json) {
     const ccPartners = cochangeData(model, files)
       .slice(0, 5)
-      .map(h => `${h.file}${h.dead ? ' (deleted)' : ''} (co-changed in ${h.sup}/${h.commits} commits)`); // JSON contract unchanged (§023: same shape, now honest about a dead partner) — same values `completenessDirectional` used to produce
+      .map(h => `${h.file}${h.dead ? ' (deleted)' : ''} (co-changed in ${h.sup}/${h.commits} commits)`); // JSON contract unchanged (same shape, now honest about a dead partner) — same values `completenessDirectional` used to produce
     return [
       JSON.stringify({
         schema: 'grain-check/1',
@@ -674,7 +674,7 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
     lines.push(
       `clean — nothing to report across ${files.length} file${files.length === 1 ? '' : 's'} reviewed`
     );
-  // §053: over the cap, one summary line names the count instead of repeating the full sentence under every file
+  // over the cap, one summary line names the count instead of repeating the full sentence under every file
   // (below the cap, each degraded file still gets its own line inline, same wording `check` uses for the file alone)
   if (degradedRels.length > DEGRADED_CAVEAT_LIST_CAP)
     lines.push(

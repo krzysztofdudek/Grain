@@ -1,12 +1,12 @@
 // grain engine · proposal writer · what `grain propose` prints, and what --json writes
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { pct } from './propose-base.mjs';
 import { TYPE_LEVELS } from './propose-levels.mjs';
 
 // ==================================================================================================
 // 11. The report — what `grain propose` prints, and what `--json` writes.
 //
-// ONE builder for both surfaces (ticket 104). The text lines and the JSON document are produced from the same
+// ONE builder for both surfaces. The text lines and the JSON document are produced from the same
 // pass over the same objects, so a fact cannot appear in one and not the other; `tests/cross-check-propose.
 // test.mjs` pins that.
 //
@@ -21,7 +21,7 @@ import { TYPE_LEVELS } from './propose-levels.mjs';
 //      mined from (share, n). Ticket 107, ruling `enforced-requires-certified-origin`: earning this section
 //      needs the drill AND a `certified-convention` origin — a rule grain's own certification bound cleared.
 //      A `sub-gate-lattice` origin that clears the identical drill is real, but not yet law; it lands in (3).
-//   3. THE CANDIDATES — first the ADVISORY aspects (ticket 107): a sub-gate-lattice row a real drill proved
+//   3. THE CANDIDATES — first the ADVISORY aspects: a sub-gate-lattice row a real drill proved
 //      correct (0 false alarms, >= 1 caught) but that grain itself declined to certify — `sub-gate-rows-are-
 //      the-product` calls this a refactor plan, not a rule to switch on unread. Then, folded into the SAME
 //      list below them, today's older definition: a DRAFT (any origin, but in practice a false-alarming
@@ -50,7 +50,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
   const byStrength = (a, b) => caught(b) - caught(a) || (b.share ?? 0) - (a.share ?? 0) || (b.n ?? 0) - (a.n ?? 0);
 
   const enforced = r.aspects.filter(a => a.finalStatus === 'enforced').sort(byStrength);
-  // candidates (ticket 107): advisory aspects first (sub-gate origin, same drill bar as enforced — a refactor
+  // candidates: advisory aspects first (sub-gate origin, same drill bar as enforced — a refactor
   // decision, not law), then the older definition folded in below them — a DRAFT the same real drill still
   // caught at least one violation with. Both groups sort strongest-evidence-first WITHIN themselves; advisory
   // sits above legacy because it cleared a strictly higher bar (0 false alarms, not merely >=1 catch).
@@ -63,7 +63,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
   const restByReason = {};
   for (const a of rest) { const k = a.draftReason || 'unverified'; restByReason[k] = (restByReason[k] || 0) + 1; }
 
-  // What an enforced rule costs on the day the graph is switched on (ticket 118). `deviating` is the count of
+  // What an enforced rule costs on the day the graph is switched on. `deviating` is the count of
   // sites that break the rule at `asOf`; whether they block depends on the progressive reference the proposal
   // just wrote, so the sentence names the one that applies rather than leaving the reader to work it out.
   const prog = r.progressive || { reference: null, why: null };
@@ -88,17 +88,17 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
   const json = {
     schema: 'grain-propose/1',
     outDir: out, repo: root || null, asOf: r.exp?.asOf || null, files: r.files.length, degraded: r.degraded || null,
-    // `levels`/`alternativeLevels` (ticket 110, additive): which level each active type was cut at, and which
+    // `levels`/`alternativeLevels` (additive): which level each active type was cut at, and which
     // level each candidate the run did not activate was offered at. Both keyed by level name, summing to
     // `nodeTypes` and to `alternatives`.
     architecture: { nodeTypes: c.types, levels: c.typesByLevel || {}, alternativeLevels: c.alternativesByLevel || {}, nodes: c.nodes, relations: edges, cycles: c.nodeCycles, path: `${ygg}/yg-architecture.yaml` },
     // `timedOut` (additive) counts drills abandoned at `DRILL_TIMEOUT_MS`; their aspects are unverified, so
     // they are already inside the draft counts below — this names WHY they are, rather than leaving it silent.
     yggdrasil: { found: !!r.verify?.haveYg, cli: r.verify?.haveYg ? r.verify.ygBin : null, drilled: r.verify?.verified || 0, timedOut: r.verify?.timedOut || 0 },
-    // `progressive` (ticket 118, additive) — the reference the proposal's own `yg-config.yaml` names, and why
+    // `progressive` (additive) — the reference the proposal's own `yg-config.yaml` names, and why
     // that one. `reference: null` means the block was left out and the first `yg check` answers for everything.
     progressive: { reference: prog.reference || null, why: prog.why || null },
-    // `advisory` (ticket 107, additive) is also the count of `candidates` rows that carry `status: advisory` —
+    // `advisory` (additive) is also the count of `candidates` rows that carry `status: advisory` —
     // both numbers are given so a reader does not have to filter `candidates` to get the split.
     aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason, certifiedWithCases: c.aspectsCertifiedWithCases },
     enforced: enforced.map(aspectJson),
@@ -111,7 +111,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
       : null,
     alternatives: c.alternatives,
     skippedNotARule: c.aspectsSkippedNotARule,
-    // ticket 120, additive: WHY (`parser-node-type-as-identifier` | `generic-type-parameter-as-domain-type` |
+    // additive: WHY (`parser-node-type-as-identifier` | `generic-type-parameter-as-domain-type` |
     // absent for the pre-existing `filebirth` case), and the two other identifier-hygiene disclosures — a
     // narrower-than-scope cluster that stayed draft, and a proposed type with no aspect and no relation.
     skippedNotARuleByReason: c.aspectsSkippedNotARuleByReason || {},
@@ -126,7 +126,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
   L.push(`proposed a graph for ${r.files.length} tracked files, as of ${sha} — ${ygg}/`);
   // Only when it happened, and above everything else: every count below is measured over that weaker set.
   if (r.degraded) L.push(`  WARNING: ${r.degraded}`);
-  // The types line names the LEVEL each cut came from (ticket 110): no single level wins across repositories,
+  // The types line names the LEVEL each cut came from: no single level wins across repositories,
   // so the report says which levels this repository's cut is made of, and how many candidates at other levels
   // are on offer instead — the number that tells a maintainer whether there is a choice left to make.
   const levelsPhrase = TYPE_LEVELS.filter(l => c.typesByLevel?.[l]).map(l => `${c.typesByLevel[l]} ${l}`).join(', ');
@@ -134,7 +134,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
   if (!r.verify?.haveYg) {
     L.push(`enforced: 0 of ${c.aspects} aspects — no Yggdrasil CLI was found, so no rule was drilled and NOTHING here is enforced (set YG_BIN to a built bin.js, or put \`yg\` on PATH, then run this again)`);
     L.push(`candidates: 0 of ${c.aspects} — a candidate is an advisory or draft aspect a real drill caught a violation with, and no drill ran`);
-    // The companion to the two lines above (ticket 028): NOT a prediction that a drill would pass — only that
+    // The companion to the two lines above: NOT a prediction that a drill would pass — only that
     // grain is confident enough in these to have written them a drill corpus already (see
     // `certifiedWithCasesCount`). Silent at 0, same as on Grain's own repository, where `propose` earns 0
     // enforced rules from itself (README, "What it can deduce, and what it can't") — a sentence that always
@@ -151,7 +151,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
       L.push(`  ${a.id} — ${a.name}`);
       L.push(`    caught ${a.drill.catches} of ${a.drill.violates} planted violation(s) · ${a.drill.falseAlarm} false alarm(s) · it already ${evidenceOf(a)}${existingCost(a)} — ${aspectPath(a)}`);
     }
-    // Said once, under the enforced list, because it is the same answer for all of them (ticket 118). The
+    // Said once, under the enforced list, because it is the same answer for all of them. The
     // drill proved each check correct; it never asked whether this repository already holds the rule.
     if (enforced.length) {
       L.push(prog.reference
@@ -165,7 +165,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
     }
   }
   const byReason = Object.entries(restByReason).sort().map(([k, v]) => `${v} ${k}`).join(', ') || 'none';
-  // ticket 120, additive: the "skipped as not a rule" count now names WHY, whenever a reason is known — the
+  // additive: the "skipped as not a rule" count now names WHY, whenever a reason is known — the
   // pre-existing `filebirth` case (no reason recorded) still folds into the bare number so the total agrees.
   const notARuleByReason = c.aspectsSkippedNotARuleByReason || {};
   const notARulePhrase = Object.keys(notARuleByReason).length
@@ -192,7 +192,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
       ? `family candidates: ${familyCandidates.families} group(s) of structurally uniform files with no rule of their own — ${where}; once it sits in \`.yggdrasil/\` (\`yg adopt\` puts it there), \`yg advise\` names each as a rule to draft`
       : `family candidates: none — no group of structurally uniform files is left without a rule (${where} written empty, so \`yg advise\` knows the question was asked)`);
   }
-  // ticket 123: the acceptance is now a named TRANSACTION (`yg adopt`), not a manual `mv` — it refuses to
+  // the acceptance is now a named TRANSACTION (`yg adopt`), not a manual `mv` — it refuses to
   // merge over an existing graph, checks the proposal loads before moving anything, and baselines every
   // deterministic verdict for free the moment it lands. `--dry-run` previews all of that (including how
   // many sites already break each new rule) and writes nothing, which is why it is named FIRST.

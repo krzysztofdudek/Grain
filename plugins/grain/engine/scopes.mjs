@@ -1,5 +1,5 @@
 // grain engine · extractScopes — the extraction pipeline itself: one walk of one file's AST into scopes and their predicates
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename, dirname, extname } from 'node:path/posix';
 import { S } from './base.mjs';
 import {
@@ -31,12 +31,12 @@ import { lexicalPreds } from './lexical.mjs';
 import { hashStr, macroParser, nameShape, resolveImport, tokenize } from './parse.mjs';
 import { blockScope, docTokens, exportShape, skelOf } from './superposition.mjs';
 
-// `_depth` is the macro-body recursion level (§018 phase 2, in the else-branch below), never passed by a caller.
+// `_depth` is the macro-body recursion level (the macro-body re-parse, in the else-branch below), never passed by a caller.
 export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   const scopes = [];
   const imports = [];
   const isScope = n => b.scope.has(n.type);
-  // §075 — a catch/finally clause's collection below searches bodyN's WHOLE subtree (descendantsOfType does not
+  // a catch/finally clause's collection below searches bodyN's WHOLE subtree (descendantsOfType does not
   // stop at a nested scope's own boundary), so the SAME physical clause is found once when its enclosing METHOD
   // is walked and again when that method's enclosing CLASS is walked (and again for every further ancestor up
   // the chain) — one clause in the source, one scope entry per body-bearing ancestor above it. The walk visits an
@@ -54,7 +54,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
     const kids = node.namedChildren;
     for (let i = kids.length - 1; i >= 0; i--) stack.push(kids[i]);
   };
-  // §016 — the type a callable declares itself bound to. The receiver is a list of `paramLike` NAMED SLOTS, so the
+  // the type a callable declares itself bound to. The receiver is a list of `paramLike` NAMED SLOTS, so the
   // type is read off the slot's own `.type` field: taking the first identifier instead would record the receiver's
   // BINDING NAME (`c` in `func (c *Context) …`), the same name-vs-type confusion §G26 fixed for named returns.
   const ownerFor = ch => {
@@ -71,16 +71,16 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
   pushKids(tree.rootNode, treeStack);
   while (treeStack.length) {
     const ch = treeStack.pop();
-    // §060 — the malformed node itself is never a declaration (its own boundary is garbage), but tree-sitter's
+    // the malformed node itself is never a declaration (its own boundary is garbage), but tree-sitter's
     // error recovery routinely parses PART of what falls inside an ERROR node into fully clean, correctly-typed
     // children — a nested `package … { }` holding a well-formed `object` sits right next to a Scala class whose
     // `@Inject()`-annotated curried constructor the grammar can't parse (Play framework's braced-package idiom,
-    // the same root cause §053 measured). Skipping descent entirely dropped that object and every method inside
+    // the same root cause measured earlier). Skipping descent entirely dropped that object and every method inside
     // it with no disclosure. Push the error node's own children so the walk keeps going, exactly as it does for
     // any other non-scope node — a MISSING node has no children, so this is a no-op for it; a doubly-broken child
     // is still an ERROR/MISSING node itself and is skipped on its own next pop. Nothing is ever extracted from
     // the ERROR node itself, only from descendants the grammar already typed with zero errors of their own — no
-    // re-parse, no guess about what the broken span "should" mean, same zero-fabrication instinct as §018.
+    // re-parse, no guess about what the broken span "should" mean, same zero-fabrication instinct as the macro-body re-parse.
     if (ch.isError) pushKids(ch, treeStack);
     if (ch.isError || ch.isMissing) continue;
     if (b.imp.has(ch.type)) {
@@ -125,7 +125,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         pushKids(ch, treeStack);
         continue;
       }
-      // §040 — a DECLARATOR-NAMED scope (one the grammar names through a `declarator` field rather than a `name`
+      // a DECLARATOR-NAMED scope (one the grammar names through a `declarator` field rather than a `name`
       // field) whose declarator chain declares NO `parameters` anywhere is not a callable: a callable's name and
       // its parameter list come from the same declarator, so a chain without one never spelled a function. Two
       // ways a grammar lands here, both told apart by the node's OWN `type` field:
@@ -190,14 +190,14 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
                     ? 'classic'
                     : 'none';
             })();
-      // supKind (§033): a name's classification as 'ext' (genuine inheritance) or 'impl' (interface conformance),
+      // supKind: a name's classification as 'ext' (genuine inheritance) or 'impl' (interface conformance),
       // wherever the grammar's own clause node type says so — the dedicated `superclasses` field (Python: no
       // interfaces, always inheritance-shaped) and heritageRe's generic `argument_list` match are never classified
       // by anything more specific than that, so their names stay 'ext' below, unchanged from before this fact existed.
       const sup = [];
       const supKind = {};
       // the leaf identifier-shaped node types a heritage clause is scanned for, MINUS any that this grammar's
-      // OWN node-types.json shows to be a `b.qualName` WRAPPER rather than a leaf (§062): Java's
+      // OWN node-types.json shows to be a `b.qualName` WRAPPER rather than a leaf: Java's
       // `scoped_type_identifier` (`com.google.inject.AbstractModule`) and, one grammar's coincidence with
       // another, C#'s OWN unrelated `qualified_name` (`Ns.Base` — kept in this list unfiltered for PHP, whose
       // *different* node type of the same name is not a `b.qualName` wrapper and gets its own dedicated
@@ -215,7 +215,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         'relative_name',
       ].filter(t => !b.qualName.has(t));
       const heritageIdTypeSet = new Set(heritageIdTypes);
-      // §082: Python's dedicated `superclasses` field routed through `heritageNamesOf` too — the same §062
+      // Python's dedicated `superclasses` field routed through `heritageNamesOf` too — the same
       // leaf-only resolution every other grammar's qualified heritage name already gets — so a dotted base
       // (`class Foo(pkg.sub.Type)`) records only the resolved leaf (`Type`), never `pkg` and `pkg.sub` as well.
       const sc = ch.childForFieldName('superclasses');
@@ -252,9 +252,9 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         const decoTypes = [...b.deco];
         const limit = bodyN ? bodyN.startIndex : ch.endIndex;
         // the sigil travels with the name: `[Test]` (C#), `#[Test]` (PHP) and `@Test` (Java/Kotlin) are different
-        // tokens and render as written. §054b: `#[` is the same category of sigil as `@` and `[` — a decoration
+        // tokens and render as written. `#[` is the same category of sigil as `@` and `[` — a decoration
         // marker, not a PHP special case — so it is matched by character pattern here exactly like the other two.
-        // §043 — a decoration may also be written with NO sigil at all (Solidity's modifiers: `onlyOwner`), in which case
+        // a decoration may also be written with NO sigil at all (Solidity's modifiers: `onlyOwner`), in which case
         // the whole text is a bare name, optionally applied to an argument list, and renders bare. Admitted ONLY for the
         // node types `b.decoBare` holds — the structurally-derived ones — because the node-type-NAME vocabulary that
         // fills the rest of `b.deco` matches only constructs every shipped grammar writes with a sigil, and reading
@@ -518,7 +518,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         ])) {
           const bkind = /finally|ensure/.test(blk.type) ? 'finally' : 'catch';
           const blkScope = blockScope(blk, bkind, name === '<anon>' ? kind : name, rel, grammar, isScope);
-          // §075 dedup (see the comment on `catchOwnerIdx` above): a later claim on the same physical clause
+          // Catch/finally dedup (see the comment on `catchOwnerIdx` above): a later claim on the same physical clause
           // replaces the earlier one in place, rather than adding a second `scopes` entry beside it.
           if (catchOwnerIdx.has(blk.id)) scopes[catchOwnerIdx.get(blk.id)] = blkScope;
           else {
@@ -600,7 +600,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
           }
         }
       }
-      // §018 — a macro invocation's body is an UNPARSED TOKEN REGION (`b.macroCall`/`b.tokenRegion`, derived in
+      // a macro invocation's body is an UNPARSED TOKEN REGION (`b.macroCall`/`b.tokenRegion`, derived in
       // bindingFor): the grammar tokenised it and declined to give it structure, so every declaration written
       // inside is invisible — axum's `define_rejection! { pub struct JsonDataError(Error); }` yields a ~200-line
       // file with ZERO scopes and 15 missing public types. Ask the GRAMMAR ITSELF what those tokens are: re-parse
@@ -611,7 +611,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
       // (`quote! { struct #name; }`) or a syntax the language does not have (`bitflags! { pub struct F: u32 {…} }`).
       // Measured over 26k macro invocations in five Rust repositories: 96-99% of bodies are rejected outright, and
       // of the 828 names recovered NOT ONE was a name that is not literally declared at the line reported — the
-      // inverse error, inventing a declaration, is the one this must never make (§018 phase 2 measurement log).
+      // inverse error, inventing a declaration, is the one this must never make (the macro-body re-parse's measurement log).
       if (b.macroCall.has(ch.type) && _depth < 2) {
         // 2: the same shallow recursion bound the walk's other guards use
         const reg = ch.namedChildren[ch.namedChildren.length - 1];
@@ -684,7 +684,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
     ...lexicalPreds(tree, b),
     ...exportShape(tree),
   };
-  // §045 — a macro invocation's own identifiers are a MENTION signal (macroDoc), never a HERITAGE claim: ~90%
+  // a macro invocation's own identifiers are a MENTION signal (macroDoc), never a HERITAGE claim: ~90%
   // of what the old `macroDefs` heuristic called "the definitions a macro emits" was either the invoked macro's
   // own name or a bare reference declared nowhere (measured on 5 real Rust repos, 5656 names, 85.5% phantom).
   // `fileSups` feeds `what`'s implements/extends claim, which a mention can never support — only `fileDocs` may
@@ -745,7 +745,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
           addVal(m.text, 'enum', m.startPosition.row + 1, c, enName ? enName.text : null);
       }
     }
-  // (a2) §014 — multi-name value specs with no body of their own (Go's `const_spec`/`var_spec`, §bindingFor's
+  // (a2) multi-name value specs with no body of their own (Go's `const_spec`/`var_spec`, §bindingFor's
   // `b.namedValueSpec`): a name with no behavior, exactly like an enum member above — never a scope (no body to
   // hold nested declarations; cross-check-honest-silence.test.mjs's own precondition asserts this stays true), but
   // findable through the same VALUE surface. The container is the spec's own PARENT (the `const_declaration` /
@@ -779,7 +779,7 @@ export function extractScopes(rel, tree, b, grammar = null, _depth = 0) {
         inImport = true;
         break;
       }
-      // §056: `b.dataContainer` is consulted ONLY for a data grammar (b.data) — a code grammar's container
+      // `b.dataContainer` is consulted ONLY for a data grammar (b.data) — a code grammar's container
       // detection is exactly CONTAINER_RE, byte-for-byte unchanged, even though b.dataContainer's own derivation
       // above is structural enough to also match some code-grammar object/dict/map-literal container types
       // (JS/Python's already covered by CONTAINER_RE's "object"/"dictionary" anyway; Go/Ruby's are not, and are

@@ -1,5 +1,5 @@
 // Ticket 074 — `completeness` must label ambient co-change partners separately from specific ones. Follows
-// ticket 063 (max-directional-confidence ranking, unchanged here) and reuses ticket 073's exact machinery: a
+// the max-directional-confidence ranking (unchanged here) and reuses the obligation miner's exact machinery: a
 // candidate's OWN global rate (commitsX / nonMegaCommits) is tested against the same λ=8 display bound
 // `certifyObligationRules`' ambient gate already applies (`clearsOwnRate`, core.mjs) — no new constant.
 //
@@ -61,7 +61,7 @@ test('`completeness <file>`: the ambient partner is listed under its own labelle
   assert.ok(!lines[ambientIdx + 1].includes('co-changed'), `ambient row must use its own wording, not the specific list's: ${lines[ambientIdx + 1]}`);
 });
 
-test('ticket 063\'s max-directional-confidence ranking within the specific set is preserved unchanged by the ambient split', () => {
+test('the max-directional-confidence ranking within the specific set is preserved unchanged by the ambient split', () => {
   const lines = completenessDirectional(model(), ['src/foo.ts']);
   const specificIdx = lines.findIndex(l => l === '[grain] Edits like this historically also touch:');
   const ambientIdx = lines.findIndex(l => /^ambient /.test(l));

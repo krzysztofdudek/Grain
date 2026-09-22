@@ -1,8 +1,8 @@
 // Ticket 088 — the PreToolUse `check-hook --pre` (the hook that already fires on every `Write` of a NEW path,
-// per ticket 081's own measurement) also speaks `obligation <path>`'s two labelled sets (specific/ambient, §073),
+// per a measurement of real sessions) also speaks `obligation <path>`'s two labelled sets (specific/ambient),
 // but ONLY when the birth-obligation table actually CERTIFIES a specific rule for that path's (module, suffix)
 // class — never on "nothing certifies" or ambient-only, which would print a hollow note on nearly every file
-// creation (ticket 081 measured 0 of 8 real trial creation events certifying anything; corpus-wide coverage is
+// creation (a measurement found 0 of 8 real trial creation events certifying anything; corpus-wide coverage is
 // 0.096, 6 of 20 repos). This file proves BOTH halves: a fixture where the birth rule certifies something real
 // (the fires-correctly case) and a class with no certifiable rule in the SAME model (the stays-silent case) —
 // reusing fixture A's exact shape from tests/obligation.test.mjs (6 births under d/*.x, `reg.txt` certified 6 of

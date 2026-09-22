@@ -1,13 +1,13 @@
 // J3.3 — `grain what <words>`: a fourth lens distinct from `where` (place for NEW code) and `how` (past change
 // shape). Given a word or phrase, gather every kind of fact the model already carries about that CONCEPT into one
 // card: declarations (a), indexed values (b), its spread across modules (c), historical commit mentions (e), and
-// file-level fan-in (f). Source (d), sibling values, was DELETED by §052 (measured 0.364 per-value precision as
+// file-level fan-in (f). Source (d), sibling values, was DELETED by the sibling-values deletion (measured 0.364 per-value precision as
 // a push surface) — see tests/what-siblings-not-a-push-line.test.mjs.
 //
 // Fixture (repo A): an enum `OrderStatus { PENDING_STATUS, SHIPPED_STATUS, CANCELLED }` declared identically in two
 // files (src/orders/status.ts, src/billing/status.ts) — J3.1's cross-file identity merge means this is ONE sibling
 // container. Two of its three members carry the word "status" in their own name (PENDING_STATUS, SHIPPED_STATUS);
-// the third (CANCELLED) does not, so it is never independently matched by (b) — §052 deleted the (d) line that
+// the third (CANCELLED) does not, so it is never independently matched by (b) — the sibling-values deletion deleted the (d) line that
 // used to be the only place it surfaced. Three
 // consumer files (src/consumers/{a,b,c}.ts) each hold a switch on both matched members as string literals, giving
 // those two values df=3 as `str:` entries. src/consumers/importer.ts imports OrderStatus from orders/status.ts —
@@ -143,12 +143,12 @@ test('(a) `grain what status` reports declarations, values and spread with corre
   assert.equal(byModule['src/billing'], 1);
   assert.equal(j.spread[0].module, 'src/consumers', 'most-files-first ordering');
 
-  // §052 — source (d) is deleted, so there is no `siblings` field to assert. `CANCELLED` is still the enum's
+  // source (d) is deleted, so there is no `siblings` field to assert. `CANCELLED` is still the enum's
   // only member never independently matched by (b), and it is still in the model (see
   // tests/what-siblings-not-a-push-line.test.mjs (c)); what changed is that `what` no longer volunteers it.
-  assert.ok(!('siblings' in j), `§052: the siblings field is deleted — got keys ${Object.keys(j).join(',')}`);
+  assert.ok(!('siblings' in j), `the sibling-values deletion: the siblings field is deleted — got keys ${Object.keys(j).join(',')}`);
 
-  // fan-in: importer.ts is the one file that imports one of the two declaration files — §064: the actual name,
+  // fan-in: importer.ts is the one file that imports one of the two declaration files — the used-by names fix: the actual name,
   // not just a count
   assert.deepEqual(j.usedBy.files, ['src/consumers/importer.ts'], JSON.stringify(j.usedBy));
   assert.equal(j.usedBy.total, 1, JSON.stringify(j.usedBy));
@@ -171,9 +171,9 @@ test('(a2) the text rendering carries the same facts in the documented voices', 
   assert.match(values, /`PENDING_STATUS` in 3 places/);
   const spread = lines.find(l => l.startsWith('spread:'));
   assert.match(spread, /src\/consumers \(3\)/);
-  assert.equal(lines.find(l => l.startsWith('siblings:')), undefined, `§052: no siblings: line:\n${r.out}`);
+  assert.equal(lines.find(l => l.startsWith('siblings:')), undefined, `the sibling-values deletion: no siblings: line:\n${r.out}`);
   const usedBy = lines.find(l => l.startsWith('used by:'));
-  assert.equal(usedBy, 'used by: src/consumers/importer.ts', `§064: text output must show the actual file name, not a count: ${usedBy}`);
+  assert.equal(usedBy, 'used by: src/consumers/importer.ts', `the used-by names fix: text output must show the actual file name, not a count: ${usedBy}`);
   assert.match(r.out, /\nas of [0-9a-f]{7}/, 'every answer ends with the freshness stamp');
 });
 
@@ -216,7 +216,7 @@ test('(c) a concept absent everywhere: map: alone, no crash', () => {
 
   const j = JSON.parse(grainIn(repo, ['what', 'zzznonexistentconcept', '--json']).out);
   assert.deepEqual(j.defined, []); assert.deepEqual(j.values, []); assert.deepEqual(j.spread, []);
-  assert.ok(!('siblings' in j), '§052: no siblings field at all, empty or otherwise');
+  assert.ok(!('siblings' in j), 'the sibling-values deletion: no siblings field at all, empty or otherwise');
 });
 
 test('(d) determinism: two runs against the same unchanged repository are byte-identical', () => {

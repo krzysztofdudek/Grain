@@ -1,5 +1,5 @@
 // grain engine · query surface · the usage text
-// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of grain.mjs: the statements below are the ones that stood there, unchanged.
 
 export const USAGE = `grain — ask a repository about its own conventions before writing code.
 usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]

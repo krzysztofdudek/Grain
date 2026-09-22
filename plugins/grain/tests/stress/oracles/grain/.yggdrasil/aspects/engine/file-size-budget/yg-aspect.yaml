@@ -12,13 +12,13 @@ description: >-
   roughly 572 000 characters (eleven times the budget), the proposal writer and the dispatcher at roughly
   160 000 each. That was this repository's largest standing structural debt.
 
-  ALL THREE ARE PAID. Ticket 117 split the mining core into thirty modules; ticket 124 split the proposal
+  ALL THREE ARE PAID. One split took the mining core into thirty modules; another split the proposal
   writer into seventeen and the dispatcher into ten. Every first-party module in the product now fits,
   the largest at about 46 000 characters, and the exception list in
   `tests/engine-module-size-budget.test.mjs` is empty with a test of its own keeping it empty. Each split
   was a pure move gated on byte-identical output, so nothing the tool answers changed.
 
-  PROMOTED to `enforced` by ticket 123: with the debt paid and the exception list empty and guarded, the
+  PROMOTED to `enforced`: with the debt paid and the exception list empty and guarded, the
   rule now costs nothing to satisfy and there is nothing left to decide — a maintainer turning it on
   would find every file already passing. The exit, when a module grows past the line again, stays a
   split along a seam the code already has — never a raised ceiling.

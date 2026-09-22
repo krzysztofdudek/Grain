@@ -1,7 +1,7 @@
 // 007 — `rulesMarkdown()` (backing `grain rules`) never calls `relCoverageNote(model)` or `intraModuleNote(model)`,
 // so the generated Markdown — the artifact meant for a reader with NO terminal and NO grain plugin installed —
 // can present an architecture picture without either coverage disclosure `report()` prints for the identical
-// model (§G21, §004). An undisclosed gap is worse there, not better: `report()` and `rules` must not disagree
+// model (§G21, the intra-module disclosure). An undisclosed gap is worse there, not better: `report()` and `rules` must not disagree
 // about what the resolution layer actually knows.
 //
 // Fixture (a) — relCoverageNote: reuses the `relation-coverage.test.mjs` shape (TS wired by one import + files in
@@ -68,11 +68,11 @@ test('`grain rules` carries the same relation-coverage disclosure as `grain repo
     `grain rules must carry the same coverage disclosure report() does, got:\n${r.out}`);
 });
 
-test('`grain rules` carries the same intra-module-fold disclosure as `grain report` (§004), for the identical model', () => {
+test('`grain rules` carries the same intra-module-fold disclosure as `grain report`, for the identical model', () => {
   const grain = grainIn(pyIntra);
   const reportOut = grain(['report']).out;
   assert.match(reportOut, /^  2 file-level edges resolved, none crossing a module boundary/m,
-    `fixture sanity: report() itself must carry the §004 disclosure: ${reportOut}`);
+    `fixture sanity: report() itself must carry the disclosure: ${reportOut}`);
 
   const r = grain(['rules']);
   assert.equal(r.code, 0, r.err);

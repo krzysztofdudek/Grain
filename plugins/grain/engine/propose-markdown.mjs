@@ -1,5 +1,5 @@
 // grain engine · proposal writer · PROPOSAL.md, alternatives.md and the refactor backlog
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { describeRow } from './propose-aspects.mjs';
 import { PREAMBLE, pct, yamlEmit } from './propose-base.mjs';
 import { isAbsenceRow } from './propose-classify.mjs';
@@ -44,7 +44,7 @@ export function renderProposalMd({ repo, exp, files, active, alternatives, nodes
     'names and the file set the drafted `when` predicate actually selects when expanded against `git ls-files`.',
     'A type below 1.00 selects files the evidence does not name (usually files grain has no grammar for, which',
     'live in the same directory and are correctly classified anyway).', '',
-    'THE LEVEL IS PUBLISHED, NOT CHOSEN FOR YOU (ticket 110). `level` is the cut this type came from; `levels',
+    'THE LEVEL IS PUBLISHED, NOT CHOSEN FOR YOU. `level` is the cut this type came from; `levels',
     'agreeing` names every level that independently landed on the same directory. A finer directory becomes a',
     'type of its own only where it beats the level above it on that level\'s own evidence — strictly more of its',
     'imports stay inside, or grain could read none of its files while it could read the parent\'s. Every',
@@ -71,7 +71,7 @@ export function renderProposalMd({ repo, exp, files, active, alternatives, nodes
     'that contradicts the code.', '',
     mdTable(['from', 'to', 'share', 'became', 'why'],
       [...rels.denies, ...rels.backlog].map(d => [`\`${d.from}\``, `\`${d.to}\``, d.share.toFixed(3), d.becomes, d.whyNot || 'nothing observed contradicts it'])), '');
-  // §class 4 (ticket 120): a proposed type that hosts no aspect and is on neither side of any measured
+  // §class 4: a proposed type that hosts no aspect and is on neither side of any measured
   // dependency edge obliges nothing — still emitted, since the maintainer needs the node to see the directory
   // at all (coverage), but it is not law, and a reader of the graph alone cannot tell that from a type that
   // simply has not been reviewed yet. Named here so they can.
@@ -85,7 +85,7 @@ export function renderProposalMd({ repo, exp, files, active, alternatives, nodes
 export function renderAlternativesMd({ alternatives }) {
   const L = ['# Finer type candidates — your choice, not grain\'s', '', ...PREAMBLE, '', '---', '',
     'Every candidate below is a cut of the same tree the active types cut, at a level this proposal did NOT',
-    'activate. They are grouped by that level, because ticket 108 measured four hand-written architectures and',
+    'activate. They are grouped by that level, because a measurement of four hand-written architectures showed',
     'no single level won: the module level recovers most of one repository, the directory level most of another,',
     'the role group most of a third. Which level is right for a subtree is the maintainer\'s call, and this file',
     'is the material for it.', '',
@@ -104,7 +104,7 @@ export function renderAlternativesMd({ alternatives }) {
       touching ? `${m.importsInside}/${touching}` : 'none either way', `${m.mined ?? 0}/${m.files ?? 0}`, m.rules ?? 0, a.why];
   };
   const LEVEL_NOTE = {
-    domain: 'A role group whose members all live under one directory below their host (ticket 116). Its `when` is a path glob, so a file added to that directory joins the type by itself — this is the only alternatives level that generalises on the layout alone.',
+    domain: 'A role group whose members all live under one directory below their host. Its `when` is a path glob, so a file added to that directory joins the type by itself — this is the only alternatives level that generalises on the layout alone.',
     'role group': 'A structurally-uniform cluster inside a partition that is NOT a place in the layout. It can only be a `content:` predicate (which generalises, and may over- or under-select) or a frozen list of paths (exact today, and it will classify no file grain has not already seen). Two types over one directory separated by `content:` have no ordering between them, which is why this level is never activated.',
     directory: 'A directory that carries declarations grain parsed — usually a published directory card — that this run did not promote to a type of its own.',
   };
@@ -141,7 +141,7 @@ export function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
   L.push(`## 2. Candidate house rules below grain's gate (${sub.length})`, '',
     'Practised by a supermajority but not yet by enough of the code for grain to state it as a fact. This is the',
     'sub-gate lattice — the surface `grain explain` shows one file at a time, aggregated per partition.', '',
-    // A `false`-direction row of an absence class is listed as what it is (ticket 115). Printed in this table's
+    // A `false`-direction row of an absence class is listed as what it is. Printed in this table's
     // own idiom it read `files never import X` with `8 sites to fix` beside it — an instruction to delete the
     // eight imports, on evidence that says only that most files here do not have one.
     mdTable(['adoption', 'n', 'partition', 'scope', 'candidate rule', 'sites to fix'],

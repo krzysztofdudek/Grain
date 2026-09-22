@@ -1,5 +1,5 @@
 // grain engine · query surface · `what`, `map` and `obligation`
-// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of grain.mjs: the statements below are the ones that stood there, unchanged.
 import { obligationFor, obligationLines, whatCmd, mapSections } from './core.mjs';
 import { loadHistory } from './history.mjs';
 import { DIRTY_TREE_NOTE } from './core.mjs';
@@ -17,17 +17,17 @@ export async function cmdWhat({ model, root, isGit, args, opts, stamp, store, tr
       log('history unavailable for what: ' + e.message);
     }
   }
-  // (§011) the current tree's already-cached scope snapshot (loadScopes — no re-parsing, the same infra `export`
+  // the current tree's already-cached scope snapshot (loadScopes — no re-parsing, the same infra `export`
   // already reads on every call) — lets whatCmd tell "seen but below the value-index's df floor" from "never
   // seen" when the plain answer would otherwise be empty.
   const rawScopes = await loadScopes({ root, isGit, store, opts });
   let res = whatCmd({ model, H, query, exemplarOk: existsMemo(root), rawScopes });
-  // Two paths pay for the bounded blind-file re-scan, and only these two: the truly-empty answer (§018, loose
-  // substring — a "nothing found" answer cannot be made overconfident by a hedge), and the WEAK answer §037
+  // Two paths pay for the bounded blind-file re-scan, and only these two: the truly-empty answer (loose
+  // substring — a "nothing found" answer cannot be made overconfident by a hedge), and the WEAK answer disclosure
   // describes, where nothing returned actually carries the queried name (strict — it interrupts a real answer).
   // Every other query, including every one with an exact-name hit, never opens a file at all.
   if (res.note?.kind === 'absent') {
-    // §057 — the truly-empty case tries the ungrammared (never-parsed) set FIRST: a deterministic, stronger
+    // the truly-empty case tries the ungrammared (never-parsed) set FIRST: a deterministic, stronger
     // claim than the peer-anomalous blind-file heuristic below, and gatedValueEvidence (checked inside whatCmd
     // itself, no I/O) already had first refusal — `note.kind` is only 'absent' here because that already came
     // back empty.
@@ -54,7 +54,7 @@ export async function cmdWhat({ model, root, isGit, args, opts, stamp, store, tr
         referenced: referenced || null,
         testedBy: testedBy || null,
         note: note && note.kind !== 'absent' ? note : null,
-        // §089 — additive: the same { kind, text } hedges the text renderer below already emits, plus dirty-tree
+        // additive: the same { kind, text } hedges the text renderer below already emits, plus dirty-tree
         // (a HEAD-reading command never claims `+dirty`, but text already discloses a dirty worktree via
         // DIRTY_TREE_NOTE below — JSON never carried it at all until now).
         disclosures: treeDirty ? [...disclosures, { kind: 'dirty-tree', text: DIRTY_TREE_NOTE }] : disclosures,
@@ -74,7 +74,7 @@ export async function cmdMap({ model, args, opts, stamp, treeDirty }) {
     return [
       JSON.stringify({
         nodes: (model.moduleGraph?.nodes || []).map(n => ({ id: n.id, layer: n.layer })),
-        // §066/051: `map` (text, mapSections) also renders `concepts:` and `changes:` (from model.changeArchetypes,
+        // `map` (text, mapSections) also renders `concepts:` and `changes:` (from model.changeArchetypes,
         // there truncated to the top 4 for a scannable line) and derives its `layers:` line from the module
         // dependency graph — `--json` carried none of the three, a strictly poorer machine-readable answer than
         // the human-readable one for a published-interface command. Additive only (no existing field touched):
@@ -85,7 +85,7 @@ export async function cmdMap({ model, args, opts, stamp, treeDirty }) {
         concepts: model.concepts || [],
         changes: (model.changeArchetypes || []).map(a => ({ id: a.id, label: a.label, n: a.n })),
         edges: (model.moduleGraph?.edges || []).map(e => ({ from: e.from, to: e.to, n: e.n })),
-        // §073: the FULL birth-obligation table, uncapped — same additive-only discipline as `changes`/`concepts`
+        // the FULL birth-obligation table, uncapped — same additive-only discipline as `changes`/`concepts`
         // above; `grain obligation <path>` is the per-path renderer of this exact data (`model.obligations`).
         obligations: model.obligations || [],
         decisions:
@@ -95,7 +95,7 @@ export async function cmdMap({ model, args, opts, stamp, treeDirty }) {
     ];
   return [...mapSections(model), ...(treeDirty ? [DIRTY_TREE_NOTE] : []), stamp()];
 }
-// `grain obligation <path>` (ticket 073) — what a NEW file under this path's (module, suffix) class has
+// `grain obligation <path>` — what a NEW file under this path's (module, suffix) class has
 // historically come with. `<path>` need not exist: the whole point is asking BEFORE the file is written, so this
 // never touches the filesystem or git — it is a pure read of `model.obligations` (learn-time derived) keyed by
 // the path's structural class alone. `schemaNotes` follows export.mjs's own convention (§export.mjs:~210) for a

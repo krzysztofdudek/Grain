@@ -1,5 +1,5 @@
 // grain engine · query surface · `spectrum`, `seed` and `decide` — the maintainer decisions that steer the norm
-// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of grain.mjs: the statements below are the ones that stood there, unchanged.
 import { existsSync, mkdirSync, readFileSync, writeFileSync, appendFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { spectrum, part } from './core.mjs';
