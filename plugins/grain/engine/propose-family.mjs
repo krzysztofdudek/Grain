@@ -119,6 +119,11 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
     fitted.push({ ...f, members: keep, evidence: { ...f.evidence, clusterSize: keep.length } });
   }
   fitted.sort((x, y) => (x.id < y.id ? -1 : 1));
-  return { v: 1, ts: asOf, families: fitted, _fit: dropped };
+  // WHO measured and WHAT "without a law" meant. Yggdrasil's own miner writes this same document from
+  // a different oracle — no narrow authored aspect — while Grain's gate is statistical: no certified convention.
+  // The two are different questions, and without these fields a reader of `yg advise` cannot tell which one found
+  // the gap. Both are optional additions inside `v: 1` (the family's rule: a consumer ignores a field it does not
+  // know), so `v` stays 1.
+  return { v: 1, ts: asOf, producer: 'grain', gate: 'no-certified-convention', families: fitted, _fit: dropped };
 }
 

@@ -195,6 +195,10 @@ test('yg advise nominates the family Grain\'s adapter wrote', { skip: HAVE_YG ? 
   const written = JSON.parse(readFileSync(yggFamilyCandidates, 'utf8'));
   assert.equal(written.v, 1);
   assert.ok(!Number.isNaN(Date.parse(written.ts)), `.family-candidates.json's ts ("${written.ts}") must be a parseable instant — yg advise's freshness gate silently drops the whole file otherwise`);
+  // Who measured and what "without a law" meant: optional fields inside v 1, and the nominations below prove
+  // `yg advise` still accepts the file that carries them.
+  assert.equal(written.producer, 'grain', '.family-candidates.json must say which oracle wrote it');
+  assert.equal(written.gate, 'no-certified-convention', '.family-candidates.json must say what "without a law" meant for this producer');
   const r = spawnSync('node', [YG_BIN, 'advise', '--ids', '--all'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 26 });
   const text = (r.stdout || '') + (r.stderr || '');
   const nominatedIds = [...text.matchAll(/family-without-law:(\S+)/g)].map(m => m[1]);

@@ -663,8 +663,11 @@ the adopted repository; `--family-candidates <path>` writes it to that path inst
 points it at its own `.yggdrasil/`; a directory gets `.family-candidates.json` inside it) and `--no-family-candidates`
 writes none. The report carries one `family candidates:` line, and `--json` a `familyCandidates` field
 (`{path, families, droppedByFit}`, `null` when none was written). The file has the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
-`advise-nominations.ts`): `{v: 1, ts, families: [{id, language, members, fittedPredicate: {kind, value},
-scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `ts` MUST be a parseable calendar instant (Yggdrasil's
+`advise-nominations.ts`): `{v: 1, ts, producer, gate, families: [{id, language, members, fittedPredicate: {kind, value},
+scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `producer` (`"grain"`) and `gate` (`"no-certified-convention"`)
+say who measured and what "without a law" meant: Yggdrasil's own offline miner writes the same document from a different
+oracle (no narrow authored aspect), so a reader needs the file to name its oracle. Both fields are optional additions
+inside `v: 1` — a consumer that does not know them ignores them — so `v` did not change. `ts` MUST be a parseable calendar instant (Yggdrasil's
 freshness gate runs `Date.parse` on it and silently drops the whole file otherwise) — grain's own `asOf` is a git
 sha, so this adapter uses the export's `indexedAt` instead. A "family without a law" in grain's own terms is a
 role group (093/094's structural cluster within a partition) that clears the same size floor Yggdrasil's own
