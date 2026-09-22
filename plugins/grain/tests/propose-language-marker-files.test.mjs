@@ -112,3 +112,20 @@ test('the rendered check does not refuse a name the language fixes', async () =>
       `${a.id} refused a file whose name the language fixes`);
   }
 });
+
+// The corpus is the rule's own, and Yggdrasil reads it where it lies: `--dir` would record the run as an
+// external hold-out, which `yg advise` and the health reading leave out.
+test('CORPUS.md scores the corpus with a plain yg drill, never as an external hold-out', () => {
+  let seen = 0;
+  const root = join(out, '.yggdrasil', 'aspects');
+  const walk = d => readdirSync(d, { withFileTypes: true })
+    .flatMap(e => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
+  for (const corpus of walk(root).filter(p => p.endsWith('/drills/CORPUS.md'))) {
+    seen++;
+    const id = corpus.slice(root.length + 1, -'/drills/CORPUS.md'.length);
+    const text = readFileSync(corpus, 'utf8');
+    assert.ok(text.includes(`yg drill --aspect ${id}\n`), text);
+    assert.doesNotMatch(text, /yg drill [^\n]*--dir/);
+  }
+  assert.ok(seen > 0, 'the fixture wrote no CORPUS.md, so this proves nothing');
+});
