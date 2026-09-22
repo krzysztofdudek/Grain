@@ -19,6 +19,13 @@ import { contentRegexFor } from './propose-levels.mjs';
 // (`FAMILY_MIN_MEMBERS`), and (c) has NOT already become a certified convention of its own — i.e. `exp.conventions`
 // holds no group-scoped row for that exact group. (a)+(b) is Grain's tightness/size evidence; (c) is what makes
 // it a family WITHOUT a law rather than one that already has one.
+// A family's id names its partition and its group, because a group id alone repeats in every partition:
+// `yg advise` turns each family into `family-without-law:<id>`, and two families with one id meant the
+// second could never be dismissed, deferred or filed.
+function familyId(part, group) {
+  return `family-grain-${slug(part ? `${part}-${group}` : String(group))}`.slice(0, 80);
+}
+
 export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) {
   const minMembers = Number.isFinite(opts.minMembers) ? opts.minMembers : FAMILY_MIN_MEMBERS;
   // `ts` MUST be a parseable calendar instant — Yggdrasil's `parseFamilyCandidates` runs `Date.parse` on it and
@@ -46,22 +53,21 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
   for (const a of alternatives) {
     if (a.kind !== 'role group' || a.form !== 'content' || !a.viable) continue;
     if (!a.members || a.members.length < minMembers) continue;
-    // `certifiedGroups` keys by (partition NAME, group id); `a.of` is the host TYPE id (a slug), not the raw
-    // partition name, so match on the group-id half only — a group id is a small per-partition ordinal (`r0`,
-    // `r1`, ...), and colliding across two DIFFERENT partitions' groups only ever suppresses a family that
-    // would otherwise be offered, never fabricates one that has a law.
-    const alreadyLawed = a.groupId != null && [...certifiedGroups].some(k => k.endsWith('::' + a.groupId));
+    // A group id is a small per-partition ordinal (`r0`, `r1`, ...), so a group is only ever named by its
+    // partition AND its id: two partitions each have an `r0`, and neither may stand for the other — not in
+    // the certified-convention check, not in the family's id, and not in the dedupe below.
+    const alreadyLawed = a.groupId != null && certifiedGroups.has(`${a.part}::${a.groupId}`);
     if (alreadyLawed) continue;
     const contentPred = a.when?.all_of?.find(x => x.content)?.content ?? null;
     const scopePath = a.when?.all_of?.find(x => x.path)?.path ?? null;
     families.push({
-      id: `family-grain-${slug(a.groupId || a.id)}`.slice(0, 80),
+      id: familyId(a.part, a.groupId || a.id),
       language: langOf(a.members),
       members: [...a.members].sort(),
       fittedPredicate: { kind: 'regex', value: contentPred || '' },
       scopeFilesDraft: scopePath ? [scopePath] : [],
       evidence: { clusterSize: a.members.length, tightness: a.fidelity ?? 0 },
-      _groupId: a.groupId ?? null,
+      _groupId: a.groupId != null ? `${a.part}::${a.groupId}` : null,
     });
   }
   // (ii) role groups whose membership IS its whole host type — `buildTypes` above never drafts a `-content`
@@ -76,16 +82,17 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
   const { active = [], groups = [] } = extra;
   for (const g of groups) {
     const gid = g.group?.id;
-    if (gid == null || seenGroupIds.has(gid)) continue;
+    const key = gid == null ? null : `${g.part?.name}::${gid}`;
+    if (gid == null || seenGroupIds.has(key)) continue;
     if (g.files.size < minMembers) continue;
-    if ([...certifiedGroups].some(k => k.endsWith('::' + gid))) continue;
+    if (certifiedGroups.has(key)) continue;
     const host = active.find(a => a.dir && jaccard(g.files, a.files) >= 0.9);
     if (!host) continue; // not coincident with any active type — (i) above should have offered it as an alternative instead
     const cr = contentRegexFor(g.group);
     if (!cr) continue;
-    seenGroupIds.add(gid);
+    seenGroupIds.add(key);
     families.push({
-      id: `family-grain-${slug(gid)}`.slice(0, 80),
+      id: familyId(g.part?.name, gid),
       language: langOf([...g.files]),
       members: [...g.files].sort(),
       fittedPredicate: { kind: 'regex', value: cr.regex },
