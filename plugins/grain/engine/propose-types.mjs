@@ -269,7 +269,7 @@ export function buildTypes(exp, loc, files, ctx) {
       if (selected) {
         const j = jaccard(f.set, selected);
         addAlt({ id: `${base}-content`, of: host.id, form: 'content', when, groupFiles: f.set.size, selected: selected.size, fidelity: +j.toFixed(3), viable: j >= MIN_WHEN_FIDELITY,
-          kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: [...f.set].sort(),
+          kind: f.kind, groupId: f.groupId, part: f.part, partKind: f.partKind, members: [...f.set].sort(),
           why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: ${f.set.size} files; generalising predicate from ${cr.why}; selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` }, selected);
       }
     }
@@ -293,13 +293,13 @@ export function buildTypes(exp, loc, files, ctx) {
       if (selected) {
         const j = jaccard(f.set, selected);
         asPath = { id: `${base}-path`, of: host.id, form: 'path', when, groupFiles: f.set.size, selected: selected.size, fidelity: +j.toFixed(3), viable: j >= MIN_WHEN_FIDELITY,
-          kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
+          kind: f.kind, groupId: f.groupId, part: f.part, partKind: f.partKind, members: paths,
           why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: all ${f.set.size} files share the directory \`${shared}\`, so the membership is offered as the path predicate \`${shared}/**\` rather than as a list — it GENERALISES, and a file added under that directory is classified here without grain being run again; it selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` };
       }
     }
     if (asPath) addAlt(asPath, expandWhen(asPath.when, files, ctx));
     else addAlt({ id: `${base}-list`, of: host.id, form: 'list', when: { any_of: paths.map(p => ({ path: p })) }, groupFiles: f.set.size, selected: f.set.size, fidelity: 1, viable: true,
-      kind: f.kind, groupId: f.groupId, partKind: f.partKind, members: paths,
+      kind: f.kind, groupId: f.groupId, part: f.part, partKind: f.partKind, members: paths,
       why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: the ${f.set.size} files grain grouped share no directory below \`${host.dir}\`${shared ? ` (the deepest they all share is \`${shared}\`, which is not finer than the host)` : ''}, so there is no path predicate to offer and the membership is frozen as an \`any_of\` of explicit paths — exact today, and it will classify no file grain has not already seen` }, f.set);
   }
   alternatives.sort((a, b) => b.fidelity - a.fidelity || b.groupFiles - a.groupFiles || (a.id < b.id ? -1 : 1));
