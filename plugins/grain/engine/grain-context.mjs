@@ -74,9 +74,48 @@ export function parseArgv(argv) {
   return { cmd: args[0], args: args.slice(1), opts };
 }
 // ----- repo + store -----
+// A path from inside a dev container, handed to a Grain that runs on the host (the MCP server a VS Code window
+// starts for an attached container runs on the host; the agent that names the repository runs in the container).
+// The two see the same files under different names. Every running container's mounts say which host directory
+// sits behind which container path, so the longest mount destination that contains the path gives its host
+// name. Null when docker is not there, nothing mounts it, or the host side does not exist either.
+export function hostPathFor(containerPath, { docker = 'docker' } = {}) {
+  const want = String(containerPath).replace(/\/+$/, '');
+  let ids;
+  try {
+    ids = execFileSync(docker, ['ps', '-q'], { stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000 }).toString().split(/\s+/).filter(Boolean);
+  } catch { return null; }
+  if (!ids.length) return null;
+  let mounts = [];
+  try {
+    const out = execFileSync(docker, ['inspect', '--format', '{{json .Mounts}}', ...ids], { stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000 }).toString();
+    for (const line of out.split('\n').filter(Boolean)) {
+      try { mounts.push(...(JSON.parse(line) || [])); } catch { /* one unreadable container says nothing about the others */ }
+    }
+  } catch { return null; }
+  let best = null;
+  for (const m of mounts) {
+    const dest = String(m?.Destination || '').replace(/\/+$/, '');
+    const src = m?.Source;
+    if (!dest || !src) continue;
+    if (want !== dest && !want.startsWith(dest + '/')) continue;
+    if (!best || dest.length > best.dest.length) best = { dest, src };
+  }
+  if (!best) return null;
+  const host = join(best.src, want.slice(best.dest.length));
+  return existsSync(host) ? host : null;
+}
+
 export function findRoot(opts) {
-  const start = resolve(opts.repo || process.cwd());
-  if (opts.repo && !existsSync(start)) throw new Error(`no such directory: ${start}`);
+  let start = resolve(opts.repo || process.cwd());
+  if (opts.repo && !existsSync(start)) {
+    const host = hostPathFor(opts.repo);
+    if (!host) {
+      throw new Error(`no such directory on the machine Grain runs on: ${start}. If the repository is open in a dev container, `
+        + 'this is its path inside the container, and no running container mounts a host directory there; pass the checkout\'s path on the host instead.');
+    }
+    start = host;
+  }
   try {
     return {
       root: execFileSync('git', ['-C', start, 'rev-parse', '--show-toplevel'], {
