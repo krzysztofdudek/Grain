@@ -181,8 +181,15 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
       if (!haveYg || (!violates && !satisfies)) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
       const r = spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26, timeout: drillTimeoutMs, killSignal: 'SIGKILL' });
       if (r.error?.code === 'ETIMEDOUT') timedOut++;
-      const m = /(\d+) pass\s*·\s*(\d+) MISS\s*·\s*(\d+) FALSE-ALARM/.exec(`${r.stdout || ''}${r.stderr || ''}`);
+      const m = /(\d+) pass\s*·\s*(\d+) MISS\s*·\s*(\d+) FALSE-ALARM(?:\s*·\s*(\d+) unrun)?(?:\s*·\s*(\d+) unsupported)?/.exec(`${r.stdout || ''}${r.stderr || ''}`);
       if (!m) { a.finalStatus = 'draft'; a.draftReason = null; continue; } // could not verify this run (a spawn failure, or the timeout above) — unverified, not blamed
+      // A case `yg drill` could not run (its check threw, its grammar did not load) or does not support is
+      // neither a pass nor a MISS, and the footer's first three numbers leave it out: counting catches as
+      // `violates - miss` would read every unrun violates case as caught, and a rule no drill ever judged
+      // would be written as enforced. Any unrun or unsupported case, or the drill's own exit 2 for them,
+      // leaves the whole aspect unverified this run, exactly like a drill that printed nothing.
+      const unrun = Number(m[4] || 0), unsupported = Number(m[5] || 0);
+      if (unrun > 0 || unsupported > 0 || r.status === 2) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
       verified++;
       const miss = Number(m[2]), falseAlarm = Number(m[3]);
       const catches = violates - miss;

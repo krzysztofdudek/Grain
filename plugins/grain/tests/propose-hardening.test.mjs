@@ -349,3 +349,44 @@ test('a directory with no git at all is the documented case and carries no warni
     assert.equal(json.degraded, null);
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 });
+
+// ---------- 6. a drill that could not run its cases has judged nothing ----------
+//
+// `yg drill` prints `N pass · N MISS · N FALSE-ALARM · N unrun · N unsupported` and exits 2 when a case could
+// not run (its check threw, its grammar did not load). An unrun violates case is neither a pass nor a MISS, so
+// reading catches as `violates - MISS` counted every one of them as caught, and a certified convention no drill
+// had judged was written `enforced`.
+test('a drill whose cases could not run leaves the aspect unverified, never enforced', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'propose-drill-unrun-'));
+  try {
+    const drill = (footer, code) => {
+      const bin = join(tmp, `yg-${code}.mjs`);
+      writeFileSync(bin, `console.log(${JSON.stringify(footer)}); process.exit(${code});` + NL);
+      return bin;
+    };
+    const run = (ygBin, name) => {
+      const outDir = join(tmp, `out-${name}`), ygg = join(outDir, '.yggdrasil');
+      const id = `grain/x/candidate-${name}`;
+      mkdirSync(join(ygg, 'aspects', id), { recursive: true });
+      writeFileSync(join(ygg, 'aspects', id, 'check.mjs'), 'export function check() { return []; }' + NL);
+      const aspect = {
+        id, origin: 'certified-convention', check: 'export function check() { return []; }' + NL,
+        kind: 'file', drillViolatesWritten: 3, drillSatisfiesWritten: 2,
+      };
+      const verify = promoteEnforceableAspects([aspect], { ygg, outDir, evidence: [{ kind: 'aspect', id }], asOf: 'abc', repo: tmp, ygBin });
+      return { aspect, verify };
+    };
+
+    const unrun = run(drill('0 pass · 0 MISS · 0 FALSE-ALARM · 5 unrun · 0 unsupported', 2), 'unrun');
+    assert.equal(unrun.verify.haveYg, true, 'the stand-in CLI has to resolve, or the test proves nothing');
+    assert.equal(unrun.aspect.finalStatus, 'draft', 'a rule no drill judged must not be enforced');
+    assert.equal(unrun.aspect.draftReason, null, 'unverified is not judged and found wanting');
+    assert.equal(unrun.verify.verified, 0);
+
+    const unsupported = run(drill('3 pass · 0 MISS · 0 FALSE-ALARM · 0 unrun · 2 unsupported', 2), 'unsupported');
+    assert.equal(unsupported.aspect.finalStatus, 'draft');
+
+    const ran = run(drill('5 pass · 0 MISS · 0 FALSE-ALARM · 0 unrun · 0 unsupported', 0), 'ran');
+    assert.equal(ran.aspect.finalStatus, 'enforced', 'a drill that ran every case and caught is still enforced');
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
