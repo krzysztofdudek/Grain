@@ -4,7 +4,7 @@ allowed-tools: Bash(node:*)
 ---
 ## grain map
 
-!`node "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" map`
+!`node -e "const f=process.argv[1];if(!require('fs').existsSync(f)){console.error('grain: '+f+' is not reachable from this environment (a host path inside a container?), so grain did not run');process.exit(0)}const r=require('child_process').spawnSync(process.execPath,process.argv.slice(1),{stdio:'inherit'});process.exit(r.status===null?1:r.status)" "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" map`
 
 Relay the overview above: `layers:` (modules from leaves to top, by dependency depth — a leaf has nothing else in
 this repo depending on how it is called), `concepts:` (the repo's own top vocabulary, where commit messages and
