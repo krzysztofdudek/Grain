@@ -5,7 +5,7 @@ allowed-tools: Bash(node:*)
 ---
 ## grain explain: $ARGUMENTS
 
-!`node "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" explain $ARGUMENTS`
+!`node -e "const f=process.argv[1];if(!require('fs').existsSync(f)){console.error('grain: '+f+' is not reachable from this environment (a host path inside a container?), so grain did not run');process.exit(0)}const r=require('child_process').spawnSync(process.execPath,process.argv.slice(1),{stdio:'inherit'});process.exit(r.status===null?1:r.status)" "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" explain $ARGUMENTS`
 
 Summarize the lattice above top-down (the file's groups → its directories → package-wide): `NORM` rows are
 accepted conventions, `obs` rows are observations below the acceptance gate, and `← THIS FILE DEVIATES` marks

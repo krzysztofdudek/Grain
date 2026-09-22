@@ -5,7 +5,7 @@ allowed-tools: Bash(node:*)
 ---
 ## grain obligation: $ARGUMENTS
 
-!`node "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" obligation $ARGUMENTS`
+!`node -e "const f=process.argv[1];if(!require('fs').existsSync(f)){console.error('grain: '+f+' is not reachable from this environment (a host path inside a container?), so grain did not run');process.exit(0)}const r=require('child_process').spawnSync(process.execPath,process.argv.slice(1),{stdio:'inherit'});process.exit(r.status===null?1:r.status)" "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" obligation $ARGUMENTS`
 
 Relay the answer above to the user. `<path>` need not exist — that is the point: ask BEFORE writing the file.
 Two separate lists, never merged: "has come with" names files this repo's own history shows a genuine, specific

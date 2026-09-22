@@ -5,7 +5,7 @@ allowed-tools: Bash(node:*)
 ---
 ## grain decide: $ARGUMENTS
 
-!`node "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" decide $ARGUMENTS`
+!`node -e "const f=process.argv[1];if(!require('fs').existsSync(f)){console.error('grain: '+f+' is not reachable from this environment (a host path inside a container?), so grain did not run');process.exit(0)}const r=require('child_process').spawnSync(process.execPath,process.argv.slice(1),{stdio:'inherit'});process.exit(r.status===null?1:r.status)" "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" decide $ARGUMENTS`
 
 `decide` records one of three kinds of maintainer decision in the committed `.grain/seeds.jsonl` (`decide` is the
 current name; `seed add | add-boundary | list | rm` is the identical command under its original name):
