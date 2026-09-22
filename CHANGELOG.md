@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - `grain propose` now writes `.family-candidates.json` into the proposal's `.yggdrasil/`, beside the graph, so `yg adopt` installs it and `yg advise` names each group of similar files no rule covers as a rule to draft. Before, the file was only ever written by Grain's own measurement script, so an adopter never had it. `--family-candidates <path>` writes it somewhere else (a repository that adopted earlier points it at its own `.yggdrasil/`), and `--no-family-candidates` writes none. The report gains a `family candidates:` line and the JSON a `familyCandidates` field.
+- `.family-candidates.json` now says who measured and what "without a law" meant: `producer: "grain"` and `gate: "no-certified-convention"`. Yggdrasil's own miner writes the same document from a different oracle (no narrow authored aspect), and without these fields a reader of `yg advise` could not tell which one found the gap. Both are optional fields inside `v: 1`, so a consumer that does not know them reads the file as before.
 
 ### Fixed
 

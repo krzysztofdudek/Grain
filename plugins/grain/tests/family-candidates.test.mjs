@@ -67,9 +67,17 @@ function propose(name, extra = []) {
   return { r, out, report: existsSync(json) ? JSON.parse(readFileSync(json, 'utf8')) : null };
 }
 
+// Yggdrasil's own miner writes this same document from a different oracle (no narrow authored aspect), so the file
+// says which one measured and what "without a law" meant; `v` stays 1 because both fields are optional additions.
+const assertOracle = written => {
+  assert.equal(written.producer, 'grain', 'the file must say which oracle wrote it');
+  assert.equal(written.gate, 'no-certified-convention', 'the file must say what "without a law" meant for this producer');
+};
+
 const plantedFamily = written => {
   assert.equal(written.v, 1);
   assert.ok(!Number.isNaN(Date.parse(written.ts)), `ts "${written.ts}" must be a parseable instant, or yg advise drops the whole file`);
+  assertOracle(written);
   assert.equal(written.families.length, 1, `expected the one planted family, got: ${written.families.map(f => f.id).join(', ') || 'none'}`);
   assert.deepEqual(written.families[0].members, NAMES.map(n => `src/data/${n}Repository.ts`).sort());
   assert.equal(written._fit, undefined, '`_fit` is bookkeeping, never part of the file `yg advise` reads');
@@ -126,6 +134,7 @@ test('a repository with no family still gets the file, empty, so yg advise knows
   assert.equal(r.status, 0, r.stderr);
   const written = JSON.parse(readFileSync(join(out, '.yggdrasil', '.family-candidates.json'), 'utf8'));
   assert.deepEqual(written.families, []);
+  assertOracle(written);
   assert.match(r.stdout, /family candidates: none — no group of structurally uniform files is left without a rule/);
 });
 
