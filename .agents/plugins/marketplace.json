@@ -10,6 +10,11 @@
         "source": "local",
         "path": "./plugins/grain"
       },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools",
       "description": "Mine an architecture graph out of a repository that has none: grain propose reads the code and the full git history and writes node types, nodes, relations, cycles and the rules the repository's own code can prove, each one carrying the evidence that produced it and the count of places that already break it, as a tree Yggdrasil loads and accepts with one command. The agent-facing questions it has always answered still work from the same model: where <intent> (where such things live, what is expected there, exemplars to copy), what <term>, how <query>, check <file> (how a change sits against the local norm), review, completeness, status/report/rules, export, decide steer|boundary|waive — plus hooks that speak unbidden and an MCP server exposing the same read-only answers to any tool. Statistical answers mined from syntax trees and git history; no model calls, no network, never blocks."
     }
   ]

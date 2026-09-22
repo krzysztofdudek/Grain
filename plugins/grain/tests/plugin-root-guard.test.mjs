@@ -13,7 +13,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const PLUGIN = join(dirname(fileURLToPath(import.meta.url)), '..');
-const GUARD_RE = /^node -e ("(?:[^"\\]|\\.)*") "\$\{(?:CLAUDE_)?PLUGIN_ROOT\}\/bin\/[\w-]+\.mjs"/;
+const GUARD_RE = /^node -e ("(?:[^"\\]|\\.)*") "\$\{(?:CLAUDE_|CURSOR_)?PLUGIN_ROOT\}\/bin\/[\w-]+\.mjs"/;
 
 function hookCommands(file) {
   const out = [];
@@ -32,7 +32,7 @@ function hookCommands(file) {
 
 function everySite() {
   const sites = [];
-  for (const f of ['hooks.json', 'hooks/hooks.json', 'hooks/codex-hooks.json']) {
+  for (const f of ['hooks.json', 'hooks/hooks.json', 'hooks/codex-hooks.json', 'hooks/cursor-hooks.json']) {
     for (const c of hookCommands(f)) sites.push({ where: f, cmd: c });
   }
   for (const f of readdirSync(join(PLUGIN, 'commands')).filter((n) => n.endsWith('.md'))) {
