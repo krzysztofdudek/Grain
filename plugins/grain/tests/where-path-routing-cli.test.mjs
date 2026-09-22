@@ -74,3 +74,59 @@ test('`grain where <existing directory path>` does not repeat its own location l
   const repeats = locationLines.filter(l => l === first).length;
   assert.equal(repeats, 1, out);
 });
+
+// issue 054: the JSON a path query answers with carries the same locator the text output opens with — where the
+// path belongs and whether it (and its module) exist yet — and the `in:` line is rendered from that same object,
+// so the two can never disagree. Existing fields are untouched.
+const whereJson = args => {
+  const r = grain(['where', ...args, '--json']);
+  assert.equal(r.code, 0, `${r.out}\n${r.err}`);
+  return JSON.parse(r.out);
+};
+const textLocation = args => grain(['where', ...args]).out.split('\n').find(l => l.startsWith('in: '));
+
+test('`where --json <a path whose module does not exist yet>` names the module, says neither exists, and the nearest existing one', () => {
+  const doc = whereJson(['reporting/exporters/csvExporter.ts']);
+  assert.equal(doc.location.path, 'reporting/exporters/csvExporter.ts');
+  assert.equal(doc.location.exists, false);
+  assert.equal(doc.location.moduleExists, false);
+  assert.equal(doc.location.nearestExisting, '.');
+  assert.equal(typeof doc.location.usedBy, 'number');
+  assert.match(textLocation(['reporting/exporters/csvExporter.ts']), new RegExp(`^in: ${doc.location.module}/ does not exist yet — nearest existing: the repo root`));
+  assert.ok(Array.isArray(doc.hits) && 'signal' in doc && 'disclosures' in doc, 'the existing fields are all still there');
+});
+
+test('`where --json <an existing file>` says the file exists, in a module that exists, with no nearest-existing fallback', () => {
+  const doc = whereJson(['src/domain/constants/roles.ts']);
+  assert.equal(doc.location.exists, true);
+  assert.equal(doc.location.moduleExists, true);
+  assert.equal(doc.location.nearestExisting, null);
+  assert.equal(textLocation(['src/domain/constants/roles.ts']), `in: ${doc.location.module}/${doc.location.layer !== null ? ` (layer ${doc.location.layer})` : ''} · used by ${doc.location.usedBy} modules`);
+});
+
+test('`where --json <a new file in an existing module>` says the file does not exist yet while its module does', () => {
+  const doc = whereJson(['src/domain/constants/permissions.ts']);
+  assert.equal(doc.location.exists, false);
+  assert.equal(doc.location.moduleExists, true);
+});
+
+test('`where --json` for an ordinary intent carries no location at all', () => {
+  const doc = whereJson(['todo', 'item', 'entity']);
+  assert.equal(doc.location, null);
+  assert.equal(doc.placement, null);
+});
+
+test('`check --json <file> --as <new path>` carries the locator for the path being asked about', () => {
+  const r = grain(['check', 'src/domain/constants/roles.ts', '--as', 'reporting/exporters/csvExporter.ts', '--json']);
+  assert.equal(r.code, 0, `${r.out}\n${r.err}`);
+  const doc = JSON.parse(r.out);
+  assert.equal(doc.location.path, 'reporting/exporters/csvExporter.ts');
+  assert.equal(doc.location.exists, false);
+  assert.equal(doc.location.moduleExists, false);
+  const plain = grain(['check', 'src/domain/constants/roles.ts', '--json']);
+  const own = JSON.parse(plain.out);
+  assert.equal(own.location.path, 'src/domain/constants/roles.ts');
+  assert.equal(own.location.exists, true);
+  assert.equal(own.schema, 'grain-check/1', 'the verdict itself is unchanged');
+  assert.equal(own.file, 'src/domain/constants/roles.ts');
+});

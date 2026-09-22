@@ -397,7 +397,13 @@ export function inLineForCard(model, h) {
 // 0.80 bar, firing on 2 of 11 repos — and naming repo furniture when it did), so there is no certified
 // companion, sibling or archetype to add here — only the tree, which is a fact and not a prediction.
 // A path whose refined module DOES hold files is untouched: its layer and fan-in are real.
-export function inLineForFile(model, rel) {
+//
+// `locationForFile` is that locator as data, and `inLineForFile` only renders it, so the line a person reads and
+// the field an agent reads out of `--json` can never say two different things. `exists` is the path itself in
+// the indexed tree, by the same liveness test as the module: a file, or a directory any indexed file sits under.
+// `layer`/`usedBy` measure `module` when it exists and `nearestExisting` when it does not — the only measured
+// numbers there are, exactly as the text line reports them. `layer` is null where the text omits it.
+export function locationForFile(model, rel) {
   if (!model.moduleGraph || !model.filesAll) return null;
   const refined = model._archModOf || (model._archModOf = refineModOf(model.filesAll, model.pkgs || [], model.srcRoots || []));
   const mod = refined(rel);
@@ -409,15 +415,32 @@ export function inLineForFile(model, rel) {
       ? (model.pathsAll || []).length + model.filesAll.length > 0
       : (model.pathsAll || []).some(f => (f + '/').startsWith(d + '/')) ||
         model.filesAll.some(f => (f + '/').startsWith(d + '/'));
-  const meas = m => {
-    const node = model.moduleGraph.nodes.find(n => n.id === m);
-    const k = model.moduleGraph.edges.filter(e => e.to === m).length;
-    return `${node && node.layer !== undefined ? ` (layer ${node.layer})` : ''} · used by ${k} modules`;
-  };
-  if (!holds(mod)) {
+  const moduleExists = holds(mod);
+  let nearestExisting = null;
+  if (!moduleExists) {
     let anc = mod;
     while (anc !== '.' && !holds(anc)) anc = anc.includes('/') ? anc.slice(0, anc.lastIndexOf('/')) : '.';
-    return `in: ${mod}/ does not exist yet — nearest existing: ${anc === '.' ? 'the repo root' : anc + '/'}${meas(anc)}`;
+    nearestExisting = anc;
   }
-  return `in: ${mod}/${meas(mod)}`;
+  const measured = moduleExists ? mod : nearestExisting;
+  const node = model.moduleGraph.nodes.find(n => n.id === measured);
+  return {
+    path: rel,
+    exists: holds(rel),
+    module: mod,
+    moduleExists,
+    nearestExisting,
+    layer: node && node.layer !== undefined ? node.layer : null,
+    usedBy: model.moduleGraph.edges.filter(e => e.to === measured).length,
+  };
+}
+export function inLineForFile(model, rel) {
+  const loc = locationForFile(model, rel);
+  if (!loc) return null;
+  const meas = `${loc.layer !== null ? ` (layer ${loc.layer})` : ''} · used by ${loc.usedBy} modules`;
+  if (!loc.moduleExists) {
+    const anc = loc.nearestExisting;
+    return `in: ${loc.module}/ does not exist yet — nearest existing: ${anc === '.' ? 'the repo root' : anc + '/'}${meas}`;
+  }
+  return `in: ${loc.module}/${meas}`;
 }

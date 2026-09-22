@@ -69,6 +69,18 @@ renders (see their own §089 comments in `engine/grain-check.mjs`) — only the 
 as a boolean (`noGrammar`, `noPartition`, `parseFailed`, `hasError`), so text and JSON are guaranteed to speak from
 the identical fact, never two hand-synced copies of one sentence.
 
+### `location` — where a path belongs, as data
+
+`where --json <path>`, `check --json <file>` (for `--as <path>`, the path being asked about) and every parsed
+file's entry in `review --json` (which stays byte-identical to `check --json` for the same file) carry
+`location: { path, exists, module, moduleExists, nearestExisting, layer, usedBy }` — the same locator the text
+output opens with as its `in:` line, which is rendered from this object, so the two never disagree. `exists` is the
+path itself in the indexed tree (a file, or a directory some indexed file sits under); `module` is the module it
+resolves into and `moduleExists` whether any indexed file lives there; when it does not, `nearestExisting` names the
+nearest ancestor that does (`.` for the repository root) and `layer`/`usedBy` measure that ancestor, the only
+measured numbers there are. `where --json` also carries `placement: { token, dir, statement }`, the naming-pattern
+hint `check --json` already names that way, or null. For a `where` query that is not a path, both are null.
+
 ## Voices
 
 Every line grain prints as a claim carries exactly one of four voices (`voice(kind, text, meta)`, `engine/mine.mjs`),
