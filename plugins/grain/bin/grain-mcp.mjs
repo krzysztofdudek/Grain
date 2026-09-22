@@ -63,7 +63,7 @@ async function buildCtx(repoArg, args, opts) {
 const optionalRepoProp = {
   repo: {
     type: 'string',
-    description: "Absolute path to the repository root. Defaults to this MCP server's own working directory.",
+    description: "Absolute path to the repository root. Defaults to this MCP server's own working directory. A path from inside a dev container is translated to the host directory a running container mounts there; one no container mounts is refused, never swapped for another repository.",
   },
 };
 
