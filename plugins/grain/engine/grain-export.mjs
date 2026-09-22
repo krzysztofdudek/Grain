@@ -112,11 +112,14 @@ export async function cmdPropose({ root, args, opts, stamp }) {
   // that line — the adopter sees "Already broken N sites" (and everything else `yg adopt` would tell them)
   // before deciding, instead of a promise that the command exists. Never `yg adopt` for real: a dry run
   // writes nothing, and deciding to accept a proposal is the maintainer's call, not this command's.
+  // A repository that already has a graph: `yg adopt` refuses to merge over it before it ever reaches its
+  // dry run, so the preview asks with `--replace`, which a dry run still never acts on.
   const yg = resolveYg(opts.ygBin);
   if (yg.have) {
-    const res = spawnSync(yg.cmd, [...yg.pre, 'adopt', outDir, '--dry-run'], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 5 * 60_000 });
+    const adoptArgs = ['adopt', outDir, ...(existsSync(join(root, '.yggdrasil')) ? ['--replace'] : []), '--dry-run'];
+    const res = spawnSync(yg.cmd, [...yg.pre, ...adoptArgs], { cwd: root, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 5 * 60_000 });
     const block = `${res.stdout || ''}${res.stderr || ''}`.trim();
-    lines.push('', block || `\`yg adopt ${outDir} --dry-run\` produced no output (exit ${res.status ?? 'unknown'}, ${res.error?.message || 'no error recorded'})`);
+    lines.push('', block || `\`yg ${adoptArgs.join(' ')}\` produced no output (exit ${res.status ?? 'unknown'}, ${res.error?.message || 'no error recorded'})`);
   } else {
     lines.push(
       '',
