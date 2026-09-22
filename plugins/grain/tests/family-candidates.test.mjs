@@ -104,6 +104,21 @@ test('--family-candidates <path> writes there instead, and the proposal carries 
   assert.equal(report.familyCandidates.path, target);
 });
 
+// Yggdrasil's own miner writes the same file, and the file carries one producer's families: `yg advise` keeps one
+// `producer`/`gate` per file. Overwriting the miner's file would erase its families with no word to anyone.
+test('a file another producer wrote is left as it is, and the report says Grain\'s families were not written', () => {
+  const dir = join(tmp, 'mined', '.yggdrasil');
+  mkdirSync(dir, { recursive: true });
+  const target = join(dir, '.family-candidates.json');
+  const theirs = `${JSON.stringify({ v: 1, ts: '2026-09-22T00:00:00Z', producer: 'yggdrasil-miner', gate: 'no-narrow-aspect', families: [] }, null, 1)}\n`;
+  writeFileSync(target, theirs);
+  const { r, report } = propose('other-producer', ['--family-candidates', target]);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(readFileSync(target, 'utf8'), theirs, 'the miner\'s file must be untouched');
+  assert.equal(report.familyCandidates.notWritten, 'yggdrasil-miner');
+  assert.match(`${r.stdout}${r.stderr}`, /family candidates: 1 group\(s\) found, NOT written — .* holds `yggdrasil-miner`'s families/);
+});
+
 test('--family-candidates <directory> writes .family-candidates.json inside it', () => {
   const dir = join(tmp, 'a-directory');
   mkdirSync(dir, { recursive: true });

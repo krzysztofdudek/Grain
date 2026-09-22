@@ -109,7 +109,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
     // families it holds — `null` when the run was told not to write one. `droppedByFit` is what the
     // predicate-fit gate removed (members and whole families) before the file was written.
     familyCandidates: familyCandidates
-      ? { path: rel(familyCandidates.path), families: familyCandidates.families, droppedByFit: familyCandidates.droppedByFit || { members: 0, families: 0 } }
+      ? { path: rel(familyCandidates.path), families: familyCandidates.families, droppedByFit: familyCandidates.droppedByFit || { members: 0, families: 0 }, ...(familyCandidates.notWritten ? { notWritten: familyCandidates.notWritten } : {}) }
       : null,
     alternatives: c.alternatives,
     skippedNotARule: c.aspectsSkippedNotARule,
@@ -188,7 +188,9 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
   // The family-without-law signal `yg advise` reads: groups of structurally uniform files that no rule covers.
   // Written beside the graph so `yg adopt` carries it in with the rest; this line says where it went and what
   // it holds, and only appears when the run wrote one.
-  if (familyCandidates) {
+  if (familyCandidates && familyCandidates.notWritten) {
+    L.push(`family candidates: ${familyCandidates.families} group(s) found, NOT written — ${rel(familyCandidates.path)} holds \`${familyCandidates.notWritten}\`'s families, and the file carries one producer's, so writing Grain's would erase them from \`yg advise\`; pass \`--family-candidates <another path>\` to keep Grain's apart`);
+  } else if (familyCandidates) {
     const where = rel(familyCandidates.path);
     L.push(familyCandidates.families
       ? `family candidates: ${familyCandidates.families} group(s) of structurally uniform files with no rule of their own — ${where}; once it sits in \`.yggdrasil/\` (\`yg adopt\` puts it there), \`yg advise\` names each as a rule to draft`

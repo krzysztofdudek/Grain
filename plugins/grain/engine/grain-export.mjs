@@ -1,7 +1,7 @@
 // grain engine · query surface · `export` and `propose`
 // Split out of grain.mjs: the statements below are the ones that stood there, unchanged.
 import { spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, statSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve, isAbsolute, sep } from 'node:path';
 import { loadHistory } from './history.mjs';
 import { exportModel } from './export.mjs';
@@ -97,9 +97,23 @@ export async function cmdPropose({ root, args, opts, stamp }) {
     }
     // `_fit` is bookkeeping about the predicate-fit gate, not part of the contract `yg advise` reads.
     const { _fit, ...onDisk } = buildFamilyCandidates(r.alternatives, r.exp, {}, { active: r.active, groups: r.loc.groups, repo: root });
-    mkdirSync(dirname(fcPath), { recursive: true });
-    atomicWrite(fcPath, JSON.stringify(onDisk, null, 1) + '\n');
-    familyCandidates = { path: fcPath, families: onDisk.families.length, droppedByFit: _fit || { members: 0, families: 0 } };
+    // The file holds ONE producer's families (`yg advise` keeps one `producer`/`gate` per file), and Yggdrasil's
+    // own miner writes the same path. Overwriting its file would erase its families from `yg advise` with no word
+    // to anyone, so a file another producer wrote is left as it is and the report says why nothing was written.
+    let otherProducer = null;
+    if (existsSync(fcPath)) {
+      try {
+        const prev = JSON.parse(readFileSync(fcPath, 'utf8'));
+        if (prev && typeof prev.producer === 'string' && prev.producer !== 'grain') otherProducer = prev.producer;
+      } catch { /* unreadable: nobody's families are in it to lose */ }
+    }
+    if (otherProducer) {
+      familyCandidates = { path: fcPath, families: onDisk.families.length, droppedByFit: _fit || { members: 0, families: 0 }, notWritten: otherProducer };
+    } else {
+      mkdirSync(dirname(fcPath), { recursive: true });
+      atomicWrite(fcPath, JSON.stringify(onDisk, null, 1) + '\n');
+      familyCandidates = { path: fcPath, families: onDisk.families.length, droppedByFit: _fit || { members: 0, families: 0 } };
+    }
   }
   // `*` ignores the staging tree including this file — unlike `.grain/.gitignore`, which ignores only `cache/` —
   // so an adopter reading a proposal for a week never has it show up in `git status`.
