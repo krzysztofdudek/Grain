@@ -128,6 +128,7 @@ export {
   baselineClause,
   inLineForCard,
   inLineForFile,
+  locationForFile,
 } from './cards.mjs';
 // whereCmd — intent to place, expectations and a pattern to copy
 export { whereCmd } from './where.mjs';

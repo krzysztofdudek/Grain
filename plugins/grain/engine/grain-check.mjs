@@ -20,6 +20,7 @@ import {
   pct,
   voice,
   inLineForFile,
+  locationForFile,
 } from './core.mjs';
 import {  } from './core.mjs';
 import { changedRanges, existsMemo, fileDirty, relPath } from './grain-context.mjs';
@@ -99,7 +100,7 @@ async function fileFindings({ root, rel, isGit, dirty, r, wholeFile = false, dif
 }
 // the machine-readable per-file verdict — the exact shape `check --json` has always returned, reused as-is for one
 // file inside `review --json` so the two never drift into two schemas for the same facts
-function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp }) {
+function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp, location = null }) {
   const scopesN = r.scopes.filter(s => s.kind !== 'file').length;
   const { touched, inChange, preOnly } = f;
   const dev = g => ({
@@ -196,6 +197,8 @@ function fileVerdictJson({ rel, r, dirty, f, govFacts, stamp }) {
           },
         ]
       : [],
+    // the `in:` locator the text output opens with, as data (`locationForFile`, which that line is rendered from)
+    location,
     asOf: stamp(dirty).replace(/^as of /, ''),
   };
 }
@@ -308,7 +311,18 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
     recordCheckFeedback(store, rel, r.partition, inChange, content ?? readFileSync(join(root, rel), 'utf8'));
   if (opts.json)
     return [
-      JSON.stringify(fileVerdictJson({ rel, r, dirty, f: { touched, inChange, preOnly }, govFacts, stamp })),
+      JSON.stringify(
+        fileVerdictJson({
+          rel,
+          r,
+          dirty,
+          f: { touched, inChange, preOnly },
+          govFacts,
+          stamp,
+          // for `--as <path>`, the path being asked about — the same one the text output's `in:` line names
+          location: locationForFile(model, opts.as || rel),
+        })
+      ),
     ]; // machine-readable verdict: the same facts `check` prints, as data (consumers: harnesses, training pipelines)
   const inl = inLineForFile(model, opts.as || rel);
   if (inl) lines.push(inl);
@@ -631,6 +645,7 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
                 f: e.f,
                 govFacts: govFactsOf(e.r),
                 stamp,
+                location: locationForFile(model, e.rel),
               })
             : {
                 file: e.rel,

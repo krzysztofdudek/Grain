@@ -109,12 +109,13 @@ test('J1.2: check <file> on a brand-new marker carrier never prints a recipe: li
   // scoping difference for single-file `check`, not an accidental omission
 });
 
-test('J1.2: check <file> --json output shape is unchanged (no cochangePartners or other review-only keys) — updated for §089\'s additive `disclosures[]`', () => {
+test('J1.2: check <file> --json output shape is unchanged (no cochangePartners or other review-only keys) — updated for §089\'s additive `disclosures[]` and the additive `location`', () => {
   const { out, code } = grain(['check', 'src/pair-a.ts', '--json']);
   assert.equal(code, 0, out);
   const j = JSON.parse(out);
   // §089 added one new, additive key (`disclosures`, always present — [] when nothing is disclosed): every other
-  // key this test locked in stays exactly as it was, and `cochangePartners` (a review-only key) still must not leak
-  assert.deepEqual(Object.keys(j).sort(), ['architecture', 'asOf', 'deviationsInChange', 'deviationsPreExisting', 'dirty', 'disclosures', 'file', 'governed', 'hasError', 'label', 'partition', 'placement', 'schema', 'scopes', 'steers', 'waivers'].sort());
+  // key this test locked in stays exactly as it was, and `cochangePartners` (a review-only key) still must not leak.
+  // `location` (the `in:` locator as data) was added the same additive way, shared with `review --json`'s entries.
+  assert.deepEqual(Object.keys(j).sort(), ['architecture', 'asOf', 'deviationsInChange', 'deviationsPreExisting', 'dirty', 'disclosures', 'file', 'governed', 'hasError', 'label', 'location', 'partition', 'placement', 'schema', 'scopes', 'steers', 'waivers'].sort());
   assert.ok(!('cochangePartners' in j));
 });

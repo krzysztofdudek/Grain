@@ -6,7 +6,7 @@ import { readFileSync, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { EXT2GRAMMAR } from './config.mjs';
-import { whereCmd, howCmd, blindFiles, ungrammaredFiles, verbalize, scopeLine, part } from './core.mjs';
+import { whereCmd, howCmd, blindFiles, ungrammaredFiles, verbalize, scopeLine, part, locationForFile, placementHit } from './core.mjs';
 import { loadHistory } from './history.mjs';
 import { DIRTY_TREE_NOTE } from './core.mjs';
 import { existsMemo, log, relPath } from './grain-context.mjs';
@@ -37,6 +37,11 @@ export function pathQueryFor(root, arg) {
     anc = anc.includes('/') ? anc.slice(0, anc.lastIndexOf('/')) : '';
   }
   return null;
+}
+
+// The placement hint in the shape `check --json` already gives it, so both commands name it the same way.
+export function placementJson(ph) {
+  return ph ? { token: ph.token, dir: ph.dir, statement: ph.text.replace(/^\[grain\] /, '') } : null;
 }
 
 // ----- commands -----
@@ -134,6 +139,10 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
             held: f.held || null,
           })),
         })),
+        // A path query's own locator, as data: the same `in:` line and naming-pattern hint the text output prints
+        // above the hits, which a reader of the JSON otherwise never got. Null for a query that is not a path.
+        location: pathQuery ? locationForFile(model, pathQuery) : null,
+        placement: pathQuery ? placementJson(placementHit(model, pathQuery)) : null,
         signal: sig,
         disclosures, // §089 — additive: the same { kind, text } lines the text renderer above already emitted
         asOf: stamp().replace(/^as of /, ''),
