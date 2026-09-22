@@ -1,5 +1,7 @@
 // grain engine · proposal writer · what `grain propose` prints, and what --json writes
 // Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { pct } from './propose-base.mjs';
 import { TYPE_LEVELS } from './propose-levels.mjs';
 
@@ -196,6 +198,12 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
   // merge over an existing graph, checks the proposal loads before moving anything, and baselines every
   // deterministic verdict for free the moment it lands. `--dry-run` previews all of that (including how
   // many sites already break each new rule) and writes nothing, which is why it is named FIRST.
-  L.push(`next: read ${out}/PROPOSAL.md (per-element evidence: ${out}/proposal.json), then \`yg adopt ${out} --dry-run\` to preview accepting it, and \`yg adopt ${out}\` to accept it`);
+  // A repository that already has a graph is refused by a plain `yg adopt`, its `--dry-run` included, so
+  // there the preview and the acceptance both carry `--replace`, and the line says what accepting would do.
+  if (root && existsSync(join(root, '.yggdrasil'))) {
+    L.push(`next: read ${out}/PROPOSAL.md (per-element evidence: ${out}/proposal.json); this repository already has a graph, so \`yg adopt ${out} --replace --dry-run\` previews accepting it, and \`yg adopt ${out} --replace\` would replace that graph with it`);
+  } else {
+    L.push(`next: read ${out}/PROPOSAL.md (per-element evidence: ${out}/proposal.json), then \`yg adopt ${out} --dry-run\` to preview accepting it, and \`yg adopt ${out}\` to accept it`);
+  }
   return { lines: L, json };
 }
