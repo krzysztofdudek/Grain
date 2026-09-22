@@ -149,7 +149,12 @@ export const EXT_ALT = Object.fromEntries(
 // as if it were the repository's code. Measured: `.grain` became a node type of the proposed architecture
 // ("`.grain` holds 2 tracked files nothing else in this proposal claims"). Neither is the repo's code at any
 // point in its history, so neither is mined, walked or proposed on.
-export const HARD_EXCL = /(^|\/)(\.git|\.grain|\.yggdrasil-proposal)(\/|$)/;
+// The repository's own graph, `.yggdrasil/` at the root, is the same kind of thing once a proposal is adopted:
+// `yg adopt` copies the proposal in whole, drill corpora included, and those corpora are full copies of the
+// repository's own files. Mined, they double-count every convention, twin and co-change over their originals,
+// and a later `grain propose` cut a type out of them. Yggdrasil itself never treats the root graph as code. Only
+// the root one: a `.yggdrasil/` deeper down marks a nested project, which the node layer still has to see.
+export const HARD_EXCL = /(^|\/)(\.git|\.grain|\.yggdrasil-proposal)(\/|$)|^\.yggdrasil(\/|$)/;
 export const EXCL =
   /(^|\/)(node_modules|dist|build|out|vendor|\.git|\.yggdrasil|\.grain|__pycache__|migrations|coverage|\.next|bin|obj|fixtures?|benchmarks?|__mocks__|target)(\/|$)|\.min\.|generated|\.d\.ts$/;
 // DESIGN RULING (maintainer, 2026-08-25): no semantic recognition of tests, examples or any other role by NAME —
