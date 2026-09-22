@@ -1,5 +1,5 @@
 // grain engine · the full local-to-global convention lattice for one file, with no acceptance cut
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { extname } from 'node:path/posix';
@@ -29,7 +29,7 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
       ? scopesAll.filter(s => fileSet.has(s.rel) && s.kind !== 'module').map(hydrateScope)
       : await extractTree(root, files)
   ).filter(s => s.name !== '<anon>');
-  // (§013) the QUERIED file's own scopes come from the worktree, never replayed from the HEAD-indexed cache: a
+  // the QUERIED file's own scopes come from the worktree, never replayed from the HEAD-indexed cache: a
   // file mid-edit must not have spectrum silently answer from its pre-edit shape while `check` (which already
   // reads this exact file's live content) sees the edit right next to it. §G20 already did this for a brand-new
   // untracked file (which never had a cache entry to begin with, so `scopesAll` never even mentioned it); this
@@ -52,7 +52,7 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
   const { assign, amb } = assignAll(ps, part.medoids);
   const fileScopes = ps.filter(s => s.rel === rel);
   if (!fileScopes.length) {
-    // §057 — "(no scopes extracted)" reads as "this file's content has nothing worth extracting", which is true
+    // "(no scopes extracted)" reads as "this file's content has nothing worth extracting", which is true
     // for a genuinely empty/pure-data file under a grammar grain HAS, and false — misleading by omission — for a
     // format grain never reads at all (an extension absent from EXT2GRAMMAR, the same test `check` already makes
     // for its own "no grammar for …" line). Distinguish them here rather than let every unsupported format read
@@ -136,7 +136,7 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
     const isNorm = part.facts.some(f => f.cid === cid && f.pid === pid && f.exp === exp);
     // a role-conditioned cid's population is only the file's scopes IN THAT ROLE (roleOf, the same helper the cells above
     // are built with) — filtering by kind alone let a sibling role's scope in the same file contaminate this row's own
-    // per-file deviation check (§001)
+    // per-file deviation check
     const roleMatch = /^r(\d+):/.exec(cid);
     const mine3 = fileScopes
       .filter(

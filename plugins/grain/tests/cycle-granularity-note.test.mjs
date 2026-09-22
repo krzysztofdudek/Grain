@@ -1,4 +1,4 @@
-// §038: a reported architecture cycle is one of the strongest claims grain makes, but a "module" here is a
+// a reported architecture cycle is one of the strongest claims grain makes, but a "module" here is a
 // directory bucket (moduleOf/refineModOf, relations.mjs) — not a build-declared source set. A directory holding
 // more than one source set (Kotlin Multiplatform's commonMain/jvmMain/jvmTest under one src/, `src/main` +
 // `src/test` under one module root, …) folds them into a single node, so a cycle whose edges all come from a test

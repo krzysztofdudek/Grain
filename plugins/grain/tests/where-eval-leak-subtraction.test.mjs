@@ -1,4 +1,4 @@
-// §069 (research/where-lever, maintainer note *where-ranking-design* §4.4) — `leakSubtractedH` (core.mjs,
+// the leak-subtraction discipline (research/where-lever, maintainer note *where-ranking-design* §4.4) — `leakSubtractedH` (core.mjs,
 // right above `whereEval`) is the primitive a future `where`-side history lever MUST use before it reads `H.fps`
 // to judge where a candidate file belongs: without it, the lever sees the very commit that created the candidate,
 // and "predicts" the answer from the question. Measured on openzeppelin: a message-affinity lever scored `hit@3`

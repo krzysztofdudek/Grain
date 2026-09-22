@@ -1,5 +1,5 @@
 // grain engine · package roots, MDL cuts, the current-tree extraction, the vocabulary, and scope (de)serialization
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { basename, dirname, extname } from 'node:path/posix';

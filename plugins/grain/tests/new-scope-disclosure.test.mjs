@@ -1,6 +1,6 @@
 // 003 (B): a scope `checkFile` genuinely has never certified is disclosed — nearest group + score, or "matched no
 // group" when nothing clears CFG.minMemb — instead of being judged only by the trivially-satisfied `_all:`
-// baseline. (§003 resolution: near-member DETECTION — accusing a new scope of "missing" a group's defining trait —
+// baseline. (the new-scope resolution: near-member DETECTION — accusing a new scope of "missing" a group's defining trait —
 // was built four ways and measured on three live repos; all four were rejected. Rich feature bags pull the
 // newcomer into the COMPLEMENTARY group by the very omission that should flag it (flask r32/r33); thin bags drop
 // below CFG.minMemb into `amb`, so only the trivially-satisfied `_all:` baseline governs. Disclosure ships
@@ -41,12 +41,12 @@ const modelPathOf = repo => join(repo, '.grain', 'cache', 'model.json');
 const loadModel = repo => JSON.parse(readFileSync(modelPathOf(repo), 'utf8'));
 const saveModel = (repo, model) => writeFileSync(modelPathOf(repo), JSON.stringify(model));
 
-// (§010) a bare TS class carrying nothing but two name tokens — {tok:x, tok:y} and no sup/dec/ret — used to hand-
+// a bare TS class carrying nothing but two name tokens — {tok:x, tok:y} and no sup/dec/ret — used to hand-
 // place a new scope at an exact, computable jacW distance from a synthetic medoid below
 const bareSrc = name => `export class ${name} {\n  readonly id: number;\n  constructor(id: number) {\n    this.id = id;\n  }\n}\n`;
 // plant a synthetic role directly onto a loaded model's partition — the SAME "poison a real, freshly-mined model"
 // technique the top-level fixture above uses (itself borrowed from spectrum-role-deviation.test.mjs), extended to
-// plant a role with NO facts at all: §010's flask shape is a real cluster (a real label, or induceRoles' OWN
+// plant a role with NO facts at all: the nearest-neighbour disclosure's flask shape is a real cluster (a real label, or induceRoles' OWN
 // 'group' fallback) that certifies zero conventions. Pass `factPid`/`exemplar` to also certify one marker-tautology
 // fact on the role (mirroring the top-level fixture's fact1); omit them for a catch-all.
 const plantGroup = (part, { label, feats, members, kind = 'type', factPid, exemplar }) => {
@@ -58,7 +58,7 @@ const plantGroup = (part, { label, feats, members, kind = 'type', factPid, exemp
     suppressedValue: null, denyEligible: false, exemplars: exemplar ? [exemplar] : [], deviantsN: 0, deviants: [], altMarker: null });
   return idx;
 };
-// a real, indexed scope to anchor a synthetic fact's exemplar on (§010-e: the pointer must resolve to real source,
+// a real, indexed scope to anchor a synthetic fact's exemplar on (the pointer must resolve to real source,
 // even though which GROUP claims it is fabricated for the test) — src/handlers/Order.ts line 1 is OrderCommand's
 // own declaration line, established by the top-level fixture below
 const REAL_EXEMPLAR = { rel: 'src/handlers/Order.ts', line: 1, endLine: 1, name: 'OrderCommand' };
@@ -87,14 +87,14 @@ before(() => {
   for (const e of PAIRED) { part.assignments[`src/handlers/${e}.ts#type#${e}Command`] = ROLE; part.assignments[`src/handlers/${e}.ts#type#${e}Handler`] = -1; }
   part.assignments['src/handlers/Rogue.ts#type#RogueCommand'] = ROLE;
   part.assignments['src/handlers/Rogue.ts#type#RogueHandler'] = -1;
-  // fact1 — the marker tautology (§003-A2): its own pid (`auto.extends:Command`) IS the feature that formed the
+  // fact1 — the marker tautology: its own pid (`auto.extends:Command`) IS the feature that formed the
   // role (`sup:Command` sits in the medoid bag above), so every certified member holds it BY CONSTRUCTION.
   part.facts.push({ cid: `r${ROLE}:type`, kind: 'type', pid: 'auto.extends:Command', exp: 'true',
     parentExp: null, counts: { true: 8 }, srawCounts: { true: 8 }, alphabet: ['true', 'false'],
     raw: 8, sraw: 8, share: 1, bpi: 1, tau: 3, nSurfaces: 1, siblings: [],
     suppressedValue: null, denyEligible: false, exemplars: [], deviantsN: 0, deviants: [], altMarker: null });
   // fact2 — a REAL, non-tautological role fact on the SAME role: `auto.namesuffix` is not one of the dec:/sup:/
-  // ret: marker families `isDefiningFact` tests, so this one must NOT carry the (§003-A2) clause. `exp` matches the
+  // ret: marker families `isDefiningFact` tests, so this one must NOT carry the marker-tautology clause. `exp` matches the
   // actual extracted value (`nameSuffix('OrderCommand')` === 'command', tokenize's last token) so it genuinely
   // conforms — this is not a synthetic mismatch, `OrderCommand` really is named that way.
   part.facts.push({ cid: `r${ROLE}:type`, kind: 'type', pid: 'auto.namesuffix', exp: 'command',
@@ -151,7 +151,7 @@ test('(A2) a marker-tautology fact renders with the "defines this group" clause;
   assert.equal(code, 0, err);
   const line = out.split('\n').find(l => l.startsWith('conforms to:'));
   assert.ok(line, `expected a "conforms to:" line:\n${out}`);
-  const segs = line.slice('conforms to: '.length).split(' · ');
+  const segs = line.slice('conforms to: '.length).split('· ');
   const extSeg = segs.find(s => /extend `Command`/.test(s));
   assert.ok(extSeg, `expected the extends:Command fact under conforms to: ${line}`);
   assert.match(extSeg, /defines this group; grain enforces it on members, not on a non-member/,
@@ -194,7 +194,7 @@ test('(regression) a genuine deviation in an existing role-conditioned scope sti
   assert.ok(dev, `RogueCommand is assigned the Command role and does not extend Command — must still be flagged: ${JSON.stringify(r.msgs)}`);
 });
 
-// ===== §010: delivery fixes on top of the disclosure above (three field-testers judged the CONTENT right, the
+// ===== the nearest-neighbour disclosure: delivery fixes on top of the disclosure above (three field-testers judged the CONTENT right, the
 // DELIVERY wrong — see .temp/issues/010-new-scope-disclosure-delivery/issue.md) =====
 
 // the flask shape, reproduced exactly: a marker splits a population into a decorated ("certifying") group and an
@@ -212,7 +212,7 @@ const withDPositive = () => { const model = loadModel(repo); const part = partit
     factPid: 'auto.extends:AcctBase', exemplar: REAL_EXEMPLAR });
   return { model, part, catchIdx, certIdx }; };
 
-test('(§010-d) the nearest group certifies nothing, the next one does — the line names the CERTIFYING group and its requirement, never the bare «group» placeholder', async () => {
+test('the nearest group certifies nothing, the next one does — the line names the CERTIFYING group and its requirement, never the bare «group» placeholder', async () => {
   const { model } = withDPositive();
   const NEW_REL = 'src/handlers/newscope/AcctThing.ts';
   wIn(repo, NEW_REL, bareSrc('AcctThing'));
@@ -232,7 +232,7 @@ test('(§010-d) the nearest group certifies nothing, the next one does — the l
   assert.doesNotMatch(hit.text, /«group»/, `the literal 'group' fallback must never render as a name: ${hit.text}`);
 });
 
-test('(§010-e) the exemplar pointer names a real file:line, resolving to a real member of the named group', async () => {
+test('the exemplar pointer names a real file:line, resolving to a real member of the named group', async () => {
   const { model } = withDPositive();
   const NEW_REL = 'src/handlers/newscope/AcctThing.ts';
   wIn(repo, NEW_REL, bareSrc('AcctThing'));
@@ -245,7 +245,7 @@ test('(§010-e) the exemplar pointer names a real file:line, resolving to a real
   assert.match(src[0], /class OrderCommand\b/, `the pointer must resolve to real source, not a fabricated location: ${src[0]}`);
 });
 
-test('(§010-d negative) no nearby group certifies anything — an honest "no group certifies" line, still never a bare «group»', async () => {
+test('(negative) no nearby group certifies anything — an honest "no group certifies" line, still never a bare «group»', async () => {
   const model = loadModel(repo); const part = partitionFor(model, 'src/handlers/Order.ts');
   // both neighbours certify zero conventions — one bears the literal 'group' fallback, the other a real (but
   // uncertified) label, proving a real label alone does not get mistaken for "certifies something"
@@ -265,7 +265,7 @@ test('(§010-d negative) no nearby group certifies anything — an honest "no gr
   assert.doesNotMatch(hit.text, /\n {2}See:/, `no certifying neighbour means no exemplar pointer to offer: ${hit.text}`);
 });
 
-test('(§010-a) a new file with several new scopes in ONE group collapses to a single disclosure, with a count — not one per scope', async () => {
+test('a new file with several new scopes in ONE group collapses to a single disclosure, with a count — not one per scope', async () => {
   const model = loadModel(repo); const part = partitionFor(model, 'src/handlers/Order.ts');
   plantGroup(part, { label: 'group', feats: ['tok:zork'], members: 11 });
   plantGroup(part, { label: 'ZorkBase', feats: ['tok:zork', 'sup:ZorkBase'], members: 6,
@@ -282,13 +282,13 @@ test('(§010-a) a new file with several new scopes in ONE group collapses to a s
   assert.match(hit.text, /«ZorkBase»/, hit.text);
 });
 
-// (§010 d+a compound, tester-verified reproduction) the flask retest that adds THREE new setup-style methods in
+// (the d+a compound, tester-verified reproduction) the flask retest that adds THREE new setup-style methods in
 // ONE edit hit both bugs at once: all three printed the near-identical paragraph back to back, and in that repo's
 // actual data BOTH neighbours — nearest and the one that certifies — happened to carry induceRoles' bare 'group'
 // fallback (no feature reached majority share on either side). Proves the fixes compose: dedup still collapses to
 // one line even when naming has nothing to work with, and the actionable requirement still surfaces even though
 // the certifying group itself has no real label to print.
-test('(§010 d+a compound) three new scopes in one edit, BOTH neighbours unlabelled — still one line, still never «group», still names the requirement', async () => {
+test('(d+a compound) three new scopes in one edit, BOTH neighbours unlabelled — still one line, still never «group», still names the requirement', async () => {
   const model = loadModel(repo); const part = partitionFor(model, 'src/handlers/Order.ts');
   plantGroup(part, { label: 'group', feats: ['tok:zap'], members: 11 }); // catch-all: no label, no facts
   plantGroup(part, { label: 'group', feats: ['tok:zap', 'dec:setup'], members: 12, // certifies, but ALSO no label
@@ -306,11 +306,11 @@ test('(§010 d+a compound) three new scopes in one edit, BOTH neighbours unlabel
   assert.match(hit.text, /See: src\/handlers\/Order\.ts:1 `OrderCommand`/, `an exemplar is still offered — the group need not be NAMED to be pointed at: ${hit.text}`);
 });
 
-test('(§010-c) the check headline qualifies "0 deviations" in place when a new-scope disclosure is pending, and is byte-identical when nothing is pending', () => {
+test('the check headline qualifies "0 deviations" in place when a new-scope disclosure is pending, and is byte-identical when nothing is pending', () => {
   // no pending disclosure at all: the headline must read exactly as it always has
   const clean = grainIn(repo, ['check', 'src/handlers/Payment.ts']).out;
   const cleanHeadline = clean.split('\n').find(l => l.startsWith('check '));
-  assert.match(cleanHeadline, /governed by \d+ convention\(s\) · \d+ deviation\(s\) in your change, \d+ pre-existing/, `byte-identical to the pre-§010 wording: ${cleanHeadline}`);
+  assert.match(cleanHeadline, /governed by \d+ convention\(s\) · \d+ deviation\(s\) in your change, \d+ pre-existing/, `byte-identical to the before the nearest-neighbour disclosure wording: ${cleanHeadline}`);
   assert.doesNotMatch(cleanHeadline, /known deviation|unclassified scope/, `no pending disclosure must never introduce the new wording: ${cleanHeadline}`);
 
   // a genuinely new, never-committed file with one new scope missing the group's marker (reuses the persisted

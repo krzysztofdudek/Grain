@@ -1,5 +1,5 @@
 // grain engine · value-kind evidence, type-reference hits, tested-by evidence and the blind/ungrammared file lists
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename, extname } from 'node:path/posix';
 import { EXT2GRAMMAR, CFG } from './config.mjs';
 import { cochangeData } from './completeness.mjs';
@@ -11,15 +11,15 @@ import { cochangeData } from './completeness.mjs';
 // file-level fan-in (f). Reuses `buildCards` + `whereCmd`'s own IDF unmodified: a query word every card carries
 // weighs little, the one word that names the thing weighs most — the same math, a different harvest over the hits.
 export const VALUE_KIND_LABEL = { enum: 'enum member', str: 'string literal' };
-// §018/§011/§014 — one shared defect, three field-test angles: `what` answering its strongest negative claim
+// one shared defect, three field-test angles: `what` answering its strongest negative claim
 // ("has no declarations or values anywhere") in cases where grain actually has the evidence to hedge. whatCmd's
-// empty branch below picks between three outcomes: `gated` (§011), `blind` (§018 and §014's own shape reproduced
+// empty branch below picks between three outcomes: `gated`, `blind` (the Rust-macro-body and Go-package-const shapes reproduced
 // without Go — see `blindFiles`'s own note on why it does NOT cover 014's real gin case), or the plain absence
 // claim — which must stay exactly as terse as it always was when neither applies. Both evidence functions are
 // pure (no I/O); `cmdWhat` (grain.mjs) supplies the one input (`rawScopes`) and the one precomputed hit
 // (`blindHit`) that need it, so `whatCmd` itself never touches the filesystem.
 //
-// case A (§018 Rust macro bodies): a file PARSES but contributes zero real scopes at all — a macro-only body, a
+// case A (Rust macro bodies): a file PARSES but contributes zero real scopes at all — a macro-only body, a
 // bare top-level const/var block, any future extraction gap. `blindFiles` names WHICH files these are (pure
 // render off model.filesAll vs the union of every partition's fileScopes keys — only kinds other than file/module
 // ever populate a fileScopes entry, see `learn()`'s own `fileScopes` build — no re-parsing, no per-language
@@ -31,14 +31,14 @@ export const VALUE_KIND_LABEL = { enum: 'enum member', str: 'string literal' };
 // does NOT cover 014's Go const/var gap on gin — measured directly (see this ticket's log): gin's const/var-
 // bearing files (errors.go, context.go, gin.go, …) also declare real functions, so they are not zero-scope files
 // at all. That narrower, per-declaration gap needs actual extraction (014's own ticket), not an answer-shape fix.
-// `peerAnomalous` (§037) narrows the set to the blind files that are actually ANOMALOUS: those whose own grammar
+// `peerAnomalous` narrows the set to the blind files that are actually ANOMALOUS: those whose own grammar
 // does yield scopes elsewhere in THIS repository. A `.yml` that extracts nothing is behaving exactly as every
 // other `.yml` here does — nothing is hidden inside it, that is simply what a data file looks like to grain; a
 // `.kt` that extracts nothing among 566 that parse fine is an outlier, and the anomaly IS the evidence. The
 // comparison is against the repo's own peers under the same grammar, never a hardcoded list of "data formats", so
 // it stays threshold-free and language-free. Measured across nine real repos: this one condition removes every
 // config-file false fire (`what cache` → a workflow YAML, `what middleware` → composer.json, `what variant` →
-// Cargo.toml) without touching a single true one. Off by default — the empty-answer path (§018) keeps its
+// Cargo.toml) without touching a single true one. Off by default — the empty-answer path keeps its
 // original, deliberately looser scan, because an answer that already says "nothing found" cannot be made
 // overconfident by a hedge; see `whatCmd`'s own note on why the two paths carry different evidentiary bars.
 export function blindFiles(model, { peerAnomalous = false } = {}) {
@@ -53,7 +53,7 @@ export function blindFiles(model, { peerAnomalous = false } = {}) {
   }
   return blind.filter(f => yields.has(EXT2GRAMMAR[extname(f)]));
 }
-// `ungrammaredFiles` (§057) — a DISJOINT, stronger sibling of `blindFiles`. `blindFiles` names files grain
+// `ungrammaredFiles` — a DISJOINT, stronger sibling of `blindFiles`. `blindFiles` names files grain
 // ATTEMPTED to parse (they carry a grammar, hence appear in `model.filesAll` — see `walkFiles`/`headTree`, both
 // of which only ever admit a path whose extension has an entry in `EXT2GRAMMAR`) but which yielded zero scopes.
 // This function names the files grain never attempted at all: tracked paths (`model.pathsAll`, every path at
@@ -61,7 +61,7 @@ export function blindFiles(model, { peerAnomalous = false } = {}) {
 // changelog, a `.png`. `model.filesAll` is exactly `model.pathsAll` restricted to grammared extensions, so this
 // is that restriction's complement, re-checked by extension defensively (a path could in principle be absent
 // from `filesAll` for an unrelated reason — CODE_RE, MINE_EXCL — and this must never call THAT a missing
-// grammar). Unlike `blindFiles`'s peer-anomalous gate (§037, needed because "parsed to zero scopes" is only
+// grammar). Unlike `blindFiles`'s peer-anomalous gate (needed because "parsed to zero scopes" is only
 // SOMETIMES suspicious — a data file with a working grammar can legitimately hold nothing scope-worthy), "this
 // extension has no grammar at all" is unconditionally true the moment it's true: no heuristic, no peer
 // comparison, no threshold. Callers pair this with a plain substring scan over the exact query text (grain.mjs's
@@ -70,7 +70,7 @@ export function ungrammaredFiles(model) {
   const known = new Set(model.filesAll || []);
   return (model.pathsAll || []).filter(p => !known.has(p) && !EXT2GRAMMAR[extname(p)]).sort();
 }
-// case B (§011): was the query's EXACT literal seen at all, before the df population gate (CFG.valueDfMin/
+// case B: was the query's EXACT literal seen at all, before the df population gate (CFG.valueDfMin/
 // valueDfMaxShare, `learn()`'s `vPlaces`) removed it from model.valueIndex? That gate runs over each file-kind
 // scope's own `.vals`, the exact shape `rawScopes` already carries — the current tree's cached scope snapshot
 // (`loadScopes` in grain.mjs, already used by `export`/others; NO re-parsing). Exact string equality only,
@@ -81,7 +81,7 @@ export function ungrammaredFiles(model) {
 export function gatedValueEvidence(model, rawScopes, q) {
   if (!rawScopes) return null;
   const byKind = new Map(); // e.k -> Set of files carrying value q under that kind
-  const contsByKind = new Map(); // e.k -> Set of container ids (§056: e.c) carrying value q under that kind
+  const contsByKind = new Map(); // e.k -> Set of container ids (e.c) carrying value q under that kind
   for (const s of rawScopes) {
     if (s.kind !== 'file') continue;
     for (const e of s.vals || []) {
@@ -97,7 +97,7 @@ export function gatedValueEvidence(model, rawScopes, q) {
   const files = [...fileSet].sort(),
     df = files.length;
   const dfMax = Math.ceil(CFG.valueDfMaxShare * (model.files || df));
-  // §056 — a data-grammar KEY gated out of `model.valueIndex` by the cross-file df floor still has a real
+  // a data-grammar KEY gated out of `model.valueIndex` by the cross-file df floor still has a real
   // STRUCTURAL neighbor set: the OTHER keys declared in the exact same container (e.g. a YAML `services:`
   // mapping's other service ids) — a WITHIN-file/container fact that needs no cross-file repetition to be true,
   // unlike `model.valueSiblings` (which additionally requires each member to have separately cleared the df
@@ -123,12 +123,12 @@ export function gatedValueEvidence(model, rawScopes, q) {
   }
   return { valueKind: k, files, df, tooRare: df < CFG.valueDfMin, tooCommon: df > dfMax, siblings };
 }
-// case C (§032): the query is an external/vendor type — never declared in this repository, so (a)'s declaration
+// case C: the query is an external/vendor type — never declared in this repository, so (a)'s declaration
 // search has no card of its own to anchor on and, left alone, silently substitutes fuzzy name-token overlap over
 // UNRELATED local declarations instead (measured on Slim: `what MiddlewareInterface` named 6 incidental hits —
 // `MiddlewareDispatcherInterface`, test method names — while missing all 21 real `implements`/type-hint sites).
 // The fix consults the two STRUCTURAL, per-file, threshold-free facts `learn()` already records for exactly this
-// question — `fileSups` (heritage: extends/implements) and `fileTypeRefs` (parameter/return type hints, §032's
+// question — `fileSups` (heritage: extends/implements) and `fileTypeRefs` (parameter/return type hints, the
 // own addition, `fileSups`'s sibling) — matched by the query's EXACT name (case-insensitive), never by token
 // overlap: the whole point is to name files that reference THIS type, not a sibling that merely shares a word
 // with it. Called by `whatCmd` only when the query has no exact local declaration (`exactLocal` there) — a type
@@ -146,7 +146,7 @@ export function typeRefHits(model, q) {
   }
   return hits;
 }
-// `tested by:` (§065) — the model already carries three signals for "which test file covers this symbol", and
+// `tested by:` — the model already carries three signals for "which test file covers this symbol", and
 // no command answered that until now (G catalog §6.4: 9 instances, 18 calls in the measured corpus — a reader
 // had to already know the test's own name to look it up, which defeats the point of asking). Same-stem naming
 // wins outright when it fires: cheapest to compute and the most literal claim there is ("this IS the test file
@@ -192,7 +192,7 @@ function sameStemTestCandidates(rel) {
 // exact dot/underscore/hyphen-delimited segment of an already test-like path's basename — the `res.sendStatus` ->
 // `test/res.sendStatus.js` shape, where the declaring file's own stem, `response`, shares nothing with the test
 // file at all) is tried first and wins outright when it fires. Otherwise: model.cochange, at the single-file 1/3
-// floor §063's cochangeData already established for this exact narrower-question shape (one file, not a multi-
+// floor cochangeData already established for this exact narrower-question shape (one file, not a multi-
 // file change), restricted to partners whose OWN path reads as a test — never a general co-change claim; and
 // model.edges, restricted to a test-like importer of the defining file. The two fallbacks are reported together —
 // different mechanisms, the same weaker tier of evidence for the same claim.

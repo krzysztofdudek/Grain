@@ -1,5 +1,5 @@
 // grain engine · proposal writer · node_types — choosing the level a type is cut at
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { expandWhen, jaccard, intersectSize } from './yggdrasil-graph.mjs';
 import {
   GROUP_MIN,
@@ -18,7 +18,7 @@ export function buildTypes(exp, loc, files, ctx) {
   // found it not load-bearing: types and nodes count differ by a few (every extra element is a one- or two-file
   // directory nothing else claims), but aspects, pairs, refusals, drill outcomes and FALSE-ALARMs are
   // byte-identical between the two runs — the floor gated no operability at all. Ruling
-  // `root-fix-accepted-min-type-files-goes` retires the knob; ticket 102 removes it. The number a directory
+  // `root-fix-accepted-min-type-files-goes` retires the knob, and this code removes it. The number a directory
   // needs to be classified is a bare `2` below, unowned by any named constant, because there is nothing left to
   // measure by varying it.
   const active = [];       // { id, dir, when, files, evidence, source }
@@ -35,7 +35,7 @@ export function buildTypes(exp, loc, files, ctx) {
   // measured two cuts of the same tree and has no basis for deleting either.
   const cands = new Map(); // dir -> candidate (first source to name a directory keeps it)
   // The first source keeps the candidate, exactly as before — but every LATER source that names the same
-  // directory is recorded on it (ticket 110). Three levels agreeing on one cut is evidence about that cut, and
+  // directory is recorded on it. Three levels agreeing on one cut is evidence about that cut, and
   // it used to be discarded because the second source found the key already taken.
   const put = c => {
     const k = c.dir ?? `\0${c.id}`;
@@ -49,7 +49,7 @@ export function buildTypes(exp, loc, files, ctx) {
     // by name, since it is "everything else" rather than a locality) and `_root` is the repository-root bucket:
     // its files are real, but no directory called `_root` exists. Rendered as a directory the way every other
     // partition is, it produces a `when` of `_root/**` that selects nothing, a node whose `mapping` names a path
-    // that is not there, and aspects scoped to `_root/**` that can never produce a pair. Measured (ticket 101):
+    // that is not there, and aspects scoped to `_root/**` that can never produce a pair. Measured:
     // 4 of 17 corpus repositories carried such a partition, 168 drafted aspects were scoped to `_root/**`
     // (17 of them deterministic) and every one produced ZERO pairs — which is the whole reason `leveldb` and
     // `kotlin-datetime` scored 0% before this. The test is DERIVED, not a list of names: if no tracked file
@@ -78,7 +78,7 @@ export function buildTypes(exp, loc, files, ctx) {
   // (`portal/api`, `portal/server` in the pattern repo), and deeper cards are drill corpora and fixture trees.
   for (const d of loc.directories) {
     // the level is recorded on whatever candidate already holds this directory, even where the card itself is
-    // not promoted (ticket 110) — a published card is evidence about the cut whether or not it makes the cut
+    // not promoted — a published card is evidence about the cut whether or not it makes the cut
     if (cands.has(d.name)) { put({ dir: d.name, src: 'directory' }); continue; }
     if (d.files.size < MIN_PROMOTE_FILES) continue;
     const owner = [...partRoots].filter(r => d.name.startsWith(r + '/')).sort((a, b) => b.length - a.length)[0];
@@ -86,7 +86,7 @@ export function buildTypes(exp, loc, files, ctx) {
     if (depth !== 1) continue;
     put({ dir: d.name, files: d.files, src: 'directory', why: `${d.card.files} of them ${d.card.files === 1 ? 'is code grain parsed' : 'are code grain parsed'} (${d.card.scopes} declarations) in a directory one level below \`${owner}\`` });
   }
-  // ticket 116's domain cut, as a LEVEL on the candidate it lands on: a role group all of whose members live
+  // the domain cut, as a LEVEL on the candidate it lands on: a role group all of whose members live
   // under one directory names that directory, and where the directory is already a candidate that agreement is
   // recorded here. Where it is not, the group is offered as an alternative further down, unchanged.
   for (const g of loc.groups) {
@@ -100,7 +100,7 @@ export function buildTypes(exp, loc, files, ctx) {
   }
 
   // ------------------------------------------------------------------------------------------------
-  // THE FINER LEVEL, ADMITTED BY THE MEASURED POLICY (ticket 110 — see this section's header for the table).
+  // THE FINER LEVEL, ADMITTED BY THE MEASURED POLICY (see this section's header for the table).
   //
   // Every directory of tracked files that no level above has claimed is a candidate here. It becomes a type of
   // its own only where it beats the level above it on that level's own evidence, which is a comparison between
@@ -193,7 +193,7 @@ export function buildTypes(exp, loc, files, ctx) {
     a.contains = active.filter(b => b.dir && a.dir && b.dir !== a.dir && b.dir.startsWith(a.dir + '/')).map(b => b.id);
   }
 
-  // WHICH TYPE HOSTS A PARTITION WHOSE NAME IS A LABEL RATHER THAN A PATH (ticket 119).
+  // WHICH TYPE HOSTS A PARTITION WHOSE NAME IS A LABEL RATHER THAN A PATH.
   //
   // `mdlCuts` returns `['.']` for a repository it finds no reason to split, and every file's partition is then
   // named `_root` — the whole repository in one bucket, with no directory of that name anywhere on disk;
@@ -237,10 +237,10 @@ export function buildTypes(exp, loc, files, ctx) {
   //     type is a fixed set rather than a rule.
   const seenAlt = new Set();
   // Each alternative carries the LEVEL it is a cut at and the same intrinsic numbers an active type carries
-  // (ticket 110), measured over the set its own predicate selects — so `alternatives.md` can group them by
+  //, measured over the set its own predicate selects — so `alternatives.md` can group them by
   // level and a maintainer comparing a candidate against the active type above it is comparing like with like.
   // A directory card is the `directory` level whatever form it is offered in; a role group is `domain` when
-  // ticket 116 could turn its membership into a path glob, and `role group` when it can only be a `content:`
+  // the domain cut could turn its membership into a path glob, and `role group` when it can only be a `content:`
   // predicate or a guest list.
   const altLevel = a => (a.kind === 'directory card' ? 'directory' : a.form === 'path' ? 'domain' : 'role group');
   const addAlt = (a, set) => {
@@ -249,7 +249,7 @@ export function buildTypes(exp, loc, files, ctx) {
     alternatives.push({ ...a, level: altLevel(a), evidence: typeEvidence(set, evCtx) });
   };
   const finer = [
-    // `groupId`/`partKind` ride along ONLY so a downstream family-without-law adapter (ticket 100) can name a
+    // `groupId`/`partKind` ride along ONLY so a downstream family-without-law adapter can name a
     // stable id and a language stratum for a role-group alternative without re-deriving either from `label` —
     // they change nothing about which alternatives are offered or how.
     ...loc.groups.map(g => ({ set: g.files, label: g.group.label || g.group.id, group: g.group, groupId: g.group.id, partKind: g.part.kind, part: g.part.name, kind: 'role group' })),
@@ -273,7 +273,7 @@ export function buildTypes(exp, loc, files, ctx) {
           why: `${f.kind} \`${f.label}\` in partition \`${f.part}\`: ${f.set.size} files; generalising predicate from ${cr.why}; selects ${selected.size} tracked files, ${intersectSize(f.set, selected)} of them the candidate's own (J=${j.toFixed(2)})` }, selected);
       }
     }
-    // THE MEMBERSHIP, AS A PREDICATE WHERE THE PATHS ALLOW ONE AND AS A LIST WHERE THEY DO NOT (ticket 116).
+    // THE MEMBERSHIP, AS A PREDICATE WHERE THE PATHS ALLOW ONE AND AS A LIST WHERE THEY DO NOT.
     //
     // A domain cut is almost always a directory: on spring-petclinic the `owner`, `vet` and `model` groups each
     // live entirely under one package. Frozen as an `any_of` of explicit paths that cut is EXACT today and dead

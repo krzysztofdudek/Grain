@@ -1,9 +1,9 @@
-// §045 — `macroDefs` asserted arbitrary identifiers from macro bodies as the file's SUPERTYPES.
+// `macroDefs` asserted arbitrary identifiers from macro bodies as the file's SUPERTYPES.
 //
 // `extractScopes` collected every `identifier`/`type_identifier` inside every macro invocation, kept the
 // multi-token ones, and put them on the FILE scope's `sup` as "the DEFINITIONS a macro emits". `sup` becomes
 // `model.fileSups`, which `what` reads at core.mjs:3153 as *implements/extends it*. Measured over five real Rust
-// repositories, 5656 such names: 13% were declarations the ordinary walk or §018 phase 2 already had, 1.4% were
+// repositories, 5656 such names: 13% were declarations the ordinary walk or the macro-body re-parse already had, 1.4% were
 // real declarations inside a macro body the phase-2 gate refuses, and **85.5% were not declarations at all** —
 // 26% the invoked macro's OWN name, 59% a bare reference. `what assert_eq` answered "implements/extends it in
 // 230 files" on tokio. Nothing implements the standard assertion macro.
@@ -13,8 +13,8 @@
 //
 // Two knock-ons are pinned here deliberately, because both look like regressions to a reader who does not know
 // they were measured:
-//   · queries that had only a phantom `referenced` count now take §018's EMPTY-ANSWER path instead. They change
-//     disclosure KIND, not merely presence. §037's `weakName` therefore fires LESS often, not more: `exactLocal`
+//   · queries that had only a phantom `referenced` count now take the Rust macro-body fix's EMPTY-ANSWER path instead. They change
+//     disclosure KIND, not merely presence. The weak-answer disclosure's `weakName` therefore fires LESS often, not more: `exactLocal`
 //     (core.mjs) reads DECLARATIONS only and never `fileSups`, while `referenced` is one of the disjuncts that
 //     make an answer non-empty — and non-empty is `weakName`'s own precondition.
 //   · the `doc` half is measurably weaker than the `sup` half for retrieval (file cards over a 53-query sweep:
@@ -91,11 +91,11 @@ test('(2) `what` on the invoked macro\'s own name makes no implements/extends cl
   assert.doesNotMatch(r.out, /implements\/extends it in/, `nothing implements the assertion macro:\n${r.out}`);
 });
 
-test('(3) that query takes §018\'s empty-answer path — a change of disclosure KIND, pinned so it is not read as a regression', () => {
+test('(3) that query takes the Rust macro-body fix\'s empty-answer path — a change of disclosure KIND, pinned so it is not read as a regression', () => {
   const r = grainIn(repo, ['what', 'assert_eq']);
   assert.match(r.out, /has no declarations or values anywhere in this repository's code/,
     `with the phantom reference count gone the answer is genuinely empty, and says so:\n${r.out}`);
-  assert.doesNotMatch(r.out, /nothing above IS/, `§037's weakName needs a non-empty answer to hedge about; there is none:\n${r.out}`);
+  assert.doesNotMatch(r.out, /nothing above IS/, `the weak-answer disclosure's weakName needs a non-empty answer to hedge about; there is none:\n${r.out}`);
 });
 
 test('(4) a REAL supertype is still recorded — the fix removes contamination from fileSups, not fileSups', () => {

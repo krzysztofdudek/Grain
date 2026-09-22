@@ -58,15 +58,15 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
     pathQuery,
   };
   let { lines, hits, unknownIdent, disclosures } = whereCmd(whereArgs);
-  // §057 — a zero-hit answer reads as "this concept isn't in the repository". Before accepting that, a bounded
+  // a zero-hit answer reads as "this concept isn't in the repository". Before accepting that, a bounded
   // scan (never a repo-wide grep) checks whether the query's exact text lives, verbatim, in a tracked file grain
   // never had a grammar for at all — a stronger, cheaper, deterministic sibling of the peer-anomalous blind-file
   // hedge `what` already carries. Only paid when `hits` is already empty, same discipline as `cmdWhat` below.
   //
-  // §085 adds the ONE other path that pays for it, and no more: a RANKED answer to an identifier the parsed
+  // This adds the ONE other path that pays for it, and no more: a RANKED answer to an identifier the parsed
   // model never declares (`unknownIdent`). Measured on 4 repos, that is where every silent confident-wrong
   // absence claim lives — `tokenize` splits `indent_style` into `indent`+`style`, both of which occur in real
-  // code, so hits are non-empty, `lex0 > 0`, and neither §057 above nor §070's zero-foothold banner can fire
+  // code, so hits are non-empty, `lex0 > 0`, and neither the never-parsed note above nor the zero-foothold banner can fire
   // while the whole ranking is assembled from fragments of a name grain has never seen. Every other query —
   // plain words, and every identifier the repo actually declares — still opens no file at all.
   if (!hits.length || unknownIdent) {
@@ -74,7 +74,7 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
     if (ungrammaredHit) ({ lines, hits, disclosures } = whereCmd({ ...whereArgs, ungrammaredHit }));
   }
   const sig = signal(model);
-  // §089 — same register as whereCmd's own hedges above: a sparse/empty/partitionless model means the ranked
+  // same register as whereCmd's own hedges above: a sparse/empty/partitionless model means the ranked
   // answer below rests on very little, which is exactly the kind of thing an agent reading JSON must not miss.
   // `kind` is derived from `sig.verdict`'s own existing category words, not a new name.
   if (/empty|sparse|no source/.test(sig.verdict)) {
@@ -87,7 +87,7 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
         : 'sparse-model';
     disclosures = [...disclosures, { kind, text }];
   }
-  // §089 — a HEAD-reading command never claims `+dirty`, but a dirty tree still means this answer may not match
+  // a HEAD-reading command never claims `+dirty`, but a dirty tree still means this answer may not match
   // what's on disk today; text already says so via DIRTY_TREE_NOTE below, JSON never carried it at all until now.
   if (treeDirty) disclosures = [...disclosures, { kind: 'dirty-tree', text: DIRTY_TREE_NOTE }];
   if (opts.json) {
@@ -144,7 +144,7 @@ export async function cmdWhere({ model, root, args, opts, stamp, treeDirty }) {
         location: pathQuery ? locationForFile(model, pathQuery) : null,
         placement: pathQuery ? placementJson(placementHit(model, pathQuery)) : null,
         signal: sig,
-        disclosures, // §089 — additive: the same { kind, text } lines the text renderer above already emitted
+        disclosures, // additive: the same { kind, text } lines the text renderer above already emitted
         asOf: stamp().replace(/^as of /, ''),
       }),
     ];
@@ -234,13 +234,13 @@ export async function cmdHow({ model, root, isGit, args, opts, stamp, store, tre
 // this needs no history at all (declarations/values/spread/siblings/fan-in are plain model reads) — only the
 // commit-count source does, so this loads H the same lazy way `how` does but never early-returns on its absence;
 // `whatCmd` itself simply omits the `changes:` line when `H` is null or has no readable footprints.
-// (§018/§014 shape) a BOUNDED raw-text re-scan, only over files `blindFiles` already names as parsed-but-zero-
+// (the Rust-macro-body and Go-package-const shape) a BOUNDED raw-text re-scan, only over files `blindFiles` already names as parsed-but-zero-
 // scope (never the whole repository, never a re-parse): does the query's exact text appear, verbatim, in one of
 // them? A plain substring match, deliberately — this is a hedge ("grain cannot see inside a file that might hold
 // this"), never a certified claim, so it does not need declaration-level precision the way `defined:` does.
 // Called only when the plain answer would otherwise be the bare "nothing" claim (see cmdWhat below): an
 // unconditional, repo-wide version of this hedge was tried first and measured wrong — see blindFiles' own note.
-// `strict` (§037) is the same scan held to a higher bar, because it interrupts an answer the reader is already
+// `strict` is the same scan held to a higher bar, because it interrupts an answer the reader is already
 // reading rather than explaining an empty one: the blind files are narrowed to the peer-ANOMALOUS ones (see
 // `blindFiles`), and the text must match at identifier boundaries with exact case — not as a substring, which
 // would let «json» hit `jsonify` and every URL in a comment. Measured on nine real repos: substring alone fires
@@ -248,7 +248,7 @@ export async function cmdHow({ model, root, isGit, args, opts, stamp, store, tre
 // `weakName`'s own ≥2-token cut on 1.7%.
 export function findBlindHit(model, root, query, strict = false) {
   if (!strict) {
-    // §018's original path, byte-for-byte: first blind file whose raw text contains the query
+    // the original path, byte-for-byte: first blind file whose raw text contains the query
     for (const rel of blindFiles(model)) {
       let text;
       try {
@@ -282,9 +282,9 @@ export function findBlindHit(model, root, query, strict = false) {
   }
   return best ? best.rel : null;
 }
-// (§057) `ungrammaredFiles` (core.mjs) names tracked paths grain never even ATTEMPTED to parse — no grammar
+// `ungrammaredFiles` (core.mjs) names tracked paths grain never even ATTEMPTED to parse — no grammar
 // registered for the extension at all, a strictly stronger and cheaper fact than `blindFiles`' "parsed but
-// yielded zero scopes" (which still needed §037's peer-anomaly gate to mean anything). A plain, unbounded
+// yielded zero scopes" (which still needed the peer-anomaly gate to mean anything). A plain, unbounded
 // substring match is enough here: no heuristic, no gate, because "this format was never read" is true or false,
 // never a matter of degree. Bounded to the ungrammared set only (never a repo-wide grep), and returns the FIRST
 // match — with no scope-level evidence to rank by, unlike `findBlindHit`'s occurrence-count tie-break, the first

@@ -66,7 +66,7 @@ before(() => {
 });
 after(() => { rmSync(tmp, { recursive: true, force: true }); });
 
-test('relative and absolute intra-package imports both resolve into real file edges (§004 diagnosis: not a resolver bug)', () => {
+test('relative and absolute intra-package imports both resolve into real file edges (the intra-module disclosure diagnosis: not a resolver bug)', () => {
   const edges = modelOf(pyIntra).edges;
   assert.ok(edges.some(e => e.from === 'pkg/rel_user.py' && e.to === 'pkg/other.py'), `expected a relative-import edge: ${JSON.stringify(edges)}`);
   assert.ok(edges.some(e => e.from === 'pkg/abs_user.py' && e.to === 'pkg/other.py'), `expected an absolute-import edge, resolved the same as the relative one: ${JSON.stringify(edges)}`);

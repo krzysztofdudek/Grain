@@ -1,4 +1,4 @@
-// §076 — a Ruby `singleton_method` (`def self.foo; end`, a class/module method) must classify as kind `method`,
+// a Ruby `singleton_method` (`def self.foo; end`, a class/module method) must classify as kind `method`,
 // never `type`. Root cause: `TYPE_LIKE_RE` (core.mjs) carried the bare word `singleton`, meant to catch
 // Kotlin/Scala/C++-style singleton-shaped TYPE declarations, but the ONLY node type in any of the 23 shipped
 // grammars' `b.scope` sets containing that word at all is Ruby's own `singleton_method` — an unrelated construct
@@ -25,7 +25,7 @@ async function scopesOf(src) {
 }
 const byName = (ss, name, nt) => ss.find(s => s.name === name && (!nt || s.nt === nt));
 
-test('§076: `def self.foo; end` classifies as method, not type', async () => {
+test('`def self.foo; end` classifies as method, not type', async () => {
   const ss = await scopesOf('class Foo\n  def self.bar\n    1\n  end\nend\n');
   const cls = byName(ss, 'Foo', 'class');
   const m = byName(ss, 'bar', 'singleton_method');
@@ -35,14 +35,14 @@ test('§076: `def self.foo; end` classifies as method, not type', async () => {
   assert.equal(m.kind, 'method', 'a Ruby singleton method (`def self.foo`) must classify as method, not type');
 });
 
-test('§076: a module-level `def self.foo` classifies as method too', async () => {
+test('a module-level `def self.foo` classifies as method too', async () => {
   const ss = await scopesOf('module Util\n  def self.helper\n    2\n  end\nend\n');
   const m = byName(ss, 'helper', 'singleton_method');
   assert.ok(m, 'sanity: the singleton method must be extracted');
   assert.equal(m.kind, 'method');
 });
 
-test('§076 control: a plain Ruby instance method (unaffected by this fix) was already, and remains, kind method', async () => {
+test('control: a plain Ruby instance method (unaffected by this fix) was already, and remains, kind method', async () => {
   const ss = await scopesOf('class Foo\n  def bar\n    1\n  end\nend\n');
   const m = byName(ss, 'bar', 'method');
   assert.ok(m, 'sanity: the instance method must be extracted');

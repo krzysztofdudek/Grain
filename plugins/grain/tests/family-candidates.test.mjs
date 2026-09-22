@@ -1,6 +1,6 @@
 // `grain propose` writes the family-without-law signal `yg advise` reads: `.family-candidates.json`.
 //
-// The adapter that builds the file (engine/propose-family.mjs, ticket 100) is exercised against real repositories
+// The adapter that builds the file (engine/propose-family.mjs) is exercised against real repositories
 // by tests/seams.test.mjs. This file pins the COMMAND: where the file goes by default (INTO the proposal, beside
 // the graph, so `yg adopt` installs both in one move and nobody copies a file by hand), how `--family-candidates
 // <path>` sends it somewhere else for a repository that adopted earlier, that `--no-family-candidates` writes none,

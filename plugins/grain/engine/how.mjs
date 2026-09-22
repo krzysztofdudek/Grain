@@ -1,5 +1,5 @@
 // grain engine · howCmd — intent to the past commits that look like it
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { refineModOf } from './relations.mjs';
 import { normTok } from './cards.mjs';
 import { missingLines } from './completeness.mjs';
@@ -108,7 +108,7 @@ export function howCmd({
   // — and deduplicated per commit, because the renaming commit itself lists both of its own sides in `files`.
   // `weights` mirrors `counts` exactly (same dedup, same loop) but accumulates each contributing match's OWN
   // `score` instead of 1 — the matcher already computed that score; this is the only place downstream of it that
-  // discarded it (§005). `k`/`of` keep their exact original meaning (a raw commit count) since `howEval`'s §J2.3
+  // discarded it. `k`/`of` keep their exact original meaning (a raw commit count) since `howEval`'s §J2.3
   // gate and `how-hook`'s `p.k >= 2` filter (grain.mjs) both read `k` as that count — only the SORT ORDER changes,
   // ranking by the strength of the commits that contributed a place rather than by how many happened to. A place
   // touched once by a 0.9-score commit now outranks one touched once by a 0.35-score commit, where before both
@@ -145,20 +145,20 @@ export function howCmd({
       weight: +weights.get(rel).toFixed(3),
     }))
     .sort((a, b) => b.weight - a.weight || b.k - a.k || (a.rel < b.rel ? -1 : a.rel > b.rel ? 1 : 0));
-  // §066: a place dead at HEAD is dead code to an agent following this list — never somewhere to edit. Same
+  // a place dead at HEAD is dead code to an agent following this list — never somewhere to edit. Same
   // liveness source `cochangeData` computes its own `live` set from (core.mjs ~9154, one house-wide answer to "is
-  // this path still here", never a second/third liveness check invented per renderer). §020 had this render
+  // this path still here", never a second/third liveness check invented per renderer). The liveness fix had this render
   // `(deleted)` instead of dropping the entry; measured on a real corpus that still put 13 of 28 CleanArchitecture
   // places on files that no longer exist — marking a dead file still hands it to the reader as a "place such a
   // change touched". Omitting it is the other option the ticket's own acceptance text always allowed ("marks it OR
   // omits it — decide which and document why"); dropping is strictly the more useful answer for an agent about to
   // edit code, so `how` now omits rather than marks.
   places = places.filter(p => p.exists);
-  // §066: the "1/N" long tail — a place touched by only 1 of K matched commits is one anecdote, not a place "such
+  // the "1/N" long tail — a place touched by only 1 of K matched commits is one anecdote, not a place "such
   // a change touched". Reuses `how-hook`'s own existing bar for exactly this (`places.filter(p => p.k >= 2)`,
   // grain.mjs) rather than a new constant. Applied only when it leaves something: a single-match query (K=1) or a
   // set of equally-thin matches has no k>=2 evidence to prefer over, and dropping to zero places would be a false
-  // "nothing to say" — the same refusal-to-invent-absence principle as `completenessDirectional` (§063).
+  // "nothing to say" — the same refusal-to-invent-absence principle as `completenessDirectional`.
   const strongPlaces = places.filter(p => p.k >= 2);
   if (strongPlaces.length) places = strongPlaces;
   // `sources: ['cochange']` is the ONLY correct configuration here and is not a limitation to relax later: `how`
@@ -173,11 +173,11 @@ export function howCmd({
   let shape = null;
   if (shapes && (model.changeArchetypes || []).length && idfSum) {
     const qCells = new Set();
-    // `whatCmd` now returns its own (a)∪(b) file set. §039: this used to be rebuilt here from the two published
+    // `whatCmd` now returns its own (a)∪(b) file set. This used to be rebuilt here from the two published
     // halves, and `defined` among them is DISPLAY-CAPPED at 12 — so on any query with more than twelve declaration
     // hits the cover ratio below was computed against a truncated footprint and came out too low, which can push a
     // genuinely-matching archetype under the 0.34 floor and silence a certified shape entirely. Same defect class
-    // as §036: a display cap deciding a verdict. It still costs a `buildCards(model)` that `how` otherwise never
+    // as before: a display cap deciding a verdict. It still costs a `buildCards(model)` that `how` otherwise never
     // pays — which is why `howEval` turns this whole pass off: it reads `places` only, and runs `howCmd` once per
     // candidate commit.
     const qFiles = new Set(whatCmd({ model, H: null, query: q, exemplarOk }).spreadFiles);
@@ -219,7 +219,7 @@ export function howCmd({
         date: new Date(m.fp.ts * 1000).toISOString().slice(0, 7),
       })
     );
-  // §066: `places` is already filtered to files live at HEAD (above) — every remaining entry's `exists` is true,
+  // `places` is already filtered to files live at HEAD (above) — every remaining entry's `exists` is true,
   // so there is no longer a `(deleted)` branch to render here. A places array can now legitimately be empty (every
   // file the matched commits touched has since been deleted) — the header is only worth printing when there is at
   // least one place to list under it.

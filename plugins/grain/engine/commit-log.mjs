@@ -1,6 +1,6 @@
 // grain engine · the model sections read off the commit log: the language bridge (a message token to the files
 // it names), the concepts the log and the code both say, and the recurring shapes of past commits
-// Lifted out of `learn` (ticket 117): the statements below are the ones that stood there, unchanged.
+// Lifted out of `learn`: the statements below are the ones that stood there, unchanged.
 import { CFG } from './config.mjs';
 import { refineModOf } from './relations.mjs';
 import { buildCards } from './cards.mjs';

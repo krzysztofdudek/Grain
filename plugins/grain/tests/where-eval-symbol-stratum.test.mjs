@@ -1,4 +1,4 @@
-// §071 — `selftest --where`'s pooled/named/unnamed strata build every query from `fp.toks`, which is the commit
+// `selftest --where`'s pooled/named/unnamed strata build every query from `fp.toks`, which is the commit
 // message run through `tokenize`+`normTok`: `sendStatus` becomes `send`+`status`, two separate words, forever.
 // `whereCmd`'s own exact-name pin (`qraw`/`c.exact`, core.mjs ~6877) can only ever fire off a query's own WHOLE,
 // unsplit word — so no query built purely from `toks` can ever exercise it. That is a hole in the HARNESS, not in
@@ -7,7 +7,7 @@
 // alone are not enough to rank the right file inside the harness's own top@3 window — and (2) the additive
 // `symbol` stratum this ticket adds, which keeps that word whole ALONGSIDE the split form, finds it. Low-level
 // (`whereEval` called directly with a hand-built model/history), the same pattern `where-eval.test.mjs`'s own
-// §068 tests use — no git or CLI needed, since only the scoring is under test.
+// the symbol-stratum scoring tests use — no git or CLI needed, since only the scoring is under test.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { whereEval } from '../engine/core.mjs';
@@ -40,7 +40,7 @@ const filesDef = {
 const model = { partitions: [fileScopePart(filesDef)], steers: [], filesAll: Object.keys(filesDef) };
 
 // one candidate: a commit whose message ("fix sendStatus timeout") both split (`toks`) and preserved-verbatim
-// (`symToks`) forms are hand-supplied, exactly the shape `history.mjs`'s §071 addition now derives from `c.msg`.
+// (`symToks`) forms are hand-supplied, exactly the shape `history.mjs`'s the commit-message derivation addition now derives from `c.msg`.
 const H = {
   fps: [{ ts: 1, toks: ['send', 'status', 'timeout'], symToks: ['sendStatus'], files: ['src/response.ts'], renames: [] }],
   lc: [['src/response.ts#x', { first: 1, newFile: true }]],

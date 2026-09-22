@@ -1,4 +1,4 @@
-// §099 — `model.partitions[].fileScopes` caps a file's scope list at 200 (core.mjs) so the model stays a
+// `model.partitions[].fileScopes` caps a file's scope list at 200 (core.mjs) so the model stays a
 // bounded, diffable summary rather than a second copy of tree.json — kept, on the director's ruling. But a
 // capped list alone cannot tell "this file has exactly 200 scopes" from "this file was truncated at 200", and
 // a consumer that ranks files by scope count (the `too-much` stress instrument) silently under-reported a
@@ -129,7 +129,7 @@ test('too-much/size dimension reports the true count with tree.json present (una
   assert.ok(tree.get(BIG_FILE), 'tree.json must actually carry the big file for this to be a real test of the unaffected path');
   // tree.json's own raw list is uncapped but, unlike `fileScopes`, still carries the file's own pseudo-scope
   // entry (kind 'file') — one more than the 260 real named functions; `collectStatistics` filters it out (fixed
-  // on sight alongside §099) so the two paths agree on one true count for the same file, asserted below.
+  // on sight alongside the file-scope-total fix) so the two paths agree on one true count for the same file, asserted below.
   assert.equal(tree.get(BIG_FILE).length, TRUE_COUNT + 1);
   const { stats, scopeCountSource } = collectStatistics({ exp: { partitions: [], moduleGraph: {} }, cache, fps: null, tree });
   const sizePop = stats.get('size');
@@ -158,7 +158,7 @@ test('too-much/size dimension reports the true count WITHOUT tree.json, via file
   assert.equal(control.t, 2);
 });
 
-test('with fileScopesTotal absent AND no tree.json (a stale, pre-§099 cache), the count silently saturates at 200 and is disclosed as such', () => {
+test('with fileScopesTotal absent AND no tree.json (a stale cache from before the file-scope-total fix), the count silently saturates at 200 and is disclosed as such', () => {
   const cache = modelIn(repo);
   const stale = JSON.parse(JSON.stringify(cache));
   for (const p of stale.partitions) delete p.fileScopesTotal;

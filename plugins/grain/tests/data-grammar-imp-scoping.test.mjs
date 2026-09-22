@@ -5,9 +5,9 @@
 // file-kind scope with no grammar check at all — unlike `auto.has:`/`auto.stshape:`, which already gate on
 // `inGrammar(s, nt)` (a node type absent from the scope's own grammar bindings is left UNDECIDED, never `false`).
 //
-// Investigation (see ticket 058's log (maintainer notes) and 054's Q2, which measured a DIFFERENT
+// Investigation (see the maintainer notes' log, which measured a DIFFERENT
 // question — data grammars barely widen the repo-wide candidate count, `idxCost` inflation — and explicitly
-// deferred this one: "§058's cross-grammar leak is a real bug about *what a cell says*"): `_all:`/directory cells
+// deferred this one: "the data-grammar scoping's cross-grammar leak is a real bug about *what a cell says*"): `_all:`/directory cells
 // DO pool every grammar's file-kind scopes together by `kind` alone (core.mjs `spectrum`'s cell-building loop,
 // and `mine()`'s equivalent), so a cell's population is never grammar-filtered upstream — but a JSON/YAML/TOML/
 // properties file (`bindingFor(g).data`, zero name+body scope types — the same flag J7.2 already uses to say

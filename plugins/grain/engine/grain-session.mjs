@@ -1,5 +1,5 @@
 // grain engine · query surface · the session-context hook and the placement/check feedback loops
-// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of grain.mjs: the statements below are the ones that stood there, unchanged.
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dirname as posixDirname } from 'node:path/posix';
@@ -25,7 +25,7 @@ export function sessionContext({ root, isGit, store, mode }) {
     sig = signal(model);
     state = `${meta.headSha === head ? 'ready' : 'built at ' + short(meta.headSha) + ', HEAD moved to ' + short(head) + ' — the first query refreshes it incrementally'}: ${model.files} files, ${sig.groups} groups, ${sig.facts} conventions in source code (${sig.verdict})`;
   }
-  // §067a: the advertised commands below lead with the conceptual name `grain`, never with `node` — a real
+  // the advertised commands below lead with the conceptual name `grain`, never with `node` — a real
   // transcript (question-catalog §4.1a) had an agent see `pnpm` denied, generalize that to "node invocations all
   // require approval", and never attempt grain at all, even though nothing had shown grain itself would be
   // blocked. `bin` (the literal `node "<path>"` form the plugin actually shells out to — see hooks.json/hooks/*,
@@ -33,13 +33,13 @@ export function sessionContext({ root, isGit, store, mode }) {
   // this plugin's distribution mechanism never performs) is still shown, once per command, but as the answer to
   // "how do I run this", not as the first word the agent reads.
   //
-  // §088: `obligation`/`completeness` are folded into the `where`/`check` lines as trigger-moment asides, NOT
-  // given their own top-level bullets — ticket 081 measured this exact roster (61 of 63 agent calls went to a
+  // `obligation`/`completeness` are folded into the `where`/`check` lines as trigger-moment asides, NOT
+  // given their own top-level bullets — a measurement of this exact roster found (61 of 63 agent calls went to a
   // command named in the pre-em-dash "roster" segment of these lines) and separately measured that the reachable
   // slot budget must stay short (question-catalog: agents read only the first few lines). Naming them at the SAME
   // moment `where`/`check` already own — "before creating a file" for `obligation`, "before you consider the
   // change done" for `completeness` — spends no new slot and adds no new line, so the concepts-and-changes-map.js
-  // <=9-line budget (§J4.3b) and the §081 roster test are both unaffected by construction, not by exemption.
+  // <=9-line budget (§J4.3b) and the session roster test are both unaffected by construction, not by exemption.
   const bin = `node "${BIN}"`;
   const text = [
     `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence. Run the grain command below from the repo root via Bash; every answer ends with \`as of <sha>\`. grain is its own tool, invoked via node — a denial of some unrelated command (pnpm, npm, a bare node script, …) earlier in this session says nothing about whether grain itself is blocked; it has not been tried yet.`,
@@ -69,7 +69,7 @@ export function sessionContext({ root, isGit, store, mode }) {
           })(),
         ]
       : []),
-    // §081/104: ONE conditional line, and only where the trigger moment is real — this repository has a grain
+    // ONE conditional line, and only where the trigger moment is real — this repository has a grain
     // index (so there is something to propose from) and no `.yggdrasil/` of its own (so nothing would be
     // overwritten and the graph is genuinely missing). A repo that already has a graph sees this text at
     // exactly the byte count it saw before the command existed. The reachability law (research/command-

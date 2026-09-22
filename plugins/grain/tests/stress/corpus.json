@@ -257,7 +257,7 @@
       "size": { "commits": 82946, "files": 14887 },
       "clone": "full",
       "bucket": "100k",
-      "note": "The §055 motivating repo, full history, no shortcuts. Prior observation: `report`/`map` with history never finished and the process vanished silently after 17+ minutes with no stderr (cached 259 blobs then gone). This corpus entry exists so that observation becomes a `completed: false` row instead of an anecdote."
+      "note": "The motivating repo for the history-state split, full history, no shortcuts. Prior observation: `report`/`map` with history never finished and the process vanished silently after 17+ minutes with no stderr (cached 259 blobs then gone). This corpus entry exists so that observation becomes a `completed: false` row instead of an anecdote."
     }
   ]
 }

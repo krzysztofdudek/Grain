@@ -1,5 +1,5 @@
 // grain engine · the cell-key sentinels and the two path/extension primitives every layer shares
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { sep } from 'node:path';
 import { EXT2GRAMMAR } from './config.mjs';
 

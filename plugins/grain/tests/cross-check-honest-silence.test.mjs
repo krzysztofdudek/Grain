@@ -71,17 +71,17 @@ before(() => {
   w(repo, 'src/control/one.ts', 'export const controlValueOne = "zqcontrol literal";\n');
   w(repo, 'src/control/two.ts', 'export const controlValueTwo = "zqcontrol literal";\n');
 
-  // ticket 018's shape: a file whose entire content is macro invocations, none of whose bodies the grammar can
+  // a file whose entire content is macro invocations, none of whose bodies the grammar can
   // read. 018 phase 2 ships macro-body extraction, so a body that IS valid syntax (018's original
   // `define_rejection! { pub struct X(Error); }`) is now correctly extracted and this file would no longer be
   // blind at all; the bodies below are the shape that stays invisible — a syntax the language does not have, so
   // the grammar refuses the body and grain genuinely cannot see the name. Measured across five real Rust
-  // repositories: this is not a contrived case, it is the majority of macro bodies (§018 phase 2 log).
+  // repositories: this is not a contrived case, it is the majority of macro bodies (the macro-body re-parse log).
   w(repo, 'src/macro.rs',
     'declare_flags! {\n    pub struct ZqMacroType: u32 { const ZQ_A = 1; }\n}\n\n' +
     'declare_flags! {\n    pub struct ZqMacroTypeTwo: u32 { const ZQ_B = 2; }\n}\n');
 
-  // ticket 014's shape: a package-level const beside a real function in the SAME file, so the file is
+  // a package-level const beside a real function in the SAME file, so the file is
   // demonstrably NOT a zero-scope file — the const's invisibility is a narrower, per-declaration gap
   w(repo, 'src/goconst.go', 'package zq\n\nconst zqGoConst = 1\n\nfunc zqGoFunc() int {\n\treturn zqGoConst\n}\n');
 

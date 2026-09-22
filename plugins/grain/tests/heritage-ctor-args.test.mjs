@@ -122,9 +122,9 @@ class Baz(mod.Base):
 `);
   assert.ok(supOf(scopes, 'Plain').includes('Simple'),
     'Python holds its base list in a `superclasses` field that is an argument_list — real heritage, never discarded');
-  // §082: a dotted base resolves to its LEAF name only (`Base`), the same §062 convention every other
-  // grammar's qualified heritage name already gets — never the raw dotted text `mod.Base`. Before §082 this
-  // field bypassed §062's resolution entirely (see issue-082.test.mjs for the fabrication that caused).
+  // a dotted base resolves to its LEAF name only (`Base`), the same leaf-only convention every other
+  // grammar's qualified heritage name already gets — never the raw dotted text `mod.Base`. Before the dotted-base fix this
+  // field bypassed the qualified-heritage fix's resolution entirely (see issue-082.test.mjs for the fabrication that caused).
   assert.deepEqual(supOf(scopes, 'Baz'), ['Base'], 'a dotted base is recorded as its resolved leaf, not the raw dotted text');
 });
 

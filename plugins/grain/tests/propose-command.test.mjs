@@ -1,4 +1,4 @@
-// End-to-end guard for `grain propose` as a PRODUCT command (ticket 104) — driven only through the built CLI
+// End-to-end guard for `grain propose` as a PRODUCT command — driven only through the built CLI
 // (`bin/grain.mjs`), against the deterministic fixture repository with a real git history
 // (`tests/fixtures/build-fixture.mjs`), exactly as `tests/grain.test.mjs` drives every other command.
 //
@@ -13,7 +13,7 @@
 //      or a path. Its counts must agree with the `proposal.json` the same run wrote.
 //   3. THE HONEST NEGATIVE. With no Yggdrasil CLI resolvable, nothing is drilled, so nothing is enforced and
 //      there are no candidates — and the report says exactly that instead of quietly showing an empty list.
-//   4. REACHABILITY (§081, `research/command-reachability.md`: 0 of 63 agent-chosen calls ever went to a command
+//   4. REACHABILITY (`research/command-reachability.md`: 0 of 63 agent-chosen calls ever went to a command
 //      named in neither the SessionStart text nor the SKILL description). The command is named in the
 //      SessionStart text of a repository that has an index and no `.yggdrasil/` — and in NO other repository,
 //      so a project that already has a graph pays nothing for the line.
@@ -92,7 +92,7 @@ test('the default report carries the architecture, what earned enforcement, and 
   assert.ok(line(/^next:/), `no next line:\n${run.stdout}`);
 
   // every line of the default report carries a number or a path — that is the whole contract of "quiet".
-  // Scoped to `proposeReport`'s OWN lines, through `next:` — ticket 123's `yg adopt --dry-run` block printed
+  // Scoped to `proposeReport`'s OWN lines, through `next:` — the `yg adopt --dry-run` block printed
   // after it is Yggdrasil's verbatim output, not grain's prose, and is exempt by design (see the handshake
   // tests below): the whole point is showing the real preview untouched, not grain's own wording of it.
   const nextIdx = run.stdout.split('\n').findIndex(l => /^next:/.test(l));
@@ -116,7 +116,7 @@ test('the default report leaves the prose and no-catch drafts on disk, and --ful
 test('with a real Yggdrasil, the enforced count is the one a real drill earned', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
   const sidecar = JSON.parse(readFileSync(join(outDir(), 'proposal.json'), 'utf8'));
   assert.equal(json.aspects.enforced, sidecar.counts.aspectsActive);
-  assert.equal(json.aspects.advisory, sidecar.counts.aspectsAdvisory, 'ticket 107: the report and the sidecar must agree on the advisory count too');
+  assert.equal(json.aspects.advisory, sidecar.counts.aspectsAdvisory, 'the report and the sidecar must agree on the advisory count too');
   assert.equal(json.yggdrasil.found, true);
   assert.equal(json.yggdrasil.drilled, sidecar.counts.aspectsVerified);
   for (const a of json.enforced) {
@@ -124,7 +124,7 @@ test('with a real Yggdrasil, the enforced count is the one a real drill earned',
     assert.equal(a.drill.falseAlarms, 0, `${a.id} earned enforcement with a false alarm`);
     assert.ok(a.drill.caught >= 1, `${a.id} earned enforcement catching nothing`);
     assert.equal(a.status, 'enforced');
-    // ticket 107, ruling `enforced-requires-certified-origin`: a sub-gate-lattice origin never reaches
+    // ruling `enforced-requires-certified-origin`: a sub-gate-lattice origin never reaches
     // `enforced`, whatever its drill result — cross-checked against the per-aspect provenance.json, the one
     // place `origin` is recorded (the command's own report JSON does not carry it).
     const prov = JSON.parse(readFileSync(join(repo, a.path, 'provenance.json'), 'utf8'));
@@ -196,10 +196,10 @@ test('the "certified conventions with cases" sentence is silent at zero, and sil
   }
 });
 
-// ---------- 5. the acceptance handshake (ticket 123): `next:` names `yg adopt`, and — when a Yggdrasil CLI
+// ---------- 5. the acceptance handshake: `next:` names `yg adopt`, and — when a Yggdrasil CLI
 // resolves — the command runs its own `--dry-run` on the very proposal it just wrote and prints the summary
 // verbatim under that line, so the adopter sees "Already broken N sites" before deciding anything.
-// ---------- 5. the acceptance handshake (ticket 123) ----------
+// ---------- 5. the acceptance handshake ----------
 test('next: names the yg adopt transaction, dry-run first', () => {
   const next = line(/^next:/);
   assert.ok(next, `no next line:\n${run.stdout}`);
@@ -236,15 +236,15 @@ test('with no Yggdrasil CLI resolvable, the report says what `yg adopt` would te
   assert.doesNotMatch(after, /yg adopt: would accept/, 'no real dry-run block without a resolvable CLI');
 });
 
-// ---------- 4. reachability (§081) ----------
-test('§081: the SessionStart text names `grain propose` exactly where the trigger moment is real', () => {
+// ---------- 4. reachability ----------
+test('the SessionStart text names `grain propose` exactly where the trigger moment is real', () => {
   const ctx = () => JSON.parse(grain(['session-context', '--mode', 'claude']).stdout).hookSpecificOutput.additionalContext;
   const withoutGraph = ctx();
   const named = withoutGraph.split('\n').filter(l => /grain propose/.test(l));
   assert.equal(named.length, 1, `expected exactly one line naming propose:\n${withoutGraph}`);
   assert.match(named[0], /no \.yggdrasil\//, 'the line must say what makes this the moment');
   assert.match(named[0], /Run: `node "[^"]+grain\.mjs" propose`/, 'the runnable invocation must be given, as every other advertised command gives it');
-  // §067a: an advertised line never opens with the runtime name
+  // an advertised line never opens with the runtime name
   assert.ok(!/^\s*node\b/.test(named[0]), `advertised line must not open with "node": ${named[0]}`);
 
   mkdirSync(join(repo, '.yggdrasil'), { recursive: true });
@@ -254,7 +254,7 @@ test('§081: the SessionStart text names `grain propose` exactly where the trigg
     // Ticket 028: a repository WITH a graph no longer sees plain "no propose line" — it sees the mirror-image
     // block instead (`yg prime`, plus an install line when `yg` is not resolvable). Apart from the propose
     // line (removed) and that block (added), the rest of the output must still be byte-identical — same
-    // invariant §081 always tested, widened for the one new trigger moment ticket 028 adds.
+    // invariant the session roster always tested, widened for the one new trigger moment the hold-out adds.
     const YGGDRASIL_BLOCK = /Yggdrasil|`yg prime`|npm i -g @chrisdudek\/yg/;
     const withoutGraphLines = withoutGraph.split('\n').filter(l => l !== named[0]);
     const withGraphLines = withGraph.split('\n');

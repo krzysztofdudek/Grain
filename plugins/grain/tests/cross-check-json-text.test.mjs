@@ -12,9 +12,9 @@
 // `lines = [JSON.stringify(res, null, 1), stamp()]` — TWO array elements — so stdout is the JSON blob followed by
 // a trailing "as of <sha>" line, which is not valid trailing JSON content. This is not a secret gap: `tests/
 // selftest.test.mjs` test (c) already knows about it and works around it (`.out.replace(/\nas of .*$/, '')` before
-// `JSON.parse`) rather than the CLI contract being fixed. Reported as a new finding below (not ticket 009's).
+// `JSON.parse`) rather than the CLI contract being fixed. Reported as a new finding below, not the score one.
 //
-// `how`'s three facts (§009's own ticket) — the set of commit shas named in text vs `matches[]`, the `places[]`
+// `how`'s three facts (the score-hiding change's own finding) — the set of commit shas named in text vs `matches[]`, the `places[]`
 // order vs the text order, and (RED while 009 is open) every match carrying a numeric `score` — are checked
 // directly against a real `how` match set: three commits named "add zqbilling pending/shipped/cancelled", each
 // touching the identical four files, mirroring `tests/how-command.test.mjs`'s own "add status …" fixture pattern
@@ -107,7 +107,7 @@ const JSON_COMMANDS = [
   ['report', ['report']],
   ['selftest', ['selftest']],
   // `review` had never joined this loop even though cmdReview's --json branch is exactly as old as check's own —
-  // an audit gap this file's own header calls out fixing (§051/instr-cross-check task), not a known bug: this is
+  // an audit gap this file's own header calls out fixing (the JSON/text parity and cross-check instrument work), not a known bug: this is
   // a NEW addition to coverage, not a red-before-fix case.
   ['review', ['review']],
 ];
@@ -121,7 +121,7 @@ for (const [name, args] of JSON_COMMANDS) {
   });
 }
 
-// ===== `how` (§009) =====
+// ===== `how` =====
 test('how: the set of commit shas named in text (example lines, in order) equals JSON matches[] (same order)', () => {
   const { out, code, err } = grainIn(repo, ['how', 'zqbilling']);
   assert.equal(code, 0, `${out}\n${err}`);
@@ -202,7 +202,7 @@ test('map: the "decisions:" headline and every fully-listed layer\'s module set 
   assert.ok(checkedAtLeastOneFull, `fixture sanity: expected at least one untruncated layer segment to check fully: ${layerLine}`);
 });
 
-// ===== `map --json` completeness (§066/051): text renders `concepts:`, `changes:` and derives `layers:` from the
+// ===== `map --json` completeness (the JSON/text parity fixes): text renders `concepts:`, `changes:` and derives `layers:` from the
 // module dependency graph; `--json` used to carry none of the three (only `nodes`/`decisions`) — a published
 // interface strictly poorer than the text answer it mirrors, with nothing disclosing the gap. Additive fields
 // only: `concepts`, `changes`, `edges`. =====
@@ -337,7 +337,7 @@ test('report: the partition header\'s convention count equals JSON\'s total (spo
   assert.ok(+m[1] > j.partitions[0].conventions.length, `fixture sanity: header total (${m[1]}) must exceed the sliced --top 5 list (${j.partitions[0].conventions.length}) or this spot-check proves nothing`);
 });
 
-// ===== `report --json` architecture completeness (ticket 072, same failure family as §041/§051/§066/§059): text's
+// ===== `report --json` architecture completeness (same failure family as the JSON/text parity fixes): text's
 // `== architecture — N modules · M directed dependencies · K cycle(s) ==` section (report(), core.mjs) renders
 // modules, their layer placement, directed edges, cycles and a relation-resolution coverage note — `--json` used
 // to carry none of it (only `repo`/`partitions`/`asOf`, per cross-check-map-report-parity.test.mjs's own recorded
@@ -347,7 +347,7 @@ test('report: the partition header\'s convention count equals JSON\'s total (spo
 // exercised non-trivially, not just an empty array), 7 disjoint single-file modules (mod0..mod6, forcing
 // mapSections' own "+K more" truncation on `map`'s text `layers:` line — the same technique
 // cross-check-map-report-parity.test.mjs uses for its own module-count test), and one `.c` file (relPathOnly —
-// §041/§G21 — so the coverage note fires on real, non-zero data).
+// so the coverage note fires on real, non-zero data).
 test('report --json: modules/edges/cycles/relCoverage agree with what report\'s text architecture section actually shows', () => {
   const dir3 = mkdtempSync(join(tmpdir(), 'grain-crosscheck-reportarch-'));
   try {
@@ -461,14 +461,14 @@ test('review: the headline\'s file count and "across N file(s)" count equal JSON
   assert.equal(+m[2], j.findings.length, `text "across N file(s)" count ${m[2]} vs JSON findings.length ${j.findings.length}`);
 });
 
-// ===== `map` (§051 — text renders `concepts:`/`changes:`, --json used to omit both entirely) =====
+// ===== `map` (text renders `concepts:`/`changes:`, --json used to omit both entirely) =====
 // A self-contained fixture (not the shared `repo` above, which has no repeated commit shapes to certify a change
 // archetype): reuses change-archetypes.test.mjs's own proven "8 handler-adds interleaved with 8 status-adds"
 // shape (guaranteed to certify exactly 2 archetypes — see that file's own bit-budget comment) plus one more
 // commit/file pair sharing a token between the commit message and a code identifier (concepts-and-changes-map.
 // test.mjs's own minimal J4.3b trigger), so ONE fixture produces non-empty `model.concepts` AND
-// `model.changeArchetypes` together — both text-rendered lines this ticket (§051) found missing from `--json`.
-test('map: `concepts:`/`changes:` text lines have a --json twin carrying the same data (§051 — json used to omit both)', () => {
+// `model.changeArchetypes` together — both text-rendered lines this ticket found missing from `--json`.
+test('map: `concepts:`/`changes:` text lines have a --json twin carrying the same data (json used to omit both)', () => {
   const { tmp: tmp2, repo: repo2 } = initRepo('grain-xcheck-mapjson-');
   try {
     const HANDLERS = ['create', 'cancel', 'ship', 'refund', 'archive', 'restore', 'split', 'merge'];
@@ -524,10 +524,10 @@ test('map: `concepts:`/`changes:` text lines have a --json twin carrying the sam
   }
 });
 
-// ===== disclosures[] parity (§089) — every command whose text renderer prints a hedge/caveat qualifying an
+// ===== disclosures[] parity — every command whose text renderer prints a hedge/caveat qualifying an
 // otherwise-confident answer must now carry the SAME text as a structured { kind, text } entry in --json's new,
 // additive `disclosures[]` field (where/what: top-level; check/review: per-file, inside `findings[]`/the verdict
-// object itself). This is instrument C's own generic acceptance test (§089's ruling, escalation 20): an agent
+// object itself). This is instrument C's own generic acceptance test (the JSON disclosures ruling): an agent
 // reading JSON alone must not get the confident answer stripped of the honesty the text carries.
 //
 // GENERIC by construction: one assertion function, reused verbatim by every fixture below — it never special-cases
@@ -549,7 +549,7 @@ function assertDisclosureParity(dir, args, expectedKind, pick = j => j.disclosur
   assert.ok(t.out.includes(hit.text), `--json's "${expectedKind}" disclosure text does not appear verbatim in the text rendering (text and JSON must share the identical string, never two hand-synced copies) — text:\n${t.out}\njson entry: ${JSON.stringify(hit)}`);
 }
 
-test('disclosures §089: `check --json` on a file with no grammar carries a "no-grammar" entry matching the text sentence', () => {
+test('disclosures: `check --json` on a file with no grammar carries a "no-grammar" entry matching the text sentence', () => {
   const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-nogrammar-');
   try {
     wIn(r1, 'src/a.ts', 'export const a = 1;\n');
@@ -560,7 +560,7 @@ test('disclosures §089: `check --json` on a file with no grammar carries a "no-
   } finally { rmSync(t1, { recursive: true, force: true }); }
 });
 
-test('disclosures §089: `check --json` on a file outside any partition carries a "no-partition" entry matching the text sentence', () => {
+test('disclosures: `check --json` on a file outside any partition carries a "no-partition" entry matching the text sentence', () => {
   const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-nopartition-');
   try {
     wIn(r1, 'README.md', 'hello\n'); // no source file ever committed — the model ends up with zero partitions
@@ -571,7 +571,7 @@ test('disclosures §089: `check --json` on a file outside any partition carries 
   } finally { rmSync(t1, { recursive: true, force: true }); }
 });
 
-test('disclosures §089: `check --json` on a degraded-but-parseable file carries a "parse-degraded" entry matching the text caveat', () => {
+test('disclosures: `check --json` on a degraded-but-parseable file carries a "parse-degraded" entry matching the text caveat', () => {
   const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-degraded-');
   try {
     // 10 siblings, the same count cross-check-check-review-parity.test.mjs's own PAIRED fixture uses to reliably
@@ -596,10 +596,10 @@ test('disclosures §089: `check --json` on a degraded-but-parseable file carries
   } finally { rmSync(t1, { recursive: true, force: true }); }
 });
 
-test('disclosures §089: `what --json` on a weak, non-empty answer carries a "blind-weak" entry matching the text caveat', () => {
+test('disclosures: `what --json` on a weak, non-empty answer carries a "blind-weak" entry matching the text caveat', () => {
   const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-blindweak-');
   try {
-    // the okhttp shape (§037's own fixture, trimmed): a const-only file yields zero scopes, so grain cannot see
+    // the okhttp shape (the weak-answer disclosure's own fixture, trimmed): a const-only file yields zero scopes, so grain cannot see
     // the real declaration; a test file sharing all three query tokens is a weak, unrelated match that used to
     // suppress the caveat entirely
     wIn(r1, 'src/settings.ts', [
@@ -616,7 +616,7 @@ test('disclosures §089: `what --json` on a weak, non-empty answer carries a "bl
   } finally { rmSync(t1, { recursive: true, force: true }); }
 });
 
-test('disclosures §089: `where --json` on a query with zero lexical overlap, verbatim in an ungrammared file, carries an "ungrammared" entry', () => {
+test('disclosures: `where --json` on a query with zero lexical overlap, verbatim in an ungrammared file, carries an "ungrammared" entry', () => {
   const { tmp: t1, repo: r1 } = initRepo('grain-xcheck-disc-ungrammared-');
   try {
     wIn(r1, 'src/foo.ts', 'export function bar(): number {\n  return 1;\n}\n');

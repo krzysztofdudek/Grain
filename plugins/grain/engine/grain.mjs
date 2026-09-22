@@ -7,14 +7,14 @@
 //   grain status | grain report     model overview, freshness, trends, health
 //   grain refresh [--full]          rebuild the index now (auto-refresh already runs before every query)
 //
-// Every answer ends with `as of <sha>`. `+dirty` means "this answer incorporates your uncommitted edits" (§013/§024
-// ruling) — only `check`/`review` (always) and `spectrum`/`explain` (for the one file asked about) ever earn it.
+// Every answer ends with `as of <sha>`. `+dirty` means "this answer incorporates your uncommitted edits" (the
+// dirty-tree ruling) — only `check`/`review` (always) and `spectrum`/`explain` (for the one file asked about) ever earn it.
 // Every other command answers from the indexed commit alone and never claims `+dirty`; when the worktree is dirty
-// it gets a separate, plain disclosure instead (§024c) — never that marker, which would be a false claim for them.
+// it gets a separate, plain disclosure instead — never that marker, which would be a false claim for them.
 // The index lives in <repo>/.grain/cache/ (gitignored, disposable). Uncommitted changes never feed the norm — only
 // `check`/`review`/`spectrum` read the worktree version of the file(s) asked about.
 //
-// The split of this file (ticket 124) is in progress: the seams already cut live in the sibling
+// The split of this file is in progress: the seams already cut live in the sibling
 // modules re-exported at the bottom, and every name this file exported before the split is still
 // exported here.
 import { existsSync, readFileSync } from 'node:fs';
@@ -92,7 +92,7 @@ export async function main(argv) {
       }
       console.log(JSON.stringify(sessionContext({ ...r, mode: opts.mode || args[0] || 'claude' })));
     } catch (e) {
-      // (§029) deliberately UNGATED, unlike the other five hooks' `if (process.env.GRAIN_DEBUG)` catch blocks below:
+      // deliberately UNGATED, unlike the other five hooks' `if (process.env.GRAIN_DEBUG)` catch blocks below:
       // this hook runs once per session (not once per edit/prompt), so the noise cost of speaking is low, while a
       // broken repo path here silently drops grain's entire SessionStart context for the whole session with no other
       // signal — worth surfacing immediately rather than requiring a user to already know to set GRAIN_DEBUG.
@@ -139,9 +139,9 @@ export async function main(argv) {
         const ph = placementHit(model2, rel);
         if (ph) recordPlacementPending(st2, ph, rel); // feedback loop: did a later write to this suffix/token land in `ph.dir`? resolved on a matching PostToolUse below
         speak = ph ? [ph.text] : [];
-        // §088: `obligation <path>` at the SAME pre-write moment placement already speaks at — but ONLY when the
+        // `obligation <path>` at the SAME pre-write moment placement already speaks at — but ONLY when the
         // birth-obligation table actually CERTIFIES a specific companion for this path's (module, suffix) class
-        // (`rules.length`), never on ambient-only or "born N times, nothing certifies" (§073's own honest-silence
+        // (`rules.length`), never on ambient-only or "born N times, nothing certifies" (the obligation miner's own honest-silence
         // case). Ticket 081 measured 0 of 8 real trial creation events certifying anything here — firing a hollow
         // note on nearly every Write would be exactly the class-018 over-hedging this project avoids, so this
         // must stay silent far more often than it speaks; `rules.length` alone (never `ambient.length` alone) is
@@ -391,7 +391,7 @@ export async function main(argv) {
       if (!head) return 0;
       // read-only: history.json is read directly and used ONLY if already fresh (lastSha === head) — this hook
       // must never take the `loadHistory` walk-and-write path (that is what "never refreshes" forbids here).
-      // history.json is newline-delimited, not one JSON object (§055) — read through history.mjs's own
+      // history.json is newline-delimited, not one JSON object — read through history.mjs's own
       // `readHistoryState`, never the generic `readJson` every other cache file here uses; any read failure
       // (missing, corrupt, mid-write) degrades exactly like `readJson` always has — `state = null`, hook stays silent.
       let state = null;
@@ -552,7 +552,7 @@ export async function main(argv) {
   }
   const stamp = dirty =>
     `as of ${short(stale ? meta?.headSha : head)}${dirty ? '+dirty' : ''}${stale ? ' (STALE)' : ''}`;
-  const treeDirty = repoDirty(root, isGit); // §024c — computed once per invocation, shared by every HEAD-reading command below
+  const treeDirty = repoDirty(root, isGit); // computed once per invocation, shared by every HEAD-reading command below
   const ctx = { model, meta, head, root, isGit, args, opts, stamp, store, treeDirty };
   let lines;
   switch (cmd) {
@@ -697,14 +697,14 @@ export async function main(argv) {
         if (opts.json) lines = [JSON.stringify({ ...res, asOf: stamp().replace(/^as of /, '') }, null, 1)];
         else {
           const f = x => x.toFixed(2);
-          // cardW: the mean file-count of the cards that actually earned place@3 credit (§068) — surfaced right
+          // cardW: the mean file-count of the cards that actually earned place@3 credit — surfaced right
           // next to the score so a wide, low-precision card inflating place@3 is visible here, not something a
           // researcher has to rediscover by hand
           const armLine = a => `hit@3=${f(a.hit3)} MRR=${f(a.mrr)} place@3=${f(a.place3)} cardW=${a.placeWidth.toFixed(1)}`;
           lines = [
             `where: ${armLine(res.where)} · path-match baseline: ${armLine(res.base)} · n=${res.n} · nothing-ranked=${res.silent}`,
             `query does not name the file (n=${res.unnamed.n}) — where: ${armLine(res.unnamed.where)} · baseline: ${armLine(res.unnamed.base)}`,
-            // §071 — additive symbol stratum: candidates whose own commit message carried a verbatim identifier
+            // additive symbol stratum: candidates whose own commit message carried a verbatim identifier
             // (`sendStatus`, `send_status`), scored on a query that keeps it whole instead of only the
             // tokenize+normTok-split form the two lines above are stuck with
             `message names a symbol verbatim (n=${res.symbol.n}) — where: ${armLine(res.symbol.where)} · baseline: ${armLine(res.symbol.base)}`,
@@ -751,7 +751,7 @@ export async function main(argv) {
         break;
       }
       if (opts.obligation) {
-        // §073: leave-one-out coverage/precision of the birth-obligation table, over the repo's own history —
+        // leave-one-out coverage/precision of the birth-obligation table, over the repo's own history —
         // the candidate's own commit is never in the table that scores it (obligationEval builds the table
         // chronologically, folding a footprint in only AFTER scoring it — see the function's own comment).
         let H = null;

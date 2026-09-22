@@ -1,4 +1,4 @@
-// §042: a lexical style surface (`auto.lex:quote`, `:semi`, `:decl`, `:indent`) is scored as a per-FILE majority
+// a lexical style surface (`auto.lex:quote`, `:semi`, `:decl`, `:indent`) is scored as a per-FILE majority
 // vote — `lexicalPreds` (core.mjs) collapses every string literal in a file into ONE categorical, `double` while at
 // most 20% of them are single-quoted. `check` then compares that one value and reports the file conforming. So a
 // file can hold, or gain, many literals that depart from the stated convention while `check` says nothing at all:

@@ -1,5 +1,5 @@
 // grain engine · the file-scope lexical layer (the surfaces an AST cannot carry) and the scope-to-line map
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename, extname } from 'node:path/posix';
 import { STR_TYPES } from './extract.mjs';
 import { part } from './facts.mjs';
@@ -10,17 +10,17 @@ import { exportShape } from './superposition.mjs';
 // whole gap between "the right file" and "the convention": 'use strict' 21/21, single quotes, var vs const, a UTF-8 BOM on
 // 70/108 C# files that no Read ever shows. Each is a categorical value per file; whether it is a CHOICE is decided per
 // grammar by the partition (lexDomain), never written down here.
-// `tally` (§042) is an optional OUT-parameter, written but never read here and never mixed into the returned preds:
+// `tally` is an optional OUT-parameter, written but never read here and never mixed into the returned preds:
 // per ratio-shaped surface, a map from the predicate's own VALUE to how many INSTANCES in this file carry it
 // (`{single: 3, double: 200}`). The returned categorical is a per-file majority vote, so it cannot say how many
 // literals actually conform; `check` needs that count to disclose what the vote hid. Keeping it out of `out` is
 // load-bearing: `out` is spread straight into a file scope's `preds` (extractScopes), so any extra key here would
 // become a mined predicate and widen the candidate universe.
-// §077 (director-approved follow-up to §042): `literals`, when supplied, is a second optional out-parameter —
+// (a follow-up to the quote-style disclosure): `literals`, when supplied, is a second optional out-parameter —
 // one entry per scanned quote-style string node (`{q, body, line, endLine}`), raw and unfiltered. Like `tally`,
 // it is never mixed into `out`/spread into a scope's `preds`: it exists only so `checkFile` can compute, AFTER
 // the per-file vote, which minority-quote literals are genuine departures versus delimiter-forced (`quoteFlags`
-// below) — the exact content test §042 already measured, now reused rather than reimplemented.
+// below) — the exact content test the quote-style disclosure already measured, now reused rather than reimplemented.
 export function lexicalPreds(tree, b, tally = null, literals = null) {
   const root = tree.rootNode;
   const text = root.text || '';

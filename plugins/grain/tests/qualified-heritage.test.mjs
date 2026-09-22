@@ -4,7 +4,7 @@
 // chain (`ns`, `com.google.inject`) instead of — or, for C#'s `qualified_name`, in addition to — the actual
 // type/member name. openzeppelin-contracts' `test/helpers/signers.js:6` (`extends ethers.AbstractSigner`)
 // recorded `ethers`; a Java fully-qualified base class (`extends com.google.inject.AbstractModule`) recorded
-// the wrong segment the same way. Same failure CLASS as §049 (wrong identifier out of a compound heritage
+// the wrong segment the same way. Same failure CLASS as the constructor-argument bug (wrong identifier out of a compound heritage
 // clause, fixed there for a constructor-call argument) — here for the member-access/scoped-name shape.
 //
 // Fixed by deriving, per grammar and purely from node-types.json's own field shapes (`b.qualName` in
@@ -99,13 +99,13 @@ test('Scala: `extends ns.Base` (stable_type_identifier) records Base, not ns', a
   assert.deepEqual(supOf(scopes, 'Foo'), ['Base']);
 });
 
-test('Scala: a qualified base combined with constructor forwarding (§049 shape) keeps only the type', async () => {
+test('Scala: a qualified base combined with constructor forwarding (the constructor-argument shape) keeps only the type', async () => {
   const scopes = await typeScopes('.scala', `class HomeController(cc: Int) extends pkg.AbstractController(cc) {
   def f() = 1
 }
 `);
   assert.deepEqual(supOf(scopes, 'HomeController'), ['AbstractController'],
-    'neither `pkg` (the namespace) nor `cc` (the §049 constructor argument) is a base type');
+    'neither `pkg` (the namespace) nor `cc` (the constructor argument) is a base type');
 });
 
 test('Ruby: `class Foo < Bar::Baz` (scope_resolution) records Baz, not Bar', async () => {

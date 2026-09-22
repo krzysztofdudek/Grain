@@ -1,5 +1,5 @@
 // grain engine · proposal writer · the sub-gate lattice and the identifiers a rule is written in
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CORE, LAMBDA_BOUND, MIN_SUPPORT, SUPERMAJORITY } from './propose-base.mjs';
@@ -31,7 +31,7 @@ export async function partitionLattice(repo) {
       const k = cid + CELL_SEP + pid;
       const c = cells.get(k) || cells.set(k, Object.create(null)).get(k);
       c[v] = (c[v] || 0) + 1;
-      // `tparams`/`own` (ticket 123, issue 125's follow-up): carried through from the hydrated scope so a row's
+      // `tparams`/`own` (issue 125's follow-up): carried through from the hydrated scope so a row's
       // eventual classifier can test its identifier against the ACTUAL declaring site's type parameters instead
       // of guessing from name shape — the same fact `export.mjs`'s `site()` already exposes on a certified
       // convention's own sites.
@@ -68,7 +68,7 @@ export async function partitionLattice(repo) {
       if (bl && exp === 'false') { const tot = allN; if (!tot || (allC?.['true'] || 0) / tot < 0.2) continue; }
       const share = ne / n;
       const isNorm = factKey.has(cid + CELL_SEP + pid + CELL_SEP + exp);
-      // The row's own host site (ticket 123): the first site among this cell's OWN majority-value population,
+      // The row's own host site: the first site among this cell's OWN majority-value population,
       // carrying the exact fact `buildAspects` tests an identifier against — never a re-derived guess. A row
       // with no majority-side site left (should not happen; `ne` counted at least one) falls back to `[]`/`null`,
       // the same "nothing declared" shape a hand-built test row already gets when it omits these fields.
@@ -105,7 +105,7 @@ export const identifierOf = pid => {
 // where the tree PROVES the negation. A rule "methods here return `Promise`" fires on a method that declares a
 // DIFFERENT return type, and stays silent on a method that declares none — a missing annotation is a language
 // or a style question, not evidence against the rule. A rule "files here never import X" fires only where the
-// import is actually present. Under-firing is the deliberate error direction; ticket 097 measures it.
+// import is actually present. Under-firing is the deliberate error direction; the drill measures it.
 //
 // Grain and Yggdrasil parse with the same tree-sitter grammars, so a rendered check reads the same tree grain
 // counted. Where a language's grammar names a field differently the check sees no evidence and stays silent —

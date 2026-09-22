@@ -1,4 +1,4 @@
-// §047 — "A deviant is pushed out of the group that would have judged it — by the very feature it deviates on."
+// "A deviant is pushed out of the group that would have judged it — by the very feature it deviates on."
 // Role clustering assigns membership by feature similarity, INCLUDING the feature under test (a decorator, a
 // heritage clause, a return type — weighted 3x in `jacW`, engine/core.mjs). A member that cleanly omits the
 // convention it should be judged against therefore scores lower similarity to its own group, and can fall below
@@ -155,7 +155,7 @@ for (const cfg of LANGS) {
       assert.match(hit.text, /is new to the index/, hit.text);
       // the honest below-floor framing is KEPT, not replaced
       assert.match(hit.text, new RegExp(`matched no group \\(best 0\\.00, floor ${CFG.minMemb}\\)`), hit.text);
-      // §047's fix: the withheld information is now spoken
+      // the deviant-exclusion fix: the withheld information is now spoken
       assert.match(hit.text, /the nearest certifying group is/, hit.text);
       assert.match(hit.text, new RegExp(`«${cfg.label}»`), hit.text);
       assert.match(hit.text, new RegExp(`${cfg.memberKeys.length} members`), hit.text);
@@ -166,7 +166,7 @@ for (const cfg of LANGS) {
   });
 }
 
-// ---- narrowing gate (§047 acceptance 2): a WEAK certifying fact stays silent, exactly the fire-rate finding ----
+// ---- narrowing gate (the deviant-exclusion fix acceptance 2): a WEAK certifying fact stays silent, exactly the fire-rate finding ----
 // The 5-repo fire-rate measurement (flask, spring-petclinic, CleanArchitecture) found the naive certN>0 gate
 // naming a "nearest certifying group" on every generic, near-universal role fact too (`returns:void` bpi 1.4–1.8,
 // `returns:t.Any` bpi 3.1, a negated `deco:@Test` bpi 2.1) — one weak fact cited for a dozen unrelated new scopes
@@ -208,7 +208,7 @@ test('(047 narrowing) a certifying fact below the Math.log2(CFG.lambda) bar is n
   }
 });
 
-// ---- containment (§047 acceptance 3): directory-level facts never depended on role clustering, and still don't ----
+// ---- containment (the deviant-exclusion fix acceptance 3): directory-level facts never depended on role clustering, and still don't ----
 // A `d[dir]:kind` fact is matched purely by path prefix (checkFile's `gov` loop, `f.cid.startsWith('d[')` branch) —
 // it never reads `roleOk`/`assign`/`amb`/CFG.minMemb at all. This planted scope has NO role, no medoid, not even a
 // SINGLE induced cluster in its partition (proven by asserting `newScopeHits` is empty) — the opposite extreme of

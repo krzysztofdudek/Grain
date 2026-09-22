@@ -1,5 +1,5 @@
 // grain engine · report, rules, status and the structural map
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { CFG } from './config.mjs';
 import { baselineClause, practicedBy } from './cards.mjs';
 import { archCellLabel, factLabel, pct, ptr, scopeLabel } from './facts.mjs';
@@ -204,12 +204,12 @@ export function report(model, { top = 15, outcomes } = {}) {
 // evidence. `decisions:` is a bare count/structure line (like a header or a stamp), never a claim, so it carries
 // no voice() marker at all.
 // the module→layer grouping `map`'s text `layers:` line renders (byLayer, below) — extracted so a second caller
-// (ticket 072: `report --json`'s `layers` field) computes the identical grouping instead of re-deriving its own,
+// (`report --json`'s `layers` field) computes the identical grouping instead of re-deriving its own,
 // the same "one function computes it" discipline as relCoverageData/relCoverageNote above (§G21). Returns the
 // FULL, untruncated module list per layer, ascending by layer number, modules sorted alphabetically within — the
 // same sort mapSections' own `mods.sort()` already used; mapSections' 4-per-layer "+K more" cap is a display
 // concern layered on top by its own caller, exactly like cmdMap's `changes` field already keeps the full
-// `model.changeArchetypes` list while its OWN text line caps to 4 (§066/051).
+// `model.changeArchetypes` list while its OWN text line caps to 4.
 export function moduleLayers(model) {
   const mg = model.moduleGraph;
   if (!mg || !mg.nodes.length) return [];
@@ -339,7 +339,7 @@ export function rulesMarkdown(
       `${mg.nodes.length} modules · ${mg.edges.length} directed dependencies · ${mg.cycles.length} cycle(s)`,
       ''
     );
-    // the same two coverage disclosures report()'s architecture section carries (§G21, §004) — rendered as their
+    // the same two coverage disclosures report()'s architecture section carries (§G21 and the sibling-gap disclosure) — rendered as their
     // own paragraph(s), not report()'s 2-space indent, to match this document's own Markdown idiom
     const covNote = relCoverageNote(model);
     if (covNote) lines.push(covNote, '');
@@ -428,7 +428,7 @@ export function rulesMarkdown(
   }
   while (lines.length && lines[lines.length - 1] === '') lines.pop();
   lines.push('', `*as of ${sha}*`); // frozen snapshot-time fact, deliberately part of the document (unlike the CLI's own ephemeral stamp() line — see cmdRules, grain.mjs)
-  // (§024c) same snapshot-time-fact reasoning as the sha/date above: whether the generating worktree was dirty is
+  // same snapshot-time-fact reasoning as the sha/date above: whether the generating worktree was dirty is
   // itself worth persisting alongside them, not just echoed on the CLI. `rules` is a HEAD-reader — `dirty` here is
   // never `+dirty`, only this distinct disclosure (see DIRTY_TREE_NOTE above).
   if (dirty) lines.push('', `*${DIRTY_TREE_NOTE}*`);
@@ -442,7 +442,7 @@ export function statusLines(model) {
     `model: ${model.repo} · ${model.partitions.length} partition(s) · ${ng} groups · ${nf} conventions · ${model.files} files${!model.historyStats ? ' — no git history: nothing counts as established, so no convention is spoken (groups and placement still answer `where`)' : ''}`,
     `agent-authored share of code younger than ${CFG.survDays} days: ${model.agentShare == null ? 'n/a (no history)' : Math.round(model.agentShare * 100) + '%'}${model.agentShare >= 0.85 ? ' ⚠ ALARM — the norm is being written by agents faster than humans review it' : ''}`,
     `nucleating stand-downs: ${model.partitions.reduce((a, p) => a + p.facts.filter(f => f.suppressedValue).length, 0)}`,
-    // (§034a) "non-merge": walk() (history.mjs) runs `git log --no-merges` — a merge introduces no blob of its own,
+    // "non-merge": walk() (history.mjs) runs `git log --no-merges` — a merge introduces no blob of its own,
     // so it never enters this count. Left unqualified, this number reads as `git log --oneline | wc -l` and looks
     // like lost history on any repo with real merge traffic (confirmed: nest reports 12,435 here against 21,710 in
     // plain `git log`). CFG.megaCap/nonMegaCommits (§J2.4b) are a SEPARATE, narrower accounting for the language

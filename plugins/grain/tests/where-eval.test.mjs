@@ -140,7 +140,7 @@ test('the text report prints both strata and carries the as-of stamp', () => {
   const lines = r.out.split('\n').filter(l => !l.startsWith('[grain]'));
   assert.match(lines[0], /^where: hit@3=\d\.\d\d MRR=\d\.\d\d place@3=\d\.\d\d cardW=\d+\.\d · path-match baseline: hit@3=\d\.\d\d MRR=\d\.\d\d place@3=\d\.\d\d cardW=\d+\.\d · n=\d+ · nothing-ranked=\d+$/);
   assert.match(lines[1], /^query does not name the file \(n=\d+\) — where: hit@3=/);
-  // §071 — additive symbol stratum, reported beside (never instead of) the two strata above
+  // additive symbol stratum, reported beside (never instead of) the two strata above
   assert.match(lines[2], /^message names a symbol verbatim \(n=\d+\) — where: hit@3=/);
   assert.match(lines[3], /^as of [0-9a-f]{7}/);
 });
@@ -165,7 +165,7 @@ test('a repository with no history says so instead of reporting a hollow zero', 
   assert.equal(j.n, 0);
 });
 
-// §068 — `place@3` was gameable by card width: a directory or group card wide enough to cover most of the
+// `place@3` was gameable by card width: a directory or group card wide enough to cover most of the
 // repository contains the truth file almost by construction, so the OLD scoring (`place3 = at(rows,'wPlace',3)`,
 // a flat 1 for any row where SOMETHING — hit or mere containment — landed by rank 3) credited a 64%-of-repo card
 // exactly as much as an actual named hit. `whereEval` is exercised directly here (as weak-match-signals.test.mjs
@@ -198,7 +198,7 @@ function whereEvalFor(model, truthFile, query) {
   return whereEval({ model, H, last: 1 });
 }
 
-test('§068: a card spanning 20 files earns only 1/20 of a hit — not the full 1 a precise hit gets', () => {
+test('a card spanning 20 files earns only 1/20 of a hit — not the full 1 a precise hit gets', () => {
   const keys = Array.from({ length: 19 }, (_, i) => `src/w/filler${i}.ts#method#Run${i}`);
   keys.push('src/w/truth.ts#method#RunTruth');
   const model = markerModel(keys, 'widemk');
@@ -209,7 +209,7 @@ test('§068: a card spanning 20 files earns only 1/20 of a hit — not the full 
   assert.equal(res.where.placeWidth, 20, 'the credited card width must be reported, not left for a researcher to dig out by hand');
 });
 
-test('§068: a 2-file card earns 1/2 — proportionally more than the 20-file card above for the identical scenario shape', () => {
+test('a 2-file card earns 1/2 — proportionally more than the 20-file card above for the identical scenario shape', () => {
   const keys = ['src/n/fileA.ts#method#RunA', 'src/n/truth2.ts#method#RunB'];
   const model = markerModel(keys, 'narrowmk');
   const res = whereEvalFor(model, 'src/n/truth2.ts', 'narrowmk');
@@ -219,7 +219,7 @@ test('§068: a 2-file card earns 1/2 — proportionally more than the 20-file ca
   assert.equal(res.where.placeWidth, 2);
 });
 
-test('§068: a genuine hit (a one-file card, by construction) still earns full place@3 credit — the discount never inverts hit3 ≤ place3', () => {
+test('a genuine hit (a one-file card, by construction) still earns full place@3 credit — the discount never inverts hit3 ≤ place3', () => {
   const keys = ['src/f/truth.ts#method#Run'];
   const model = markerModel(keys, 'onlymk');
   const res = whereEvalFor(model, 'src/f/truth.ts', 'onlymk');

@@ -1,4 +1,4 @@
-// §050 — the regression net for "the class of bug", not just the one Scala instance: `TYPE_LIKE_RE`/`FUNC_LIKE_RE`
+// the regression net for "the class of bug", not just the one Scala instance: `TYPE_LIKE_RE`/`FUNC_LIKE_RE`
 // (core.mjs) are a FIXED vocabulary of English words matched word-bounded over node-TYPE names (same category of
 // thing as `MODIFIER_KEYWORD_RE`, `tests/new-predicates.test.mjs`'s honest framing) — not derived from
 // node-types.json in any stronger sense, so a grammar whose declaration node happens to spell a concept with a
@@ -24,11 +24,11 @@
 //            names and whose real kind comes only from `extractScopes`'s per-instance `hasChildScope` fallback).
 //            Each QUIRK entry pins the CURRENT TYPE_LIKE_RE/FUNC_LIKE_RE verdict as a known, deliberate
 //            characterization — some are harmless (an enum constant reads as "type", which is defensible).
-//            §050 originally surfaced two more bug classes here and deliberately left them unfixed for their own
+//            the Scala-object fix originally surfaced two more bug classes here and deliberately left them unfixed for their own
 //            ticket: a genuine false positive (Ruby's `singleton_method`, a plain instance method, matched the
-//            word `singleton`) and the SAME childless-companion bug §050 fixed for Scala's `object`, recurring in
+//            word `singleton`) and the SAME childless-companion bug the Scala-object fix closed for Scala's `object`, recurring in
 //            five more node types (Java/Groovy `module_declaration`, Ruby `module`, TS `internal_module`/
-//            `module`, Solidity `library_declaration`). §076 fixed both: `singleton_method` is now TYPE_LIKE_RE
+//            `module`, Solidity `library_declaration`). The type-like coverage fix fixed both: `singleton_method` is now TYPE_LIKE_RE
 //            false-positive-free (reclassified below as a plain METHOD row) and the five childless companions are
 //            reclassified as TYPE rows (TYPE_LIKE_RE gained the words `module`/`library` — see core.mjs).
 import { test } from 'node:test';
@@ -86,7 +86,7 @@ const TABLE = [
   ['groovy', 'interface_declaration', T],
   ['groovy', 'method_declaration', M],
   ['groovy', 'method_invocation', Q, 'a builder-style call with a trailing closure (`task { ... }`) — matches FUNC_LIKE_RE via `method`; pre-existing, harmless (a DSL call classified as kind "method" is reasonable)'],
-  ['groovy', 'module_declaration', T, '§076 — THE FIX: a Java/Groovy module-info declaration was invisible as a type before this ticket (matched neither regex), same bug class as §050\'s Scala object'],
+  ['groovy', 'module_declaration', T, 'the type-like coverage fix — THE FIX: a Java/Groovy module-info declaration was invisible as a type before this fix (matched neither regex), same bug class as the Scala-object fix\'s Scala object'],
   ['groovy', 'record_declaration', T],
   // ---- java ----
   ['java', 'annotation_type_declaration', T],
@@ -98,7 +98,7 @@ const TABLE = [
   ['java', 'enum_declaration', T],
   ['java', 'interface_declaration', T],
   ['java', 'method_declaration', M],
-  ['java', 'module_declaration', T, '§076 — THE FIX, same construct as groovy/module_declaration above'],
+  ['java', 'module_declaration', T, 'the type-like coverage fix — THE FIX, same construct as groovy/module_declaration above'],
   ['java', 'record_declaration', T],
   // ---- javascript ----
   ['javascript', 'class', T],
@@ -108,7 +108,7 @@ const TABLE = [
   ['javascript', 'generator_function', M],
   ['javascript', 'generator_function_declaration', M],
   ['javascript', 'method_definition', M],
-  // ---- kotlin ---- (object_declaration is the ORIGINAL correct case §050 must not regress)
+  // ---- kotlin ---- (object_declaration is the ORIGINAL correct case the Scala-object fix must not regress)
   ['kotlin', 'class_declaration', T],
   ['kotlin', 'function_declaration', M],
   ['kotlin', 'object_declaration', T],
@@ -129,8 +129,8 @@ const TABLE = [
   // ---- ruby ----
   ['ruby', 'class', T],
   ['ruby', 'method', M],
-  ['ruby', 'module', T, '§076 — THE FIX: Ruby\'s `module` (§G15b: deliberately NOT caught by MOD_LOCATION_RE, since "mod" != "module" word-bounded) was invisible as a type before this ticket, same bug class as §050\'s Scala object'],
-  ['ruby', 'singleton_method', M, '§076 — THE FIX: a class method (`def self.foo; end`) previously ALSO matched TYPE_LIKE_RE via the word "singleton" (removed by §076 — a census of every grammar\'s b.scope set found it matched only this one node type, nowhere legitimate) — typeLike won ties in extractScopes, so this used to misclassify as kind "type" despite FUNC_LIKE_RE correctly matching "method" too'],
+  ['ruby', 'module', T, 'the type-like coverage fix — THE FIX: Ruby\'s `module` (§G15b: deliberately NOT caught by MOD_LOCATION_RE, since "mod" != "module" word-bounded) was invisible as a type before this fix, same bug class as the Scala-object fix\'s Scala object'],
+  ['ruby', 'singleton_method', M, 'the type-like coverage fix — THE FIX: a class method (`def self.foo; end`) previously ALSO matched TYPE_LIKE_RE via the word "singleton" (removed by the type-like coverage fix — a census of every grammar\'s b.scope set found it matched only this one node type, nowhere legitimate) — typeLike won ties in extractScopes, so this used to misclassify as kind "type" despite FUNC_LIKE_RE correctly matching "method" too'],
   // ---- rust ----
   ['rust', 'enum_item', T],
   ['rust', 'enum_variant', Q, 'a single enum variant — matches TYPE_LIKE_RE via its `enum_`-adjacent word; pre-existing, defensible'],
@@ -140,23 +140,23 @@ const TABLE = [
   ['rust', 'struct_item', T],
   ['rust', 'trait_item', T],
   ['rust', 'union_item', T],
-  // ---- scala ---- (object_definition is THE §050 FIX)
+  // ---- scala ---- (object_definition is the Scala-object fix's own case)
   ['scala', 'class_definition', T],
   ['scala', 'enum_definition', T],
   ['scala', 'function_declaration', M],
   ['scala', 'function_definition', M],
-  ['scala', 'given_definition', Q, 'a Scala 3 `given` instance — matches neither regex; real kind is instance-dependent (hasChildScope), not part of §050'],
-  ['scala', 'object_definition', T, '§050 — THE FIX: was invisible as a type before this ticket (matched neither regex)'],
+  ['scala', 'given_definition', Q, 'a Scala 3 `given` instance — matches neither regex; real kind is instance-dependent (hasChildScope), not part of the Scala-object fix'],
+  ['scala', 'object_definition', T, 'the Scala-object fix — THE FIX: was invisible as a type before this fix (matched neither regex)'],
   ['scala', 'package_clause', L, 'a `package foo.bar` statement — intercepted by isLocationNode via its `package` substring'],
-  ['scala', 'package_object', L, 'a `package object foo { ... }` — also intercepted by isLocationNode (same `package` substring match as package_clause), so §050\'s TYPE_LIKE_RE widening never actually reaches it; its own vals still surface on the enclosing file scope'],
+  ['scala', 'package_object', L, 'a `package object foo { ... }` — also intercepted by isLocationNode (same `package` substring match as package_clause), so the Scala-object fix\'s TYPE_LIKE_RE widening never actually reaches it; its own vals still surface on the enclosing file scope'],
   ['scala', 'trait_definition', T],
   // ---- solidity ----
   ['solidity', 'contract_declaration', T],
   ['solidity', 'enum_declaration', T],
   ['solidity', 'function_definition', M],
   ['solidity', 'interface_declaration', T],
-  ['solidity', 'library_declaration', T, '§076 — THE FIX: a Solidity `library` was invisible as a type before this ticket, same bug class as §050\'s Scala object'],
-  ['solidity', 'modifier_definition', Q, 'a function modifier (`modifier onlyOwner() { ... }`) matches neither regex; real kind is instance-dependent (hasChildScope), typically resolving to "method" in practice since a modifier is callable-shaped — not part of §050'],
+  ['solidity', 'library_declaration', T, 'the type-like coverage fix — THE FIX: a Solidity `library` was invisible as a type before this fix, same bug class as the Scala-object fix\'s Scala object'],
+  ['solidity', 'modifier_definition', Q, 'a function modifier (`modifier onlyOwner() { ... }`) matches neither regex; real kind is instance-dependent (hasChildScope), typically resolving to "method" in practice since a modifier is callable-shaped — not part of the Scala-object fix'],
   ['solidity', 'struct_declaration', T],
   // ---- tsx / typescript (identical scope sets) ----
   ...['tsx', 'typescript'].flatMap(g => [
@@ -169,9 +169,9 @@ const TABLE = [
     [g, 'generator_function', M],
     [g, 'generator_function_declaration', M],
     [g, 'interface_declaration', T],
-    [g, 'internal_module', T, '§076 — THE FIX: a TS `namespace Foo { ... }` was invisible as a type before this ticket, same bug class as §050\'s Scala object'],
+    [g, 'internal_module', T, 'the type-like coverage fix — THE FIX: a TS `namespace Foo { ... }` was invisible as a type before this fix, same bug class as the Scala-object fix\'s Scala object'],
     [g, 'method_definition', M],
-    [g, 'module', T, '§076 — THE FIX: a TS `module Foo { ... }` / ambient `declare module "foo" { ... }` — same reasoning as internal_module above'],
+    [g, 'module', T, 'the type-like coverage fix — THE FIX: a TS `module Foo { ... }` / ambient `declare module "foo" { ... }` — same reasoning as internal_module above'],
   ]),
   // ---- zig ----
   ['zig', 'function_declaration', M],

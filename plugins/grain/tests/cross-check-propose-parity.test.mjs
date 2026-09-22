@@ -99,13 +99,13 @@ test('what stayed on disk is counted identically in both, and the two partitions
   assert.equal(json.aspects.total, sidecar.counts.aspects, 'the report and the proposal it describes must count the same aspects');
 });
 
-// ---------- ticket 107: a real fixture that actually GROWS a sub-gate lattice ----------
+// ---------- a real fixture that actually GROWS a sub-gate lattice ----------
 //
 // Every test above runs against the small deterministic fixture (`build-fixture.mjs`), which is far too small to
 // clear `MIN_SUPPORT` sites per lattice cell — its `latticeRows` is always 0, so `enforced-requires-certified-
 // origin` never has anything to gate on there and a passing assertion would be vacuous. Grain's OWN repository is
 // large enough to grow real sub-gate rows (measured: 22 of 22 lattice-origin checks that cleared a real drill,
-// ticket 107's own repro) and is always present in this environment, so it stands in for "a real fixture with
+// the original repro) and is always present in this environment, so it stands in for "a real fixture with
 // lattice rows" per the ticket's own fallback. This costs real wall-clock time (a real `grain export` over ~1500
 // tracked files) — accepted deliberately, once, for the one assertion no synthetic fixture can make honestly.
 test('on a real repository that grows a sub-gate lattice (Grain\'s own), no enforced aspect has origin sub-gate-lattice, and every advisory candidate appears identically in text and JSON', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)`, timeout: 180_000 }, () => {
@@ -122,7 +122,7 @@ test('on a real repository that grows a sub-gate lattice (Grain\'s own), no enfo
     const j2 = JSON.parse(readFileSync(jsonPath, 'utf8'));
     assert.ok(j2.aspects.advisory > 0, `fixture sanity: expected Grain's own repository to grow at least one advisory (sub-gate-lattice) aspect, got ${j2.aspects.advisory}`);
 
-    // the invariant ticket 107 exists for: origin, not drill result, gates `enforced` — cross-checked against
+    // the invariant this guards: origin, not drill result, gates `enforced` — cross-checked against
     // each aspect's own provenance.json, the one place `origin` is recorded (the report JSON does not carry it).
     for (const a of j2.enforced) {
       const prov = JSON.parse(readFileSync(join(a.path, 'provenance.json'), 'utf8'));

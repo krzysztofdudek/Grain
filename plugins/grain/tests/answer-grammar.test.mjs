@@ -24,7 +24,7 @@ const BIN = join(here, '..', 'bin', 'grain.mjs');
 const BUILDER = join(here, '..', '..', '..', 'tests', 'fixtures', 'build-fixture.mjs');
 let tmp, repo;
 // `maxBuffer` explicit: `grain export`'s output has no fixed ceiling (it grows with every additive schema
-// field — ticket 123 tipped this file's own export past node's 1 MB spawnSync default, which fails SILENTLY
+// field — the `yg adopt` transaction tipped this file's own export past node's 1 MB spawnSync default, which fails SILENTLY
 // as a truncated stdout, not as a reported overflow) — matching the bound already used for the same reason
 // elsewhere in this suite (e.g. `propose-command.test.mjs`).
 const grain = args => { const r = spawnSync('node', [BIN, ...args], { cwd: repo, encoding: 'utf8', maxBuffer: 1 << 28 }); return { out: (r.stdout || '').replace(/\n$/, ''), err: r.stderr, code: r.status }; };
@@ -81,7 +81,7 @@ test('(c) a where card and check both start with an "in:" locator line when a mo
   assert.match(chk.split('\n')[0], /^in: \S.* · used by \d+ modules$/, `expected check's first line to be an in: locator: ${chk}`);
 });
 
-// §067c: file vs directory ambiguity (question-catalog §4.1c) — an agent had grain's correct FILE answer on
+// file vs directory ambiguity (question-catalog §4.1c) — an agent had grain's correct FILE answer on
 // screen and treated it as a directory reference, writing a new sibling file instead of editing the one grain
 // named. The `in:` line prints first, one line above a file card's own unambiguous `→ file <path>` header, and
 // used to print the containing directory bare (no marker at all) — exactly the kind of un-tagged path that

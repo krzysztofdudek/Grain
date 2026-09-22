@@ -1,16 +1,16 @@
-// §065 (G catalog §6.4) — `what <symbol>` never named the tests that cover it: 9 instances, 18 calls in the
+// the tested-by negative (G catalog §6.4) — `what <symbol>` never named the tests that cover it: 9 instances, 18 calls in the
 // measured corpus, and no command answered it. A reader had to already know the test file's own name to look it
 // up, which defeats the point of asking. The model already carries three signals for this, all scoring/rendering
 // over data already extracted — no new extraction:
 //   (1) same-stem naming: a file-stem convention (`UpdateTodoList.cs` -> `UpdateTodoListTests.cs`) or the
 //       symbol's own name as a segment of an already test-like path (`res.sendStatus` -> `test/res.sendStatus.js`).
-//   (2) model.cochange, at the single-file 1/3 floor §063's cochangeData already established for a single changed
+//   (2) model.cochange, at the single-file 1/3 floor the directional ranking's cochangeData already established for a single changed
 //       file — restricted to partners whose own path reads as a test (`lib/express/collection.js` <->
 //       `spec/spec.collection.js`, the ticket's own motivating example).
 //   (3) model.edges: a test-like file importing the defining file.
 // (1) wins outright when it fires; (2)/(3) are only ever a fallback. When none of the three finds anything, the
 // answer says so honestly — "no test file identified", never a certified "no tests exist" (grain cannot see
-// runtime coverage, only static naming/history/import evidence) — the same house style §037/§057 already
+// runtime coverage, only static naming/history/import evidence) — the same house style the weak-answer disclosure and the never-parsed note already
 // established for other honest-negative disclosures.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';

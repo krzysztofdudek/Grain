@@ -1,5 +1,5 @@
 // grain engine · the maintainer's decisions — steers, waivers and boundaries — resolved against the current tree
-// Lifted out of `learn` (ticket 117): the statements below are the ones that stood there, unchanged.
+// Lifted out of `learn`: the statements below are the ones that stood there, unchanged.
 import { CFG } from './config.mjs';
 import { scopeLabel } from './facts.mjs';
 

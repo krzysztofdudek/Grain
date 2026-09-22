@@ -1,4 +1,4 @@
-// THE LEVEL IS PUBLISHED, AND THE CUT IS DERIVED FROM MEASURED NUMBERS (ticket 110).
+// THE LEVEL IS PUBLISHED, AND THE CUT IS DERIVED FROM MEASURED NUMBERS.
 //
 // Ticket 108 measured four hand-written oracles and found no single level of the tree wins: the module level
 // recovers most of express, the directory level most of spring-petclinic, the role group most of Yggdrasil and
@@ -17,7 +17,7 @@
 //      grouped by level and in `proposal.json` as a row of the audit trail — a maintainer choosing a different
 //      level per subtree needs the same numbers for the cut that was offered as for the cut that was made.
 //   4. THE FLOOR. With the corpus clones available, type recall against the express and spring-petclinic
-//      oracles does not fall below what ticket 110 measured. Those numbers are a FLOOR, not a target.
+//      oracles does not fall below what the level policy measured when it landed. Those numbers are a FLOOR, not a target.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -36,7 +36,7 @@ let tmp, repo, out, env, sidecar, alternativesMd, proposalMd;
 
 // A fixture with both shapes the policy is about: `src/main/java/app/**` is code grain parses and partitions,
 // and `src/main/resources/**` holds files it has no grammar for at all — the shape spring-petclinic has, which
-// is where ticket 108 found 9 of that repository's 28 hand types living at a level nothing published.
+// is where a measurement found 9 of that repository's 28 hand types living at a level nothing published.
 const PKGS = ['owner', 'vet', 'visit', 'clinic', 'system'];
 const KINDS = ['Service', 'Repository', 'Controller', 'Validator', 'Mapper'];
 const cap = s => s[0].toUpperCase() + s.slice(1);
@@ -209,7 +209,7 @@ test('alternatives.md is grouped by level and every group carries the intrinsic 
   // The fixture must actually OFFER something, or this asserts nothing. It is built to keep doing so under a
   // finer cut of the code: the repository role spans every package, so it is not a place in the layout and can
   // only ever be a `role group` candidate — the one level that is alternatives-only by construction. An earlier
-  // version of this fixture offered five per-package domain candidates instead, and ticket 113's Java package
+  // version of this fixture offered five per-package domain candidates instead, and the Java package
   // module cut promoted every one of them to an active type, leaving this file empty and the assertion vacuous.
   assert.ok(sidecar.counts.alternatives > 0, 'the fixture offers no alternatives, so this test proves nothing');
   assert.ok(sidecar.counts.alternativesByLevel['role group'] > 0,
@@ -266,7 +266,7 @@ test('levelSentence names every level that agreed on the same directory', () => 
 
 // ---------------------------------------------------------------------------- 4. the measured floor
 
-// The numbers ticket 110 measured with this policy, on the exact commits the oracles were written against.
+// The numbers measured with this policy when it landed, on the exact commits the oracles were written against.
 // They are a FLOOR, not a target: a change that recovers MORE hand types passes, one that recovers fewer is a
 // regression in the thing this ticket exists to move. Recorded alongside what the policy replaced, so a reader
 // of a failure knows how much headroom there was.
@@ -299,6 +299,6 @@ for (const [name, F] of Object.entries(RECALL_FLOOR)) {
     const s = scoreProposal(join(ORACLES, F.oracle), outDir, r.files, target);
     assert.equal(s.types.recall.n, F.handTypes, 'the oracle denominator moved — the floor below is measured against a different graph');
     assert.ok(s.types.recall.hit >= F.recall,
-      `type recall fell to ${s.types.recall.hit}/${s.types.recall.n}; ticket 110 measured ${F.recall}/${F.handTypes} with this policy (${F.before}/${F.handTypes} before it)`);
+      `type recall fell to ${s.types.recall.hit}/${s.types.recall.n}; the policy measured ${F.recall}/${F.handTypes} when it landed (${F.before}/${F.handTypes} before it)`);
   });
 }

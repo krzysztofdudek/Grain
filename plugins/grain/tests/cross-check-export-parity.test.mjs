@@ -117,7 +117,7 @@ const extractMoveSentence = checkText => {
   const m = checkText.match(/(\d+) of (\d+) such files born here were later moved to `([^`]+)\/`/);
   return m && { moved: +m[1], total: +m[2], dir: m[3] };
 };
-// §044 re-pointed this extractor from report's `== health ==` row to `where`'s group card, which is now the only
+// the twin-rows ruling re-pointed this extractor from report's `== health ==` row to `where`'s group card, which is now the only
 // renderer of model.twins. The card names ONE partner per group (`model.twins.find`), so the parity claim is
 // "the side the card names is a twin partner export agrees on", not "this exact pair".
 const extractTwinCardLine = whereText => {
@@ -261,9 +261,9 @@ test('twins: `where`\'s group-card `twin:` line names a (label, partition) pairi
   }
 });
 
-// §044: the same evidence must NOT come back as an actionable health row. Guarding the removal here, next to the
+// the same evidence must NOT come back as an actionable health row. Guarding the removal here, next to the
 // parity claim, is what stops a future export extension quietly re-adding the renderer this row used to describe.
-test('twins: report\'s health section carries no twin row (§044 — measured 0.24 precision, removed)', () => {
+test('twins: report\'s health section carries no twin row (measured 0.24 precision, removed)', () => {
   const full = grain(['report', '--top', '999']).out;
   assert.doesNotMatch(full, /are structurally the same shape/, full);
   assert.doesNotMatch(full, /unify or document why both exist/, full);
@@ -311,7 +311,7 @@ test('valueSiblings/valueIndex: `what`\'s place-count identifies the same contai
   // valueSiblings entries carry only {container, members, norm} — no per-member place count or location at all.
   // A training-pipeline consumer of `grain export` can confirm ZQACTIVE/ZQSUSPENDED travel together, but cannot
   // recover the "2 places" number `what` prints for either one. This is DOCUMENTED (schemaNotes explains the
-  // omission), unlike ticket 007's silent gap — reported here as the honest limit of this family, not a defect.
+  // omission), unlike the earlier silent gap in the export — reported here as the honest limit of this family, not a defect.
   assert.deepEqual(Object.keys(cval).sort(), ['container', 'members', 'norm'], 'confirms no place-count/location field exists on a valueSiblings entry');
 });
 
@@ -365,7 +365,7 @@ test('coverage disclosures: report/status\'s relation-coverage note and export\'
 
   // export's own field must reproduce the identical (n, grammars) pair prose discloses — a consumer of `grain
   // export` alone (the training-pipeline/audit consumer this schema is published for) can now derive exactly what
-  // report/status say instead of having no candidate field to look at (§G21/§007's indistinguishability, closed).
+  // report/status say instead of having no candidate field to look at (the §G21 and rules-markdown parity indistinguishability, closed).
   const d = dump();
   assert.ok(d.relCoverage, 'export must carry a relCoverage field');
   assert.deepEqual(d.relCoverage, sNote, 'export.relCoverage must agree with report/status\'s live disclosure, not merely exist');

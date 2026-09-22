@@ -63,7 +63,7 @@ const REL_ENGINE = resolve(here, '..', '..', 'engine', 'relations.mjs');
 // ==================================================================================================
 // 1. Reading a Yggdrasil graph — the YAML subset, glob expansion, `when:`/`mapping:` expansion, `readGraph`.
 //
-// MOVED to `engine/yggdrasil-graph.mjs` (ticket 104), verbatim: `grain propose` is a product command now and
+// MOVED to `engine/yggdrasil-graph.mjs`, verbatim: `grain propose` is a product command now and
 // must not import a test instrument. Re-exported here so every existing consumer of this module (propose.mjs,
 // integration-stress.mjs, the tests) keeps the same names from the same place.
 // ==================================================================================================
@@ -544,7 +544,7 @@ export function compareCycles(exp, adviseText, graph, files, ctx, modOf) {
 }
 
 // ---- (e) aspects ----
-// `aspectLiterals` MOVED to `engine/yggdrasil-graph.mjs` (ticket 143), verbatim: `grain oracle record`
+// `aspectLiterals` MOVED to `engine/yggdrasil-graph.mjs`, verbatim: `grain oracle record`
 // reads the same identifiers out of an accepted graph's checks, and a product command must not import a
 // test instrument. Re-exported at the top of this file, so every consumer keeps the same name from here.
 

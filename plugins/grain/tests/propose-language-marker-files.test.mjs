@@ -1,4 +1,4 @@
-// A FILE-NAME RULE MAY NOT ARGUE WITH THE LANGUAGE (ticket 116, part 2).
+// A FILE-NAME RULE MAY NOT ARGUE WITH THE LANGUAGE (part 2).
 //
 // `auto.filenameshape` measures the shape of a file's name with its last extension removed. In Java every type
 // is PascalCase and so is its file, which is exactly the rule the miner finds — and then `package-info.java`

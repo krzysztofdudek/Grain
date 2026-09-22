@@ -1,4 +1,4 @@
-// Guard for the scale-ladder runner: tests/stress/run-corpus.mjs (ticket 117 — the seventh of eight
+// Guard for the scale-ladder runner: tests/stress/run-corpus.mjs (the seventh of eight
 // instruments under tests/stress/ that had no guardian test at all).
 //
 // This instrument does not compute anything mathematically interesting itself (that is what the corpus

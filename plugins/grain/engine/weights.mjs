@@ -1,5 +1,5 @@
 // grain engine · history weighting (survival x provenance x churn), value trends and calibration
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { CFG } from './config.mjs';
 import { skeyR } from './facts.mjs';
 
@@ -195,7 +195,7 @@ export function calibrate(fact, ps, H) {
     denyEligible: lb >= 0.9 && n >= CFG.denyMinEv,
   };
 }
-// §033: the target of an `auto.extends:` pid, classified 'ext'/'impl' via model.heritageKind (built once in
+// the target of an `auto.extends:` pid, classified 'ext'/'impl' via model.heritageKind (built once in
 // learn(), from extractScopes' own supKind — see bindingFor's extendsClauseRe/implementsClauseRe), or undefined
 // where unclassified. One helper, reused at every fact-like object built ad hoc for a steer/waiver at render
 // time, so it carries the same distinction a mined fact gets at its own construction site (learn()'s `ef`).

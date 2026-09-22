@@ -1,5 +1,5 @@
 // grain engine · proposal writer · the family-without-law adapter and node co-change
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { jaccard } from './yggdrasil-graph.mjs';
@@ -7,7 +7,7 @@ import { FAMILY_MIN_MEMBERS, slug } from './propose-base.mjs';
 import { contentRegexFor } from './propose-levels.mjs';
 
 // ==================================================================================================
-// 7b. The `.family-candidates.json` adapter (ticket 100) — the seam to `yg advise`'s family-without-law class.
+// 7b. The `.family-candidates.json` adapter — the seam to `yg advise`'s family-without-law class.
 //
 // Yggdrasil's OWN offline miner (`scripts/family-without-law.mjs`) clusters files by AST structural feature
 // vectors and cuts a fitted predicate for a cluster that shares no rule of its own. Grain never re-implements
@@ -94,7 +94,7 @@ export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) 
     });
   }
   for (const f of families) delete f._groupId;
-  // PREDICATE FIT (ticket 101). A family handed to `yg advise` is a PAIR — a member list and the fitted
+  // PREDICATE FIT. A family handed to `yg advise` is a PAIR — a member list and the fitted
   // predicate that is supposed to describe it — and `yg advise` renders the predicate as the draft scope a
   // maintainer would adopt. A member the predicate does not actually select is therefore a claim the file
   // itself refutes, and the adapter has the file on disk, so it can check rather than assert. Measured before

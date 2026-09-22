@@ -1,5 +1,5 @@
 // grain engine · the leave-one-out self-evaluations behind selftest --how, --where and --obligation
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CFG } from './config.mjs';
@@ -153,7 +153,7 @@ export function howEval({ model, H, root, last = 100 }) {
     noMatch,
   };
 }
-// §069 (research/where-lever, maintainer note *where-ranking-design* §4.4) — leak subtraction for ANY
+// (research/where-lever, maintainer note *where-ranking-design* §4.4) — leak subtraction for ANY
 // history-reading lever a future `where` ranker might add. `howEval` just above protects itself cheaply: it
 // drops the candidate commit from `fps` before handing history to `howCmd`, because `howCmd` matches directly
 // against `H.fps` and nothing else. A future `where`-side lever (commit-message affinity, co-change propagation,
@@ -246,7 +246,7 @@ export function leakSubtractedH(H, sha) {
 //     token with the query: the half no name matcher can win, reported BESIDE the pooled numbers, never instead
 //     of them. Together with the baseline arm that is two independent controls on the one confound this ground
 //     truth cannot remove — the query and the answer were written by the same person in the same sitting.
-//   · a third, additive stratum (§071) — every query above is built from `toks`, the commit message run through
+//   · a third, additive stratum — every query above is built from `toks`, the commit message run through
 //     `tokenize`+`normTok`, which SPLITS camelCase/snake_case (`sendStatus` → `send`+`status`) — so none of them
 //     can ever contain a verbatim identifier, and `whereCmd`'s own exact-name pin (`qraw`/`c.exact`) can only ever
 //     fire off a query's own whole, unsplit word. That is an instrument boundary, not a fact about `where`: typed
@@ -258,7 +258,7 @@ export function leakSubtractedH(H, sha) {
 // { hit3, mrr, place3, placeWidth }: `n` is the candidate count, `silent` counts candidates where `where` ranked
 // nothing at all (a genuine no-match or the concentration safeguard suppressing an untrustworthy top hit — both
 // still count as a 0, or the gate would be gameable by staying quiet on everything hard). `place3` discounts a
-// containment-only credit by 1/cardWidth (§068) so a directory or group wide enough to cover most of the
+// containment-only credit by 1/cardWidth so a directory or group wide enough to cover most of the
 // repository cannot pass as a precise hit; `placeWidth` is the mean file-count of the cards actually credited,
 // printed beside place3 so that artifact is visible directly instead of requiring a researcher to dig it out by
 // hand.
@@ -321,7 +321,7 @@ export function whereEval({ model, H, last = 100 }) {
     return v;
   };
   const dirOf = p => (p.includes('/') ? p.slice(0, p.lastIndexOf('/')) : '.');
-  // §068 — `place` was gameable by card width: a directory or group card wide enough to cover most of the
+  // `place` was gameable by card width: a directory or group card wide enough to cover most of the
   // repository contains the truth file almost by construction, so crediting it the same 1 a precise hit earns
   // measures the harness's own leniency, not the ranker (found live: a candidate "card" was 64% of its repo).
   // `cardWidth` is the number of DISTINCT files the credited card actually spans — a directory's own `files`
@@ -341,7 +341,7 @@ export function whereEval({ model, H, last = 100 }) {
     const d = dirOf(p);
     dirFileCount.set(d, (dirFileCount.get(d) || 0) + 1);
   }
-  // §071 — the per-candidate scoring math, unchanged in every particular from before this ticket, pulled out to
+  // the per-candidate scoring math, unchanged in every particular from before this fix, pulled out to
   // a function so it can be reused verbatim for a SECOND query built off the same candidate (the symbol stratum
   // below) without duplicating (and risking drift in) the arithmetic the pooled/unnamed strata are judged by.
   // Called once per candidate exactly as the inline loop used to call it — same query, same truth, same DEPTH —
@@ -421,7 +421,7 @@ export function whereEval({ model, H, last = 100 }) {
       bPlaceW: r.bPlaceW,
     });
   }
-  // §071 — the symbol stratum: purely additive, never read by (and never feeding back into) `rows` above, so it
+  // the symbol stratum: purely additive, never read by (and never feeding back into) `rows` above, so it
   // cannot move the pooled/named/unnamed numbers by so much as a rounding error. Limited to candidates whose OWN
   // commit message actually contained a verbatim identifier-shaped word (`symToks`, history.mjs) — a candidate
   // with none would score identically to its own `rows` entry, diluting the stratum with cases that test nothing
@@ -465,7 +465,7 @@ export function whereEval({ model, H, last = 100 }) {
       where: arm(unnamed, 'wHit', 'wPlaceCredit', 'wPlaceW'),
       base: arm(unnamed, 'bHit', 'bPlaceCredit', 'bPlaceW'),
     },
-    // §071 — candidates whose commit message carried at least one verbatim identifier-shaped word, scored on a
+    // candidates whose commit message carried at least one verbatim identifier-shaped word, scored on a
     // query that keeps that word whole (alongside the ordinary split/stemmed tokens): the stratum `unnamed`
     // structurally cannot cover, since a query built only from `toks` can never pin `whereCmd`'s exact-name match.
     symbol: {
@@ -477,7 +477,7 @@ export function whereEval({ model, H, last = 100 }) {
     silent,
   };
 }
-// `selftest --obligation` (ticket 073's instrument) — the same automatically-derived, leave-one-out ground truth
+// `selftest --obligation` (the obligation miner's instrument) — the same automatically-derived, leave-one-out ground truth
 // `selftest --how`/`selftest --where` already run (a past commit IS a recorded answer; nobody labels anything),
 // asked of the birth-obligation table. Stricter than those two siblings' own leave-one-out, though: `howEval`/
 // `whereEval` drop only the ONE candidate commit and still let LATER commits inform the model that scores an
@@ -486,7 +486,7 @@ export function whereEval({ model, H, last = 100 }) {
 // `buildObligationTable` itself calls, so the gates a shipped `grain obligation` answer clears can never drift
 // from the gates this harness measures. The candidate's own footprint is folded in only AFTER it is scored, so it
 // can never certify the very rule being used to predict it — the prospective analogue of `leakSubtractedH`'s
-// discipline (§069), guarded by its own test the same way ticket 069 guards `whereEval`.
+// discipline, guarded by its own test the same way `whereEval` is guarded.
 //
 // One EVENT is one (footprint, class) pair, not one commit — a commit adding files in two different classes is
 // two events, matching the unit `grain obligation <path>` itself answers for one path at a time.

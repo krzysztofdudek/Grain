@@ -11,7 +11,7 @@
 // clause (`explicit_delegation`), which has no argument list at all — it pairs a TYPE with an arbitrary
 // EXPRESSION, structurally distinct from a call.
 //
-// Fixed by a new field-free structural fingerprint (`b.delegateClauseType`, core.mjs §083): a node type
+// Fixed by a new field-free structural fingerprint (`b.delegateClauseType`, core.mjs): a node type
 // declaring no fields of its own whose only two possible children are exactly the categories `type` and
 // `primary_expression` — checked against all 23 shipped node-types.json, unique to Kotlin's
 // `explicit_delegation`. Only the child that resolves into the TYPE side's own supertype closure
@@ -96,9 +96,9 @@ class MultiHeritage(x: Int) : Base(x), IFace {
 }
 `);
   assert.deepEqual(supOf(scopes, 'Plain'), ['Base']);
-  assert.deepEqual(supOf(scopes, 'WithCtorCall'), ['Base'], '`extraneousArgName` is a call argument (§049), not a delegate expression, and must still be excluded');
+  assert.deepEqual(supOf(scopes, 'WithCtorCall'), ['Base'], '`extraneousArgName` is a call argument, not a delegate expression, and must still be excluded');
   assert.deepEqual(supOf(scopes, 'WithGenericBase'), ['Repo'], 'a generic base with a constructor call keeps only the base');
-  assert.deepEqual(supOf(scopes, 'MultiHeritage'), ['Base', 'IFace'], '`x` is still a constructor argument, excluded as before §083 ever existed');
+  assert.deepEqual(supOf(scopes, 'MultiHeritage'), ['Base', 'IFace'], '`x` is still a constructor argument, excluded as before the Kotlin delegation fix ever existed');
 });
 
 // ===== structural derivation: the fingerprint is unique to Kotlin's explicit_delegation =====

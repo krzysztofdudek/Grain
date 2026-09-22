@@ -1,4 +1,4 @@
-// §056 — "a service id declared in YAML is unfindable": round 4's field test parsed a Symfony-shaped
+// "a service id declared in YAML is unfindable": round 4's field test parsed a Symfony-shaped
 // `services9.yml` (10+ named services, each with its own `class`/`arguments`/`tags`) and found `what "foo.baz"`
 // (one service's own literal id) surfaced nothing that read as a declaration — only an undifferentiated
 // string-literal-shaped value, indistinguishable from any other short string anywhere in the repository.
@@ -26,7 +26,7 @@
 // the df floor (that machinery answers a different, correctly-gated question — cross-file CONVENTION, e.g. "do
 // most package.json `scripts` blocks carry the same script names" — see container-keypath.test.mjs); TOML's own
 // `pair` (no `key` FIELD at all, only a `bare_key`/`quoted_key`/`dotted_key` CHILD) is left exactly as gated as
-// before, a real, separately pre-existing gap, on purpose (see bindingFor's own §056 comment for why a fieldless-
+// before, a real, separately pre-existing gap, on purpose (see bindingFor's own comment on the YAML-mapping fix for why a fieldless-
 // pair heuristic risks the ancestor walk stopping AT the pair instead of the table that holds it).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
@@ -98,7 +98,7 @@ test('(2) a code grammar\'s own container detection is untouched — b.dataConta
   assert.equal(b.data, false, 'TypeScript must not be classified as a data grammar');
   // JS/TS object literals DO show up in b.dataContainer's own structural derivation (it has nothing to do with
   // b.data) — the guarantee this test pins is that it is never CONSULTED for a code grammar, i.e. this fixture's
-  // own object-literal value grouping renders byte-identical to the pre-§056 CONTAINER_RE-only path.
+  // own object-literal value grouping renders byte-identical to the earlier CONTAINER_RE-only path.
   const vals = await valsOf('src/x.ts', `export const labels = { primary: 'ACTIVE', other: 'INACTIVE' };\n`);
   const conts = new Set(vals.filter(e => ['ACTIVE', 'INACTIVE'].includes(e.v)).map(e => e.c));
   assert.equal(conts.size, 1, 'CONTAINER_RE alone ("object") must still group a TS object literal\'s own values, unaffected by the new data-grammar-only path');

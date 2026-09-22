@@ -13,7 +13,7 @@ const BIN = join(here, '..', 'bin', 'grain.mjs');
 const BUILDER = join(here, '..', '..', '..', 'tests', 'fixtures', 'build-fixture.mjs');
 let tmp, repo;
 // `maxBuffer` explicit: `grain export`'s output has no fixed ceiling (it grows with every additive schema
-// field — ticket 123 tipped a couple of this file's own fixtures past node's 1 MB spawnSync default, which
+// field — the `yg adopt` transaction tipped a couple of this file's own fixtures past node's 1 MB spawnSync default, which
 // fails SILENTLY as `status: null` with no thrown error, not as a reported overflow) — matching the bound
 // already used for the same reason elsewhere in this suite (e.g. `propose-command.test.mjs`).
 const grain = (args, opts = {}) => { const r = spawnSync('node', [BIN, ...args], { cwd: opts.cwd || repo, encoding: 'utf8', input: opts.input, maxBuffer: 1 << 28, env: { ...process.env, ...(opts.env || {}) } });
@@ -28,7 +28,7 @@ test('first query builds the index from the full history and stamps the answer',
   const { out, err, code } = grain(['status']);
   assert.equal(code, 0, err);
   assert.match(err, /walking full history/);
-  assert.match(out, /history: 16 non-merge commits, 172 blobs/); // §J7.2: the fixture's package.json is now a code blob too (json grammar); §034a: qualified — merges never enter this count
+  assert.match(out, /history: 16 non-merge commits, 172 blobs/); // §J7.2: the fixture's package.json is now a code blob too (json grammar); the qualified-merge rule: qualified — merges never enter this count
   assert.match(out, /up to date · history full/);
   assert.match(out, /\nas of [0-9a-f]{7}$/);
   assert.ok(existsSync(join(repo, '.grain', 'cache', 'model.json')));
@@ -36,7 +36,7 @@ test('first query builds the index from the full history and stamps the answer',
   assert.equal(git('status', '--porcelain').split('\n').filter(l => l.includes('.grain')).join(), '?? .grain/'); // only .grain/.gitignore is visible to git
 });
 
-test('§034a: the reported commit count excludes merges and says so, and the excluded merge really is one fewer than plain `git log`', () => {
+test('the reported commit count excludes merges and says so, and the excluded merge really is one fewer than plain `git log`', () => {
   const tmp2 = mkdtempSync(join(tmpdir(), 'grain-merge-count-'));
   const repo2 = join(tmp2, 'r');
   try {
@@ -66,7 +66,7 @@ test('§034a: the reported commit count excludes merges and says so, and the exc
 
 test('report finds the planted conventions', () => {
   const { out } = grain(['report', '--top', '40']);
-  // `CanActivate` is a TS interface (`.../guard.ts`'s `${cap(n)}Guard implements CanActivate`, never `extends`) — §033
+  // `CanActivate` is a TS interface (`.../guard.ts`'s `${cap(n)}Guard implements CanActivate`, never `extends`) — the heritage-wording test
   // fixed the label to say so; `BaseDto`/`BaseService` are genuine classes (`extends`) and keep the old wording
   for (const phrase of ['types here are annotated with `@Handler`', 'types here implement `CanActivate`', 'types here extend `BaseDto`', 'files here import `~/src/core/handler`'])
     assert.ok(out.includes(phrase), `missing convention: ${phrase}\n${out}`);
@@ -74,7 +74,7 @@ test('report finds the planted conventions', () => {
   assert.doesNotMatch(out, /_root|_repo|\[_all|\[d\[|\[r\d/, 'no internal cell ids in the report');
   // `extends BaseService` and `@Injectable` share one conform set, so correlation dedup (§9.4e) folds them into ONE fact: the lead speaks, the other is counted in nSurfaces
   assert.ok(out.includes('types here extend `BaseService`') || out.includes('types here are annotated with `@Injectable`'));
-  // §030: a template line (mineTemplates/profileOf, unclustered residue) has no cell in part.facts — check/review/
+  // a template line (mineTemplates/profileOf, unclustered residue) has no cell in part.facts — check/review/
   // hooks cannot fail a member for breaking it — so it must say so; a genuine, ENFORCED part.facts convention
   // (the @Handler line already asserted above) must not carry the same disclaimer.
   const templateLines = out.split('\n').filter(l => l.includes('template (unclustered'));
@@ -148,7 +148,7 @@ test('spectrum on a new untracked file agrees with check, not "no scopes extract
 
     // regression control: an untracked file with no minable declarations (unsupported extension, so the fallback
     // parse in the fix can't run either) still gets an honest message — the message isn't permanently silenced.
-    // (§057: an unsupported extension now says "no grammar", not "no scopes extracted" — the latter is reserved
+    // (an unsupported extension now says "no grammar", not "no scopes extracted" — the latter is reserved
     // for a file grain CAN parse but which genuinely holds nothing scope-worthy; see disclosure-fixtures.test.mjs.)
     const notCode = join(repo, 'src', 'dto', 'notes.md');
     writeFileSync(notCode, 'just some prose, not a declaration\n');
@@ -206,9 +206,9 @@ test('steering: a committed seed promotes a pattern — the retired rule mutes, 
   const old = readFileSync(join(repo, 'src', 'handlers', 'order.handler.ts'), 'utf8');
   writeFileSync(join(repo, 'src', 'handlers', 'zz.handler.ts'), old);
   try { const c = grain(['check', 'src/handlers/zz.handler.ts']).out;
-    // zz.handler.ts is itself a brand-new file, so its own 3 top-level scopes (§010) are ALSO disclosed as new to
+    // zz.handler.ts is itself a brand-new file, so its own 3 top-level scopes are ALSO disclosed as new to
     // the index — the headline's own "known deviation(s)" + "unclassified scope(s)" wording reflects that pending
-    // disclosure, in the same clause as the deviation count (§010-c), ahead of the (unrelated) steer clause
+    // disclosure, in the same clause as the deviation count, ahead of the (unrelated) steer clause
     assert.match(c, /0 known deviation\(s\) in your change, 0 pre-existing, 3 unclassified scope\(s\) · 1 maintainer decision\(s\) your change departs from/);
     assert.match(c, /\[grain\] decision steer \(kd [\d-]+\): methods here never call `validate`[^\n]*Your method `handle` \(line \d+\) calls `validate`\.\n  validate\(\) moves into the framework — ADR-7\n  Copy: src\/handlers\/dispute\.handler\.ts:\d+ `handle`/);
     writeFileSync(join(repo, 'src', 'handlers', 'zz.handler.ts'), old.replace(/^\s*validate\(cmd\);\n/m, ''));
@@ -275,13 +275,13 @@ test('session-context prints one JSON envelope per runtime and never rebuilds', 
   assert.equal(elsewhere.code, 0); assert.match(elsewhere.out, /not built yet/);
 });
 
-// §067a: a real transcript (question-catalog §4.1a) had an agent see an unrelated `pnpm` command denied, generalize
+// a real transcript (question-catalog §4.1a) had an agent see an unrelated `pnpm` command denied, generalize
 // that into "node invocations all require approval", and never attempt grain at all — because the advertised
 // invocation opened with the literal runtime name `node`. No advertised command line may open that way any more;
 // the actual `node "<path>" <cmd> ...` invocation is still given (there is no `grain` shim reliably on PATH for a
 // Claude Code plugin install — see hooks.json/hooks/*, which all shell out via `node "${PLUGIN_ROOT}/bin/grain.mjs"`),
 // but as a `Run:` aside, never as the line's first word.
-test('§067a: no advertised session-context command line opens with the runtime name `node`', () => {
+test('no advertised session-context command line opens with the runtime name `node`', () => {
   const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
   const cmdLines = ctx.split('\n').filter(l => /^\s*(node|grain)\b/.test(l));
   assert.ok(cmdLines.length >= 3, `expected at least 3 advertised command lines: ${ctx}`);
@@ -295,7 +295,7 @@ test('§067a: no advertised session-context command line opens with the runtime 
   assert.match(ctx, /grain is its own tool, invoked via node/);
 });
 
-// §081 — the advertisement roster is the reach budget, and this test is the gate on spending it.
+// the advertisement roster is the reach budget, and this test is the gate on spending it.
 // Measured (research/command-reachability.md) over every agent transcript on disk — 36 runs, 63 agent-chosen CLI
 // calls: 61 went to a command named in the block below, 2 to a command named only in SKILL.md's frontmatter
 // description, and 0 to any of the 11 commands named in neither. An agent calls what this text names. So adding a
@@ -305,11 +305,11 @@ test('§067a: no advertised session-context command line opens with the runtime 
 // own `selftest` — `obligation` (coverage 0.096 corpus-wide; 0 of 86 birth events on this repo; 0 of 8 on the
 // 0.4.0 trial's real file creations) and `completeness` (answers for 6-17% of files) do not yet, which is why
 // neither takes one of the four PRE-em-dash roster slots this test checks. Reach bought ahead of an answer is
-// spent trust (question-catalog §4). §088 acts on the same measurement from the other side: since the law is
+// spent trust (question-catalog §4). The law-first session line acts on the same measurement from the other side: since the law is
 // "named in the SessionStart text" (not "occupies a roster slot"), it folds `obligation`/`completeness` in as
 // trigger-moment asides AFTER the em-dash on the `where`/`check` lines — reachable per the same law, at zero
 // new lines and zero roster slots spent, so this test's roster assertion is untouched by that change.
-test('§081: the SessionStart advertisement names exactly the roster it was measured with, in order', () => {
+test('the SessionStart advertisement names exactly the roster it was measured with, in order', () => {
   const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
   // a command line is an indented line opening with the conceptual name; everything before the em-dash is the
   // invocation, and `status | report` advertises two commands on one line
@@ -323,11 +323,11 @@ test('§081: the SessionStart advertisement names exactly the roster it was meas
   for (const c of advertised) assert.ok(known.has(c), `advertises a command the dispatcher does not have: ${c}`);
 });
 
-// §088 — the concrete follow-up: `obligation`/`completeness` are named at their own trigger moment in the
-// SessionStart text itself (the surface ticket 081 measured 61 of 63 real calls went to), not merely in a
+// the concrete follow-up: `obligation`/`completeness` are named at their own trigger moment in the
+// SessionStart text itself (the surface a measurement found 61 of 63 real calls went to), not merely in a
 // surface an agent rarely reads. Folded as asides on the `where`/`check` lines rather than new bullets, so the
-// §081 roster test above and the <=9-line budget (concepts-and-changes-map.test.mjs) are both unaffected.
-test('§088: obligation and completeness are named in the SessionStart text at their own trigger moment', () => {
+// the session roster test above and the <=9-line budget (concepts-and-changes-map.test.mjs) are both unaffected.
+test('obligation and completeness are named in the SessionStart text at their own trigger moment', () => {
   const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
   const whereLine = ctx.split('\n').find(l => l.includes('grain where <intent words>'));
   assert.ok(whereLine, `expected a where line: ${ctx}`);

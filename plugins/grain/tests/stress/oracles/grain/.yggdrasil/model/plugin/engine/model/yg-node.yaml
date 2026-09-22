@@ -8,7 +8,7 @@ description: >-
 
   It is the top of the engine: it calls the mining and the query implementations, and nothing calls
   it except the dispatcher through the facade. This is also the only part of the engine that ran as
-  one 71 KB function until ticket 117 lifted its blocks into functions of their own.
+  one 71 KB function until the split lifted its blocks into functions of their own.
 relations:
   - target: plugin/engine/mining
     type: calls

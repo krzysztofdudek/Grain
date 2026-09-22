@@ -259,7 +259,7 @@ for (const [name, F] of Object.entries(ORACLE_FACTS)) {
 }
 
 // ---------- 1d. the RECORDED oracles — an adopter's correction, scored the same way ----------
-// A fifth kind of oracle (ticket 143): not a graph written by hand for the instrument, but the difference
+// A fifth kind of oracle: not a graph written by hand for the instrument, but the difference
 // between what `grain propose` wrote for a repository and the graph its maintainer accepted. `grain oracle
 // record` stores it as five documents including the file set every predicate selected, so the score needs no
 // checkout at all — which is why this runs unconditionally where the three graph oracles above skip without one.

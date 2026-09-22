@@ -82,7 +82,7 @@ test('that edge crosses a real module boundary in moduleGraph', () => {
   assert.ok(mg.edges.some(e => e.from === 'crate_a' && e.to === 'crate_b' && e.n === 1), `expected a real crate_a → crate_b module edge: ${JSON.stringify(mg.edges)}`);
 });
 
-test('report shows the real directed dependency, and the §004 intra-module disclosure correctly does NOT fire', () => {
+test('report shows the real directed dependency, and the intra-module disclosure correctly does NOT fire', () => {
   const r = grainIn(cargo)(['report']);
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /^== architecture — 3 modules · 1 directed dependencies · 0 cycle\(s\) ==$/m, r.out);

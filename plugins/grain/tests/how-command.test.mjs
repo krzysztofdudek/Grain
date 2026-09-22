@@ -178,7 +178,7 @@ test('(e) with no history available (--no-history) `how` says so plainly and exi
   assert.deepEqual(j.matches, []); assert.deepEqual(j.places, []);
 });
 
-test('(f) a place whose file has since moved is reported at its current path; one since deleted from HEAD is omitted entirely (§066)', () => {
+test('(f) a place whose file has since moved is reported at its current path; one since deleted from HEAD is omitted entirely', () => {
   // lineage is NOT read off `H.lc`: that map rewrites its keys forward on a rename (the old path is deleted from
   // it), so an old path can never be looked up there. `fps[*].renames` records both sides of every code-file
   // rename, and that is what `how` chases forward.
@@ -196,7 +196,7 @@ test('(f) a place whose file has since moved is reported at its current path; on
   assert.equal(byRel['src/models/order.dto.ts'].exists, true);
   assert.ok(!byRel['src/dto/order.dto.ts'], 'the historical path must not also appear');
 
-  // §066: a place with no successor — dead at HEAD — is no longer reported at all (an agent following this list
+  // a place with no successor — dead at HEAD — is no longer reported at all (an agent following this list
   // would edit dead code otherwise). Neither the JSON places array nor the text rendering may mention it.
   assert.ok(!byRel['tests/fixtures/order.fixture.ts'], `a place with no successor must be omitted, not reported: ${JSON.stringify(j.places)}`);
   const text = grain(['how', 'add status'], moved).out;

@@ -1,4 +1,4 @@
-// §087 — `BlobCache`'s shard width, and the I/O amplification it controls.
+// `BlobCache`'s shard width, and the I/O amplification it controls.
 //
 // `parseBlobs` walks blobs in batches of 400 and calls `flush()` after each one, and `flush()` evicts every shard
 // it writes so the parsed scope records of a whole blob history are never all live at once (removing that eviction

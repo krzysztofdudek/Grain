@@ -1,5 +1,5 @@
 // grain engine · checkFile — the verdict for one file against the model — and the grouping of its deviations
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { dirname, extname } from 'node:path/posix';
@@ -38,10 +38,10 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   // callers need this signal to tell "genuinely nothing here" apart from "the parser gave up on part of this file"
   const scopes = extractScopes(effRel, tr, b, p._g).filter(s => s.name !== '<anon>');
   const relFact = relFactsFor(effRel, src, tr, p._g);
-  // §042 — the instance counts behind each per-file lexical vote, for `lexTallyNote`. Taken here because `tr` is freed
+  // the instance counts behind each per-file lexical vote, for `lexTallyNote`. Taken here because `tr` is freed
   // on the next line and the governed loop below runs after that. A second walk of one already-parsed file, on the
   // check path only; extraction and mining call `lexicalPreds` without a tally and are byte-for-byte unaffected.
-  // `lexQ` (§077) is the raw per-instance quote-literal scan (`{q, body, line, endLine}`), filtered down to genuine,
+  // `lexQ` is the raw per-instance quote-literal scan (`{q, body, line, endLine}`), filtered down to genuine,
   // non-delimiter-forced violations by `quoteFlags` below — same out-parameter discipline as `lexT`, never spread
   // into a scope's `preds`.
   const lexT = Object.create(null);
@@ -107,7 +107,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
             : scopeLabel(part.name);
       const lead = s.preds[f.pid];
       // `defining`: this fact's pid is the very feature (3× weighted) that formed the role group it governs — a
-      // marker tautology (§003 resolution). Not suppressed here (report/rulesMarkdown's factTiers does that for
+      // marker tautology (the marker-tautology resolution). Not suppressed here (report/rulesMarkdown's factTiers does that for
       // their own listing) — spoken instead, via a clause where this entry renders (cmdCheck's `conforms to:`).
       if (lead !== undefined)
         governed.push({
@@ -124,7 +124,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
             f.exp,
             lexT[f.pid],
             f.pid === 'auto.lex:quote' ? quoteFlags(f.exp, lexQ) : []
-          ), // §042 — null unless the per-file vote hid departing instances; §077 — flags the genuine ones among them
+          ), // null unless the per-file vote hid departing instances; also flags the genuine ones among them
           defining: isDefiningFact(medoids, f),
         });
       // the lead surface speaks for the cluster; a deviation on any sibling surface (same conform set) is still a deviation
@@ -221,7 +221,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
                   if (here.length)
                     return `\n  In this file, ${here.map(s2 => scopeBacktick(s2) + ` (line ${s2.line})`).join(' and ')} conform${here.length === 1 ? 's' : ''}.`;
                   const near = exs[0];
-                  // §061: an exemplar carries no `.kind` of its own (f.exemplars' shape), but every exemplar of
+                  // an exemplar carries no `.kind` of its own (f.exemplars' shape), but every exemplar of
                   // this fact IS of the fact's own kind by construction — same borrowed-name honesty as `here` above.
                   return near
                     ? `\n  Nearest conforming exemplar: ${ptr(near.rel, near.line, near.endLine)} ${scopeBacktick({ kind: f.kind, name: near.name })}${skipLineNote(part, f, near)}.`
@@ -349,7 +349,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       }
     });
   }
-  // (§003-B, delivery revised §010) disclosure: a role-eligible scope the PERSISTED model has never certified — its
+  // (new-scope) disclosure: a role-eligible scope the PERSISTED model has never certified — its
   // skeyR key is absent from part.assignments, so no role fact in `part.facts` governs it by construction; only the
   // partition-wide `_all` baseline does, and that baseline is nearly always trivially satisfied (the whole point of
   // this ticket). `scores` (assignAll, above) carries the live nearest/next-nearest medoid THIS run computed for it
@@ -357,13 +357,13 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   // relCoverageNote/intraModuleNote, not the `practiced` deviation voice: this is grain naming its own coverage
   // gap, not a claim about the codebase.
   //
-  // §010(d): "nearest" is not always informative. On a marker-split population the nearest neighbour to a new
+  // (d) "nearest" is not always informative. On a marker-split population the nearest neighbour to a new
   // scope missing the marker is often the group's own undecorated COMPLEMENT — a real cluster certifying nothing,
   // whose label is frequently `induceRoles`' own 'group' fallback (no feature reached majority share), never mined
   // data. Leading with that taught a reader nothing and printed the fallback as though it were a name (field report:
   // flask). Fix: foreground the nearest group that certifies >=1 role fact for this kind, naming its defining
   // requirement — the raw nearest/next scores are still both reported, never hidden, just not foregrounded when the
-  // nearer one has nothing to certify. §010(a): collapse per (kind, chosen neighbour) so one authoring decision
+  // nearer one has nothing to certify. (a) Collapse per (kind, chosen neighbour) so one authoring decision
   // (several new scopes in one file, one group) produces one line, not one per scope, in the house `+N more` idiom.
   const newScopeHits = [];
   const roleMembers = idx => {
@@ -372,7 +372,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
     return n;
   };
   const roleFacts = (idx, kind) => part.facts.filter(f => f.cid === 'r' + idx + ':' + kind);
-  // a mined label is only ever the literal string 'group' as induceRoles' OWN fallback, never real data (§010-d) —
+  // a mined label is only ever the literal string 'group' as induceRoles' OWN fallback, never real data —
   // so it is exactly the case that must never render as a name; everything else names the group verbatim
   const groupName = idx => {
     const n = roleMembers(idx);
@@ -409,7 +409,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       lead = null,
       detail;
     if (sc.m1 < CFG.minMemb) {
-      // (§047) below the floor is where exclusion is worst: the very feature a clean deviation omits is what
+      // below the floor is where exclusion is worst: the very feature a clean deviation omits is what
       // similarity assignment leans on, so a member that cleanly violates a convention can score BELOW its own
       // group's floor and never reach the population that would judge it. No accusation is made here (that
       // would resurrect the rejected leave-one-feature-out fix) — this is the same disclosure the bestCert/
@@ -464,14 +464,14 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
     b.members.push({ name: s.name, line: s.line, endLine: s.endLine || s.line });
   });
   for (const b of buckets.values()) {
-    // §061: `m.name` for a catch/finally member is its enclosing method/type's OWN name (blockScope's borrowed
+    // `m.name` for a catch/finally member is its enclosing method/type's OWN name (blockScope's borrowed
     // "named after its owner"), never the clause's own — go through scopeBacktick so it reads as a location.
     const shown = b.members
       .slice(0, 3)
       .map(m => `${scopeBacktick({ kind: b.kind, name: m.name })} (line ${m.line})`)
       .join(', ');
     const who = b.members.length > 3 ? `${shown} and ${b.members.length - 3} more` : shown;
-    // (§010-e) an exemplar to open, reusing the SAME resolver the "See:" line under a deviation already uses
+    // an exemplar to open, reusing the SAME resolver the "See:" line under a deviation already uses
     // (roleExemplar) rather than a second one — a group named but pointing nowhere is strictly less useful than
     // every neighbouring message; only offered when a lead group was actually chosen (never for "no group
     // certifies" or below-floor, where there is nothing conforming nearby to point at)
@@ -526,7 +526,7 @@ export function groupDeviations(msgs, touched = null, fileKindTouched = null) {
   for (const g of groups.values()) {
     const t = g.hits.filter(h => h.touched),
       p = g.hits.filter(h => !h.touched);
-    // §061: `h.scope` is the enclosing method/type's OWN name for a catch/finally hit (blockScope's borrowed
+    // `h.scope` is the enclosing method/type's OWN name for a catch/finally hit (blockScope's borrowed
     // "named after its owner"), never the clause's own — prefixed "in " so it reads as a location, not a name.
     const who = hs =>
       hs

@@ -2,10 +2,10 @@
 // Claim auditor (loop v2, instrument A) — takes grain's own `export`/`report`/`where` output for a repository and
 // checks every verifiable claim against the source text, emitting a fabrication rate per claim type.
 //
-// This turns anecdote into a number: §040 (a macro token recorded as a scope name), §045 (a macro's own name
-// recorded as a supertype so `what assert_eq` claimed "implements/extends it in 230 files"), §049 (a constructor
-// argument recorded as a supertype: `extends AbstractController(cc)` → `auto.extends:cc`), §041 (a coverage note
-// that hides a grammar with real, measured zero edges), §057 (an absence claim standing in for content grain
+// This turns anecdote into a number: the macro-token fix (a macro token recorded as a scope name), the macro-name fix (a macro's own name
+// recorded as a supertype so `what assert_eq` claimed "implements/extends it in 230 files"), the constructor-argument fix (a constructor
+// argument recorded as a supertype: `extends AbstractController(cc)` → `auto.extends:cc`), the JSON/text parity fixes (a coverage note
+// that hides a grammar with real, measured zero edges), the never-parsed note (an absence claim standing in for content grain
 // simply never reads) are all one failure class — a confident claim that is false. This script measures it.
 //
 //   node tests/stress/audit-claims.mjs <repoDir> [--fail-above <rate>] [--json-out <path>] [--top-samples N]
@@ -223,9 +223,9 @@ export function checkHeritageTargetReal(model, corpus, declaredTypeNames, import
   // whose source is not in this clone (leveldb's `testing::Test`, gtest not checked out) is exactly as invisible
   // to a grep oracle as a fabricated one. The spec's own line for a bare local name (`cc`) is the discriminator
   // that actually generalizes: a real type name is PascalCase-shaped; a fabricated one (a constructor/parameter
-  // name lifted from the same heritage clause, §049) is not. So: proven-in-repo or proven-as-an-import always
+  // name lifted from the same heritage clause, the constructor-argument fix) is not. So: proven-in-repo or proven-as-an-import always
   // passes; unproven only passes if it is at least SHAPED like a type (`^[A-Z]`, not an ALL-CAPS macro token,
-  // which is §040's failure and audited separately) — conservative in the direction of not fabricating a
+  // which is the macro-token fix's failure and audited separately) — conservative in the direction of not fabricating a
   // fabrication, per the instrument's own constraint.
   const isReal = (y) => { if (memo.has(y)) return memo.get(y);
     let verdict; if (declaredTypeNames.has(y)) verdict = { real: true, reason: 'declared elsewhere in the model' };
@@ -242,7 +242,7 @@ export function checkHeritageTargetReal(model, corpus, declaredTypeNames, import
     if (!v.real) {
       const ctorArg = new RegExp('[(,]\\s*' + escapeRe(c.target) + '\\s*:').test((linesOf(corpus, c.rel) || []).slice(Math.max(0, c.line - 1), c.line + 2).join('\n'));
       res.fabricated++;
-      res.samples.push({ type: 'heritageTargetReal', file: c.rel, line: c.line, claim: `${c.kind} \`${c.name}\` extends/implements \`${c.target}\``, detail: `\`${c.target}\` is not declared as a type anywhere in the repo and does not match an import target${ctorArg ? ' — it does match a same-clause constructor/parameter name, the §049 shape' : ''}` });
+      res.samples.push({ type: 'heritageTargetReal', file: c.rel, line: c.line, claim: `${c.kind} \`${c.name}\` extends/implements \`${c.target}\``, detail: `\`${c.target}\` is not declared as a type anywhere in the repo and does not match an import target${ctorArg ? ' — it does match a same-clause constructor/parameter name, the shape' : ''}` });
     }
   }
   return { res, isReal };
@@ -283,9 +283,9 @@ export function checkNoDeclarationsAnywhere(model, root, corpus, opts, whereJson
     const hits = j.hits || [];
     const pointsAtTruth = hits.some(h => (h.members || []).some(m => m.rel === rel) || (h.directories || []).some(d => rel.startsWith(d.dir + '/')));
     const confidentHit = hits.some(h => h.score >= 0.3);
-    // §089 — every candidate this check samples appears ONLY in a no-grammar file (`candidates`, above); that is
+    // every candidate this check samples appears ONLY in a no-grammar file (`candidates`, above); that is
     // exactly the shape whereCmd's own `ungrammared` disclosure (core.mjs) exists to name — `where`'s text answer
-    // has said so since §057/§085, and --json now carries the identical { kind: 'ungrammared', text } entry (§089's
+    // has said so since the never-parsed note and the unknown-identifier path, and --json now carries the identical { kind: 'ungrammared', text } entry (the JSON disclosures'
     // own fix). A confident-looking top hit that ALSO ships this disclosure is not silent fabrication — grain told
     // the reader, in the same response, that the real text lives in a file it cannot read. Only an UNDISCLOSED
     // confident-wrong hit still counts: `disclosed` never suppresses `claims`/`checked`, only `fabricated`.

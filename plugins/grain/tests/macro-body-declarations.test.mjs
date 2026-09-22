@@ -1,4 +1,4 @@
-// §018 phase 2 — declarations written inside a MACRO INVOCATION's body.
+// the macro-body re-parse — declarations written inside a MACRO INVOCATION's body.
 //
 // The defect: a macro invocation's body is an UNPARSED TOKEN REGION. The grammar tokenises it and then declines
 // to give it structure, so every declaration written inside it is invisible to extraction. axum's

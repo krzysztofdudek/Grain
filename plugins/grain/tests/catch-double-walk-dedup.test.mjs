@@ -1,6 +1,6 @@
-// §075 (found by the fix-061 agent while fixing §061, deliberately left untouched there — see that ticket's own
+// the catch/finally dedup (found while fixing the catch-scope naming, deliberately left untouched there — see that fix's own
 // comment: "a separate, pre-existing double-counting fact this ticket does not touch, but real, and worth the
-// director's attention"). §061 fixed how a catch/finally clause's BORROWED name is SPOKEN (never as though it
+// director's attention"). The catch-scope naming fix changed how a catch/finally clause's BORROWED name is SPOKEN (never as though it
 // were the clause's own declared name); it did not touch the underlying scope-walk that decides how many times a
 // clause is counted at all. This ticket fixes that: `extractScopes`'s catch/finally collection ran
 // `bodyN.descendantsOfType([...])` — a search of the WHOLE subtree below `bodyN`, not stopped at the boundary of

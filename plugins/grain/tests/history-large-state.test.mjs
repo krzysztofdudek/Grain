@@ -1,12 +1,12 @@
-// §055 — a full-history walk on a Symfony-scale repo (82,946 commits) completed correctly and then died silently:
+// a full-history walk on a Symfony-scale repo (82,946 commits) completed correctly and then died silently:
 // `atomicWrite(store.historyPath, JSON.stringify(state))` built the ENTIRE replay state (one entry per distinct
 // blob/pair/path ever seen across the whole history) as a single JS string, past V8's own hard string-length cap
-// — measured (§054 D3): `RangeError: Invalid string length` at `history.mjs:270`, and the only thing a user ever
+// — measured on a large history: `RangeError: Invalid string length` at `history.mjs:270`, and the only thing a user ever
 // saw was the bare, undiagnostic line `[grain] Invalid string length` — no indication the walk itself had
 // succeeded, no indication of what to do next.
 //
 // Reproducing an 82,946-commit repo in a unit test is impractical, so this file proves both required halves at
-// the serialization boundary instead (`writeHistoryState`/`readHistoryState`, the two functions §055 introduced):
+// the serialization boundary instead (`writeHistoryState`/`readHistoryState`, the two functions the history-state split introduced):
 //   (1) no single `JSON.stringify` call `loadHistory`'s persistence path makes is allowed to grow with the total
 //       size of the history state — it is bounded by the size of ONE record, however many records there are.
 //   (2) a failure at that boundary (a corrupt/legacy save file on read, an unwritable path on write) is never
@@ -49,7 +49,7 @@ function freshStore(dir) {
 
 test('(1) writeHistoryState never calls JSON.stringify on more than one record, however large the total state is', async () => {
   // 300,000 synthetic co-change-support entries: a monolithic `JSON.stringify(state)` over this alone is already
-  // tens of MB in one string — at Symfony's real scale (millions of such entries, §054) the equivalent call is
+  // tens of MB in one string — at Symfony's real scale (millions of such entries) the equivalent call is
   // exactly what threw `RangeError: Invalid string length`. Every entry here is the same small shape real
   // `pairSup`/`fileCommits` entries are (§13.5) — the fix must stay correct at this shape regardless of count.
   const state = freshState();

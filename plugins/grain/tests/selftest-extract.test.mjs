@@ -14,7 +14,7 @@
 //       but ties to the `c` grammar under `parseFile`'s own error-count tie-break (the C misparse of `namespace
 //       demo {` is not STRICTLY worse than its real C++ reading for this snippet, so `.h`'s primary grammar, `c`,
 //       is kept) — the misparsed `demo` becomes a real oracle candidate (a `function_definition` node, name field
-//       "demo") that `extractScopes`'s own declarator-recovery logic (§040, core.mjs) declines to name, a genuine,
+//       "demo") that `extractScopes`'s own declarator-recovery logic (core.mjs) declines to name, a genuine,
 //       reproducible miss below 1.0 recall.
 //   (c) the no-parse path: a file `read` cannot serve (returns null) is counted in `noParse` and contributes to
 //       no grammar's tally — the CLI's own git-tree read can fail the same way for a path listed but not present.
@@ -90,12 +90,12 @@ test('extractCoverage: a scopeless (data-grammar) file is reported as a boundary
 // (b) a planted miss: recall below 1.0, reproducibly
 // =====================================================================================================
 
-test('extractCoverage: a planted C/C++ ambiguity (§040-adjacent) produces a genuine, reproducible miss', async () => {
+test('extractCoverage: a planted C/C++ ambiguity produces a genuine, reproducible miss', async () => {
   // `namespace demo { void plantedMiss() { int x = 1; } }` as a `.h` file: `parseFile`'s own tie-break (config.mjs
   // EXT_ALT) only swaps `.h`'s primary grammar (`c`) for `cpp` when the alternate parses STRICTLY cleaner — for
   // this tiny snippet the `c` parse is not strictly worse, so it stays on `c`, where `namespace` is not a keyword
   // at all. The misparse recovers `demo` as a `function_definition` (a real candidate: `name` field "demo") that
-  // extraction's own declarator-recovery logic declines to name (core.mjs, the `recoveredType` block, §040).
+  // extraction's own declarator-recovery logic declines to name (core.mjs, the `recoveredType` block, the macro-token fix).
   const src = 'namespace demo {\nvoid plantedMiss() {\n  int x = 1;\n}\n}\n';
   const res = await extractCoverage({ root: '/nonexistent', files: ['fixture.h'], read: () => src });
   assert.ok(res.grammars.c, `expected the "c" grammar (got: ${Object.keys(res.grammars)}) — this fixture is pinned to a specific tie-break outcome`);

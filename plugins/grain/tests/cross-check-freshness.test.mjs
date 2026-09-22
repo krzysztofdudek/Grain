@@ -8,7 +8,7 @@
 // means "computed from sha." Therefore `+dirty` may only mean ONE thing: "this answer incorporates your
 // uncommitted edits" — exactly `check`'s existing meaning, since `check` reads the worktree directly. Consequences,
 // all encoded below:
-//   (a) `explain`/`spectrum` stamping `+dirty` while rendering HEAD-cached data (ticket 013) is not a discharge of
+//   (a) `explain`/`spectrum` stamping `+dirty` while rendering HEAD-cached data is not a discharge of
 //       013's acceptance criterion — it is a FALSE claim under this stamp's own semantics. The strict reading this
 //       file always used for 013 stands; the two 013 tests below are unchanged.
 //   (b) The 8 commands that never say `+dirty` (where/how/what/map/status/report/rules/completeness) are CORRECT
@@ -17,7 +17,7 @@
 //       same false claim 013 has, to 8 more commands. This file is shaped to go RED, not green, if that fix ships:
 //       each of the 8 gets a `!includes('+dirty')` clause that must stay green forever, paired with a `notEqual`
 //       clause that demands the REAL gap get closed instead — on a dirty tree, a HEAD-reading command owes some
-//       OTHER, not-yet-designed, distinct disclosure (ticket 024(c), re-scoped from this file's own findings;
+//       OTHER, not-yet-designed, distinct disclosure (re-scoped from this file's own findings;
 //       024(a) is the doc/help-text over-promise "every answer ends with ... [+dirty]", 024(b) is explain's false
 //       claim, cross-referenced with 013).
 // Given (a)+(b), the property loop below is asymmetric on purpose: `check` keeps a plain "dirty ⇒ +dirty"
@@ -154,7 +154,7 @@ test('stamp truth · `grain check <file>`: a dirty tree it actually reads must s
 });
 
 // ===================================================================================================
-// INVARIANT 2 — freshness (ticket 013): a second fixture, big enough to clear the partition floor
+// INVARIANT 2 — freshness: a second fixture, big enough to clear the partition floor
 // (groupPartitions only forms a partition once the small-package bucket reaches 30 scopes; a handful of
 // 2-scope files never gets there) and to carry a certified, role-conditioned `auto.extends:Command` NORM.
 // ===================================================================================================
@@ -288,5 +288,5 @@ test('013 (expected RED while open): check sees a worktree deviation explain sil
     `013: check caught "OrderCommand does not extend Command" on the dirty worktree; explain's OWN role-scoped ` +
     `NORM row for the identical fact/file shows no deviation and no staleness marker beyond bare +dirty ` +
     `(ruled out — see file-top rationale) — row: ${JSON.stringify(rowLine)}. This is the exact ` +
-    `"check sees your edit, explain silently doesn't" contradiction ticket 013 reports.`);
+    `"check sees your edit, explain silently doesn't" contradiction.`);
 });

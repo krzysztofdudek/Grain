@@ -5,7 +5,7 @@
 // `model` and cannot read files), model.changeArchetypes (J4.1), model.waivers (J1.3), and baselineClause's own
 // "no movement" case (E4).
 //
-// model.twins (J3.4) was the EIGHTH such input and is deliberately no longer one — see §044: the twin health row
+// model.twins (J3.4) was the EIGHTH such input and is deliberately no longer one — see the twin-rows ruling: the twin health row
 // measured 0.24 precision over 75 hand-adjudicated rows on three languages (0.04 on Go), so it was removed while
 // model.twins, the export schema and `where`'s group card kept it. The absence is pinned below and, in full,
 // in tests/twins-not-a-health-row.test.mjs.
@@ -19,7 +19,7 @@ import { report, rulesMarkdown } from '../engine/core.mjs';
 
 // pkgA carries every anchor a health row needs: a partition-wide fact (cid '_all') for the cost/rejected/agentShare
 // rows, and a role-defining fact (cid 'r0:'/'r1:') for the archetype row to resolve a real <path>#<name>. The
-// `twins` field below is still built — it is what proves the row's absence is a rendering decision (§044) and not
+// `twins` field below is still built — it is what proves the row's absence is a rendering decision and not
 // a missing input, and the r0:/r1: facts stay for the same reason: the anchor machinery is untouched.
 function baseModel() {
   const costFact = { cid: '_all', kind: 'method', pid: 'auto.call:validate', exp: 'true', share: 0.9, sraw: 120, deviantsN: 12,
@@ -138,12 +138,12 @@ test('dead-steer rows render with real, resolvable exemplars', () => {
   assert.match(text, /steer sd1 on src\/pkgA\/Steered\.ts#Steered has not moved the needle \(no movement since 2026-01-01: 5 of 10 then, 5 of 10 now\) → grain decide rm sd1/, text);
 });
 
-// CONTRACT CHANGE (§044). This test previously asserted the opposite — that a twin pair renders a health row with
+// CONTRACT CHANGE. This test previously asserted the opposite — that a twin pair renders a health row with
 // a resolvable `grain decide steer … "duplicate of … unify or document why both exist"`. Measured across
 // OpenZeppelin/gin/flask that row was right 18 times in 75 (upper bound: unsure adjudications were scored in the
 // tool's favour), and `rules` wrote every one of them into the user's committed CONVENTIONS.md. The model field,
 // the export schema and `where`'s one-line group-card observation all survive; only the instruction is gone.
-test('(§044) a twin pair renders NO health row, even with both role anchors resolvable', () => {
+test('a twin pair renders NO health row, even with both role anchors resolvable', () => {
   const model = baseModel();
   const text = report(model, {}).join('\n');
   assert.doesNotMatch(text, /are structurally the same shape/, text);

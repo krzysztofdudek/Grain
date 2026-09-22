@@ -1,4 +1,4 @@
-// The SessionStart hook (`grain session-context`, ticket 028 "Grain jako wejście do rodziny"): what a session
+// The SessionStart hook (`grain session-context`, Grain as the family's way in): what a session
 // sees the moment it opens a repository. Three new things land here: a repository that already runs Yggdrasil
 // is pointed at `yg prime` (and at installing `yg` when it is missing), and a sparse model gets a line of its
 // own instead of being read off `Index:` alone (Grain 2, mission triage). Every new branch is additive — a
@@ -89,7 +89,7 @@ test('no .yggdrasil/: output is exactly the pre-028 six lines (regression — gr
     `Index: ready: 50 files, 5 groups, 10 conventions in source code (a moderate model).`,
     `This repository has no architecture graph yet (no .yggdrasil/). When the task is to adopt Yggdrasil here, or to write down the architecture this repo already practises, \`grain propose\` mines one — nodes, relations and rules with the evidence attached — into .yggdrasil-proposal/ for a human to review and move in. Run: \`${bin} propose\`.`,
   ].join('\n');
-  assert.equal(text, expected, 'a repository with no .yggdrasil/ must see exactly the bytes it saw before ticket 028 — nothing from item (2)/(2b) may leak in here');
+  assert.equal(text, expected, 'a repository with no .yggdrasil/ must see exactly the bytes it saw before Grain became the way into the family — nothing from item (2)/(2b) may leak in here');
   assert.doesNotMatch(text, /yg prime/);
   assert.doesNotMatch(text, /sparse model/);
 });

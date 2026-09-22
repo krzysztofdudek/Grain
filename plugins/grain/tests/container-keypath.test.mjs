@@ -30,7 +30,7 @@
 // unaffected by this (it does not depend on `cont`), which is why the YAML/TOML-independent enum fixture below
 // is the proof that §(B) is general.
 //
-// §056 later closed the YAML-mapping half of this gap directly (`bindingFor`'s new `b.dataContainer`, data-
+// a later fix closed the YAML-mapping half of this gap directly (`bindingFor`'s new `b.dataContainer`, data-
 // grammar-only, derived from node-types.json: a node type qualifies when its own declared children admit a
 // `b.keyField` type — JSON's `object` and YAML's `block_mapping`/`flow_mapping` both now find a `cont`; see
 // data-grammar-key-siblings.test.mjs). Left open on purpose: YAML's `block_sequence` (still unmatched — only

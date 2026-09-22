@@ -1,5 +1,5 @@
-// §060 — Scala's braced-package syntax, combined with a Guice-style `@Inject()`-annotated curried constructor
-// (the same idiom §053 already measured at 11.5% of playframework/playframework's .scala files), leaves the
+// Scala's braced-package syntax, combined with a Guice-style `@Inject()`-annotated curried constructor
+// (the same idiom the check/review parity fix already measured at 11.5% of playframework/playframework's .scala files), leaves the
 // tree-sitter-scala grammar unable to parse the class header, and it wraps the whole surrounding statement list
 // in one ERROR node. Real repro, byte-for-byte off playframework's own
 // documentation/manual/tutorial/code/scalaguide/hello/HelloController.scala (commit 61ec059): a
@@ -15,12 +15,12 @@
 // whichever of them the grammar ALREADY parsed with zero errors of their own get extracted normally. A doubly-
 // broken child is itself flagged isError/isMissing and is skipped on its own next pop, so nothing is invented —
 // every recovered scope still traces back to a real, cleanly-typed AST node, the same zero-fabrication contract
-// §018's macro-body reparse holds, just applied at node granularity instead of re-parsing a text span (reparsing
+// the macro-body re-parse's rule holds, just applied at node granularity instead of re-parsing a text span (reparsing
 // the WHOLE error span here would refail on the still-broken class header and recover nothing at all — see the
 // negative-control test below, which proves that literal 018-style whole-region reparse is the wrong shape for
 // this defect).
 //
-// This must NOT weaken the existing "parse degraded" disclosure (§053): the file's `hasError` stays true (the
+// This must NOT weaken the existing "parse degraded" disclosure: the file's `hasError` stays true (the
 // class header genuinely does not parse — recovering the sibling object does not fix that), so `check`/`review`
 // must keep naming this file as degraded even after the salvage.
 import { test } from 'node:test';
@@ -114,7 +114,7 @@ test('the class whose constructor breaks the parse is itself still named (bonus 
 // STILL HONEST — recovering the salvageable part must not silence the caveat for the part that is still lost
 // ===========================================================================================================
 
-test('the file still reports hasError after salvage — the caveat mechanism (§053) is not blinded by the fix', async () => {
+test('the file still reports hasError after salvage — the caveat mechanism is not blinded by the fix', async () => {
   const { tree } = await parseFile('.scala', HELLO_CONTROLLER);
   assert.equal(tree.rootNode.hasError, true,
     'HelloController\'s own constructor genuinely does not parse; recovering the sibling object must not flip this');
@@ -122,7 +122,7 @@ test('the file still reports hasError after salvage — the caveat mechanism (§
 });
 
 // ===========================================================================================================
-// NEGATIVE CONTROL — literal §018-style "reparse the whole error span, accept only if clean" would recover
+// NEGATIVE CONTROL — a literal macro-body re-parse ("reparse the whole error span, accept only if clean" would recover
 // NOTHING here, because the genuine syntax error and the salvageable object share the same ERROR node's span.
 // This is why the fix works at node granularity (trust each child's own hasError) rather than re-parsing text.
 // ===========================================================================================================
@@ -186,7 +186,7 @@ test('a clean Scala file with no parse error is extracted byte-identically to be
 
 // ===========================================================================================================
 // END TO END — the ticket's own acceptance criteria: (a) the recovery shows up in `what`, and (b) the parse-
-// degraded caveat (§053) still fires for this exact file
+// degraded caveat still fires for this exact file
 // ===========================================================================================================
 
 const gitEnv = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x',
@@ -213,7 +213,7 @@ test('`what` finds the recovered object, instead of denying it exists', () => {
   assert.match(r.out, /HelloController\.scala/, `the answer must point at the real file:\n${r.out}`);
 });
 
-test('`check` still carries the §053 parse-degraded caveat for this exact file — recovery does not silence it', () => {
+test('`check` still carries the parse-degraded caveat for this exact file — recovery does not silence it', () => {
   const r = grainIn(repoE2e, ['check', 'app/controllers/HelloController.scala']);
   assert.equal(r.code, 0, r.err);
   assert.match(r.out, /\(parse degraded — part of this file sits in error nodes/,

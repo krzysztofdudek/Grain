@@ -1,4 +1,4 @@
-// Guard for the integration stress instrument (ticket 101): tests/stress/integration-stress.mjs, and the six
+// Guard for the integration stress instrument: tests/stress/integration-stress.mjs, and the six
 // defects it found in tests/stress/propose.mjs.
 //
 // Two things are guarded here, and they are different in kind:

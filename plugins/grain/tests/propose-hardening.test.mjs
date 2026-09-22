@@ -2,7 +2,7 @@
 //
 // Ticket 104 moved the proposal renderer out of `tests/stress/` and made it a command an adopter runs on a
 // repository nobody in this project has seen. Everything below is a defect that review found in that code and
-// that a real repository can reach; each test fails against the code as ticket 104 shipped it.
+// that a real repository can reach; each test fails against the code as `grain propose` first shipped.
 //
 //   1. THE OUT-DIR GUARD IS LEXICAL, AND A SYMLINK WALKS PAST IT. `cmdPropose` refuses to write a proposal
 //      over the repository or its own `.yggdrasil/` — "writing it over a live graph destroys the graph already

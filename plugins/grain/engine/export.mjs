@@ -102,7 +102,7 @@ function focusLines(lines, s, pid, exp) {
   };
   const esc = x => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   if (enumerator === 'deco') {
-    // §054b: `#[` (PHP) is a two-character wrapping sigil, the same category as `@`/`[` — stripped and re-matched
+    // `#[` (PHP) is a two-character wrapping sigil, the same category as `@`/`[` — stripped and re-matched
     // as a unit here too, or a PHP anchor line search would look for the never-occurring `@#[Name`/`[#[Name`.
     const nm = argument.replace(/^(?:#\[|[@[])|\]$/g, '');
     const f = scan(
@@ -420,7 +420,7 @@ export function exportModel({
     for (const [mk, keys] of Object.entries(part.markers || {}).sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
       const pre = mk.slice(0, mk.indexOf(':')),
         name = mk.slice(mk.indexOf(':') + 1);
-      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — §048, decoLabel's sigil call
+      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — decoLabel's sigil call
       P.markers.push({
         marker:
           pre === 'deco'

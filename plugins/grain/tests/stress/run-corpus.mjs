@@ -1,8 +1,7 @@
 #!/usr/bin/env node
 // Scale ladder (director/system.md §2.F, §3, instrument F) — runs the fixed, versioned corpus.json against a
-// small, explicit list of commands, with a MANDATORY per-command timeout, so a command that hangs (§055:
-// `report`/`map` on Symfony's full history never finished and the process vanished after 17+ minutes with no
-// stderr) becomes one row that says `completed: false, reason: '…'`, not an anecdote. §055 is fixed (history.mjs
+// small, explicit list of commands, with a MANDATORY per-command timeout, so a command that hangs (// `report`/`map` on Symfony's full history never finished and the process vanished after 17+ minutes with no
+// stderr) becomes one row that says `completed: false, reason: '…'`, not an anecdote. The history-state split is fixed (history.mjs
 // now streams state persistence and a read/save failure logs a `[history]` diagnostic instead of dying silently);
 // this harness is how that stays true — it is a retest, forever, not a one-time repro.
 //
@@ -201,7 +200,7 @@ export function classifyFailure(r) {
   if (r.code === 0 && !r.signal) return null;
   // node's spawnSync sends the killSignal (default SIGTERM) when its own `timeout` elapses — that is OUR harness
   // giving up, not the process dying on its own. Any other signal (SIGKILL, SIGSEGV, …) with no matching stderr is
-  // the §055 shape: something outside node — the OS OOM killer, most likely on a multi-GB history walk — reaped it
+  // the shape: something outside node — the OS OOM killer, most likely on a multi-GB history walk — reaped it
   // silently. Keeping the two apart is the whole point of the ladder: one is "still hasn't finished," the other is
   // "died mid-flight."
   if (r.signal === 'SIGTERM' && r.code === null) return 'timeout';
@@ -241,7 +240,7 @@ async function ladderMain(flags) {
   }
   if (!flags.timeout) {
     console.error(
-      '--timeout <ms> is required (no baked-in default — pick one appropriate to the bucket you are running, e.g. 60000 for the 1k bucket, 20*60000 to reproduce the §055 window on the 100k bucket)'
+      '--timeout <ms> is required (no baked-in default — pick one appropriate to the bucket you are running, e.g. 60000 for the 1k bucket, 20*60000 to reproduce the window on the 100k bucket)'
     );
     process.exit(2);
   }
@@ -344,7 +343,7 @@ async function ladderMain(flags) {
     log(`cold build: ${cold.ms} ms${cold.rssMb ? `, ${cold.rssMb} MB` : ''}, completed=${!coldFail}${coldFail ? ` (${coldFail})` : ''}`);
 
     if (coldFail) {
-      // §055 shape: don't re-attempt an already-doomed cold build ten more times. One row is the finding.
+      // the history-state split shape: don't re-attempt an already-doomed cold build ten more times. One row is the finding.
       for (const c of ladderCommands({ intentWords: [], checkFile: null })) repoRes.steps.push({ label: c.label, skipped: true, reason: 'cold build did not complete' });
       upsertRepo(repoRes);
       writeFileSync(outFile, JSON.stringify(runRecord, null, 1));

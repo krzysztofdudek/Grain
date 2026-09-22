@@ -1,13 +1,13 @@
 // Cross-check: disclosure parity between `grain report` and `grain rules`, and the "no bare zero" invariant on
 // the architecture section's dependency count.
 //
-// §004 diagnosed a real gap: on flask, `report`'s architecture section printed "13 modules · 0 directed
+// the intra-module disclosure diagnosed a real gap: on flask, `report`'s architecture section printed "13 modules · 0 directed
 // dependencies" while the source is full of intra-package imports — 139 real file-level edges, all folded away
 // by moduleGraph's own `a === b` intra-module skip because flask's non-dominant `src/flask/` package never gets
 // split into more than one module node. The fix, `intraModuleNote(model)` (core.mjs), fires exactly when
 // `moduleGraph.edges.length === 0 && model.edges.length > 0` and is wired into `report()` beside the older
 // `relCoverageNote(model)` (§G21 — "resolution does not cover N files (...) — conventions layer only for those").
-// §007 then found the SAME two notes missing from `rulesMarkdown()` (backing `grain rules`) — the artifact
+// the rules-markdown parity check then found the SAME two notes missing from `rulesMarkdown()` (backing `grain rules`) — the artifact
 // explicitly meant for a reader with no terminal and no grain installed, where a silent gap is worse, not better.
 // Both are now FIXED; this file is not about re-proving either fix in isolation (rules-coverage-note.test.mjs and
 // relation-coverage.test.mjs already do that in depth) — it is about the PARITY PROPERTY itself: whatever
@@ -58,7 +58,7 @@ const modelPathOf = repo => join(repo, '.grain', 'cache', 'model.json');
 const loadModel = repo => JSON.parse(readFileSync(modelPathOf(repo), 'utf8'));
 const escapeRe = s => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-// (a) mixedFolded — flask's real shape from §004: JS files with a real relative import between them, all inside
+// (a) mixedFolded — flask's real shape from the intra-module disclosure: JS files with a real relative import between them, all inside
 // ONE module (pkg/), PLUS a couple of files in grammars with no relSupported() extractor (bash, yaml) elsewhere
 // (infra/). Two disjoint top-level directories → moduleOf buckets them as 2 module nodes (pkg, infra), well under
 // the §G11 dominant-module threshold (max(40, files.length*0.5) = 40 for a 4-file repo) so neither gets refined
@@ -131,9 +131,9 @@ test('fixture soundness (c) noImportsAtAll: zero edges, 2 module nodes, every fi
 const disclosures = [
   { name: 'relCoverageNote (§G21) — resolution does not cover N files in an unsupported grammar', repo: () => mixedFolded,
     core: /resolution does not cover \d+ files? \([^)]*\) — conventions layer only for those/ },
-  { name: 'intraModuleNote (§004) — N file-level edges resolved, none crossing a module boundary', repo: () => mixedFolded,
+  { name: 'intraModuleNote — N file-level edges resolved, none crossing a module boundary', repo: () => mixedFolded,
     core: /\d+ file-level edges? resolved, none crossing a module boundary — the architecture graph only counts cross-module dependencies/ },
-  { name: 'intraModuleNote (§004) on a fully-covered repo — same note, no coverage gap alongside it', repo: () => intraOnlyFolded,
+  { name: 'intraModuleNote on a fully-covered repo — same note, no coverage gap alongside it', repo: () => intraOnlyFolded,
     core: /\d+ file-level edges? resolved, none crossing a module boundary — the architecture graph only counts cross-module dependencies/ },
 ];
 

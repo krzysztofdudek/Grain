@@ -1,5 +1,5 @@
 // grain engine · proposal writer · the deterministic check.mjs a drafted aspect ships
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { MARKER_STEMS_BY_EXT } from './config.mjs';
 import { NT, PROVENANCE, shapeToRegex } from './propose-lattice.mjs';
 
@@ -26,7 +26,7 @@ export function renderCheck(spec) {
     // nothing else does: Java writes `import jakarta.persistence.Entity;`, Python `import os`, Rust
     // `use serde::Serialize;`, C# `using System;`, all unquoted — so on every one of those languages the check
     // matched nothing, refused nothing, and MISSED every `violates-` case in its own drill corpus. Measured
-    // (ticket 101, spring-petclinic): 17 of 38 rendered checks were `imp` checks, every one of them scored
+    // (spring-petclinic): 17 of 38 rendered checks were `imp` checks, every one of them scored
     // 0 refusals on the repository and 4-5/5 MISS on its own corpus. The specifier is now matched as a bounded
     // token anywhere in the import statement's text, which covers the quoted spelling as well (a quote is not
     // an identifier character) without matching a longer name that merely contains it (`os` does not match
@@ -117,7 +117,7 @@ export function renderCheck(spec) {
       // THE SHAPE IS THE STEM'S, NOT THE BASENAME'S. grain measures `auto.filenameshape` as
       // `nameShape(basename(rel, extname(rel)))` (`core.mjs`) — the name with its LAST extension removed — and
       // the compiled shape is anchored (`^...$`), so testing it against the basename can never match a file
-      // that has an extension at all. Measured (ticket 101, spring-petclinic): both rendered `filenameshape`
+      // that has an extension at all. Measured (spring-petclinic): both rendered `filenameshape`
       // checks refused 100% of the files in their own scope, and the one whose corpus had `satisfies-` cases
       // FALSE-ALARMED on 5 of 5 — on the very files grain had certified as conforming. The stem is computed
       // here exactly as node's `basename(b, extname(b))` computes it, dotfiles included.

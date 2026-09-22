@@ -96,7 +96,7 @@ test('(c) `grain map` prints a `layers:` section and a `decisions:` count line',
 test('(d) the `in:` locator (via `check`) now shows `layer n`', () => {
   const c = grainIn(repo)(['check', 'modC/leaf.ts']);
   assert.equal(c.code, 0, c.err);
-  // §067c: the module gets a trailing `/` here — the same directory marker `lives in:`/`depends on:`/`used by:`
+  // the module gets a trailing `/` here — the same directory marker `lives in:`/`depends on:`/`used by:`
   // already use elsewhere — so this locator line can never be misread as naming a file rather than the directory it is.
   assert.match(c.out.split('\n')[0], /^in: modC\/ \(layer 0\) · used by \d+ modules$/, c.out);
   const a = grainIn(repo)(['check', 'modA/top.ts']);

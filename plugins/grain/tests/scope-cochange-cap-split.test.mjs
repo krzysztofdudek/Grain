@@ -1,4 +1,4 @@
-// The scope co-change budget, cut over TWO populations instead of one (ticket 146, escalation 23).
+// The scope co-change budget, cut over TWO populations instead of one (escalation 23).
 //
 // `model.scopeCochange` carries at most 5000 pairs. Until this ticket that budget was one descending-support
 // cut over the whole list, and the two populations underneath it are not comparable: two scopes in ONE file are

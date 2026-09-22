@@ -1,4 +1,4 @@
-// Seam tests (ticket 100) — the family's contracts, driven through the NEIGHBOUR PROJECTS' OWN real binaries,
+// Seam tests — the family's contracts, driven through the NEIGHBOUR PROJECTS' OWN real binaries,
 // never a re-implementation of either. Five seams:
 //
 //   1. YGGDRASIL LOADS THE PROPOSAL, DRILLS IT CLEAN, AND ADVISES THE FAMILY. A real Yggdrasil checkout is
@@ -12,7 +12,7 @@
 //      (`tests/fixtures/family-planted-mono`, `-polyglot`) whose whole point is a known-exact answer: one
 //      structurally-uniform cluster with no rule of its own, surrounded by decoys that must NOT cluster.
 //      `buildFamilyCandidates` is run directly against them (no `yg` needed) and checked against that answer.
-//   3. THE PROPOSAL CONTRACT WITHOUT A CHARTER (ticket 026). `yg node <path> --json`, run by the real Yggdrasil
+//   3. THE PROPOSAL CONTRACT WITHOUT A CHARTER. `yg node <path> --json`, run by the real Yggdrasil
 //      CLI against the SAME staged repo from seam 1, returns the `description` grain wrote into `yg-node.yaml`
 //      — and no `charter.md` exists anywhere under the tree grain rendered. This is Yggdrasil-only: reading the
 //      node through `yg node --json` is exactly what sidesteps the coupling to Horde a charter.md used to need.
@@ -20,7 +20,7 @@
 //      adopted-equivalent) repo is handed to a real Horde checkout's `queue.mjs quality --from` — proving the
 //      `grain-advice/1` document this repo writes is the one document Horde's quality pass reads, never a
 //      re-implementation of the schema on either side.
-//   5. THE FAMILY-CONTRACTS REGISTER IS THE WHOLE TRUTH (ticket 027). `YGG_DIR/docs/family-contracts.md` names
+//   5. THE FAMILY-CONTRACTS REGISTER IS THE WHOLE TRUTH. `YGG_DIR/docs/family-contracts.md` names
 //      every machine document the family exchanges. This seam is the only CI with all three checkouts at once,
 //      so it is the only place that can hold the page to all three: every schema id Horde's scripts name, and
 //      every one Grain's engine writes, must have a row. Pure file reads — no binary is run.
@@ -148,7 +148,7 @@ test('yg check loads the proposal rendered for Yggdrasil itself', { skip: HAVE_Y
 
 // ============================================================================================================
 // Seam 1b — `yg drill` on every rendered check.mjs, against its OWN drill corpus written beside it. The
-// contract (decision log, ticket 097): 0 FALSE-ALARM. MISS is reported, not asserted — a rendered check
+// contract (decision log): 0 FALSE-ALARM. MISS is reported, not asserted — a rendered check
 // reproducing grain's own count on its OWN mined sites (no hold-out in a `--no-history` run) can still MISS on
 // a site the export itself didn't certify strongly enough to drill; FALSE-ALARM is the one a maintainer cannot
 // tolerate (the rule fires on code that never showed the pattern) and it is the one this test enforces.
@@ -235,7 +235,7 @@ test('the adapter emits exactly the planted family on family-planted-mono, and n
 });
 
 // ============================================================================================================
-// Seam 3 — the proposal contract without a charter (ticket 026). `yg node <path> --json`, the real Yggdrasil
+// Seam 3 — the proposal contract without a charter. `yg node <path> --json`, the real Yggdrasil
 // CLI, reads the rendered `.yggdrasil/` tree from the SAME staged repo seam 1 already built, and its
 // `description` is the fact a `charter.md` used to open with. No `charter.md` exists anywhere under the tree
 // this run wrote — asserted recursively, not on one node, since a stub check on the node happened to look at
@@ -307,7 +307,7 @@ test('grain advise --json parses under Horde\'s queue.mjs quality', {
 });
 
 // ============================================================================================================
-// Seam 5 — the family-contracts register is the whole truth (ticket 027). `YGG_DIR/docs/family-contracts.md`
+// Seam 5 — the family-contracts register is the whole truth. `YGG_DIR/docs/family-contracts.md`
 // is the one page naming every machine document the family exchanges, its schema id, its producer and its
 // consumers. Yggdrasil's own unit test holds that page to Yggdrasil's `src/formatters/` constants; it cannot
 // see the other two repositories. THIS job can — it is the only CI with all three checkouts at once — so this

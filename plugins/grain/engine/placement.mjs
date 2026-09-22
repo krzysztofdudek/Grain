@@ -1,5 +1,5 @@
 // grain engine · placement on create: a new file whose name-kin already live in one place, from path evidence alone
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename, dirname } from 'node:path/posix';
 import { normTok } from './cards.mjs';
 import { voice } from './mine.mjs';

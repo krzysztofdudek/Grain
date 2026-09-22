@@ -1,12 +1,12 @@
 // grain engine · birth obligations — what a new file under a module has historically come with
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { CFG } from './config.mjs';
 import { refineModOf } from './relations.mjs';
 import { S } from './base.mjs';
 import { clearsOwnRate, currentPathOf, kt } from './facts.mjs';
 import { sufOf } from './placement.mjs';
 
-// ===== BIRTH OBLIGATIONS (ticket 073) =====
+// ===== BIRTH OBLIGATIONS =====
 // What a NEW file under a (module, suffix) class has historically come with — "add tests/libtest/*.c" implying
 // "touch tests/libtest/Makefile.inc" — mined from `H.fps[*].added` (the birth signal history.mjs now carries
 // alongside `files`, never set for a rename's `R` status) using only path, extension and git status: no name list,
@@ -30,7 +30,7 @@ export function certifyObligationRules(rec, { fileCommits, nonMegaCommits, idxCo
   const K = 2,
     N = nonMegaCommits;
   for (const [o, k] of rec.co) {
-    if (!live.has(o)) continue; // gate 4: liveness — a rule naming a file dead at HEAD does not speak (same disease class as wave-3 recommendation 5, and ticket 066's `how` liveness filter)
+    if (!live.has(o)) continue; // gate 4: liveness — a rule naming a file dead at HEAD does not speak (same disease class as wave-3 recommendation 5, and the `how` liveness filter)
     const gp = fileCommits.get(o) || 0;
     const local = { present: k, absent: rec.n - k };
     const glob = { present: gp, absent: Math.max(N - gp, 0) };
@@ -45,7 +45,7 @@ export function certifyObligationRules(rec, { fileCommits, nonMegaCommits, idxCo
       rules.push({ file: o, k, n: rec.n, bits: +bits.toFixed(2), share: +(k / rec.n).toFixed(3) });
     } else if (clearsOwnRate(gp, N)) {
       // not a discovery about THIS class: O's OWN base rate over the whole history already clears the identical λ
-      // bound (§074 shares this exact test for co-change partners too), so it would read this high beside almost
+      // bound (the completeness split shares this exact test for co-change partners too), so it would read this high beside almost
       // ANY class. Reported separately (never silently dropped) so a reader can see it is background, not signal.
       ambient.push({ file: o, k: gp, n: N, share: +(gp / N).toFixed(3) });
     }
@@ -54,7 +54,7 @@ export function certifyObligationRules(rec, { fileCommits, nonMegaCommits, idxCo
   ambient.sort((a, b) => b.share - a.share || (a.file < b.file ? -1 : 1));
   return { rules, ambient };
 }
-// the batch builder `learn` calls over the FULL retained `H.fps`, and `obligationEval` (§073's instrument) calls
+// the batch builder `learn` calls over the FULL retained `H.fps`, and `obligationEval` (the obligation miner's instrument) calls
 // incrementally over a chronological prefix — both funnel through `certifyObligationRules` above so the gates can
 // never drift between the shipped table and the harness that scores it.
 // one footprint's birth EVENTS: one per distinct (module, suffix) class its `added` files fall into (a commit
@@ -131,7 +131,7 @@ export function obligationFor(model, rel) {
 }
 // the standalone `grain obligation <path>` text renderer AND the single-line hook `check <file> --as <path>` uses
 // (`{ top: 1 }`, first rule only) — one function, one wording, never two copies drifting apart.
-// the ambient half of a "two labelled sets" answer — ticket 073's obligation table and ticket 074's completeness
+// the ambient half of a "two labelled sets" answer — the obligation table and the completeness
 // partners both split a candidate list into a specific set and this one, and BOTH print it with this same
 // wording/shape so a reader never has to learn a second phrasing for the identical judgment call ("this repo
 // touches these with almost everything"). `a.k`/`a.n` are always the candidate's OWN global rate (never a

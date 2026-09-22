@@ -1,5 +1,5 @@
 // A PARTITION NAME IS A LABEL, NOT ALWAYS A PATH — and a rule mined in one may not vanish for that reason
-// (ticket 119).
+//.
 //
 // `mdlCuts` returns `['.']` for a repository it finds no reason to split, and `partOfFn` then names EVERY file's
 // partition `_root`: the whole repository in one bucket, with no directory of that name anywhere on disk. The

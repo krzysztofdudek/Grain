@@ -1,4 +1,4 @@
-// A DOMAIN CUT IS A PREDICATE, NOT A GUEST LIST (ticket 116, part 1).
+// A DOMAIN CUT IS A PREDICATE, NOT A GUEST LIST (part 1).
 //
 // The finer cuts grain finds inside a proposed type — `owner`, `vet`, `model` on spring-petclinic — were offered
 // as an `any_of` of the exact paths grain had seen. That membership is exact today and dead tomorrow: it
@@ -10,7 +10,7 @@
 // This test takes the offer at its word: it puts the domain to work in a staged copy of the repository, adds a
 // file grain has never seen under the domain directory, and asks the real Yggdrasil CLI who owns it.
 //
-// The domain has TWO places it can land, and ticket 116 is about the SHAPE of the membership, which has to be a
+// The domain has TWO places it can land, and the domain cut is about the SHAPE of the membership, which has to be a
 // path predicate in either. It is a finer-type CANDIDATE in `alternatives.md` when the domain directory is not a
 // module of its own — the case the ticket was written from. It is an ACTIVE node type in `yg-architecture.yaml`
 // when it is: a JVM source root (§113) cuts modules at the package, so a Java package IS a module and grain

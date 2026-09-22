@@ -1,5 +1,5 @@
 // grain engine · clustering, roles and the MDL/lambda miner, plus the deviant, marker, held and authorship summaries
-// Split out of core.mjs (ticket 117): the statements below are the ones that stood there, unchanged.
+// Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { CFG, NCAP } from './config.mjs';
 import { S, UNSEEN } from './base.mjs';
 import { STRUCT_PID, isBool, jac, jacW, kt, part, pct, ptr, skeyR } from './facts.mjs';
@@ -167,7 +167,7 @@ export function assignAll(ps, medoids) {
         b2 = k;
       }
     });
-    // (§003 B) the live nearest/next-nearest medoid this run computed, kept regardless of whether the scope clears
+    // the live nearest/next-nearest medoid this run computed, kept regardless of whether the scope clears
     // CFG.minMemb — checkFile's new-scope disclosure is the only consumer; `assign`/`amb` below are unaffected and
     // unchanged from before this field existed
     scores.set(i, { best: b, m1, second: b2, m2 });

@@ -1,5 +1,5 @@
 // grain engine · proposal writer · relations and the coarse node cut
-// Split out of propose.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 
 export function buildRelations(exp, typeOfFile, active) {
   const pairs = new Map(); // "from|to" -> n
@@ -29,7 +29,7 @@ export function buildRelations(exp, typeOfFile, active) {
 }
 
 // ==================================================================================================
-// 5-bis. Maintainer `boundary` decisions (ticket 028), rendered as denies alongside the mined ones above.
+// 5-bis. Maintainer `boundary` decisions, rendered as denies alongside the mined ones above.
 //
 // A `boundary` decision (`grain decide boundary <fromDir> --never-imports <toDir>`, `.grain/seeds.jsonl`) IS
 // already a directional forbiddance — the record itself, `{from, to}` — so rendering it costs nothing invented:
@@ -194,7 +194,7 @@ export function buildNodes(active, exp, nestedRoots = []) {
 //     THE SURFACE THAT ALREADY EXPOSES THEM is `grain explain <file>` (alias `spectrum`) — its `[obs ]` rows,
 //     as against `[NORM]` rows, are exactly the below-gate cells (`spectrum()` in `engine/core.mjs`). But
 //     `explain` conditions its cells on ONE file's roles and directory chain and then keeps only rows that file
-//     has, so it is a per-file debug dump, not a maintainer surface. THE AGGREGATION NEEDED (ticket 095) is:
+//     has, so it is a per-file debug dump, not a maintainer surface. THE AGGREGATION NEEDED is:
 //     the same cells, built once per PARTITION over all its scopes, with `_all:<kind>` and `r<role>:<kind>`
 //     cell ids, ranked by adoption share, and each row carrying the sites that do NOT conform. That is what
 //     `partitionLattice` below computes, from the engine's own vocabulary and codelength, read-only.

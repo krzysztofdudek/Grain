@@ -1,5 +1,5 @@
 // grain engine · query surface · argv, repository and store resolution, auto-refresh, the seed file and the worktree/HEAD comparison every command answers from
-// Split out of grain.mjs (ticket 124): the statements below are the ones that stood there, unchanged.
+// Split out of grain.mjs: the statements below are the ones that stood there, unchanged.
 import {
   existsSync,
   mkdirSync,
@@ -170,7 +170,7 @@ export async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }
   const meta = readJson(store.metaPath);
   const model = existsSync(store.modelPath) ? readJson(store.modelPath) : null;
   // extractOk gates the tree/blob extraction cache alone (engine+extractor+grammars — never MODEL_V: model schema
-  // is a pure downstream reading of already-extracted scopes, §028); versionOk additionally requires the model
+  // is a pure downstream reading of already-extracted scopes); versionOk additionally requires the model
   // schema to match, and gates the "no work at all" fast path plus the STALE banner — a MODEL_V-only staleness
   // must still force a real relearn, it just gets to reuse a version-current tree cache while doing it.
   const extractOk =
@@ -290,7 +290,7 @@ export function fileDirty(root, rel, isGit, diffArgs) {
   if (!diffArgs && !gitOk(root, ['ls-files', '--error-unmatch', '--', rel])) return true;
   return !gitOk(root, ['diff', '--quiet', ...(diffArgs || ['HEAD']), '--', rel]);
 }
-// (§024c) whether ANY part of the worktree differs from HEAD — unlike fileDirty (one file, used by check/review/
+// whether ANY part of the worktree differs from HEAD — unlike fileDirty (one file, used by check/review/
 // spectrum to decide what to actually READ), this never gates what a HEAD-reading command reads; it only decides
 // whether that command owes the disclosure below. `git status --porcelain` covers staged, unstaged and untracked
 // in one call and, unlike `git diff HEAD`, needs no HEAD to compare against (so it stays correct on a repo with

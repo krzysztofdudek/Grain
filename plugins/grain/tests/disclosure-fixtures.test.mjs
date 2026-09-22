@@ -49,7 +49,7 @@ const toRegex = pat => (pat instanceof RegExp ? pat : new RegExp(pat.replace(/[.
 function padFiller(repo, dir, n = 15) { for (let i = 0; i < n; i++) w(repo, `${dir}/util${i}.ts`, `export function util${i}() { return ${i}; }\nexport function helper${i}() { return util${i}() + 1; }\n`); }
 
 const cases = [
-  // ---- §041: C/C++ has no dependency graph, and relCoverageNote certifies that absence as real ----
+  // ---- C/C++ has no dependency graph, and relCoverageNote certifies that absence as real ----
   {
     name: '041: coverage note must name cpp when it yields zero edges — not just a genuinely-uncovered grammar',
     todo: false, // fixed: relCoverageData (core.mjs) now also folds in relPathOnly(g) grammars (relations.mjs) —
@@ -85,7 +85,7 @@ const cases = [
         /resolution does not cover[^\n]*\bcpp\b/ ] } ],
   },
 
-  // ---- §057: XML content is silently unread, and both `spectrum` and `where` present that as a confident
+  // ---- XML content is silently unread, and both `spectrum` and `where` present that as a confident
   // negative ("no scopes", "no lexical match") instead of naming the ungrammared files ----
   {
     name: '057: spectrum/where must disclose ungrammared files, not read the absence as empty content',
@@ -111,7 +111,7 @@ const cases = [
       { args: ['check', 'config/schema0.xml'], mustContain: [/no grammar for "\.xml"/] } ],
   },
 
-  // ---- §053: `check` carries the parse-degraded caveat; `review` (check aggregated over many files) drops it ----
+  // ---- `check` carries the parse-degraded caveat; `review` (check aggregated over many files) drops it ----
   {
     name: '053: review must carry the parse-degraded caveat that check already carries for the same file',
     // fixed: cmdReview (grain.mjs) now tracks degradedRels off r.hasError — a degraded-but-otherwise-clean file
@@ -132,13 +132,13 @@ const cases = [
       { args: ['review'], mustContain: [/\(parse degraded — part of this file sits in error nodes/] } ],
   },
 
-  // ---- §046: `mutate-test` (the "selftest" plant/catch harness) returns a bare, unexplained 0/0/0/0 when a
+  // ---- `mutate-test` (the "selftest" plant/catch harness) returns a bare, unexplained 0/0/0/0 when a
   // repo's certified conventions are all of a kind it has no mutation for (lexical/shape, not deco/extends/imp/
   // call/nameshape — see mutate() in core.mjs) ----
   {
     name: '046: mutate-test must say WHY it planted nothing instead of an unexplained 0/0/0/0',
     todo: false, // fixed: mutateTest (core.mjs) now counts a certified fact of a non-plantable pid kind into
-                 // `unsupported` instead of dropping it before the candidate loop even runs (§046)
+                 // `unsupported` instead of dropping it before the candidate loop even runs
     buildRepo(tmp) {
       const repo = join(tmp, 'r'); initRepo(repo);
       // varied name shapes (camel/Pascal/snake/SCREAMING/single-letter) so no one naming shape dominates enough
@@ -189,8 +189,8 @@ const cases = [
     commands: [ { args: ['status'], mustContain: [/history none \(shallow clone — history unavailable, weights flat\)/] } ],
   },
   {
-    name: 'existing: a promisor partial clone is disclosed like a shallow clone (§035)',
-    // §035's partialCloneFilter() (history.mjs) ships on main (0.3.0) — this session's original worktree
+    name: 'existing: a promisor partial clone is disclosed like a shallow clone',
+    // the partial-clone filter's partialCloneFilter() (history.mjs) ships on main (0.3.0) — this session's original worktree
     // branched from a pre-0.3.0 base (601aa23) where the function genuinely did not exist yet; rebasing onto
     // main confirmed it fires. Regression pin, not a contract gap.
     todo: false,
@@ -217,7 +217,7 @@ const cases = [
       /cycle \(strongly connected\): src\/mod-a, src\/mod-b, src\/mod-c — every member reaches every other, not necessarily in this order/ ] } ],
   },
   {
-    name: 'existing: intra-module edges are named on `report`, explaining a "0 module edges" gap (§004)',
+    name: 'existing: intra-module edges are named on `report`, explaining a "0 module edges" gap',
     // loop-v2.md listed an "intra-module note" as existing; the ORIGINAL fixture asserted on `status`, which
     // returned a false negative — intraModuleNote() (core.mjs) is real on main (0.3.0) but is wired into
     // report()/rulesMarkdown() only, never into statusLines(). `status` legitimately says nothing here; that
