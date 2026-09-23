@@ -105,7 +105,7 @@ export function proposeReport(r, { outDir, root, full = false, familyCandidates 
     aspects: { total: c.aspects, enforced: enforced.length, advisory: advisory.length, candidates: candidates.length, rest: rest.length, restByDraftReason: restByReason, certifiedWithCases: c.aspectsCertifiedWithCases },
     enforced: enforced.map(aspectJson),
     candidates: candidates.map(aspectJson),
-    // `familyCandidates` (additive): where the `.family-candidates.json` this run wrote went and how many
+    // `familyCandidates` (additive): where the `.family-candidates.grain.json` this run wrote went and how many
     // families it holds — `null` when the run was told not to write one. `droppedByFit` is what the
     // predicate-fit gate removed (members and whole families) before the file was written.
     familyCandidates: familyCandidates

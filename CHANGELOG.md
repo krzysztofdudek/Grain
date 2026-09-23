@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `grain propose` now writes its family candidates to `.family-candidates.grain.json`, its own file, instead of the `.family-candidates.json` Yggdrasil's miner also writes. The two producers no longer erase each other's families; `yg advise` 6.1.0 reads one file per producer. `--family-candidates <directory>` puts `.family-candidates.grain.json` inside it.
 - The Codex marketplace entry (`.agents/plugins/marketplace.json`) now carries the `policy` and `category` fields Codex's plugin documentation lists as required for each plugin.
 - Grain's Cursor session hook now starts Grain through the same reachability guard as every other host, and names the script through `${CURSOR_PLUGIN_ROOT}`. It used `./bin/grain.mjs`, a path relative to a working directory Cursor does not document for plugin hooks.
 - Grain's MCP server now answers for a repository named by its path inside a dev container. VS Code starts the server on the host for a window attached to a container, while the agent that passes `repo` runs in the container, so the path it passes does not exist where Grain runs. Grain now reads the mounts of the running containers (`docker ps`, `docker inspect`) and uses the host directory behind the longest mount that contains the path. A path no container mounts is refused with a message that says so and asks for the host path, as before never swapped for another repository.

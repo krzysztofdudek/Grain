@@ -387,7 +387,7 @@ export async function propose(repo, outDir, opts = {}) {
       charter:
         'removed — a charter.md is no longer written. What lives here (file counts, own files vs. a nested node\'s) is now the node\'s own `description` in `yg-node.yaml`; everything else a charter used to carry (conventions with exemplars, co-change partners) is a live query instead of a static file — `grain explain`, `grain where`, `grain completeness`.',
       familyCandidates:
-        'NOT part of this file — `propose.mjs --family-candidates <out.json>` writes a SEPARATE `.family-candidates.json` in the exact shape Yggdrasil\'s `yg advise` (`parseFamilyCandidates`, `advise-nominations.ts`) already accepts; see `buildFamilyCandidates` and docs/reference.md, "The proposal contract".',
+        'NOT part of this file — `propose.mjs --family-candidates <out.json>` writes a SEPARATE `.family-candidates.grain.json` in the exact shape Yggdrasil\'s `yg advise` (`parseFamilyCandidates`, `advise-nominations.ts`) already accepts; see `buildFamilyCandidates` and docs/reference.md, "The proposal contract".',
     },
     evidence,
   }, null, 1) + '\n');

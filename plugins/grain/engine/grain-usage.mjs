@@ -23,7 +23,7 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
                                           .yggdrasil-proposal/, never over your own .yggdrasil/) for you to read and move in. The report
                                           names the architecture, the rules a real \`yg drill\` proved, and the candidates; \`--full\` adds
                                           every draft it kept back. It also writes the family-without-law signal \`yg advise\` reads,
-                                          \`<out-dir>/.yggdrasil/.family-candidates.json\` (\`--family-candidates <path>\` writes it
+                                          \`<out-dir>/.yggdrasil/.family-candidates.grain.json\` (\`--family-candidates <path>\` writes it
                                           elsewhere, \`--no-family-candidates\` not at all), so \`yg adopt\` installs it with the graph
   advise [--json] [--graph <dir>]         read the architecture graph this repository ALREADY has (never a proposed one) and report
                                           what its own history and imports say about it: places a finer cut of their own files beats,

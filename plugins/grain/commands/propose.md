@@ -50,7 +50,7 @@ directory it would otherwise enforce, and that cannot be scoped to that cluster 
 drafts as `cluster-narrower-than-scope` rather than being enforced against files the measurement never looked
 at.
 
-The run also writes `.family-candidates.json` into the proposal's `.yggdrasil/`, beside the graph: the groups of
+The run also writes `.family-candidates.grain.json` into the proposal's `.yggdrasil/`, beside the graph: the groups of
 structurally uniform files no rule covers, in the shape `yg advise` reads. `yg adopt` installs it with the graph,
 and from then on `yg advise` names each group as a rule to draft. The line that starts `family candidates:` says how
 many there are and where the file went. For a repository that adopted earlier, `--family-candidates <path>` writes the

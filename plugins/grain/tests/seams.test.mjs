@@ -6,7 +6,7 @@
 //      "READ-ONLY" below), `propose.mjs` renders a proposal for it, and the real `yg` binary (not ours) is run
 //      three times against the staged repo: `check` (the graph loads — no LOAD_FAILURES code), `drill` (every
 //      rendered check.mjs reports 0 FALSE-ALARM on its own drill corpus), `advise` (the family this adapter
-//      wrote to `.family-candidates.json` is nominated). This is the wave-1 slice of the "compat matrix" named
+//      wrote to `.family-candidates.grain.json` is nominated). This is the wave-1 slice of the "compat matrix" named
 //      in decision `layers-compatible-no-user-thresholds`.
 //   2. THE PLANTED-FAMILY PRECISION CONTRACT. Yggdrasil ships two tiny fixture repos
 //      (`tests/fixtures/family-planted-mono`, `-polyglot`) whose whole point is a known-exact answer: one
@@ -109,9 +109,9 @@ before(() => {
     exclude: ['.yggdrasil', 'source/cli/node_modules', 'source/cli/dist'],
   });
   yggProposalOut = join(tmp, 'ygg-proposal');
-  // The real command, run from inside the stage: `grain propose` writes `.family-candidates.json` into the
+  // The real command, run from inside the stage: `grain propose` writes `.family-candidates.grain.json` into the
   // proposal's own `.yggdrasil/` by default, beside the graph, so nothing below copies it by hand.
-  yggFamilyCandidates = join(yggProposalOut, '.yggdrasil', '.family-candidates.json');
+  yggFamilyCandidates = join(yggProposalOut, '.yggdrasil', '.family-candidates.grain.json');
   const r = spawnSync('node', [GRAIN_BIN, 'propose', yggProposalOut, '--no-history'], {
     cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 29, timeout: 10 * 60_000,
   });
@@ -185,7 +185,7 @@ test('yg drill on every rendered check.mjs reports 0 FALSE-ALARM', { skip: HAVE_
 });
 
 // ============================================================================================================
-// Seam 1c — `yg advise` nominates the family this adapter wrote to `.family-candidates.json`. The nomination
+// Seam 1c — `yg advise` nominates the family this adapter wrote to `.family-candidates.grain.json`. The nomination
 // text is Yggdrasil's OWN (`advise-nominations.ts`'s `familyNominations`) — this test only proves the FILE
 // SHAPE this adapter emits is one Yggdrasil's freshness gate (`parseFamilyCandidates`) accepts and renders,
 // without changing one line of Yggdrasil's code.
@@ -194,11 +194,11 @@ test('yg advise nominates the family Grain\'s adapter wrote', { skip: HAVE_YG ? 
   assert.ok(!yggProposeError, yggProposeError);
   const written = JSON.parse(readFileSync(yggFamilyCandidates, 'utf8'));
   assert.equal(written.v, 1);
-  assert.ok(!Number.isNaN(Date.parse(written.ts)), `.family-candidates.json's ts ("${written.ts}") must be a parseable instant — yg advise's freshness gate silently drops the whole file otherwise`);
+  assert.ok(!Number.isNaN(Date.parse(written.ts)), `.family-candidates.grain.json's ts ("${written.ts}") must be a parseable instant — yg advise's freshness gate silently drops the whole file otherwise`);
   // Who measured and what "without a law" meant: optional fields inside v 1, and the nominations below prove
   // `yg advise` still accepts the file that carries them.
-  assert.equal(written.producer, 'grain', '.family-candidates.json must say which oracle wrote it');
-  assert.equal(written.gate, 'no-certified-convention', '.family-candidates.json must say what "without a law" meant for this producer');
+  assert.equal(written.producer, 'grain', '.family-candidates.grain.json must say which oracle wrote it');
+  assert.equal(written.gate, 'no-certified-convention', '.family-candidates.grain.json must say what "without a law" meant for this producer');
   const r = spawnSync('node', [YG_BIN, 'advise', '--ids', '--all'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 26 });
   const text = (r.stdout || '') + (r.stderr || '');
   const nominatedIds = [...text.matchAll(/family-without-law:(\S+)/g)].map(m => m[1]);
@@ -220,7 +220,7 @@ test('the adapter emits exactly the planted family on family-planted-mono, and n
   const stage = join(tmp, 'mono-stage');
   stageGitRepo(MONO_FIXTURE, stage); // keep this fixture's own `.yggdrasil/` — it is what "no certified convention" is measured against
   const out = join(tmp, 'mono-out');
-  const fc = join(out, '.yggdrasil', '.family-candidates.json');
+  const fc = join(out, '.yggdrasil', '.family-candidates.grain.json');
   const r = spawnSync('node', [GRAIN_BIN, 'propose', out, '--no-history'], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 28, timeout: 5 * 60_000 });
   assert.equal(r.status, 0, r.stderr);
   const written = JSON.parse(readFileSync(fc, 'utf8'));
@@ -451,11 +451,11 @@ test('every schema id Horde reads and Grain writes has a row on Yggdrasil\'s fam
     + 'Add a row (document, schema id, producer, consumers, since, described where) — the page is this seam\'s '
     + 'only source of truth.');
 
-  // `.family-candidates.json` carries no `schema` field at all — it versions itself by `v`. Deciding whether to
+  // `.family-candidates.grain.json` carries no `schema` field at all — it versions itself by `v`. Deciding whether to
   // give it an identifier is a contract change and a separate decision; until then the page must say so, and
   // this seam holds it to saying it rather than quietly dropping the document.
-  assert.match(page, /\.family-candidates\.json/,
-    `${pagePath} has no row for .family-candidates.json — the one document in the family with no schema id, `
+  assert.match(page, /\.family-candidates\.grain\.json/,
+    `${pagePath} has no row for .family-candidates.grain.json — the one document in the family with no schema id, `
     + 'versioned by its `v` field (Grain writes it, yg advise reads it)');
 
   // A row for a document none of the three repositories names is allowed ONLY when the page itself says where
