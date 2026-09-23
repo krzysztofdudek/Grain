@@ -1,5 +1,6 @@
 // grain engine · proposal writer · the family-without-law adapter and node co-change
 // Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { jaccard } from './yggdrasil-graph.mjs';
@@ -23,7 +24,11 @@ import { contentRegexFor } from './propose-levels.mjs';
 // `yg advise` turns each family into `family-without-law:<id>`, and two families with one id meant the
 // second could never be dismissed, deferred or filed.
 function familyId(part, group) {
-  return `family-grain-${slug(part ? `${part}-${group}` : String(group))}`.slice(0, 80);
+  const full = `family-grain-${slug(part ? `${part}-${group}` : String(group))}`;
+  if (full.length <= 80) return full;
+  // Cut to the id length yg advise keeps, the cut ends in a short hash of the whole name: two long
+  // partition names that share their first 80 characters must still give two ids.
+  return `${full.slice(0, 71)}-${createHash('sha256').update(full).digest('hex').slice(0, 8)}`;
 }
 
 export function buildFamilyCandidates(alternatives, exp, opts = {}, extra = {}) {

@@ -9,7 +9,7 @@ import {
   writeFileSync,
   realpathSync,
 } from 'node:fs';
-import { join, relative, resolve, isAbsolute, dirname, basename, dirname as pdirname } from 'node:path';
+import { join, relative, resolve, isAbsolute, dirname, basename, dirname as pdirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, HARD_EXCL } from './config.mjs';
@@ -79,37 +79,56 @@ export function parseArgv(argv) {
 // The two see the same files under different names. Every running container's mounts say which host directory
 // sits behind which container path, so the longest mount destination that contains the path gives its host
 // name. Null when docker is not there, nothing mounts it, or the host side does not exist either.
-export function hostPathFor(containerPath, { docker = 'docker' } = {}) {
-  const want = String(containerPath).replace(/\/+$/, '');
+export function hostPathFor(containerPath, opts = {}) {
+  const found = hostPathCandidates(containerPath, opts);
+  return found.length === 1 ? found[0] : null;
+}
+
+// Every host directory a running container mounts at the path, through the longest mount that
+// contains it, one per distinct host source. The path is normalised first, so a `..` can never walk
+// out of the mount it matched. Two containers can mount different checkouts at the same place
+// (two dev containers of one project, say): then there are two answers, and a caller must not
+// quietly pick one.
+export function hostPathCandidates(containerPath, { docker = 'docker' } = {}) {
+  const raw = String(containerPath);
+  if (!raw.startsWith('/')) return [];
+  const want = posix.normalize(raw).replace(/\/+$/, '') || '/';
   let ids;
   try {
     ids = execFileSync(docker, ['ps', '-q'], { stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000 }).toString().split(/\s+/).filter(Boolean);
-  } catch { return null; }
-  if (!ids.length) return null;
+  } catch { return []; }
+  if (!ids.length) return [];
   let mounts = [];
   try {
     const out = execFileSync(docker, ['inspect', '--format', '{{json .Mounts}}', ...ids], { stdio: ['ignore', 'pipe', 'ignore'], timeout: 10_000 }).toString();
     for (const line of out.split('\n').filter(Boolean)) {
       try { mounts.push(...(JSON.parse(line) || [])); } catch { /* one unreadable container says nothing about the others */ }
     }
-  } catch { return null; }
-  let best = null;
+  } catch { return []; }
+  let bestLen = -1;
+  const hosts = new Set();
   for (const m of mounts) {
     const dest = String(m?.Destination || '').replace(/\/+$/, '');
     const src = m?.Source;
     if (!dest || !src) continue;
     if (want !== dest && !want.startsWith(dest + '/')) continue;
-    if (!best || dest.length > best.dest.length) best = { dest, src };
+    const host = join(src, want.slice(dest.length));
+    if (!existsSync(host)) continue;
+    if (dest.length > bestLen) { bestLen = dest.length; hosts.clear(); }
+    if (dest.length === bestLen) hosts.add(host);
   }
-  if (!best) return null;
-  const host = join(best.src, want.slice(best.dest.length));
-  return existsSync(host) ? host : null;
+  return [...hosts].sort();
 }
 
 export function findRoot(opts) {
   let start = resolve(opts.repo || process.cwd());
   if (opts.repo && !existsSync(start)) {
-    const host = hostPathFor(opts.repo);
+    const hosts = hostPathCandidates(opts.repo);
+    if (hosts.length > 1) {
+      throw new Error(`${start} is mounted from ${hosts.length} different host directories by running containers (${hosts.join(', ')}); `
+        + 'Grain will not guess which checkout you mean — pass the host path of the one you want.');
+    }
+    const host = hosts[0] || null;
     if (!host) {
       throw new Error(`no such directory on the machine Grain runs on: ${start}. If the repository is open in a dev container, `
         + 'this is its path inside the container, and no running container mounts a host directory there; pass the checkout\'s path on the host instead.');

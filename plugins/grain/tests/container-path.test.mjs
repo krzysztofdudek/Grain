@@ -54,3 +54,35 @@ test('findRoot uses the translation, and refuses in words a path nothing mounts'
     rmSync(tmp, { recursive: true, force: true });
   }
 });
+
+test('two containers mounting different checkouts at the same path: no guess, and findRoot names both', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'grain-mounts-'));
+  const savedPath = process.env.PATH;
+  try {
+    const a = join(tmp, 'checkout-a'), b = join(tmp, 'checkout-b');
+    mkdirSync(a, { recursive: true }); mkdirSync(b, { recursive: true });
+    fakeDocker(tmp, [
+      { Type: 'bind', Source: a, Destination: '/workspaces/app' },
+      { Type: 'bind', Source: b, Destination: '/workspaces/app' },
+    ]);
+    process.env.PATH = `${tmp}:${savedPath}`;
+    assert.equal(hostPathFor('/workspaces/app'), null);
+    assert.throws(() => findRoot({ repo: '/workspaces/app' }), (e) => /2 different host directories/.test(e.message) && e.message.includes(a) && e.message.includes(b));
+  } finally {
+    process.env.PATH = savedPath;
+    rmSync(tmp, { recursive: true, force: true });
+  }
+});
+
+test('a .. in the container path cannot walk out of the mount it matched', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'grain-mounts-'));
+  try {
+    const host = join(tmp, 'checkout');
+    mkdirSync(join(host, 'src'), { recursive: true });
+    mkdirSync(join(tmp, 'secret'), { recursive: true });
+    const docker = fakeDocker(tmp, [{ Type: 'bind', Source: host, Destination: '/workspaces/app' }]);
+    assert.equal(hostPathFor('/workspaces/app/../secret', { docker }), null, 'normalised to /workspaces/secret, which nothing mounts — never the host directory beside the checkout');
+    assert.equal(hostPathFor('/workspaces/app/x/../src', { docker }), join(host, 'src'));
+    assert.equal(hostPathFor('workspaces/app', { docker }), null, 'a relative path is no container path');
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});

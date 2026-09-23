@@ -203,7 +203,12 @@ at the same binary by hand.
   (MCP's stdio framing; not the `Content-Length`-prefixed framing LSP uses). Diagnostics go to stderr only; stdout
   carries protocol messages exclusively.
 - **Protocol version**: `2025-06-18`.
-- **Tools** (all read-only, all `{ repo?: string }`-scoped to default to the server's own working directory):
+- **Tools** (all read-only, all `{ repo?: string }`-scoped to default to the server's own working directory). A `repo`
+  (or `grain_check`'s absolute `file`) that does not exist where the server runs — a path from inside a dev container,
+  handed to a server VS Code started on the host — is translated through the running containers' mounts (`docker ps`,
+  `docker inspect`: the longest mount containing the normalised path); a path two containers mount from different
+  host directories, or that no container mounts, is refused with a message saying so, never swapped for another
+  repository:
   - `grain_where { query: string, repo? }` — same as `where <query> --json`
   - `grain_how { query: string, top?: number, repo? }` — same as `how <query> --json`
   - `grain_what { query: string, repo? }` — same as `what <query> --json`
@@ -381,7 +386,9 @@ review never shows up as an untracked change and can never be committed by accid
 
 **The acceptance handshake (ticket 123).** The report's final `next:` line names the actual transaction —
 `yg adopt <out-dir> --dry-run` to preview, `yg adopt <out-dir>` to accept — dry-run named first because it
-writes nothing. When a Yggdrasil CLI resolves (`YG_BIN`, or `yg` on PATH — the same resolution the drill step
+writes nothing. In a repository that already has a graph both carry `--replace` (`yg adopt` refuses a plain
+acceptance over an existing graph, and a Yggdrasil before 6.1.0 refused its dry run too), and the line says
+that accepting would replace that graph. When a Yggdrasil CLI resolves (`YG_BIN`, or `yg` on PATH — the same resolution the drill step
 above already uses), the command goes further: it runs that `--dry-run` on the very proposal it just wrote and
 prints Yggdrasil's own summary block VERBATIM beneath the `next:` line — components, rules by status, origin,
 and above all **"Already broken N sites"**, the one number nothing else in either report can give, since a
@@ -662,7 +669,8 @@ the proposal's `.yggdrasil/`, beside the graph, so `yg adopt` installs it with t
 the adopted repository; `--family-candidates <path>` writes it to that path instead (a repository that adopted earlier
 points it at its own `.yggdrasil/`; a directory gets `.family-candidates.grain.json` inside it) and `--no-family-candidates`
 writes none. The report carries one `family candidates:` line, and `--json` a `familyCandidates` field
-(`{path, families, droppedByFit}`, `null` when none was written). The file has the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
+(`{path, families, droppedByFit}`, plus `notWritten: "<producer>"` when the path already held another producer's
+families and Grain left it as it was; `null` when none was written). The file has the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
 `advise-nominations.ts`): `{v: 1, ts, producer, gate, families: [{id, language, members, fittedPredicate: {kind, value},
 scopeFilesDraft, evidence: {clusterSize, tightness}}]}`. `producer` (`"grain"`) and `gate` (`"no-certified-convention"`)
 say who measured and what "without a law" meant: Yggdrasil's own offline miner writes the same document from a different
