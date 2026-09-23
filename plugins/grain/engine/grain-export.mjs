@@ -63,7 +63,7 @@ export async function cmdPropose({ root, args, opts, stamp }) {
   if (opts.holdout !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(opts.holdout)))
     throw new Error('usage: grain propose --holdout <YYYY-MM-DD> — a calendar date, so drill corpora keep only sites first seen after it');
   if (opts['family-candidates'] === true)
-    throw new Error('usage: grain propose --family-candidates <path> — the file to write the family candidates to (a directory gets `.family-candidates.json` inside it); by default it goes to <out-dir>/.yggdrasil/.family-candidates.json, beside the graph `yg adopt` installs');
+    throw new Error('usage: grain propose --family-candidates <path> — the file to write the family candidates to (a directory gets `.family-candidates.grain.json` inside it); by default it goes to <out-dir>/.yggdrasil/.family-candidates.grain.json, beside the graph `yg adopt` installs');
   if (opts['no-family-candidates'] && opts['family-candidates'] !== undefined)
     throw new Error('usage: grain propose takes --family-candidates <path> or --no-family-candidates, not both');
   const outDir = args[0]
@@ -83,17 +83,17 @@ export async function cmdPropose({ root, args, opts, stamp }) {
     );
   const { propose, proposeReport, resolveYg, buildFamilyCandidates } = await import('./propose.mjs');
   const r = await propose(root, outDir, { noHistory: !!opts['no-history'], holdout: opts.holdout });
-  // The family-without-law signal `yg advise` reads (`.yggdrasil/.family-candidates.json`). It goes INTO the
+  // The family-without-law signal `yg advise` reads (`.yggdrasil/.family-candidates.grain.json`). It goes INTO the
   // proposal, beside the graph, so `yg adopt` installs both in one move and an adopter never copies a file by
   // hand; `--family-candidates <path>` writes it somewhere else instead (a repository that adopted earlier
   // points it at its own `.yggdrasil/`), and `--no-family-candidates` writes none. Only this one file is ever
   // written outside the staging tree, and only when the caller named where.
   let familyCandidates = null;
   if (!opts['no-family-candidates']) {
-    let fcPath = join(outDir, '.yggdrasil', '.family-candidates.json');
+    let fcPath = join(outDir, '.yggdrasil', '.family-candidates.grain.json');
     if (opts['family-candidates'] !== undefined) {
       fcPath = isAbsolute(opts['family-candidates']) ? opts['family-candidates'] : resolve(process.cwd(), opts['family-candidates']);
-      if (existsSync(fcPath) && statSync(fcPath).isDirectory()) fcPath = join(fcPath, '.family-candidates.json');
+      if (existsSync(fcPath) && statSync(fcPath).isDirectory()) fcPath = join(fcPath, '.family-candidates.grain.json');
     }
     // `_fit` is bookkeeping about the predicate-fit gate, not part of the contract `yg advise` reads.
     const { _fit, ...onDisk } = buildFamilyCandidates(r.alternatives, r.exp, {}, { active: r.active, groups: r.loc.groups, repo: root });

@@ -7,7 +7,7 @@ import { FAMILY_MIN_MEMBERS, slug } from './propose-base.mjs';
 import { contentRegexFor } from './propose-levels.mjs';
 
 // ==================================================================================================
-// 7b. The `.family-candidates.json` adapter — the seam to `yg advise`'s family-without-law class.
+// 7b. The `.family-candidates.grain.json` adapter — the seam to `yg advise`'s family-without-law class.
 //
 // Yggdrasil's OWN offline miner (`scripts/family-without-law.mjs`) clusters files by AST structural feature
 // vectors and cuts a fitted predicate for a cluster that shares no rule of its own. Grain never re-implements

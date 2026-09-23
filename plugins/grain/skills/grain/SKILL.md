@@ -212,7 +212,7 @@ same records, same effect.
   everything else is on disk and summarised in one counted line, with `--full` to print it. With no Yggdrasil
   CLI (`YG_BIN`, or `yg` on PATH) nothing can be drilled, so nothing is enforced and the report says so. It is
   a proposal: a human reviews it and moves it in. Never move it in, and never run `yg check --approve`, unbidden.
-  It also writes `.family-candidates.json` beside the graph (`<out-dir>/.yggdrasil/`): groups of structurally
+  It also writes `.family-candidates.grain.json` beside the graph (`<out-dir>/.yggdrasil/`): groups of structurally
   uniform files no rule covers, which `yg advise` names as rules to draft once `yg adopt` has installed the file.
   `--family-candidates <path>` writes it elsewhere (a repository that adopted earlier points it at its own
   `.yggdrasil/`), `--no-family-candidates` writes none.

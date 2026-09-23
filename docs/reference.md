@@ -657,10 +657,10 @@ rather than as it stood the moment `grain propose` ran.
 **`sizing.json`** (ticket 098) is unchanged by this contract — see its own header comment in
 `plugins/grain/engine/propose-sizing.mjs` for the field-by-field explanation.
 
-**The `.family-candidates.json` adapter** — `grain propose` writes a SEPARATE file (not part of `proposal.json`) into
+**The `.family-candidates.grain.json` adapter** — `grain propose` writes a SEPARATE file (not part of `proposal.json`) into
 the proposal's `.yggdrasil/`, beside the graph, so `yg adopt` installs it with the rest and `yg advise` reads it from
 the adopted repository; `--family-candidates <path>` writes it to that path instead (a repository that adopted earlier
-points it at its own `.yggdrasil/`; a directory gets `.family-candidates.json` inside it) and `--no-family-candidates`
+points it at its own `.yggdrasil/`; a directory gets `.family-candidates.grain.json` inside it) and `--no-family-candidates`
 writes none. The report carries one `family candidates:` line, and `--json` a `familyCandidates` field
 (`{path, families, droppedByFit}`, `null` when none was written). The file has the exact shape Yggdrasil's `yg advise` already reads (`parseFamilyCandidates`,
 `advise-nominations.ts`): `{v: 1, ts, producer, gate, families: [{id, language, members, fittedPredicate: {kind, value},
@@ -674,7 +674,7 @@ role group (093/094's structural cluster within a partition) that clears the sam
 offline miner uses (`FAMILY_MIN_MEMBERS = 5`, stated in `plugins/grain/engine/propose-base.mjs`) and carries no certified
 convention of its own — whether that group ended up as a finer `-content` alternative (a subset of its host
 type) or, when the group coincides with its whole host type, was cut directly as an active type with no
-alternative offered. With the file in `.yggdrasil/` at `.family-candidates.json`, running `yg advise` there makes
+alternative offered. With the file in `.yggdrasil/` at `.family-candidates.grain.json`, running `yg advise` there makes
 Yggdrasil nominate the family with zero code changes on Yggdrasil's side —
 `plugins/grain/tests/seams.test.mjs` proves this against a real `yg` binary and against Yggdrasil's own
 planted-family precision fixtures.

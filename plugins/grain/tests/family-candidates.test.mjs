@@ -1,4 +1,4 @@
-// `grain propose` writes the family-without-law signal `yg advise` reads: `.family-candidates.json`.
+// `grain propose` writes the family-without-law signal `yg advise` reads: `.family-candidates.grain.json`.
 //
 // The adapter that builds the file (engine/propose-family.mjs) is exercised against real repositories
 // by tests/seams.test.mjs. This file pins the COMMAND: where the file goes by default (INTO the proposal, beside
@@ -86,21 +86,21 @@ const plantedFamily = written => {
 test('by default the file is written INTO the proposal, beside the graph, and the report says where and what', () => {
   const { r, out, report } = propose('default');
   assert.equal(r.status, 0, r.stderr);
-  const file = join(out, '.yggdrasil', '.family-candidates.json');
+  const file = join(out, '.yggdrasil', '.family-candidates.grain.json');
   assert.ok(existsSync(file), `${file} was not written — yg adopt installs .yggdrasil/ from the proposal, so a file beside the proposal never reaches the repository`);
   plantedFamily(JSON.parse(readFileSync(file, 'utf8')));
-  assert.match(r.stdout, /family candidates: 1 group\(s\) of structurally uniform files with no rule of their own — .*\.yggdrasil\/\.family-candidates\.json/);
+  assert.match(r.stdout, /family candidates: 1 group\(s\) of structurally uniform files with no rule of their own — .*\.yggdrasil\/\.family-candidates\.grain\.json/);
   assert.ok(r.stdout.indexOf('family candidates:') < r.stdout.indexOf('\nnext:'), 'the line sits before the `next:` handshake, which the dry-run summary follows');
   assert.deepEqual(report.familyCandidates, { path: report.familyCandidates.path, families: 1, droppedByFit: { members: 0, families: 0 } });
-  assert.match(report.familyCandidates.path, /\.yggdrasil\/\.family-candidates\.json$/);
+  assert.match(report.familyCandidates.path, /\.yggdrasil\/\.family-candidates\.grain\.json$/);
 });
 
 test('--family-candidates <path> writes there instead, and the proposal carries no copy', () => {
-  const target = join(tmp, 'adopted', '.yggdrasil', '.family-candidates.json');
+  const target = join(tmp, 'adopted', '.yggdrasil', '.family-candidates.grain.json');
   const { r, out, report } = propose('path', ['--family-candidates', target]);
   assert.equal(r.status, 0, r.stderr);
   plantedFamily(JSON.parse(readFileSync(target, 'utf8')));
-  assert.ok(!existsSync(join(out, '.yggdrasil', '.family-candidates.json')), 'one destination, not two');
+  assert.ok(!existsSync(join(out, '.yggdrasil', '.family-candidates.grain.json')), 'one destination, not two');
   assert.equal(report.familyCandidates.path, target);
 });
 
@@ -109,7 +109,7 @@ test('--family-candidates <path> writes there instead, and the proposal carries 
 test('a file another producer wrote is left as it is, and the report says Grain\'s families were not written', () => {
   const dir = join(tmp, 'mined', '.yggdrasil');
   mkdirSync(dir, { recursive: true });
-  const target = join(dir, '.family-candidates.json');
+  const target = join(dir, '.family-candidates.grain.json');
   const theirs = `${JSON.stringify({ v: 1, ts: '2026-09-22T00:00:00Z', producer: 'yggdrasil-miner', gate: 'no-narrow-aspect', families: [] }, null, 1)}\n`;
   writeFileSync(target, theirs);
   const { r, report } = propose('other-producer', ['--family-candidates', target]);
@@ -119,18 +119,18 @@ test('a file another producer wrote is left as it is, and the report says Grain\
   assert.match(`${r.stdout}${r.stderr}`, /family candidates: 1 group\(s\) found, NOT written — .* holds `yggdrasil-miner`'s families/);
 });
 
-test('--family-candidates <directory> writes .family-candidates.json inside it', () => {
+test('--family-candidates <directory> writes .family-candidates.grain.json inside it', () => {
   const dir = join(tmp, 'a-directory');
   mkdirSync(dir, { recursive: true });
   const { r } = propose('dir', ['--family-candidates', dir]);
   assert.equal(r.status, 0, r.stderr);
-  plantedFamily(JSON.parse(readFileSync(join(dir, '.family-candidates.json'), 'utf8')));
+  plantedFamily(JSON.parse(readFileSync(join(dir, '.family-candidates.grain.json'), 'utf8')));
 });
 
 test('--no-family-candidates writes no file, prints no line, and the JSON says null', () => {
   const { r, out, report } = propose('none', ['--no-family-candidates']);
   assert.equal(r.status, 0, r.stderr);
-  assert.ok(!existsSync(join(out, '.yggdrasil', '.family-candidates.json')));
+  assert.ok(!existsSync(join(out, '.yggdrasil', '.family-candidates.grain.json')));
   assert.ok(!/family candidates:/.test(r.stdout));
   assert.equal(report.familyCandidates, null);
 });
@@ -147,7 +147,7 @@ test('a repository with no family still gets the file, empty, so yg advise knows
   const out = join(tmp, 'out-bare');
   const r = spawnSync('node', [BIN, 'propose', out, '--no-history'], { cwd: bare, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 120_000, env });
   assert.equal(r.status, 0, r.stderr);
-  const written = JSON.parse(readFileSync(join(out, '.yggdrasil', '.family-candidates.json'), 'utf8'));
+  const written = JSON.parse(readFileSync(join(out, '.yggdrasil', '.family-candidates.grain.json'), 'utf8'));
   assert.deepEqual(written.families, []);
   assertOracle(written);
   assert.match(r.stdout, /family candidates: none — no group of structurally uniform files is left without a rule/);

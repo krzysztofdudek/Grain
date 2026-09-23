@@ -108,7 +108,7 @@ exist. They talk to each other through versioned files on disk rather than a sha
 output is a `.yggdrasil/` tree Yggdrasil loads directly, with the node's own description (what lives there) written
 into `yg-node.yaml` — what a charter used to carry beyond that (conventions with exemplars, co-change) is a live
 answer from `grain explain`, `grain where` and `grain completeness`, never a file `grain propose` writes; and
-grain's role groups are also written beside that graph as Yggdrasil's own `.family-candidates.json` shape, so `yg adopt`
+grain's role groups are also written beside that graph in Yggdrasil's family-candidates shape, as `.family-candidates.grain.json`, so `yg adopt`
 installs it and `yg advise` can nominate families mined by Grain with no code change on Yggdrasil's side at all — verified against a planted
 fixture where all 5 real families were
 nominated 5 of 5. Adopt Grain first — day zero, soft law that drafts and never blocks — keep Yggdrasil as the
