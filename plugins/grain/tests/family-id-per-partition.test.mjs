@@ -38,3 +38,14 @@ test('a group coinciding with its host type reports the measured overlap as its 
   assert.equal(out.families.length, 1);
   assert.equal(out.families[0].evidence.tightness, 0.9);
 });
+
+// A family id is cut to the length yg advise keeps. Two partitions whose names share their first 80
+// characters must still give two ids, so a cut id ends in a hash of the whole name.
+test('two long partition names that share their first 80 characters still give two ids', () => {
+  const long = 'a-very-long-monorepo-package-name-that-keeps-going-for-quite-a-while-indeed';
+  const out = buildFamilyCandidates([alt(`${long}-one`, five('p1')), alt(`${long}-two`, five('p2'))], { indexedAt: '2026-09-23T00:00:00Z' });
+  const ids = out.families.map((f) => f.id);
+  assert.equal(ids.length, 2);
+  assert.notEqual(ids[0], ids[1]);
+  for (const id of ids) assert.ok(id.length <= 80, `${id} is longer than 80`);
+});

@@ -14,6 +14,9 @@
 // optimization cost. A server answers many tool calls over its lifetime, so the opposite trade applies — it should
 // keep the optimizing compiler on, like `grain refresh` already does.
 import { createInterface } from 'node:readline';
+import { existsSync } from 'node:fs';
+import { isAbsolute } from 'node:path';
+import { hostPathFor } from '../engine/grain-context.mjs';
 import {
   findRoot,
   storeFor,
@@ -170,8 +173,11 @@ const TOOLS = {
         throw invalidParams('grain_check: "file", if present, must be a non-empty string');
     },
     async exec(a) {
-      const ctx = await buildCtx(a.repo, a.file !== undefined ? [a.file] : [], { json: true });
-      const [json] = a.file !== undefined ? await cmdCheck(ctx) : await cmdReview(ctx);
+      // An absolute file path from inside a dev container names the same file the repository path
+      // does once translated, so it is translated the same way; a path that exists here is left as is.
+      const file = a.file !== undefined && isAbsolute(a.file) && !existsSync(a.file) ? (hostPathFor(a.file) ?? a.file) : a.file;
+      const ctx = await buildCtx(a.repo, file !== undefined ? [file] : [], { json: true });
+      const [json] = file !== undefined ? await cmdCheck(ctx) : await cmdReview(ctx);
       return json;
     },
   },

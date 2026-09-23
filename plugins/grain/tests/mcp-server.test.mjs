@@ -6,7 +6,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -18,8 +18,8 @@ const BUILDER = join(here, '..', '..', '..', 'tests', 'fixtures', 'build-fixture
 let tmp, repo, server;
 
 // a minimal MCP client: newline-delimited JSON-RPC request/response correlation by id, over the child's real stdio
-function startServer(cwd) {
-  const child = spawn('node', [BIN_MCP], { cwd, stdio: ['pipe', 'pipe', 'pipe'] });
+function startServer(cwd, env = process.env) {
+  const child = spawn('node', [BIN_MCP], { cwd, env, stdio: ['pipe', 'pipe', 'pipe'] });
   const rl = createInterface({ input: child.stdout, crlfDelay: Infinity });
   const pending = new Map(); let nextId = 1; let stderrBuf = '';
   child.stderr.on('data', d => { stderrBuf += d.toString(); });
@@ -176,4 +176,31 @@ test('an unparseable line on stdin gets a JSON-RPC parse error and does not cras
   const r = await server.send('ping', {}); // proves the server is still alive and answering after the bad line
   assert.ok(!r.error, JSON.stringify(r));
   assert.deepEqual(r.result, {});
+});
+
+// The repository open in a dev container: the agent names the repo AND the file by their container
+// paths. Both are translated through the running container's mounts, so grain_check answers for the
+// file rather than refusing a path that only exists inside the container.
+test('grain_check with a container repo path and a container file path answers for the file', async () => {
+  const bin = join(tmp, 'docker-bin');
+  execFileSync('mkdir', ['-p', bin]);
+  writeFileSync(join(bin, 'docker'), `#!/usr/bin/env node
+const a = process.argv.slice(2);
+if (a[0] === 'ps') { console.log('abc123'); process.exit(0); }
+if (a[0] === 'inspect') { console.log(${JSON.stringify(JSON.stringify([{ Type: 'bind', Source: '__REPO__', Destination: '/workspaces/app' }]))}.replace('__REPO__', ${JSON.stringify(repo)})); process.exit(0); }
+process.exit(1);
+`);
+  chmodSync(join(bin, 'docker'), 0o755);
+  const file = execFileSync('git', ['ls-files'], { cwd: repo, encoding: 'utf8' }).split('\n').find(f => /\.(ts|js|mjs)$/.test(f));
+  assert.ok(file, 'the fixture has a source file to check');
+  const srv = startServer(tmp, { ...process.env, PATH: `${bin}:${process.env.PATH}` });
+  try {
+    await srv.send('initialize', { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 't', version: '0' } });
+    const r = await srv.send('tools/call', { name: 'grain_check', arguments: { repo: '/workspaces/app', file: `/workspaces/app/${file}` } });
+    assert.ok(!r.error, JSON.stringify(r));
+    assert.notEqual(r.result.isError, true, r.result.content?.[0]?.text);
+  } finally {
+    try { srv.child.stdin.end(); } catch { /* closed */ }
+    try { srv.child.kill(); } catch { /* dead */ }
+  }
 });
