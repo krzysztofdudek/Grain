@@ -32,7 +32,7 @@ function hookCommands(file) {
 
 function everySite() {
   const sites = [];
-  for (const f of ['hooks.json', 'hooks/hooks.json', 'hooks/codex-hooks.json', 'hooks/cursor-hooks.json']) {
+  for (const f of ['hooks.json', 'com.github.copilot/hooks/hooks.json', 'hooks/hooks.json', 'hooks/codex-hooks.json', 'hooks/cursor-hooks.json']) {
     for (const c of hookCommands(f)) sites.push({ where: f, cmd: c });
   }
   for (const f of readdirSync(join(PLUGIN, 'commands')).filter((n) => n.endsWith('.md'))) {
