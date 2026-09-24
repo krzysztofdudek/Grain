@@ -50,6 +50,8 @@ const YG_BIN = process.env.YG_BIN || '/home/user/Yggdrasil/source/cli/dist/bin.j
 // this when the layout differs (e.g. a CI checkout under a different name).
 const YGG_DIR = process.env.YGG_DIR || resolve(dirname(YG_BIN), '..', '..', '..');
 const HAVE_YG = existsSync(YG_BIN) && existsSync(join(YGG_DIR, '.git'));
+const HAVE_YG_BIN = existsSync(YG_BIN);
+const YG_BIN_SKIP = `Yggdrasil binary not found (looked for ${YG_BIN} — set YG_BIN)`;
 const YG_SKIP = `Yggdrasil binary/checkout not found (looked for ${YG_BIN} and a git repo at ${YGG_DIR} — set YG_BIN / YGG_DIR)`;
 
 const HORDE_DIR = process.env.HORDE_DIR || '/home/user/krzysztofdudek/horde';
@@ -63,6 +65,21 @@ const MONO_FIXTURE = join(FIXTURES, 'family-planted-mono');
 const HAVE_MONO_FIXTURE = HAVE_YG && existsSync(MONO_FIXTURE);
 
 const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-reviewer-missing|description-missing|type-undefined|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
+
+// What `yg check` refused to load, read from its `yg-check/1` document: every issue's `code`, the ones matching
+// LOAD_FAILURES, and the node count it loaded. Never the text report: that is written for a person, its layout
+// moves between releases, and a scrape of it once read `at, why, fix` as the codes and passed a refused graph.
+function loadFailures(cwd) {
+  const r = spawnSync('node', [YG_BIN, 'check', '--json'], { cwd, encoding: 'utf8', maxBuffer: 1 << 26 });
+  const raw = (r.stdout || '') + (r.stderr || '');
+  let doc = null;
+  try { doc = JSON.parse(r.stdout || ''); } catch { /* reported below */ }
+  assert.ok(doc && doc.schema === 'yg-check/1', `yg check --json printed no yg-check/1 document — the graph did not load:\n${raw.slice(0, 2000)}`);
+  assert.ok(Array.isArray(doc.issues) && doc.project && Number.isInteger(doc.project.nodes), `yg-check/1 document has no issues[] or project.nodes:\n${raw.slice(0, 2000)}`);
+  const codes = [...new Set(doc.issues.map(i => i.code))];
+  const fatal = [...new Set(doc.issues.map(i => i.code).filter(c => LOAD_FAILURES.test(c)))];
+  return { nodes: doc.project.nodes, codes, fatal, raw };
+}
 
 const gitEnv = home => ({
   ...process.env, HOME: home,
@@ -135,15 +152,37 @@ after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* 
 // ============================================================================================================
 test('yg check loads the proposal rendered for Yggdrasil itself', { skip: HAVE_YG ? false : YG_SKIP }, () => {
   assert.ok(!yggProposeError, yggProposeError);
-  const r = spawnSync('node', [YG_BIN, 'check'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 26 });
-  const text = (r.stdout || '') + (r.stderr || '');
-  const header = /yg check: \w+[^\n]*?(\d+) nodes/.exec(text);
-  assert.ok(header, `yg check printed no graph header — the graph did not load:\n${text.slice(0, 2000)}`);
-  assert.equal(Number(header[1]), yggProposeCounts.nodes, `Yggdrasil loaded ${header[1]} nodes, the proposal wrote ${yggProposeCounts.nodes}`);
-  const codes = [...new Set([...text.matchAll(/^ {2}([a-z][a-z-]+)/gm)].map(m => m[1]))];
-  const fatal = codes.filter(c => LOAD_FAILURES.test(c));
-  assert.deepEqual(fatal, [], `Yggdrasil refused to load the proposal:\n${text.slice(0, 4000)}`);
-  console.log(`[seams] yg check: ${header[1]} nodes loaded, codes seen: ${codes.join(', ') || '(none)'}`);
+  const r = loadFailures(yggStage);
+  assert.equal(r.nodes, yggProposeCounts.nodes, `Yggdrasil loaded ${r.nodes} nodes, the proposal wrote ${yggProposeCounts.nodes}`);
+  assert.deepEqual(r.fatal, [], `Yggdrasil refused to load the proposal:\n${r.raw.slice(0, 4000)}`);
+  console.log(`[seams] yg check: ${r.nodes} nodes loaded, codes seen: ${r.codes.join(', ') || '(none)'}`);
+});
+
+// ============================================================================================================
+// Seam 1a' — the guard above can see a load failure at all. It used to scrape codes indented under the text
+// report's old layout; Yggdrasil 6.1 moved the code into `error[<code>]` and indents `at:`/`why:`/`fix:` there
+// instead, so the scrape read `at, why, fix`, found no LOAD_FAILURES code, and passed a graph Yggdrasil had
+// refused. The node count kept agreeing, because a refused aspect takes no node with it. A graph with one
+// real, valid node and one aspect that has no rule source at all (`aspect-reviewer-missing`) is exactly that
+// case: the guard must name the code while the node count still reads 1.
+// ============================================================================================================
+test('the load-failure guard catches a real refusal the node count cannot see', { skip: HAVE_YG_BIN ? false : YG_BIN_SKIP }, () => {
+  const repo = join(tmp, 'planted-load-failure');
+  mkdirSync(repo, { recursive: true });
+  const env = gitEnv(repo);
+  execFileSync('git', ['-C', repo, 'init', '-q', '-b', 'main'], { env });
+  writeFileSync(join(repo, 'a.js'), 'export const a = 1;\n');
+  const init = spawnSync('node', [YG_BIN, 'init', '--no-reviewer', '--no-agents-md'], { cwd: repo, encoding: 'utf8', env, input: '' });
+  assert.equal(init.status, 0, `yg init failed:\n${init.stdout}${init.stderr}`);
+  writeFileSync(join(repo, '.yggdrasil', 'yg-architecture.yaml'), 'node_types:\n  module:\n    description: A module.\n');
+  mkdirSync(join(repo, '.yggdrasil', 'model', 'app'), { recursive: true });
+  writeFileSync(join(repo, '.yggdrasil', 'model', 'app', 'yg-node.yaml'), 'name: App\ntype: module\ndescription: The app.\n');
+  // An aspect with neither content.md, check.mjs nor implies: Yggdrasil refuses to load it.
+  mkdirSync(join(repo, '.yggdrasil', 'aspects', 'planted'), { recursive: true });
+  writeFileSync(join(repo, '.yggdrasil', 'aspects', 'planted', 'yg-aspect.yaml'), 'name: Planted\ndescription: A rule with nothing to run.\n');
+  const r = loadFailures(repo);
+  assert.equal(r.nodes, 1, `the planted node must still load, or the node count alone would catch this:\n${r.raw.slice(0, 2000)}`);
+  assert.deepEqual(r.fatal, ['aspect-reviewer-missing'], `the guard did not see the planted load failure (codes seen: ${r.codes.join(', ') || '(none)'}):\n${r.raw.slice(0, 2000)}`);
 });
 
 // ============================================================================================================
