@@ -13,7 +13,7 @@
   },
   "scripts": {
     "build:grammars": "node scripts/build-grammars.mjs",
-    "test": "node --test tests/*.test.mjs tests/relations/e2e/*.test.mjs tests/relations/e2e-cli/*.test.mjs tests/relations/unit/*/*.test.mjs",
+    "test": "node --test tests/*.test.mjs tests/relations/*.test.mjs tests/relations/e2e/*.test.mjs tests/relations/e2e-cli/*.test.mjs tests/relations/unit/*/*.test.mjs tests/relations/reference/*.test.mjs",
     "build:relations": "node scripts/build-relations.mjs"
   },
   "devDependencies": {

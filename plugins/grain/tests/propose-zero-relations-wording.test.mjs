@@ -48,13 +48,14 @@ const archLine = out => out.split('\n').find(l => l.startsWith('architecture:'))
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'propose-zero-rel-')); });
 after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
 
-// Eight standalone modules that reference nothing but the standard library: references ARE extracted (each file
-// has imports), none of them binds to a file in the tree, and so nothing can cross a module boundary.
+// Eight standalone modules that reference nothing but an external package: references ARE extracted (each file
+// has an import), none of them binds to a file in the tree, and so nothing can cross a module boundary. (A Node
+// built-in such as `node:fs` is not a reference at all — the extractor drops it — so it would read as "nothing seen".)
 test('with no relation mined, the architecture line says so and names the three stages', () => {
   const files = {};
   for (let i = 0; i < 8; i++)
     files[`svc${i}/handler${i}.mjs`] =
-      `import { readFileSync } from 'node:fs';\nexport const load${i} = p => readFileSync(p, 'utf8');\n`;
+      `import { parse } from 'yaml';\nexport const load${i} = t => parse(t);\n`;
   const repo = build('lonely', files);
   const out = propose(repo);
   const exp = JSON.parse(

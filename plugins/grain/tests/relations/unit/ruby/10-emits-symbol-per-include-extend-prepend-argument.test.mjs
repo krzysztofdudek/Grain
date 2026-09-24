@@ -5,14 +5,18 @@ import { expect, runExtractor, extractorForLanguage } from '../_unit-harness.mjs
 
 const rubyExtractor = extractorForLanguage('ruby');
 const run = (code) => runExtractor(rubyExtractor, 'ruby', '.rb', code);
-const symbolKeys = (uses) =>
-  uses.flatMap((u) => (u.candidates[0].kind === 'symbol' ? [u.candidates[0].symbolKey] : []));
+/** The top-level (last) reading of every symbol group: the key the reference resolves to when no nearer lexical candidate binds. */
+const fallbackKeys = (uses) =>
+  uses.flatMap((u) => {
+    const last = u.candidates[u.candidates.length - 1];
+    return last.kind === 'symbol' ? [last.symbolKey] : [];
+  });
 
 test('emits a symbol per `include` / `extend` / `prepend` module argument', async () => {
   const { uses } = await run(
     ['class C', '  include Loggable', '  extend Forwardable', '  prepend Tracing::Hook', 'end', ''].join('\n'),
   );
-  const keys = symbolKeys(uses);
+  const keys = fallbackKeys(uses);
   expect(keys).toContain('Loggable');
   expect(keys).toContain('Forwardable');
   expect(keys).toContain('Tracing::Hook');

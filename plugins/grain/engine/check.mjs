@@ -6,7 +6,7 @@ import { dirname, extname } from 'node:path/posix';
 import { CFG } from './config.mjs';
 import { relFactsFor } from './relations.mjs';
 import { computeArchHits } from './arch.mjs';
-import { UNSEEN } from './base.mjs';
+import { UNSEEN, langExt } from './base.mjs';
 import { practicedBy } from './cards.mjs';
 import { applyVocab, isBool, isDefiningFact, kt, part, ptr, scopeLabel, skeyR } from './facts.mjs';
 import { lexicalPreds } from './lexical.mjs';
@@ -31,7 +31,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
   const effRel = asPath || rel;
   const src = normalizeCR(content ?? readFileSync(join(root, rel), 'utf8'));
   const part = partitionFor(model, effRel);
-  const { p, tree: tr } = await parseFile(extname(rel), src);
+  const { p, tree: tr } = await parseFile(langExt(rel), src);
   const b = bindingFor(p._g);
   const hasError = tr.rootNode.hasError; // a real parse failure (e.g. unicode identifiers a vendored grammar can't
   // handle) leaves ERROR nodes in the tree; extractScopes silently skips them so partial content still mines, but

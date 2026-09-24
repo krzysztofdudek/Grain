@@ -10,7 +10,7 @@ const rubyTable = (...decls) => {
 };
 
 test('resolve: a root-unanchored compact constant does not resolve', () => {
-  const st = rubyTable(['Rack::Handler', 'lib/x.rb']);
+  const st = rubyTable(['Rackup::Handler', 'lib/x.rb']);
   const r = makeResolver({ ownerIndex: rbOwner, symbolTable: st, resolvePathToFile: () => undefined });
-  expect(r.resolve({ kind: 'symbol', symbolKey: 'Rack::Handler' }, 'lib/a.rb', 'ruby')).toBeUndefined();
+  expect(r.resolve({ kind: 'symbol', symbolKey: 'Rackup::Handler' }, 'lib/a.rb', 'ruby')).toBeUndefined();
 });

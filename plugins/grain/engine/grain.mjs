@@ -71,6 +71,7 @@ import {
 import { USAGE } from './grain-usage.mjs';
 import { cmdMap, cmdObligation, cmdWhat } from './grain-what.mjs';
 import { cmdHow, cmdWhere } from './grain-where.mjs';
+import { langExt } from './base.mjs';
 
 // ----- main -----
 export async function main(argv) {
@@ -168,7 +169,7 @@ export async function main(argv) {
         }
       } else {
         resolvePlacementPending(st2, f.root, rel); // silent — never adds to the hook's spoken output, only updates local state
-        if (!EXT2GRAMMAR[extname(rel)] || !existsSync(join(f.root, rel))) return 0;
+        if (!EXT2GRAMMAR[langExt(rel)] || !existsSync(join(f.root, rel))) return 0;
         const lines = await cmdCheck({
           model: model2,
           root: f.root,

@@ -3,15 +3,24 @@
 // symbol table and the tri-state resolver (resolved / ambiguous / absent — silence instead of a false edge) bind them to
 // files; the result is file→file edges (import | call | extends | implements | type-ref | construct) and their
 // aggregation into a module graph. Yggdrasil resolves onto its declared node model; grain resolves onto the indexed
-// files themselves: ownerOf(file) = the file when it is part of the indexed tree, undefined otherwise (the D7 non-event —
-// an edge into an unindexed file is a coverage matter, never an edge).
+// files themselves: a reference binds to a file of the indexed tree, or to nothing (the D7 non-event — an edge into an
+// unindexed file is a coverage matter, never an edge), and a symbol declared across several files of ONE directory binds
+// to the first of them (dirOwner, below).
 import { extractorForLanguage } from './vendor/relations/extractors/registry.mjs';
 import { extractCsharpRefs, assembleCsharpCandidates } from './vendor/relations/extractors/csharp.mjs';
+import { buildCsharpProjectScopes } from './vendor/relations/extractors/csharp-project.mjs';
 import { includeUses } from './vendor/relations/extractors/c-cpp-shared.mjs';
 import { SymbolTable } from './vendor/relations/symbol-table.mjs';
-import { makeResolver, resolveCandidateGroup } from './vendor/relations/resolver.mjs';
+import { makeResolver } from './vendor/relations/resolver.mjs';
 import { makeResolvePathToFile } from './vendor/relations/resolve-path.mjs';
-import { parsePsr4, resolvePhpFqn } from './vendor/relations/extractors/php-resolve.mjs';
+import { parsePsr4 } from './vendor/relations/extractors/php-resolve.mjs';
+import { sfcScriptView } from './vendor/relations/extractors/typescript.mjs';
+import { HARD_EXCL, EXCL } from './config.mjs';
+import { CODE_RE, SFC_RE, toPosix } from './base.mjs';
+import { parseFile } from './parse.mjs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join, relative } from 'node:path';
+import { extname } from 'node:path/posix';
 
 const SEP = '\u0001'; // a control byte, never inside a path; kept as an ESCAPE - literal control bytes in source are exactly what died in the prototype's vendoring
 const LANG = { c_sharp: 'csharp' }; // grain grammar name → extractor language id (identity otherwise)
@@ -19,14 +28,14 @@ export const relLanguage = g => (g ? LANG[g] || g : null);
 export const relSupported = g => !!extractorForLanguage(relLanguage(g));
 // issue 041: `relSupported` alone answers "is ANY extractor registered", which is true for c/cpp — but c.mjs/cpp.mjs
 // (both vendored from Yggdrasil) are the only REL_LANGS extractors whose entire `uses` IS the shared `includeUses`
-// walker (c-cpp-shared.mjs): a `#include` grep, nothing else. Every other language's `uses` also resolves
-// call/type-ref/extends/implements/construct references through the symbol table. An include-only extractor can
-// only ever emit a `path` candidate for a literal `#include`, and `resolveIncludePath` (resolve-path.mjs) tries
-// just ONE path — relative to the including file's OWN directory — never a project include-root, so a repo whose
-// headers are addressed from a shared include/ root (leveldb's own layout, and the dominant real-world C/C++
-// convention) resolves close to nothing while `relSupported` still reads "covered". This is a STRUCTURAL fact
-// about the extractor (referential identity against the one shared function), not a hardcoded "c"/"cpp" name
-// check, so it generalizes to any future REL_LANGS extractor built the same thin way.
+// walker (c-cpp-shared.mjs): the `#include` lines of the live preprocessor branches, nothing else. Every other
+// language's `uses` also resolves call/type-ref/extends/implements/construct references through the symbol table.
+// Since issue 223 an include resolves next to the includer, then under the repository's include roots (a
+// compile_commands.json's -I/-iquote roots, else the root and every `include/` directory, exactly one hit), so a
+// shared include/ layout resolves; but a C/C++ file's dependencies are still only the headers it names, never the
+// symbols it uses, so the disclosure stays. This is a STRUCTURAL fact about the extractor (referential identity
+// against the one shared function), not a hardcoded "c"/"cpp" name check, so it generalizes to any future
+// REL_LANGS extractor built the same thin way.
 export const relPathOnly = g => { const ex = extractorForLanguage(relLanguage(g)); return !!ex && ex.uses === includeUses; };
 export const REL_LANGS = [
   'typescript',
@@ -53,25 +62,6 @@ const deserCs = c => ({
   ...c,
   scope: { ...c.scope, aliases: new Map(c.scope.aliases), globalAliases: new Map(c.scope.globalAliases) },
 });
-// bare specifiers of the TS family (`@scope/pkg`, `pkg/sub`): the vendored extractor emits RELATIVE hints only (in
-// Yggdrasil's world a bare name is external by definition); in a workspace monorepo the entire cross-package
-// architecture flows through them, so grain collects them itself — they resolve ONLY via the workspace-package map,
-// a genuinely external package stays silent
-function bareImports(tree) {
-  const out = [];
-  for (const n of tree.rootNode.descendantsOfType(['import_statement', 'export_statement'])) {
-    const src = n.childForFieldName('source');
-    if (!src) continue;
-    const spec = src.text.replace(/^["'`]|["'`]$/g, '');
-    if (!spec || spec.startsWith('.') || spec.startsWith('/')) continue;
-    out.push({
-      candidates: [{ kind: 'path', specifier: spec, isPackage: true }],
-      kind: 'import',
-      line: n.startPosition.row + 1,
-    });
-  }
-  return out;
-}
 // simple type names of the file's OWN package (§113). JLS §6.5.5.1 and §7.5: the types of the package a
 // compilation unit belongs to are in scope by declaration — an import declaration exists to reach OTHER packages,
 // so Java writes no import for a sibling class and there is nothing for an import-driven extractor to see. The
@@ -162,7 +152,6 @@ export function relFactsFor(rel, content, tree, grammar) {
       return { l: language, d: ex.declarations(pf), c: serCs(extractCsharpRefs(pf)) };
     const u = ex.uses(pf);
     const d = ex.declarations(pf);
-    if (/^(typescript|tsx|javascript)$/.test(language)) u.push(...bareImports(tree));
     if (language === 'java') u.push(...javaSamePackageRefs(tree, d));
     return { l: language, d, u };
   } catch {
@@ -170,182 +159,67 @@ export function relFactsFor(rel, content, tree, grammar) {
   }
 }
 
-// workspace packages: bare specifiers (`@scope/name`, `name/sub`) resolve to the package's own files — a pnpm/yarn
-// monorepo's ENTIRE cross-package architecture flows through these, and the path resolver rightly refuses to guess them
-//
-// the SAME channel also carries Cargo workspaces. The vendored rust-resolve.mjs's `resolveRustPath` can only
-// ever resolve a `use` path back into the CALLING file's own crate (it derives `crate`/root-name meaning purely from
-// `deps.crateRootFor(fromFile)`, which walks UP from fromFile — it has no notion of a sibling crate at all), so
-// `use axum_core::extract::Request` written inside `axum` never resolves there. `model.workspaces` (core.mjs) now
-// carries each Cargo crate's own declared name (`Cargo.toml`'s `[package] name`, dash/underscore-normalized) next
-// to its `srcDir` — this resolver maps the specifier's root segment to that crate and re-runs the identical
-// segment-shrinking module search the vendored resolver uses for `crate::…` (`<part>.rs` before `<part>/mod.rs`,
-// longest prefix first), just rooted at a FOREIGN crate's `srcDir` instead of the calling file's own.
-export function wsResolverFor({ workspaces, fileSet }) {
-  if (!workspaces || !workspaces.length) return () => undefined;
-  const byName = new Map();
-  for (const w of [...workspaces].sort((a, b) => a.dir.length - b.dir.length || (a.dir < b.dir ? -1 : 1)))
-    if (!byName.has(w.name)) byName.set(w.name, w); // a vendored/worktree COPY of a package never shadows the real one
-  const EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '/index.ts', '/index.tsx', '/index.js'];
-  const rustFromSrcDir = (srcDir, tail) => {
-    for (let k = tail.length; k >= 1; k--) {
-      const part = tail.slice(0, k).join('/');
-      for (const cand of [srcDir + '/' + part + '.rs', srcDir + '/' + part + '/mod.rs'])
-        if (fileSet.has(cand)) return cand;
-    }
-    for (const cand of [srcDir + '.rs', srcDir + '/mod.rs', srcDir + '/lib.rs', srcDir + '/main.rs'])
-      if (fileSet.has(cand)) return cand;
-    return undefined;
-  };
-  return (specifier, language) => {
-    if (language === 'rust') {
-      const segs = specifier.split('::').filter(Boolean);
-      if (!segs.length) return undefined;
-      const w = byName.get(segs[0]);
-      return w && w.srcDir ? rustFromSrcDir(w.srcDir, segs.slice(1)) : undefined;
-    }
-    if (
-      !/^(typescript|tsx|javascript)$/.test(language) ||
-      specifier.startsWith('.') ||
-      specifier.startsWith('/')
-    )
-      return undefined;
-    for (const [name, w] of byName) {
-      if (specifier === name) return w.entry;
-      if (specifier.startsWith(name + '/')) {
-        const sub = specifier.slice(name.length + 1);
-        for (const base of [w.dir + '/' + sub, w.dir + '/src/' + sub])
-          for (const ext of EXTS) if (fileSet.has(base + ext)) return base + ext;
-        return w.entry;
-      }
-    }
-    return undefined;
-  };
-}
-
-// tsconfig/jsconfig files are JSONC in the wild: comments and trailing commas everywhere — strip them string-aware
-export function parseJsonc(text) {
-  let out = '',
-    i = 0,
-    inStr = false;
-  while (i < text.length) {
-    const c = text[i];
-    if (inStr) {
-      out += c;
-      if (c === '\\') {
-        out += text[i + 1] ?? '';
-        i += 2;
-        continue;
-      }
-      if (c === '"') inStr = false;
-      i++;
-      continue;
-    }
-    if (c === '"') {
-      inStr = true;
-      out += c;
-      i++;
-      continue;
-    }
-    if (c === '/' && text[i + 1] === '/') {
-      while (i < text.length && text[i] !== '\n') i++;
-      continue;
-    }
-    if (c === '/' && text[i + 1] === '*') {
-      i += 2;
-      while (i < text.length && !(text[i] === '*' && text[i + 1] === '/')) i++;
-      i += 2;
-      continue;
-    }
-    out += c;
-    i++;
-  }
-  return JSON.parse(out.replace(/,\s*([}\]])/g, '$1'));
-}
-
-// tsconfig `paths` aliases (`@/*` → `src/*`): the OTHER channel a TS repo's internal architecture flows through as bare
-// specifiers. Configs come pre-resolved to root-relative targets (core reads the files, follows `extends`); the NEAREST
-// config above the importing file decides — an outer config never falls through, exactly as tsc resolves. A specifier no
-// pattern matches stays what it was: external, silent.
-export function aliasResolverFor({ tsAliases, fileSet }) {
-  if (!tsAliases || !tsAliases.length) return () => undefined;
-  const cfgs = [...tsAliases].sort((a, b) => b.dir.length - a.dir.length || (a.dir < b.dir ? -1 : 1)); // deepest first
-  const EXTS = ['', '.ts', '.tsx', '.js', '.jsx', '.mjs', '/index.ts', '/index.tsx', '/index.js'];
-  const hit = base => {
-    for (const ext of EXTS) {
-      const c = base + ext;
-      if (fileSet.has(c)) return c;
-    }
-    return undefined;
-  };
-  return (specifier, language, fromFile) => {
-    if (
-      !/^(typescript|tsx|javascript)$/.test(language) ||
-      specifier.startsWith('.') ||
-      specifier.startsWith('/')
-    )
-      return undefined;
-    for (const cfg of cfgs) {
-      if (cfg.dir !== '.' && !(fromFile + '/').startsWith(cfg.dir + '/')) continue;
-      for (const [pat, targets] of cfg.patterns || []) {
-        const star = pat.indexOf('*');
-        let cap = null;
-        if (star < 0) {
-          if (specifier !== pat) continue;
-        } else {
-          const pre = pat.slice(0, star),
-            suf = pat.slice(star + 1);
-          if (
-            !(
-              specifier.startsWith(pre) &&
-              specifier.endsWith(suf) &&
-              specifier.length >= pre.length + suf.length
-            )
-          )
-            continue;
-          cap = specifier.slice(pre.length, specifier.length - suf.length);
-        }
-        for (const t of targets) {
-          const r = hit(cap === null ? t : t.replace('*', cap));
-          if (r) return r;
-        }
-      }
-      if (cfg.base != null) {
-        const r = hit((cfg.base === '.' ? '' : cfg.base + '/') + specifier);
-        if (r) return r;
-      }
-      return undefined;
-    }
-    return undefined;
-  };
-}
-
-// re-exported so core.mjs's PSR-4 discovery (below, at index time) parses composer.json with the SAME logic
-// resolvePhpFqn itself trusts — never a second, hand-rolled JSON reader that could drift from it.
+// re-exported so arch.mjs's composer.json census (the report's PHP autoload disclosure) parses composer.json with the
+// SAME logic the vendored resolver trusts — never a second, hand-rolled JSON reader that could drift from it.
 export { parsePsr4 };
 
-// issue 059: a PHP MONOREPO declares PSR-4 autoload per COMPONENT — Symfony's src/Symfony/Component/Xxx/
-// each carries its OWN composer.json, mapping only ITS OWN namespace prefix to its own directory; there is
-// no single repo-root composer.json covering the lot. The vendored per-file resolver (php-resolve.mjs's
-// `makePhpResolveDeps`, invoked as `base` below) walks UP from the REFERENCING file looking for the nearest
-// ANCESTOR composer.json — for a `use` reaching across to a SIBLING component that finds only the referencing
-// component's own map, which never contains the target's namespace, so the candidate silently fails to
-// resolve (44 real HttpKernel → EventDispatcher edges, gone). Mirrors `wsResolverFor`/`aliasResolverFor`:
-// core.mjs reads EVERY composer.json in the tree once (not just ancestors of one file) and merges their
-// psr-4 prefixes into one repo-wide map; this resolver re-runs the IDENTICAL longest-prefix/exists/ambiguity
-// resolution (`resolvePhpFqn`) against that union instead of one nearest ancestor, and only when the
-// per-file resolution above already came up empty — a component's own internal `use`s keep resolving via
-// their own composer.json exactly as before.
-export function phpAutoloadResolverFor({ phpAutoload = [], fileSet }) {
-  if (!phpAutoload.length) return () => undefined;
-  const merged = new Map();
-  for (const { prefix, dirs } of phpAutoload) {
-    const arr = merged.get(prefix) || (merged.set(prefix, []).get(prefix));
-    for (const d of dirs) if (!arr.includes(d)) arr.push(d);
+// ---- Vue and Svelte single-file components: relation facts only ----
+// No grammar parses a `.vue`/`.svelte` file whole, so grain mines no conventions from one; but its `<script>` blocks are
+// TS/JS modules whose imports are the component's real dependencies, and other modules import the component by path.
+// The vendored `sfcScriptView` blanks everything outside the script blocks (line numbers survive) and names the
+// script's language; the view is parsed with that grammar and its facts taken like any module's. Components join the
+// relation universe (edges, module graph, `check`'s file set), never the mined partition.
+export { SFC_RE };
+export async function sfcRelFacts(rel, content) {
+  const view = sfcScriptView(rel, content);
+  if (!view) return null;
+  const { p, tree } = await parseFile(extname(view.parsePath), view.content);
+  try {
+    return relFactsFor(rel, view.content, tree, p._g);
+  } finally {
+    tree.delete();
   }
-  const deps = { psr4For: () => merged, exists: f => fileSet.has(f), isExcluded: f => !fileSet.has(f) };
-  return (specifier, language, fromFile) =>
-    language === 'php' ? resolvePhpFqn(specifier, fromFile, deps) : undefined;
+}
+/** Every component of the tree and its facts: `tree` (git mode) names them and serves their HEAD content; without git
+ *  the worktree is walked under the same exclusions as every other file. */
+export async function sfcRelations(root, tree) {
+  const paths = [];
+  if (tree && tree.allPaths) {
+    for (const p of tree.allPaths) if (SFC_RE.test(p) && !HARD_EXCL.test(p)) paths.push(p);
+  } else
+    (function walk(d) {
+      let es;
+      try {
+        es = readdirSync(d, { withFileTypes: true });
+      } catch {
+        return;
+      }
+      for (const e of es) {
+        const full = join(d, e.name);
+        const rel = toPosix(relative(root, full));
+        if (EXCL.test(rel + (e.isDirectory() ? '/' : ''))) continue;
+        if (e.isDirectory()) walk(full);
+        else if (SFC_RE.test(e.name)) paths.push(rel);
+      }
+    })(root);
+  const files = [];
+  const facts = {};
+  for (const rel of paths.sort()) {
+    let src = tree && tree.read ? tree.read(rel) : null; // git mode: the HEAD blob, never the worktree
+    if (src == null)
+      try {
+        src = readFileSync(join(root, rel), 'utf8');
+      } catch {
+        continue;
+      }
+    try {
+      const f = await sfcRelFacts(rel, src);
+      if (!f) continue;
+      files.push(rel);
+      facts[rel] = f;
+    } catch {}
+  }
+  return { files, facts };
 }
 
 // ---- source roots: where a JVM-family package hierarchy starts on disk (§113) ----
@@ -365,8 +239,9 @@ export function phpAutoloadResolverFor({ phpAutoload = [], fileSet }) {
 //      is what both build tools mean by it, it survives a Gradle subproject with no build file of its own, and
 //      it is the only one of the two available for a language grain parses but has no declaration extractor for.
 //
-// The union is used for TWO things: resolution (a type reference resolves against every source root of the
-// repository, not only the ancestors of the referencing file) and the module cut (below).
+// The union drives the module cut (below). Resolution across source roots (test → main, one Gradle module to
+// another) is the vendored resolver's own since issue 223: a Java import its ancestor roots miss is looked up in the
+// shared JVM symbol table, where a duplicate FQN in two roots stays ambiguous and silent.
 const SRC_SET_LANG = { java: /\.java$/, kotlin: /\.(kt|kts)$/, groovy: /\.groovy$/, scala: /\.(scala|sc)$/ };
 export function sourceRootsOf(files, relFacts = {}) {
   const roots = new Set();
@@ -422,97 +297,81 @@ export function cutBasesOf(files, srcRoots = []) {
   return [...new Set(out)].sort((a, b) => b.length - a.length || (a < b ? -1 : 1)); // deepest first: a nested root wins
 }
 
-// issue 113: Maven and Gradle put production and test code in SIBLING source roots, and the vendored
-// `resolveJavaFqn` (java-resolve.mjs) tries `<ancestor>/<fqn>.java` over the ancestor directories of the
-// REFERENCING file only — from `src/test/java/…` it walks `src/test/java`, `src/test`, `src`, `<root>` and never
-// reaches `src/main/java`, so every test → main import silently fails to resolve (all 14 of them on
-// spring-petclinic). Mirrors `phpAutoloadResolverFor`: the same resolution, re-run against the repository's own
-// source roots instead of one file's ancestors, and only after the per-file resolution above came up empty — a
-// reference inside one root keeps resolving exactly as it did.
-export function javaRootResolverFor({ srcRoots = [], fileSet, modOwner }) {
-  if (!srcRoots.length) return () => undefined;
-  const roots = [...srcRoots].sort();
-  return (specifier, language, fromFile, isPackage) => {
-    if (language !== 'java') return undefined;
-    const segs = specifier.split('.').filter(s => s.length > 0);
-    if (!segs.length) return undefined;
-    if (isPackage) {
-      // a wildcard import names a package, not a type: it binds only when every file of that package under one
-      // root shares a module owner (the vendored resolver's own rule — a split package stays silent)
-      const dir = segs.join('/');
-      for (const root of roots) {
-        const pfx = (root === '' ? '' : root + '/') + dir + '/';
-        const inPkg = [];
-        for (const f of fileSet) if (f.startsWith(pfx) && f.endsWith('.java') && !f.slice(pfx.length).includes('/')) inPkg.push(f);
-        if (!inPkg.length) continue;
-        inPkg.sort();
-        let sole;
-        for (const f of inPkg) {
-          const owner = modOwner?.(f);
-          if (owner === undefined) continue;
-          if (sole === undefined) sole = owner;
-          else if (owner !== sole) return undefined;
-        }
-        return sole === undefined ? inPkg[0] : inPkg.find(f => modOwner?.(f) === sole);
-      }
-      return undefined;
+// Everything a language's toolchain reads beyond the source files — tsconfig/jsconfig `paths`, `baseUrl` and `extends`,
+// workspace package.json names and `exports`, Cargo manifests and path dependencies, go.mod/go.work, composer.json
+// PSR-4/PSR-0 maps of every package, pyproject/setup roots, compile_commands.json and `include/` roots — is read by the
+// vendored resolvers themselves, from disk, at the repository root (resolve-path.mjs, repo-layout.mjs). Grain adds no
+// second channel beside them: each of them stays silent exactly where the toolchain would be ambiguous (two tsconfig
+// targets, two workspace packages of one name, two composer packages mapping one class), and a fallback consulted after
+// a silence would turn that silence into a guess.
+//
+// `isExcluded` answers the vendored resolvers' "is this path outside the repository's code?": a source file grain did
+// not index (a gitignored or hard-excluded file, a declaration file the no-git walk skips) is, and so is grain's own
+// state; a directory, a manifest or a header root is not — they are read to decide, never resolved to.
+const excludedFor = fileSet => p => HARD_EXCL.test(p) || (CODE_RE.test(p) && !fileSet.has(p));
+
+// The owner a symbol ambiguity is decided at (Yggdrasil 6.1.0's owner-level rule): a declaration spread over several
+// files of ONE directory — a C# partial class, `Result` beside `Result<T>`, Kotlin `expect`/`actual` or top-level
+// overloads in one package directory, a star import of a package whose files share a directory — names one dependency,
+// bound to the first of those files; the same name declared in two directories stays ambiguous and silent. A
+// directory, not the depth-2 module: it is the smallest component grain knows, so a collapse can never pick a file in
+// a sibling directory the reference did not mean.
+const dirOwner = fileSet => f => (fileSet.has(f) ? f.slice(0, Math.max(0, f.lastIndexOf('/'))) || '.' : undefined);
+
+// C# global usings are scoped per PROJECT (the nearest ancestor `.csproj`, plus its `<Using>` items and SDK implicit
+// usings, csharp-project.mjs). `csFacts` is every C# file's own global-using facts; the scope of any file — including
+// an edited file `check` resolves alone — is recomputed from them, so one project's imports never reach another's.
+export function csScopesFor(root, csFacts = []) {
+  let scopes = null;
+  return (rel, own) => {
+    if (own) {
+      const facts = csFacts.filter(f => f.path !== rel).concat([{ path: rel, ...own }]);
+      const s = buildCsharpProjectScopes(root, facts).get(rel);
+      return { projectGlobalUsings: s?.usings ?? [], projectGlobalUsingAliases: s?.aliases ?? [] };
     }
-    // a nested type's FQN also resolves to the file of its ENCLOSING type — the vendored resolver's second candidate
-    const cands = [segs.join('/') + '.java'];
-    if (segs.length >= 2) cands.push(segs.slice(0, -1).join('/') + '.java');
-    for (const root of roots)
-      for (const c of cands) {
-        const f = root === '' ? c : root + '/' + c;
-        if (fileSet.has(f)) return f;
-      }
-    return undefined;
+    scopes ||= buildCsharpProjectScopes(root, csFacts);
+    const s = scopes.get(rel);
+    return { projectGlobalUsings: s?.usings ?? [], projectGlobalUsingAliases: s?.aliases ?? [] };
   };
 }
+const csOwn = c => ({ globalPrefixes: c.scope.globalPrefixes || [], globalAliases: c.scope.globalAliases || [] });
 
 // the shared edge resolver: the full pass and the single-file `check` path resolve through the SAME machinery
 export function makeEdgeResolver({
   root,
   fileSet,
   table,
-  workspaces = [],
   pkgs = [],
   srcRoots = [],
-  tsAliases = [],
-  phpAutoload = [],
-  csGlobal = { usings: [], aliases: [] },
+  csFacts = [],
+  singleFile = false, // `check`: the one file resolved is live (maybe edited), so its own C# global usings are read from it
   stats = null, // §113: an optional tally of how far the pass got — {seen} reference groups the extractors emitted
 }) {
-  const ownerOf = f => (fileSet.has(f) ? f : undefined);
   // package-level splits (a Go package / Java wildcard import spanning several owners → silence) are decided at MODULE
   // granularity: with per-file owners every multi-file package would read as split and the whole language would go silent
   const bases = cutBasesOf([...fileSet], srcRoots);
   const modOwner = f => (fileSet.has(f) ? moduleOf(f, pkgs, bases) : undefined);
-  const isExcluded = f => !fileSet.has(f);
-  const base = makeResolvePathToFile(root, modOwner, isExcluded);
-  const ws = wsResolverFor({ workspaces, fileSet });
-  const alias = aliasResolverFor({ tsAliases, fileSet });
-  const phpMono = phpAutoloadResolverFor({ phpAutoload, fileSet });
-  const javaRoots = javaRootResolverFor({ srcRoots, fileSet, modOwner });
-  const resolvePathToFile = (specifier, fromFile, language, isPackage) =>
-    base(specifier, fromFile, language, isPackage) ??
-    alias(specifier, language, fromFile) ??
-    ws(specifier, language) ??
-    phpMono(specifier, language, fromFile) ??
-    javaRoots(specifier, language, fromFile, isPackage);
-  const resolver = makeResolver({ ownerIndex: { ownerOf }, symbolTable: table, resolvePathToFile });
+  const resolvePathToFile = makeResolvePathToFile(root, modOwner, excludedFor(fileSet));
+  const resolver = makeResolver({ ownerIndex: { ownerOf: dirOwner(fileSet) }, symbolTable: table, resolvePathToFile });
+  const csScope = csScopesFor(root, csFacts);
+  // the ordered first-unique-match-wins walk (the vendored resolveCandidateGroup), answering the resolved FILE: nearest
+  // binding first; a present-but-ambiguous nearer candidate silences the group; absent continues to the next
+  const bindGroup = (candidates, rel, lang) => {
+    for (const cand of candidates) {
+      const o = resolver.classify(cand, rel, lang);
+      if (o.kind === 'resolved') return o.resolvedFile;
+      if (o.kind === 'ambiguous') return undefined;
+    }
+    return undefined;
+  };
   return (rel, f) => {
     // one file's resolved out-edges (deduplicated, deterministic)
     if (!f) return [];
-    const uses = f.c
-      ? assembleCsharpCandidates(deserCs(f.c), {
-          projectGlobalUsings: csGlobal.usings,
-          projectGlobalUsingAliases: csGlobal.aliases,
-        })
-      : f.u || [];
+    const uses = f.c ? assembleCsharpCandidates(deserCs(f.c), csScope(rel, singleFile ? csOwn(f.c) : null)) : f.u || [];
     if (stats) stats.seen = (stats.seen || 0) + uses.length;
     const seen = new Map();
     for (const dep of uses) {
-      const to = resolveCandidateGroup(dep.candidates, resolver, rel, f.l);
+      const to = bindGroup(dep.candidates, rel, f.l);
       if (!to || to === rel) continue;
       const k = to + SEP + dep.kind;
       const e = seen.get(k);
@@ -532,18 +391,14 @@ export function makeEdgeResolver({
 
 export function tableFrom(files, relFacts) {
   const table = new SymbolTable();
-  const usings = new Set();
-  const aliases = new Map();
+  const csFacts = []; // every C# file's own global usings/aliases — the input of the per-project scopes
   for (const rel of files) {
     const f = relFacts[rel];
     if (!f) continue;
     for (const d of f.d || []) table.declare(f.l, d.symbolKey, rel);
-    if (f.c) {
-      for (const p of f.c.scope.globalPrefixes || []) usings.add(p);
-      for (const [n, fqn] of f.c.scope.globalAliases || []) aliases.set(n, fqn);
-    }
+    if (f.c) csFacts.push({ path: rel, ...csOwn(f.c) });
   }
-  return { table, csGlobal: { usings: [...usings], aliases: [...aliases.entries()] } };
+  return { table, csFacts };
 }
 
 // the symbol table, compact enough to live in the model (check-time resolution of an edited file): up to 3 defining
@@ -569,10 +424,10 @@ export function hydrateTable(relDecls) {
 }
 
 // ---- resolution over the whole indexed tree → deduplicated file→file edges ----
-export function buildEdges({ root, files, relFacts, workspaces = [], pkgs = [], srcRoots = [], tsAliases = [], phpAutoload = [], stats = null }) {
+export function buildEdges({ root, files, relFacts, pkgs = [], srcRoots = [], stats = null }) {
   const fileSet = new Set(files);
-  const { table, csGlobal } = tableFrom(files, relFacts);
-  const resolve = makeEdgeResolver({ root, fileSet, table, workspaces, pkgs, srcRoots, tsAliases, phpAutoload, csGlobal, stats });
+  const { table, csFacts } = tableFrom(files, relFacts);
+  const resolve = makeEdgeResolver({ root, fileSet, table, pkgs, srcRoots, csFacts, stats });
   const edges = [];
   for (const rel of files) edges.push(...resolve(rel, relFacts[rel]));
   return edges.sort((a, b) =>

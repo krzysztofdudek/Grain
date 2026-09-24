@@ -7,12 +7,11 @@ const symbolKeys = (uses) =>
   uses.flatMap((u) => u.candidates.flatMap((c) => (c.kind === 'symbol' ? [c.symbolKey] : [])));
 
 test('handles a base_list with MULTIPLE entries (qualified bare base + bare interface)', async () => {
-  // Two base entries on one line: a bare base and a bare interface, each qualified by
-  // the using prefix; a third generic entry is skipped.
+  // Two base entries on one line: a bare base and a generic interface, each qualified by the using prefix (the generic by its base name, B5).
   const { uses } = await run(
     ['using N;', 'class C : MyBase, IFoo<int> { }', ''].join('\n'),
   );
   const keys = symbolKeys(uses);
   expect(keys).toContain('N.MyBase'); // bare base qualified
-  expect(keys.every((k) => !k.includes('IFoo'))).toBe(true); // generic skipped
+  expect(keys).toContain('N.IFoo'); // generic base name qualified
 });

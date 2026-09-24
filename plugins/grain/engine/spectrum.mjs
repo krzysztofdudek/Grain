@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { extname } from 'node:path/posix';
 import { EXT2GRAMMAR, GRAMMARS } from './config.mjs';
-import { S } from './base.mjs';
+import { S, langExt } from './base.mjs';
 import { applyVocab, isBool, kt, part, scopeLabel, skeyR } from './facts.mjs';
 import { assignAll } from './mine.mjs';
 import { bindingFor, parseFile } from './parse.mjs';
@@ -39,7 +39,7 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
   ps = ps.filter(s => s.rel !== rel);
   try {
     const src = normalizeCR(readFileSync(join(root, rel), 'utf8'));
-    const { p, tree: tr } = await parseFile(extname(rel), src);
+    const { p, tree: tr } = await parseFile(langExt(rel), src);
     const b = bindingFor(p._g);
     ps.push(...extractScopes(rel, tr, b, p._g).filter(s => s.name !== '<anon>'));
     tr.delete();
@@ -57,7 +57,7 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
     // format grain never reads at all (an extension absent from EXT2GRAMMAR, the same test `check` already makes
     // for its own "no grammar for …" line). Distinguish them here rather than let every unsupported format read
     // as content-free.
-    const ext = extname(rel);
+    const ext = langExt(rel);
     if (!EXT2GRAMMAR[ext])
       return {
         lines: [

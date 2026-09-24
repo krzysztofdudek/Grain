@@ -25,6 +25,7 @@ import {
 import {  } from './core.mjs';
 import { changedRanges, existsMemo, fileDirty, relPath } from './grain-context.mjs';
 import { recordCheckFeedback } from './grain-session.mjs';
+import { langExt } from './base.mjs';
 
 // per-scope conformance tally from a checkFile() result — shared by `check` (its own "conforms to:" line) and
 // `review`'s --json (the same `governed` shape, per file). `touched` (optional, cmdCheck's own line-range test)
@@ -215,7 +216,7 @@ export async function cmdCheck({ model, root, isGit, args, opts, stamp, store })
         throw new Error(`no such file: ${rel} (not present at ${refs.contentRef || 'that ref'})`);
     } else if (!existsSync(join(root, rel))) throw new Error(`no such file: ${rel}`);
   }
-  if (!EXT2GRAMMAR[extname(rel)]) {
+  if (!EXT2GRAMMAR[langExt(rel)]) {
     const ph = placementHit(model, rel);
     const dirty0 = fileDirty(root, rel, isGit, refs?.diffArgs);
     // the same sentence the text branch below prints, kept in one place so JSON and text can never drift
@@ -553,7 +554,7 @@ export async function cmdReview({ model, root, isGit, args, opts, stamp, store }
     anyDirty = anyDirty || (!opts.range && dirty); // "+dirty" in the stamp means "used uncommitted content" — never true for an already-committed --range
     const content = refs ? refContent(root, refs.contentRef, rel) : undefined;
     if (refs ? content == null : !existsSync(join(root, rel))) continue; // deleted at the ref / deleted in worktree — nothing left to hold against a norm
-    if (!EXT2GRAMMAR[extname(rel)]) {
+    if (!EXT2GRAMMAR[langExt(rel)]) {
       const ph = placementHit(model, rel); // no grammar: only a placement signal can still speak (mirrors `check`'s no-grammar case)
       if (ph)
         perFile.push({

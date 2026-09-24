@@ -9,6 +9,7 @@ import { isLocationNode, scopeName } from './extract.mjs';
 import { part } from './facts.mjs';
 import { bindingFor, parseFile, tokenize } from './parse.mjs';
 import { extractScopes } from './scopes.mjs';
+import { langExt } from './base.mjs';
 
 // ===== MUTATION HARNESS (dev/test only: plants real deviations into conforming exemplars, verifies detection) =====
 function mutate(src, f, ex) {
@@ -119,7 +120,7 @@ export async function mutateTest({ model, root }) {
         // injected mutations: keep the candidate where the planted artifact really lands (ground truth = extraction)
         // the grammar is resolved from the file's OWN content once (`.h` names two), never re-decided per
         // mutated candidate — a mutation must not be able to flip the grammar the comparison is made under
-        const { p: pp, tree: t00 } = await parseFile(extname(ex.rel), src);
+        const { p: pp, tree: t00 } = await parseFile(langExt(ex.rel), src);
         t00.delete();
         const bb = bindingFor(pp._g);
         let picked = null;
@@ -144,7 +145,7 @@ export async function mutateTest({ model, root }) {
       // ground truth by re-extraction, as for injections: a mutation that breaks the parse (a multiline decorator's
       // opening line removed) or fails to flip the surface measures ITSELF, not detection — count it unsupported
       {
-        const { p: pp2, tree: tr0 } = await parseFile(extname(ex.rel), src);
+        const { p: pp2, tree: tr0 } = await parseFile(langExt(ex.rel), src);
         const bb2 = bindingFor(pp2._g);
         const ss0 = extractScopes(ex.rel, tr0, bb2);
         tr0.delete();
@@ -250,7 +251,7 @@ export async function extractCoverage({ root, files, read }) {
     }
     let p, tree;
     try {
-      ({ p, tree } = await parseFile(extname(rel), src));
+      ({ p, tree } = await parseFile(langExt(rel), src));
     } catch {
       noParse++;
       continue;

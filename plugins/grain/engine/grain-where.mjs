@@ -11,6 +11,7 @@ import { loadHistory } from './history.mjs';
 import { DIRTY_TREE_NOTE } from './core.mjs';
 import { existsMemo, log, relPath } from './grain-context.mjs';
 import { signal } from './grain-report.mjs';
+import { langExt } from './base.mjs';
 
 // Is a single `where` argument shaped like a repo path, worth routing to whereCmd's path-aware disclosure (the same
 // module/placement locator `check <file>` already prints — `inLineForFile`/`placementHit`) instead of leaving it to
@@ -30,7 +31,7 @@ export function pathQueryFor(root, arg) {
     return null;
   }
   if (!rel) return null;
-  if (EXT2GRAMMAR[extname(rel)] || existsSync(join(root, rel))) return rel;
+  if (EXT2GRAMMAR[langExt(rel)] || existsSync(join(root, rel))) return rel;
   let anc = rel.includes('/') ? rel.slice(0, rel.lastIndexOf('/')) : '';
   while (anc) {
     if (existsSync(join(root, anc))) return rel;

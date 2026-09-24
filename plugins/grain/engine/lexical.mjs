@@ -5,6 +5,7 @@ import { STR_TYPES } from './extract.mjs';
 import { part } from './facts.mjs';
 import { bindingFor, nameShape, parseFile } from './parse.mjs';
 import { exportShape } from './superposition.mjs';
+import { langExt } from './base.mjs';
 
 // ===== LEXICAL LAYER (file scope): the surfaces an AST cannot carry — measured on express/flask/CleanArchitecture as the
 // whole gap between "the right file" and "the convention": 'use strict' 21/21, single quotes, var vs const, a UTF-8 BOM on
@@ -185,7 +186,7 @@ export function lexicalPreds(tree, b, tally = null, literals = null) {
 // text alone — lets a caller ask "what value did this file-level predicate carry in some OTHER version of this
 // file's content" without a full extractScopes/mine pass (used by fileFindings in grain.mjs for G10)
 export async function fileLevelPreds(rel, src) {
-  const { p, tree: tr } = await parseFile(extname(rel), src);
+  const { p, tree: tr } = await parseFile(langExt(rel), src);
   const b = bindingFor(p._g);
   const preds = {
     'auto.filenameshape': nameShape(basename(rel, extname(rel))),

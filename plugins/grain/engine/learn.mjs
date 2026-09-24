@@ -2,7 +2,7 @@
 // Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename, dirname } from 'node:path/posix';
 import { CFG } from './config.mjs';
-import { refineModOf } from './relations.mjs';
+import { refineModOf, sfcRelations } from './relations.mjs';
 import { applyRelationLayer } from './arch.mjs';
 import { applyChangeArchetypes, applyConcepts, applyMsgAffinity } from './commit-log.mjs';
 import { applyBoundaries, applySteers, applyWaivers } from './decisions.mjs';
@@ -598,7 +598,11 @@ export async function learn({
           f.suppressedValue = v2;
         }
       }
-  applyRelationLayer(model, { root, files, pkgs, tree, relFacts, log });
+  // Vue/Svelte components carry relation facts only: they join the relation universe (edges, module graph, `check`'s
+  // file set), never the partition mined above
+  const sfc = await sfcRelations(root, tree);
+  Object.assign(relFacts, sfc.facts);
+  applyRelationLayer(model, { root, files: sfc.files.length ? [...files, ...sfc.files].sort() : files, pkgs, tree, relFacts, log });
   applyGroupImplications(model, files);
   applyStructuralTwins(model, log);
   applyWaivers(model, prepared, waivers);

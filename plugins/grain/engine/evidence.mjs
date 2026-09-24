@@ -3,6 +3,7 @@
 import { basename, extname } from 'node:path/posix';
 import { EXT2GRAMMAR, CFG } from './config.mjs';
 import { cochangeData } from './completeness.mjs';
+import { langExt } from './base.mjs';
 
 // `what <words>` (§J3.3) — a fourth lens, distinct from both: `where` answers "where should new code implementing
 // this go", `how` answers "what did past changes touching this look like", `what` answers "what IS this in this
@@ -48,10 +49,10 @@ export function blindFiles(model, { peerAnomalous = false } = {}) {
   if (!peerAnomalous) return blind;
   const yields = new Set();
   for (const f of model.filesAll || []) {
-    const g = EXT2GRAMMAR[extname(f)];
+    const g = EXT2GRAMMAR[langExt(f)];
     if (g && seen.has(f)) yields.add(g);
   }
-  return blind.filter(f => yields.has(EXT2GRAMMAR[extname(f)]));
+  return blind.filter(f => yields.has(EXT2GRAMMAR[langExt(f)]));
 }
 // `ungrammaredFiles` — a DISJOINT, stronger sibling of `blindFiles`. `blindFiles` names files grain
 // ATTEMPTED to parse (they carry a grammar, hence appear in `model.filesAll` — see `walkFiles`/`headTree`, both
@@ -68,7 +69,7 @@ export function blindFiles(model, { peerAnomalous = false } = {}) {
 // `findUngrammaredHit`) to decide whether an honest-negative answer owes the reader a disclosure.
 export function ungrammaredFiles(model) {
   const known = new Set(model.filesAll || []);
-  return (model.pathsAll || []).filter(p => !known.has(p) && !EXT2GRAMMAR[extname(p)]).sort();
+  return (model.pathsAll || []).filter(p => !known.has(p) && !EXT2GRAMMAR[langExt(p)]).sort();
 }
 // case B: was the query's EXACT literal seen at all, before the df population gate (CFG.valueDfMin/
 // valueDfMaxShare, `learn()`'s `vPlaces`) removed it from model.valueIndex? That gate runs over each file-kind

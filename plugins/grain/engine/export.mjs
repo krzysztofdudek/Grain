@@ -40,6 +40,7 @@ import {
   relCoverageData,
   decoLabel,
 } from './core.mjs';
+import { langExt } from './base.mjs';
 
 const UNSEEN = ' ';
 const iso = ts => (ts ? new Date(ts * 1000).toISOString().slice(0, 10) : null);
@@ -420,7 +421,7 @@ export function exportModel({
     for (const [mk, keys] of Object.entries(part.markers || {}).sort((a, b) => (a[0] < b[0] ? -1 : 1))) {
       const pre = mk.slice(0, mk.indexOf(':')),
         name = mk.slice(mk.indexOf(':') + 1);
-      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — decoLabel's sigil call
+      const markerG = EXT2GRAMMAR[langExt(keys[0].split('#')[0])]; // the carriers' own grammar — decoLabel's sigil call
       P.markers.push({
         marker:
           pre === 'deco'
