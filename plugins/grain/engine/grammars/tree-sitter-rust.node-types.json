@@ -918,6 +918,7 @@
   {
     "type": "block_comment",
     "named": true,
+    "extra": true,
     "fields": {
       "doc": {
         "multiple": false,
@@ -1995,15 +1996,11 @@
       }
     },
     "children": {
-      "multiple": true,
+      "multiple": false,
       "required": true,
       "types": [
         {
           "type": "extern_modifier",
-          "named": true
-        },
-        {
-          "type": "visibility_modifier",
           "named": true
         }
       ]
@@ -2705,6 +2702,7 @@
   {
     "type": "line_comment",
     "named": true,
+    "extra": true,
     "fields": {
       "doc": {
         "multiple": false,

@@ -194,7 +194,7 @@ const grammarStamp = () => {
   const m = readJson(join(GRAMMAR_DIR, 'manifest.json'));
   return m
     ? Object.entries(m)
-        .map(([g, v]) => g + '@' + v.version)
+        .map(([g, v]) => g + '@' + v.version + (v.wasmSha256 ? '#' + v.wasmSha256.slice(0, 12) : ''))
         .join(',')
     : GRAMMARS.join(',');
 };

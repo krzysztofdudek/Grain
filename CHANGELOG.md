@@ -13,6 +13,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `grain propose` now writes `.family-candidates.json` into the proposal's `.yggdrasil/`, beside the graph, so `yg adopt` installs it and `yg advise` names each group of similar files no rule covers as a rule to draft. Before, the file was only ever written by Grain's own measurement script, so an adopter never had it. `--family-candidates <path>` writes it somewhere else (a repository that adopted earlier points it at its own `.yggdrasil/`), and `--no-family-candidates` writes none. The report gains a `family candidates:` line and the JSON a `familyCandidates` field.
 - `.family-candidates.json` now says who measured and what "without a law" meant: `producer: "grain"` and `gate: "no-certified-convention"`. Yggdrasil's own miner writes the same document from a different oracle (no narrow authored aspect), and without these fields a reader of `yg advise` could not tell which one found the gap. Both are optional fields inside `v: 1`, so a consumer that does not know them reads the file as before.
 
+### Changed
+
+- Grain now parses with the same grammars as Yggdrasil 6.1.0, byte for byte: Rust and C 0.24.2, YAML 0.7.2, TypeScript and TSX with four upstream fixes (`using` declarations, `export type *`, variance annotations, type arguments on `import()` types), and newer C++ (C++20 modules, C++26 expansion statements), PHP, Ruby and C# (C# 14 extension blocks), with Java, JSON, Kotlin and TOML rebuilt on the current toolchain. Lua moves to 0.5.0 (Lua 5.5 syntax), and the parsing runtime to web-tree-sitter 0.27.0. Every grammar is pinned by the checksum of its files, and Grain refuses to ship one that does not match. Stores built by an earlier version are rebuilt on first use.
+
 ### Fixed
 
 - The dev-container path translation no longer picks one checkout at random when two running containers mount different host directories at the same path: it names both and asks for the host path. It also normalises the path before matching, so a `..` cannot walk out of the mount it matched, and ignores a relative path.

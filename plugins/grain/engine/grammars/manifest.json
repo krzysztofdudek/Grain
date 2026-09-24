@@ -1,94 +1,346 @@
 {
   "typescript": {
-    "package": "tree-sitter-typescript",
-    "version": "0.23.2"
+    "repo": "https://github.com/tree-sitter/tree-sitter-typescript",
+    "commit": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+    "version": "v0.23.2 + upstream PRs #357 #358 #364 #365, regenerated",
+    "cli": "0.27.0",
+    "abi": 15,
+    "wasmSha256": "9372e129ff96136fc856dd9dd9316e5e7c3bcb1436427c34bc521eb240f17977",
+    "nodeTypesSha256": "3634f24a2a9e44ecff1cd3c518365396c2e3d1e0d8742b492d2560013e9b3d30",
+    "source": {
+      "kind": "source",
+      "dir": "typescript",
+      "generate": true,
+      "patches": [
+        "tree-sitter-typescript-357-using-js-0.25.patch",
+        "tree-sitter-typescript-358-export-type-star.patch",
+        "tree-sitter-typescript-364-variance-annotations.patch",
+        "tree-sitter-typescript-365-import-type-arguments.patch"
+      ],
+      "deps": [
+        {
+          "path": "node_modules/tree-sitter-javascript",
+          "repo": "https://github.com/tree-sitter/tree-sitter-javascript",
+          "commit": "44c892e0be055ac465d5eeddae6d3e194424e7de"
+        }
+      ]
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "tsx": {
-    "package": "tree-sitter-typescript",
-    "version": "0.23.2"
+    "repo": "https://github.com/tree-sitter/tree-sitter-typescript",
+    "commit": "75b3874edb2dc714fb1fd77a32013d0f8699989f",
+    "version": "v0.23.2 + upstream PRs #357 #358 #364 #365, regenerated",
+    "cli": "0.27.0",
+    "abi": 15,
+    "wasmSha256": "605d5c125b7291a388ea408ef86150876fceae6d623d0810692f85c1ec34d799",
+    "nodeTypesSha256": "e065917f791d8e627846dced7bed6b10e490cda9fbee01bf6afcbc564351cced",
+    "source": {
+      "kind": "source",
+      "dir": "tsx",
+      "generate": true,
+      "patches": [
+        "tree-sitter-typescript-357-using-js-0.25.patch",
+        "tree-sitter-typescript-358-export-type-star.patch",
+        "tree-sitter-typescript-364-variance-annotations.patch",
+        "tree-sitter-typescript-365-import-type-arguments.patch"
+      ],
+      "deps": [
+        {
+          "path": "node_modules/tree-sitter-javascript",
+          "repo": "https://github.com/tree-sitter/tree-sitter-javascript",
+          "commit": "44c892e0be055ac465d5eeddae6d3e194424e7de"
+        }
+      ]
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "javascript": {
-    "package": "tree-sitter-javascript",
-    "version": "0.25.0"
+    "repo": "https://github.com/tree-sitter/tree-sitter-javascript",
+    "commit": "44c892e0be055ac465d5eeddae6d3e194424e7de",
+    "version": "0.25.0",
+    "cli": "^0.25.8 (declared upstream)",
+    "abi": 15,
+    "wasmSha256": "5fb488d0cabb4775a594bab85682de5ad6ce83c0d6ac997a9f82dd084d571240",
+    "nodeTypesSha256": "188a8baa97018edaf63bf7ece372c07bc0d74d1301004bc8f211eb7dee5a6e70",
+    "source": {
+      "kind": "npm",
+      "package": "tree-sitter-javascript",
+      "wasmPath": "tree-sitter-javascript.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "python": {
-    "package": "tree-sitter-python",
-    "version": "0.25.0"
+    "repo": "https://github.com/tree-sitter/tree-sitter-python",
+    "commit": "293fdc02038ee2bf0e2e206711b69c90ac0d413f",
+    "version": "0.25.0",
+    "cli": "^0.25.9 (declared upstream)",
+    "abi": 15,
+    "wasmSha256": "16108b50df4ee9a30168794252ab55e7c93bfc5765d7fa0aa3e335752c515f47",
+    "nodeTypesSha256": "a2456847bea3adff5b2222b2f7b03a870159470d8908622204e6eb29ee2fe45e",
+    "source": {
+      "kind": "npm",
+      "package": "tree-sitter-python",
+      "wasmPath": "tree-sitter-python.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "go": {
-    "package": "tree-sitter-go",
-    "version": "0.25.0"
+    "repo": "https://github.com/tree-sitter/tree-sitter-go",
+    "commit": "1547678a9da59885853f5f5cc8a99cc203fa2e2c",
+    "version": "0.25.0",
+    "cli": "^0.25.8 (declared upstream)",
+    "abi": 15,
+    "wasmSha256": "9504573f352b20be7f2f1911754d710622aedc15afff16d5ed8fb5645681aee7",
+    "nodeTypesSha256": "8d77e723df0f0dfccb66d4571a5c3c17ecfb6c90959044c0992146b21f383bff",
+    "source": {
+      "kind": "npm",
+      "package": "tree-sitter-go",
+      "wasmPath": "tree-sitter-go.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "java": {
-    "package": "tree-sitter-java",
-    "version": "0.23.5"
+    "repo": "https://github.com/tree-sitter/tree-sitter-java",
+    "commit": "94703d5a6bed02b98e438d7cad1136c01a60ba2c",
+    "version": "0.23.5",
+    "cli": "0.27.0",
+    "abi": 14,
+    "wasmSha256": "6476728734128931bd50de2d1e5e9c75c506b51e278f54eaf709836a0de35759",
+    "nodeTypesSha256": "19c46facc653381c337ff6cad75dd8b052524179a366c80825d6d0010520eef2",
+    "source": {
+      "kind": "source",
+      "dir": ".",
+      "generate": false
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "c_sharp": {
-    "package": "tree-sitter-c-sharp",
-    "version": "0.23.5"
+    "repo": "https://github.com/tree-sitter/tree-sitter-c-sharp",
+    "commit": "9150f7d56bb47f1a809fa23623f1ba1413e93fa9",
+    "version": "master after 0.23.5 (unreleased): C# 14",
+    "cli": "0.27.0",
+    "abi": 15,
+    "wasmSha256": "315d54ed50bb56940e978ea75c75b74743407fa113c3c98b87aad72c919aaf18",
+    "nodeTypesSha256": "54bf9fa925bac6fcdc05e0221ae8d4a62c155eb43ccd72b5bc2a4bdbebb7997e",
+    "source": {
+      "kind": "source",
+      "dir": ".",
+      "generate": false
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "ruby": {
-    "package": "tree-sitter-ruby",
-    "version": "0.23.1"
+    "repo": "https://github.com/tree-sitter/tree-sitter-ruby",
+    "commit": "ad907a69da0c8a4f7a943a7fe012712208da6dee",
+    "version": "master after 0.23.1 (unreleased)",
+    "cli": "0.27.0",
+    "abi": 14,
+    "wasmSha256": "e255f2dd39812e9730a824f85e4f5c8660426bd8e8d9a4790e8e7e6e41da3761",
+    "nodeTypesSha256": "9683f80e7be3dd93f1d6f575800de3f3445cda8af1f313f1f80003229c328e8b",
+    "source": {
+      "kind": "source",
+      "dir": ".",
+      "generate": false
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "rust": {
-    "package": "tree-sitter-rust",
-    "version": "0.24.0"
+    "repo": "https://github.com/tree-sitter/tree-sitter-rust",
+    "commit": "77a3747266f4d621d0757825e6b11edcbf991ca5",
+    "version": "0.24.2",
+    "cli": "^0.26.7 (declared upstream)",
+    "abi": 15,
+    "wasmSha256": "24c89bd9252255e4aebbcbd7d2d308bd92c86dd95a130fdc80efa49577b8d738",
+    "nodeTypesSha256": "4b73a1248978340336100db455bf0731c23f9190568c9ae62265fa4a80a327d5",
+    "source": {
+      "kind": "github-release",
+      "wasmUrl": "https://github.com/tree-sitter/tree-sitter-rust/releases/download/v0.24.2/tree-sitter-rust.wasm"
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "php": {
-    "package": "tree-sitter-php",
-    "version": "0.24.2"
+    "repo": "https://github.com/tree-sitter/tree-sitter-php",
+    "commit": "3fda2fb9577166c6399834917f9844f30370beea",
+    "version": "master after 0.24.2 (unreleased)",
+    "cli": "0.27.0",
+    "abi": 15,
+    "source": {
+      "kind": "source",
+      "dir": "php",
+      "generate": false
+    },
+    "wasmSha256": "c2399b082f2f791a847c0ebfc27f80f4c93937bb7bc06967e33d260f6b069488",
+    "nodeTypesSha256": "336426deddc0b49a1c5056466a879238b6f0eeb76e5306432ef907ea4c3b3ffe",
+    "sharedWith": "Yggdrasil pins the php_only variant of this same commit and toolchain; grain ships the php variant (PHP inside HTML), built the same way"
   },
   "c": {
-    "package": "tree-sitter-c",
-    "version": "0.24.1"
+    "repo": "https://github.com/tree-sitter/tree-sitter-c",
+    "commit": "b780e47fc780ddc8da13afa35a3f4ed5c157823d",
+    "version": "0.24.2",
+    "cli": "^0.25.0 (declared upstream)",
+    "abi": 15,
+    "wasmSha256": "83e8d7902b9d7f8c7c5cd4bd9acb5c7eb5faf42c09f85546b183964d3b5f48f9",
+    "nodeTypesSha256": "23e819ef1eefd357bb6eba844f47f8492f6a88da3e5046b06ec4acd4da8a9fd6",
+    "source": {
+      "kind": "github-release",
+      "wasmUrl": "https://github.com/tree-sitter/tree-sitter-c/releases/download/v0.24.2/tree-sitter-c.wasm"
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "cpp": {
-    "package": "tree-sitter-cpp",
-    "version": "0.23.4"
+    "repo": "https://github.com/tree-sitter/tree-sitter-cpp",
+    "commit": "c009222808634c1014f82438d4883753516a2c24",
+    "version": "master after 0.23.4 (unreleased)",
+    "cli": "0.27.0",
+    "abi": 15,
+    "wasmSha256": "ab9e891709f5dc88fd6b1b4d33f110fb23e5ddc5e64296caf4a41d0a3e585ebe",
+    "nodeTypesSha256": "bc49c50d6b8af62df4cfda2675e5142bfba85bc1790ff2693aa0ca1286d5c7fe",
+    "source": {
+      "kind": "source",
+      "dir": ".",
+      "generate": false
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "kotlin": {
-    "package": "@tree-sitter-grammars/tree-sitter-kotlin",
-    "version": "1.1.0"
+    "repo": "https://github.com/tree-sitter-grammars/tree-sitter-kotlin",
+    "commit": "77dd60ea0a9003ce062c9728a513ffe1aaff8c82",
+    "version": "1.1.0",
+    "cli": "0.27.0",
+    "abi": 14,
+    "wasmSha256": "5d44eef5c02b4546f01ddc376ed237294b18604f727b192a832a5ce08a040e8f",
+    "nodeTypesSha256": "0f21509031ad37902dc05d5828f178fed3545c466ffcf38ef30d969cb64e8e9d",
+    "source": {
+      "kind": "source",
+      "dir": ".",
+      "generate": false
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "scala": {
-    "package": "tree-sitter-scala",
-    "version": "0.24.0"
+    "version": "0.24.0",
+    "source": {
+      "kind": "npm",
+      "package": "tree-sitter-scala",
+      "wasmPath": "tree-sitter-scala.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "wasmSha256": "b7ec2bb29c19827abcefd18ed5cb5a43596009f96a5d53c5b9d1f9676d7521c3",
+    "nodeTypesSha256": "41982d0ada05e567f65e104e0845063736563349631f78410d2378b6fedf7636"
   },
   "bash": {
-    "package": "tree-sitter-bash",
-    "version": "0.25.1"
+    "version": "0.25.1",
+    "source": {
+      "kind": "npm",
+      "package": "tree-sitter-bash",
+      "wasmPath": "tree-sitter-bash.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "wasmSha256": "8292919c88a0f7d3fb31d0cd0253ca5a9531bc1ede82b0537f2c63dd8abe6a7a",
+    "nodeTypesSha256": "b644629f7f9460cb0af080cb88f3bef898e6c47b6f8a76ed512b67ae16ef5ac5"
   },
   "lua": {
-    "package": "@tree-sitter-grammars/tree-sitter-lua",
-    "version": "0.4.1"
+    "repo": "https://github.com/tree-sitter-grammars/tree-sitter-lua",
+    "commit": "10fe0054734eec83049514ea2e718b2a56acd0c9",
+    "version": "0.5.0",
+    "source": {
+      "kind": "github-release",
+      "wasmUrl": "https://github.com/tree-sitter-grammars/tree-sitter-lua/releases/download/v0.5.0/tree-sitter-lua.wasm"
+    },
+    "wasmSha256": "df08a1704e504c70b8dba4a3e6f8e0c99a4fb94e1b1693d2969f53141d09f0d4",
+    "nodeTypesSha256": "12ea1259c9e644754a13068eafd6160a9c5561c7a69e9cb9c8cd6c968b5e09fc"
   },
   "zig": {
-    "package": "@tree-sitter-grammars/tree-sitter-zig",
-    "version": "1.1.2"
+    "version": "1.1.2",
+    "source": {
+      "kind": "npm",
+      "package": "@tree-sitter-grammars/tree-sitter-zig",
+      "wasmPath": "tree-sitter-zig.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "wasmSha256": "54b3b83dd9c62da5815f06132bc3fc914d9dcc780370b32416446a0b7969e8c6",
+    "nodeTypesSha256": "dd85513d4bf1b5f03fe6404376162b66924ee23c8b6d5a18e20d9360000be4d0"
   },
   "groovy": {
-    "package": "tree-sitter-groovy",
-    "version": "0.1.2"
+    "version": "0.1.2",
+    "source": {
+      "kind": "npm",
+      "package": "tree-sitter-groovy",
+      "wasmPath": "tree-sitter-groovy.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "wasmSha256": "0e68bb48ac166de25c381e05bbfbc90769f25d4709c14e180dd593696a73c197",
+    "nodeTypesSha256": "5bd310f66fcabfaf8c9d91f136863800be6e4528de4210138a6ad9f606d472da"
   },
   "solidity": {
-    "package": "tree-sitter-solidity",
-    "version": "1.2.13"
+    "version": "1.2.13",
+    "source": {
+      "kind": "npm",
+      "package": "tree-sitter-solidity",
+      "wasmPath": "tree-sitter-solidity.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "wasmSha256": "07420813d7668445152a5d5d2017e0fb84cb27342257e1add3cc7462eec7f811",
+    "nodeTypesSha256": "5f77cc046b6a9f5ebc38c1e81e3a2a935d9f89bebb448928e7f7738399f8d739"
   },
   "json": {
-    "package": "tree-sitter-json",
-    "version": "0.24.8"
+    "repo": "https://github.com/tree-sitter/tree-sitter-json",
+    "commit": "ee35a6ebefcef0c5c416c0d1ccec7370cfca5a24",
+    "version": "0.24.8",
+    "cli": "0.27.0",
+    "abi": 14,
+    "wasmSha256": "564e489724cbcf9b4563cd758a7fb7f355f896b11127819ae9e8ef71e7c15e60",
+    "nodeTypesSha256": "620b6f5d38676a97526e9d128972d4b156ddbdf6e130cd7e6b9c35e6823e943f",
+    "source": {
+      "kind": "source",
+      "dir": ".",
+      "generate": false
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "yaml": {
-    "package": "@tree-sitter-grammars/tree-sitter-yaml",
-    "version": "0.7.1"
+    "repo": "https://github.com/tree-sitter-grammars/tree-sitter-yaml",
+    "commit": "7708026449bed86239b1cd5bce6e3c34dbca6415",
+    "version": "0.7.2",
+    "cli": "0.27.0",
+    "abi": 14,
+    "wasmSha256": "f89cf2a8ccd4f29292e502f1c37efb4f1dead281246605e0a890c697d4db88c7",
+    "nodeTypesSha256": "1238b6c89fc6afb9723b6463a365843aa87e478025490660e5acfc9adaaf809b",
+    "source": {
+      "kind": "source",
+      "dir": ".",
+      "generate": false
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "toml": {
-    "package": "@tree-sitter-grammars/tree-sitter-toml",
-    "version": "0.7.0"
+    "repo": "https://github.com/tree-sitter-grammars/tree-sitter-toml",
+    "commit": "64b56832c2cffe41758f28e05c756a3a98d16f41",
+    "version": "0.7.0",
+    "cli": "0.27.0",
+    "abi": 14,
+    "wasmSha256": "057f48e81072cb0eb5969632a7cf032fc6d33cd4ba3198c3f58227346c012d97",
+    "nodeTypesSha256": "db9ba87309dd4b5a3fe107ddb20858f869cf40c199cad3ae9d99029240ccf419",
+    "source": {
+      "kind": "source",
+      "dir": ".",
+      "generate": false
+    },
+    "sharedWith": "Yggdrasil (same bytes)"
   },
   "properties": {
-    "package": "tree-sitter-properties",
-    "version": "0.3.0"
+    "version": "0.3.0",
+    "source": {
+      "kind": "npm",
+      "package": "tree-sitter-properties",
+      "wasmPath": "tree-sitter-properties.wasm",
+      "nodeTypesPath": "src/node-types.json"
+    },
+    "wasmSha256": "817743f1f33c15e315f10a59595127813806bbf7104dc1974feaabb9e38da908",
+    "nodeTypesSha256": "9c95590fe10ff394a4c5fdb1f6633ff2598e5a408051a76ec640f00c9de7b40c"
   }
 }
