@@ -157,6 +157,39 @@ export const DRILL_TIMEOUT_MS = SLOWEST_OBSERVED_DRILL_MS * 100;
 export function certifiedWithCasesCount(aspects) {
   return aspects.filter(a => a.check && a.origin === 'certified-convention' && (a.drillViolatesWritten || a.drillSatisfiesWritten)).length;
 }
+// One drill of one rule, read as its five outcome counts. Yggdrasil 6.1 prints them as a `yg-drill/1` document
+// under `--json` (its family register names this command as a consumer), and that document is what is read: the
+// text footer is written for a person, and its wording is the CLI's to change. A 6.0.x CLI has no `--json` on
+// `drill` and refuses the flag, so when no `yg-drill/1` document comes back the text footer is read instead —
+// from the same output if it carries one, otherwise from one more run without the flag. A run that timed out is
+// never repeated: the bound applies to the rule, not to each way of asking it.
+const DRILL_FOOTER = /(\d+) pass\s*·\s*(\d+) MISS\s*·\s*(\d+) FALSE-ALARM(?:\s*·\s*(\d+) unrun)?(?:\s*·\s*(\d+) unsupported)?/;
+export function readDrillJson(stdout) {
+  let doc;
+  try { doc = JSON.parse(stdout || ''); } catch { return null; }
+  if (!doc || doc.schema !== 'yg-drill/1' || !doc.counts) return null;
+  const n = k => Number(doc.counts[k]);
+  const counts = { pass: n('pass'), miss: n('miss'), falseAlarm: n('falseAlarm'), unrun: n('unrun') || 0, unsupported: n('unsupported') || 0 };
+  if (![counts.pass, counts.miss, counts.falseAlarm].every(Number.isFinite)) return null;
+  return { counts, exitCode: doc.exitCode };
+}
+export function readDrillFooter(text) {
+  const m = DRILL_FOOTER.exec(text || '');
+  if (!m) return null;
+  return { pass: Number(m[1]), miss: Number(m[2]), falseAlarm: Number(m[3]), unrun: Number(m[4] || 0), unsupported: Number(m[5] || 0) };
+}
+export function runDrill(yg, id, { cwd, timeout }) {
+  const spawn = extra => spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', id, ...extra], { cwd, encoding: 'utf8', maxBuffer: 1 << 26, timeout, killSignal: 'SIGKILL' });
+  const r = spawn(['--json']);
+  if (r.error?.code === 'ETIMEDOUT') return { counts: null, exitCode: r.status, timedOut: true, via: null };
+  const doc = readDrillJson(r.stdout);
+  if (doc) return { counts: doc.counts, exitCode: doc.exitCode ?? r.status, timedOut: false, via: 'yg-drill/1' };
+  const inline = readDrillFooter(`${r.stdout || ''}${r.stderr || ''}`);
+  if (inline) return { counts: inline, exitCode: r.status, timedOut: false, via: 'text' };
+  const t = spawn([]);
+  if (t.error?.code === 'ETIMEDOUT') return { counts: null, exitCode: t.status, timedOut: true, via: null };
+  return { counts: readDrillFooter(`${t.stdout || ''}${t.stderr || ''}`), exitCode: t.status, timedOut: false, via: 'text' };
+}
 export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf, repo, ygBin: explicitYgBin, drillTimeoutMs = DRILL_TIMEOUT_MS }) {
   const yg = resolveYg(explicitYgBin);
   const ygBin = yg.label;
@@ -179,24 +212,22 @@ export function promoteEnforceableAspects(aspects, { ygg, outDir, evidence, asOf
       if (!a.check) { a.finalStatus = 'draft'; a.draftReason = a.draftReason || 'prose-unenforceable-keyless'; continue; }
       const violates = a.drillViolatesWritten || 0, satisfies = a.drillSatisfiesWritten || 0;
       if (!haveYg || (!violates && !satisfies)) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
-      const r = spawnSync(yg.cmd, [...yg.pre, 'drill', '--aspect', a.id], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26, timeout: drillTimeoutMs, killSignal: 'SIGKILL' });
-      if (r.error?.code === 'ETIMEDOUT') timedOut++;
-      const m = /(\d+) pass\s*·\s*(\d+) MISS\s*·\s*(\d+) FALSE-ALARM(?:\s*·\s*(\d+) unrun)?(?:\s*·\s*(\d+) unsupported)?/.exec(`${r.stdout || ''}${r.stderr || ''}`);
-      if (!m) { a.finalStatus = 'draft'; a.draftReason = null; continue; } // could not verify this run (a spawn failure, or the timeout above) — unverified, not blamed
+      const d = runDrill(yg, a.id, { cwd: stage, timeout: drillTimeoutMs });
+      if (d.timedOut) timedOut++;
+      if (!d.counts) { a.finalStatus = 'draft'; a.draftReason = null; continue; } // could not verify this run (a spawn failure, or the timeout above) — unverified, not blamed
       // A case `yg drill` could not run (its check threw, its grammar did not load) or does not support is
-      // neither a pass nor a MISS, and the footer's first three numbers leave it out: counting catches as
+      // neither a pass nor a MISS, and the first three counts leave it out: counting catches as
       // `violates - miss` would read every unrun violates case as caught, and a rule no drill ever judged
       // would be written as enforced. Any unrun or unsupported case, or the drill's own exit 2 for them,
       // leaves the whole aspect unverified this run, exactly like a drill that printed nothing.
-      const unrun = Number(m[4] || 0), unsupported = Number(m[5] || 0);
-      if (unrun > 0 || unsupported > 0 || r.status === 2) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
+      const { pass, miss, falseAlarm, unrun, unsupported } = d.counts;
+      if (unrun > 0 || unsupported > 0 || d.exitCode === 2) { a.finalStatus = 'draft'; a.draftReason = null; continue; }
       verified++;
-      const miss = Number(m[2]), falseAlarm = Number(m[3]);
       const catches = violates - miss;
       // The drill's own three numbers, kept on the aspect for whoever renders a report from this run. Nothing
       // on disk reads them (`provenanceFor` names its fields one by one), so a proposal tree is byte-identical
       // with and without this line — the product needs them to say what an enforced rule actually caught.
-      a.drill = { pass: Number(m[1]), miss, falseAlarm, catches, violates, satisfies };
+      a.drill = { pass, miss, falseAlarm, catches, violates, satisfies };
       if (falseAlarm > 0) { a.finalStatus = 'draft'; a.draftReason = 'file-scope-approximation-fa'; }
       else if (catches <= 0) { a.finalStatus = 'draft'; a.draftReason = 'no-catch'; }
       // The drill passed — 0 FALSE-ALARM, >= 1 caught. Whether that earns `enforced` or only `advisory` turns

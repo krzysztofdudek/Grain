@@ -390,3 +390,61 @@ test('a drill whose cases could not run leaves the aspect unverified, never enfo
     assert.equal(ran.aspect.finalStatus, 'enforced', 'a drill that ran every case and caught is still enforced');
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 });
+
+// ---------- 7. the drill is read from its `yg-drill/1` document, never its sentence ----------
+//
+// `grain propose` decided enforced/advisory/draft from the drill's text footer, a sentence Yggdrasil writes for
+// a person and may reword. Had the wording changed, the footer would no longer match and every rule would stay
+// draft in silence, as "could not verify". Yggdrasil 6.1 prints the same counts as a `yg-drill/1` document under
+// `--json`, and that is what is read now. A 6.0.x CLI refuses `--json` on `drill`, so the footer is still read
+// from such a CLI, and only from one.
+test('the drill is read from yg-drill/1 when the CLI prints it, and from the text footer only on a CLI that cannot', () => {
+  const tmp = mkdtempSync(join(tmpdir(), 'propose-drill-json-'));
+  try {
+    const run = (ygBin, name) => {
+      const outDir = join(tmp, `out-${name}`), ygg = join(outDir, '.yggdrasil');
+      const id = `grain/x/candidate-${name}`;
+      mkdirSync(join(ygg, 'aspects', id), { recursive: true });
+      writeFileSync(join(ygg, 'aspects', id, 'check.mjs'), 'export function check() { return []; }' + NL);
+      const aspect = {
+        id, origin: 'certified-convention', check: 'export function check() { return []; }' + NL,
+        kind: 'file', drillViolatesWritten: 3, drillSatisfiesWritten: 2,
+      };
+      const verify = promoteEnforceableAspects([aspect], { ygg, outDir, evidence: [{ kind: 'aspect', id }], asOf: 'abc', repo: tmp, ygBin });
+      return { aspect, verify };
+    };
+    const doc = (counts, exitCode) => JSON.stringify({ schema: 'yg-drill/1', aspect: 'x', counts, total: 5, cases: [], exitCode });
+    // A 6.1-shaped CLI whose document and sentence disagree: only the document may decide. Its footer reads as a
+    // clean catch; its document names a FALSE-ALARM, which keeps the rule a draft.
+    const both = join(tmp, 'yg-61.mjs');
+    writeFileSync(both, [
+      `if (process.argv.includes('--json')) { console.log(${JSON.stringify(doc({ pass: 4, miss: 0, falseAlarm: 1, unrun: 0, unsupported: 0 }, 1))}); process.exit(1); }`,
+      `console.log('5 pass · 0 MISS · 0 FALSE-ALARM · 0 unrun · 0 unsupported');`,
+    ].join(NL) + NL);
+    const r61 = run(both, 'json');
+    assert.equal(r61.verify.haveYg, true, 'the stand-in CLI has to resolve, or the test proves nothing');
+    assert.equal(r61.verify.verified, 1);
+    assert.deepEqual(r61.aspect.drill, { pass: 4, miss: 0, falseAlarm: 1, catches: 3, violates: 3, satisfies: 2 });
+    assert.equal(r61.aspect.finalStatus, 'draft', 'the yg-drill/1 document named a FALSE-ALARM; the footer must not have decided');
+    assert.equal(r61.aspect.draftReason, 'file-scope-approximation-fa');
+
+    // The document's own unrun count and exit code leave a rule unverified, as the footer's did.
+    const unrun = join(tmp, 'yg-61-unrun.mjs');
+    writeFileSync(unrun, `console.log(${JSON.stringify(doc({ pass: 0, miss: 0, falseAlarm: 0, unrun: 5, unsupported: 0 }, 2))}); process.exit(2);` + NL);
+    const rUnrun = run(unrun, 'json-unrun');
+    assert.equal(rUnrun.aspect.finalStatus, 'draft');
+    assert.equal(rUnrun.aspect.draftReason, null);
+    assert.equal(rUnrun.verify.verified, 0);
+
+    // A 6.0.x-shaped CLI: `--json` is an unknown option there. The footer of a plain run is read instead.
+    const old = join(tmp, 'yg-60.mjs');
+    writeFileSync(old, [
+      `if (process.argv.includes('--json')) { console.error("error: unknown option '--json'"); process.exit(1); }`,
+      `console.log('5 pass · 0 MISS · 0 FALSE-ALARM · 0 unrun · 0 unsupported');`,
+    ].join(NL) + NL);
+    const r60 = run(old, 'text');
+    assert.equal(r60.verify.verified, 1, 'a 6.0.x CLI must still verify through its text footer');
+    assert.equal(r60.aspect.finalStatus, 'enforced');
+    assert.deepEqual(r60.aspect.drill, { pass: 5, miss: 0, falseAlarm: 0, catches: 3, violates: 3, satisfies: 2 });
+  } finally { rmSync(tmp, { recursive: true, force: true }); }
+});
