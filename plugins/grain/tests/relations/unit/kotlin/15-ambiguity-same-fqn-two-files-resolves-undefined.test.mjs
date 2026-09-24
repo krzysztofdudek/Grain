@@ -27,7 +27,7 @@ test('AMBIGUITY: two files declaring the SAME FQN → a use of it resolves to un
       expect(st.resolveUnique('kotlin', 'com.acme.dup.Thing')).toBeUndefined();
 
       // Through the resolver the use also resolves to undefined — silence, never a flag.
-      const ownerIndex = { ownerOf: () => 'someNode' };
+      const ownerIndex = { ownerOf: (f) => f.split('/')[1] }; // src/<node>/… — the two declaring files are two NODES
       const resolver = makeResolver({ ownerIndex, symbolTable: st, resolvePathToFile: () => undefined });
       const importHint = kotlinExtractor.uses(consumer).find((u) => u.candidates[0].kind === 'symbol');
       expect(resolver.resolve(importHint.candidates[0], consumer.path, 'kotlin')).toBeUndefined();

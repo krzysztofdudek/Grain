@@ -10,7 +10,7 @@ const rubyTable = (...decls) => {
 };
 
 test('classify: a compact constant whose ROOT is NOT in-repo is `absent` (reopened-external)', () => {
-  const st = rubyTable(['Rack::Handler', 'lib/x.rb']); // only the compact key; `Rack` unanchored
+  const st = rubyTable(['Rackup::Handler', 'lib/x.rb']); // only the compact key; `Rackup` unanchored
   const r = makeResolver({ ownerIndex: rbOwner, symbolTable: st, resolvePathToFile: () => undefined });
-  expect(r.classify({ kind: 'symbol', symbolKey: 'Rack::Handler' }, 'lib/a.rb', 'ruby')).toEqual({ kind: 'absent' });
+  expect(r.classify({ kind: 'symbol', symbolKey: 'Rackup::Handler' }, 'lib/a.rb', 'ruby')).toEqual({ kind: 'absent' });
 });

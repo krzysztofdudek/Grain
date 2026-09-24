@@ -6,6 +6,7 @@ import { refineModOf } from './relations.mjs';
 import { decoLabel, factLabel, part, pct } from './facts.mjs';
 import { tokenize } from './parse.mjs';
 import { partitionFor } from './partition.mjs';
+import { langExt } from './base.mjs';
 
 // ===== WHERE (inverse query: intent → place + expectations + pattern to copy) =====
 // "Where do command handlers go?" — lexical match of query tokens against the model's own vocabulary
@@ -159,7 +160,7 @@ export function buildCards(model) {
         ))
           addTok(toks, t, TOKW.fact); // `cli command` reaches @click.command through cli.py
       const degenerate = carrierNames.size === 1 && keys.length > 1; // three fixtures all named `test` are not a pattern to copy (three commands in one cli.py are)
-      const markerG = EXT2GRAMMAR[extname(keys[0].split('#')[0])]; // the carriers' own grammar — decoLabel's sigil call
+      const markerG = EXT2GRAMMAR[langExt(keys[0].split('#')[0])]; // the carriers' own grammar — decoLabel's sigil call
       const label =
         pre === 'deco'
           ? decoLabel(name, markerG)

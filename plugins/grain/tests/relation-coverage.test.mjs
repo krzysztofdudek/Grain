@@ -4,7 +4,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -170,19 +170,22 @@ test('php is NOT named in the coverage gap once a composer.json psr-4 map lets i
   assert.doesNotMatch(rep.out, /resolution does not cover.*\bphp\b/);
 });
 
-// issue 086 — the mixed-source-set shape: a small SECONDARY grammar (java) whose own files are fully
-// relSupported()/!relPathOnly() (a standalone repo with this exact shape resolves fine) but every one of its
-// references crosses into the DOMINANT grammar (kotlin), which the SymbolTable never bridges by design — so the
-// java population's real out-edges are silently zero, and 041/059's existing checks never catch it (java is
-// neither relPathOnly nor missing a psr-4-style map). relCoverageData must name java anyway, the same way it
-// already names a whole uncovered grammar for c/cpp and php.
-test('status/report name java in the coverage gap when its cross-grammar references into the dominant kotlin population never resolve', () => {
+// issue 086 — the mixed-source-set shape: a small SECONDARY grammar (java) whose every reference crosses into the
+// DOMINANT grammar (kotlin). Before the relation port of issue 223 the symbol table kept one namespace per language,
+// so these references never resolved and relCoverageData named java in the coverage gap. Java and Kotlin now share
+// one JVM namespace (a Java file imports a Kotlin class by its FQN, as the compiler sees it), so the three imports
+// resolve to real edges and java is no longer a coverage gap. The gap mechanism itself stays covered by the go/ruby
+// fixtures below.
+test('java is NOT named in the coverage gap once its references into the kotlin population resolve through the shared JVM namespace', () => {
   const grain = grainIn(kotlinJavaRepo);
   const s = grain(['status']); assert.equal(s.code, 0, s.err);
   const rep = grain(['report']); assert.equal(rep.code, 0, rep.err);
-  assert.match(s.out, /^resolution does not cover 3 files \(java\) — conventions layer only for those$/m);
-  assert.match(rep.out, /^  resolution does not cover 3 files \(java\) — conventions layer only for those$/m);
+  assert.doesNotMatch(s.out, /resolution does not cover.*\bjava\b/);
+  assert.doesNotMatch(rep.out, /resolution does not cover.*\bjava\b/);
   assert.doesNotMatch(s.out, /resolution does not cover.*\bkotlin\b/);
+  const edges = JSON.parse(readFileSync(join(kotlinJavaRepo, '.grain', 'cache', 'model.json'), 'utf8')).edges;
+  for (let i = 1; i <= 3; i++)
+    assert.ok(edges.some(e => e.from === `java/internal/Cache${i}.java` && e.to === 'kt/b/Util.kt'), `Cache${i}.java → Util.kt: ${JSON.stringify(edges)}`);
 });
 
 test('java is NOT named when its zero-edged population sits below the coverage-population floor', () => {

@@ -41,7 +41,7 @@ test('SPLIT AMBIGUITY SILENCES: two mapped files both declaring `App.Outer+Inner
       const owners = csharpExtractor.uses(consumer);
       // `App.Outer` is declared in two files (defCount 2) — the split guard `has` still fires,
       // but the split key `App.Outer+Inner` maps to two files → ≥2 distinct → ambiguous → silence.
-      expect(walk(owners, 'App.Outer.Inner', st, () => 'someNode', consumer.path)).toBeUndefined();
+      expect(walk(owners, 'App.Outer.Inner', st, (f) => f.split('/')[1], consumer.path)).toBeUndefined();
     },
   );
 });

@@ -6,6 +6,7 @@ import { relSupported, relPathOnly } from './relations.mjs';
 import { baselineClause } from './cards.mjs';
 import { STRUCT_PID, archCellLabel, factLabel, isDefiningFact, part, pct, scopeLabel } from './facts.mjs';
 import { deviationPhrase } from './verbalize.mjs';
+import { langExt } from './base.mjs';
 
 // three tiers, each under its own --top cap: domain conventions (a choice someone made) first, structural-shape
 // contrasts (the language showing through a group/directory boundary, not a chosen convention) second, lexical
@@ -112,7 +113,7 @@ export const TEMPLATE_DESCRIPTIVE_NOTE =
 // alone reads it as genuinely covered. But EVERY one of those resolutions still bottoms out in a PSR-4 lookup
 // (`resolvePhpFqn`, php-resolve.mjs): with no psr-4 autoload map anywhere in the tree (no composer.json, or one
 // with no `autoload`/`autoload-dev` psr-4 section) that lookup can never succeed for ANY `use`, and grain's own
-// merged map (`model.phpAutoload`, relations.mjs `phpAutoloadResolverFor`) stays empty — the same "near-total
+// census of every composer.json (`model.phpAutoload`, arch.mjs) stays empty — the same "near-total
 // real-world resolution failure reading as covered" 041 caught for path-only extractors, just keyed on repo
 // CONTENT (a PSR-4 map to consult) instead of extractor STRUCTURE. A PHP repo that pins its architecture down
 // to composer.json (Symfony, Slim, virtually every modern framework) is unaffected — flagged only when that
@@ -123,7 +124,8 @@ export const TEMPLATE_DESCRIPTIVE_NOTE =
 // that grammar is fully `relSupported` and not `relPathOnly` elsewhere in a single-grammar repo (a standalone
 // Java or Kotlin fixture with the identical import shape resolves fine — verified live). Root cause traced to
 // the vendored SymbolTable partitioning declarations by LANGUAGE on purpose (crosslang-symbol-table-partition
-// test) so a same-named Java/Kotlin/Groovy/Scala type never collides across languages — but that also means a
+// test) so a same-named type never collides across languages (since issue 223 Java and Kotlin share one JVM
+// namespace, as their compilers do, so that pair now resolves; Groovy and Scala still stand apart) — but that also means a
 // secondary population whose real-world references mostly cross INTO the dominant grammar (the common shape once
 // one language is being migrated to another) can never resolve there; teaching every extractor pair to cross a
 // language boundary safely is genuinely new work, out of scope here. The FLOOR instead: any grammar meeting the
@@ -136,7 +138,7 @@ export function relCoverageData(model) {
   const phpNoAutoload = !(model.phpAutoload && model.phpAutoload.length);
   const filesByGrammar = new Map(); // grammar -> its own file list, reused below for the issue-086 zero-edge check
   for (const f of model.filesAll || []) {
-    const g = EXT2GRAMMAR[extname(f)];
+    const g = EXT2GRAMMAR[langExt(f)];
     if (!g) continue;
     (filesByGrammar.get(g) || filesByGrammar.set(g, []).get(g)).push(f);
     if (!relSupported(g) || relPathOnly(g) || (g === 'php' && phpNoAutoload))

@@ -5,7 +5,7 @@ import { join, relative } from 'node:path';
 import { basename, dirname, extname } from 'node:path/posix';
 import { SUP, TOPK, EXCL, HARD_EXCL } from './config.mjs';
 import { relFactsFor } from './relations.mjs';
-import { S, toPosix } from './base.mjs';
+import { S, toPosix, langExt } from './base.mjs';
 import { stem0 } from './extract.mjs';
 import { BODY_KINDS } from './facts.mjs';
 import { tokenize, bindingFor, nameShape, parseFile } from './parse.mjs';
@@ -185,7 +185,7 @@ export async function extractTree(root, files, onProgress, readSource = null, ca
     if (src != null) src = normalizeCR(src);
     if (src == null || src.length > 1.5e6) continue;
     try {
-      const { p, tree: tr } = await parseFile(extname(rel), src);
+      const { p, tree: tr } = await parseFile(langExt(rel), src);
       const b = bindingFor(p._g);
       all.push(...extractScopes(rel, tr, b, p._g));
       if (relOut) relOut[rel] = relFactsFor(rel, src, tr, p._g); // relation facts ride the same parse — the tree is in hand exactly once

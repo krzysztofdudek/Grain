@@ -8,12 +8,9 @@
 // axum_core::extract::Request` written inside `axum` always returned `undefined`. Cargo workspaces were also never
 // fed into `model.workspaces` in the first place — that array only ever came from `package.json` (npm/pnpm/yarn).
 //
-// Fixed the same shape as the existing npm-workspace support ("kod to kod" — no hardcoded crate names): core.mjs's
-// workspace-discovery pass now also reads each package-root directory's `Cargo.toml` `[package] name` (dash/
-// underscore-normalized, exactly how Rust `use` paths reference it) and records its `src/` dir; relations.mjs's
-// `wsResolverFor` (already the channel bare TS/JS workspace specifiers resolve through) gained a `language ===
-// 'rust'` branch that maps a specifier's root segment to that crate and re-runs the vendored resolver's own
-// segment-shrinking module search, rooted at the FOREIGN crate's `srcDir` instead of the caller's own.
+// Since issue 223 the vendored Rust resolver (Yggdrasil 6.1.0) reads the using crate's own Cargo.toml: a `use` whose
+// root segment is a declared in-repo path dependency (direct, renamed with `package =`, or `{ workspace = true }`)
+// resolves inside that crate's library module tree; nothing else does.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -63,11 +60,28 @@ before(() => {
 });
 after(() => { rmSync(tmp, { recursive: true, force: true }); });
 
-test('model.workspaces carries each Cargo crate\'s own declared name and src/ dir, dash/underscore-normalized', () => {
-  const ws = modelOf(cargo).workspaces;
-  assert.deepEqual(ws.sort((a, b) => a.name < b.name ? -1 : 1), [
-    { name: 'crate_a', dir: 'crate_a', srcDir: 'crate_a/src' },
-    { name: 'crate_b', dir: 'crate_b', srcDir: 'crate_b/src' } ]);
+// issue 223: a sibling crate is reached only through a DEPENDENCY the using crate declares (a path dependency, or
+// `{ workspace = true }` inherited from `[workspace.dependencies]`) — Cargo compiles nothing else. A `use` whose root
+// segment merely matches the name of an undeclared workspace member names some other (external) crate and stays
+// silent; before, any workspace member's name was taken at its word.
+test('a `use` of an undeclared sibling crate stays silent; the declared one resolves', () => {
+  const repo = join(tmp, 'cargo-undeclared'); mkdirSync(repo);
+  const git = gitFor(repo), w = wFor(repo);
+  git('init', '-q', '-b', 'main'); git('config', 'commit.gpgsign', 'false');
+  w('Cargo.toml', '[workspace]\nmembers = ["app", "corelib", "util"]\n\n[workspace.dependencies]\ncorelib = { path = "corelib" }\n');
+  w('app/Cargo.toml', '[package]\nname = "app"\n\n[dependencies]\ncorelib = { workspace = true }\n');
+  w('app/src/lib.rs', 'use corelib::engine::Engine;\nuse util::text::slug;\n');
+  w('corelib/Cargo.toml', '[package]\nname = "corelib"\n');
+  w('corelib/src/lib.rs', 'pub mod engine;\n');
+  w('corelib/src/engine.rs', 'pub struct Engine;\n');
+  w('util/Cargo.toml', '[package]\nname = "util"\n');
+  w('util/src/lib.rs', 'pub mod text;\n');
+  w('util/src/text.rs', 'pub fn slug() {}\n');
+  git('add', '-A'); git('commit', '-qm', 'base');
+  const r = grainIn(repo)(['status']); assert.equal(r.code, 0, r.err);
+  const edges = modelOf(repo).edges.filter(e => e.from === 'app/src/lib.rs');
+  assert.ok(edges.some(e => e.to === 'corelib/src/engine.rs'), `the workspace-inherited dependency resolves: ${JSON.stringify(edges)}`);
+  assert.ok(!edges.some(e => e.to.startsWith('util/')), `util is not a dependency of app, so no edge: ${JSON.stringify(edges)}`);
 });
 
 test('a crate-qualified `use` resolves into a real cross-crate file edge', () => {

@@ -56,6 +56,10 @@
         "named": true
       },
       {
+        "type": "using_declaration",
+        "named": true
+      },
+      {
         "type": "variable_declaration",
         "named": true
       }
@@ -1929,6 +1933,10 @@
         "required": false,
         "types": [
           {
+            "type": "default",
+            "named": false
+          },
+          {
             "type": "identifier",
             "named": true
           },
@@ -1942,6 +1950,10 @@
         "multiple": false,
         "required": true,
         "types": [
+          {
+            "type": "default",
+            "named": false
+          },
           {
             "type": "identifier",
             "named": true
@@ -2137,15 +2149,23 @@
         ]
       },
       "kind": {
-        "multiple": false,
+        "multiple": true,
         "required": false,
         "types": [
+          {
+            "type": "await",
+            "named": false
+          },
           {
             "type": "const",
             "named": false
           },
           {
             "type": "let",
+            "named": false
+          },
+          {
+            "type": "using",
             "named": false
           },
           {
@@ -2876,6 +2896,10 @@
         "required": true,
         "types": [
           {
+            "type": "default",
+            "named": false
+          },
+          {
             "type": "identifier",
             "named": true
           },
@@ -3393,6 +3417,16 @@
           }
         ]
       }
+    },
+    "children": {
+      "multiple": false,
+      "required": false,
+      "types": [
+        {
+          "type": "type_arguments",
+          "named": true
+        }
+      ]
     }
   },
   {
@@ -3633,7 +3667,7 @@
     "fields": {},
     "children": {
       "multiple": false,
-      "required": true,
+      "required": false,
       "types": [
         {
           "type": "identifier",
@@ -4132,19 +4166,7 @@
       "required": true,
       "types": [
         {
-          "type": "call_expression",
-          "named": true
-        },
-        {
           "type": "expression",
-          "named": true
-        },
-        {
-          "type": "identifier",
-          "named": true
-        },
-        {
-          "type": "member_expression",
           "named": true
         },
         {
@@ -5262,6 +5284,36 @@
     }
   },
   {
+    "type": "using_declaration",
+    "named": true,
+    "fields": {
+      "kind": {
+        "multiple": true,
+        "required": true,
+        "types": [
+          {
+            "type": "await",
+            "named": false
+          },
+          {
+            "type": "using",
+            "named": false
+          }
+        ]
+      }
+    },
+    "children": {
+      "multiple": true,
+      "required": true,
+      "types": [
+        {
+          "type": "variable_declarator",
+          "named": true
+        }
+      ]
+    }
+  },
+  {
     "type": "variable_declaration",
     "named": true,
     "fields": {},
@@ -5673,7 +5725,8 @@
   },
   {
     "type": "comment",
-    "named": true
+    "named": true,
+    "extra": true
   },
   {
     "type": "const",
@@ -5757,7 +5810,8 @@
   },
   {
     "type": "html_comment",
-    "named": true
+    "named": true,
+    "extra": true
   },
   {
     "type": "if",
@@ -5825,11 +5879,11 @@
   },
   {
     "type": "number",
-    "named": true
+    "named": false
   },
   {
     "type": "number",
-    "named": false
+    "named": true
   },
   {
     "type": "object",
@@ -5837,6 +5891,10 @@
   },
   {
     "type": "of",
+    "named": false
+  },
+  {
+    "type": "out",
     "named": false
   },
   {

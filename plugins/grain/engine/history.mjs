@@ -23,6 +23,7 @@ import { extname, join } from 'node:path';
 import { parseFile, bindingFor, extractScopes, hashStr, CODE_RE, normalizeCR } from './core.mjs';
 import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, FIX_RE } from './config.mjs';
 import { tokenize, normTok, QSTOP, DOC_STOP } from './core.mjs';
+import { langExt, SFC_RE } from './base.mjs';
 
 const PAIR = '\u0001'; // co-change pair-key separator (a control byte — never inside a path; '' split every pair into characters)
 
@@ -132,11 +133,14 @@ export function headTree(gitdir, { skip = () => false } = {}) {
     if (m) shas.set(m[2], m[1]);
   }
   const files = [...shas.keys()]
-    .filter(p => !HARD_EXCL.test(p) && CODE_RE.test(p) && EXT2GRAMMAR[extname(p)])
+    .filter(p => !HARD_EXCL.test(p) && CODE_RE.test(p) && EXT2GRAMMAR[langExt(p)])
     .sort(); // tracked ⇒ code: gitignore already held at add time
   const contents = new Map();
-  // only the files the caller cannot serve from its extraction cache are fetched — a refresh after one commit reads one blob
-  const need = files.filter(f => !skip(f, shas.get(f)));
+  // only the files the caller cannot serve from its extraction cache are fetched — a refresh after one commit reads one
+  // blob. Vue/Svelte components are always read: they carry relation facts only, which no extraction cache holds.
+  const need = files
+    .filter(f => !skip(f, shas.get(f)))
+    .concat([...shas.keys()].filter(p => SFC_RE.test(p) && !HARD_EXCL.test(p)).sort());
   for (let i = 0; i < need.length; i += 400) {
     const chunk = need.slice(i, i + 400);
     const out = spawnSync('git', ['-C', gitdir, 'cat-file', '--batch'], {
@@ -309,7 +313,7 @@ async function walk(gitdir, range) {
     }
     cur.files.push(path);
     events.push({ sha: st === 'D' ? null : m[1], st, path, oldPath, c: cur });
-    if (st !== 'D' && !/^0+$/.test(m[1])) blobExt.set(m[1], extname(path));
+    if (st !== 'D' && !/^0+$/.test(m[1])) blobExt.set(m[1], langExt(path));
   }
   await new Promise(res => child.on('close', res));
   return { events, commits, blobExt };

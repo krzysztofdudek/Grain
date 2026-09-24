@@ -64,9 +64,11 @@ const TABLE = [
   // ---- cpp ----
   ['cpp', 'class_specifier', T],
   ['cpp', 'enum_specifier', T],
+  ['cpp', 'expansion_statement', Q, 'a C++26 expansion statement (`template for (auto x : t) {…}`, new with the 2026 C++ grammar) — the same body+declarator shape as for_range_loop, and the same verdict: neither regex matches; real kind comes from the hasChildScope fallback'],
   ['cpp', 'for_range_loop', Q, 'a range-for loop happens to be body+declarator-shaped — neither regex matches; real kind comes from the instance-dependent hasChildScope fallback, not from either word list'],
   ['cpp', 'function_definition', M],
   ['cpp', 'lambda_expression', M],
+  ['cpp', 'module_declaration', Q, 'a C++20 module declaration (`export module shop.orders;`, new with the 2026 C++ grammar) — a loose-body scope by its node-type name that never has a body child, so no instance is ever extracted; TYPE_LIKE_RE matches the word `module`, harmless'],
   ['cpp', 'namespace_alias_definition', L, 'a namespace alias — intercepted by isLocationNode'],
   ['cpp', 'namespace_definition', L, 'a namespace statement — intercepted by isLocationNode'],
   ['cpp', 'struct_specifier', T],
@@ -202,7 +204,9 @@ test('every LOCATION_OR_ACCESSOR-bucket entry is genuinely intercepted before ei
 // as a genuinely new gap (a future entry someone adds here without checking what it currently does).
 const QUIRK_EXPECT = {
   'c_sharp/enum_member_declaration': { type: true, func: false },
+  'cpp/expansion_statement': { type: false, func: false },
   'cpp/for_range_loop': { type: false, func: false },
+  'cpp/module_declaration': { type: true, func: false },
   'groovy/enhanced_for_statement': { type: false, func: false },
   'groovy/enum_constant': { type: true, func: false },
   'groovy/method_invocation': { type: false, func: true },

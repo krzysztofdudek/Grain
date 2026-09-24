@@ -40,7 +40,7 @@ test('AMBIGUITY: two files declaring the SAME FQN → a use of it resolves to un
 
       // Through the ordered walk the use resolves to nothing — the verbatim `MyApp.Dup.Thing`
       // is present-but-ambiguous (2 defs) → the group silences; never a flag.
-      const ownerIndex = { ownerOf: () => 'someNode' };
+      const ownerIndex = { ownerOf: (f) => f.split('/')[1] }; // src/<node>/… — the two declaring files are two NODES
       const resolver = makeResolver({
         ownerIndex,
         symbolTable: st,

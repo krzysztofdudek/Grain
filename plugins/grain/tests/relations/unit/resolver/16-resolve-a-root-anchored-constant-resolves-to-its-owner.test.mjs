@@ -10,9 +10,9 @@ const rubyTable = (...decls) => {
 };
 
 test('resolve: a root-anchored constant resolves to its owner', () => {
-  const st = rubyTable(['Rack', 'lib/x.rb'], ['Rack::Handler', 'lib/x.rb']);
+  const st = rubyTable(['Rackup', 'lib/x.rb'], ['Rackup::Handler', 'lib/x.rb']);
   const r = makeResolver({ ownerIndex: rbOwner, symbolTable: st, resolvePathToFile: () => undefined });
-  expect(r.resolve({ kind: 'symbol', symbolKey: 'Rack::Handler' }, 'lib/a.rb', 'ruby')).toEqual({
+  expect(r.resolve({ kind: 'symbol', symbolKey: 'Rackup::Handler' }, 'lib/a.rb', 'ruby')).toEqual({
     ownerNode: 'x', resolvedFile: 'lib/x.rb',
   });
 });

@@ -300,9 +300,10 @@ closing a cycle, or crossing a committed boundary decision (`grain decide bounda
 packages/infra --note "ADR-3"`) is reported with the established path (`today apps/frontend reaches packages/infra
 via packages/core`). Existing crossings stay silent — practice already speaks there. `status` carries the counts,
 the session hook announces the shape, `where` directory cards say `depends on:` / `used by:`, and `export` ships
-every edge. Resolution covers 13 languages (TS/TSX/JS incl. workspace-package specifiers, Python, Go via go.mod,
-Java, C#, Ruby, Rust via the crate tree, PHP via PSR-4, C, C++, Kotlin); the other shipped grammars keep the
-conventions layer only.
+every edge. Resolution covers 13 languages (TS/TSX/JS incl. tsconfig paths, workspace packages and Vue/Svelte
+script blocks, Python, Go via go.mod and go.work, Java and Kotlin as one JVM namespace, C# with per-project global
+usings, Ruby, Rust via the crate tree and Cargo path dependencies, PHP via PSR-4 and PSR-0, C and C++ via include
+roots and compile_commands.json); the other shipped grammars keep the conventions layer only.
 
 ## How it works
 

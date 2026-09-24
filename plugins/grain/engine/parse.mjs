@@ -5,7 +5,7 @@ import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { dirname, extname } from 'node:path/posix';
 import { GRAMMAR_DIR, EXT2GRAMMAR, EXT_ALT, EXCL, MINE_EXCL } from './config.mjs';
-import { CODE_RE, toPosix } from './base.mjs';
+import { CODE_RE, toPosix, langExt } from './base.mjs';
 
 // ===== GENERIC BINDING: derived from the grammar's node-types.json — no per-language code =====
 export const bindings = {};
@@ -430,7 +430,7 @@ export function* walkFiles(dir, root) {
     const rel = toPosix(relative(root, full));
     if (EXCL.test(rel + (e.isDirectory() ? '/' : ''))) continue;
     if (e.isDirectory()) yield* walkFiles(full, root);
-    else if (CODE_RE.test(e.name) && !MINE_EXCL.test(e.name) && EXT2GRAMMAR[extname(e.name)]) yield rel;
+    else if (CODE_RE.test(e.name) && !MINE_EXCL.test(e.name) && EXT2GRAMMAR[langExt(e.name)]) yield rel;
   }
 }
 export const tokenize = n =>

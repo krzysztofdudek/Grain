@@ -19,6 +19,7 @@ import { tokenize } from './parse.mjs';
 import { QSTOP, bridgeLines, placementHit } from './placement.mjs';
 import { ANON_SCOPE_KINDS, scopeBacktick, verbalize } from './verbalize.mjs';
 import { heritageKindOf } from './weights.mjs';
+import { langExt } from './base.mjs';
 
 export function whereCmd({
   model,
@@ -341,7 +342,7 @@ export function whereCmd({
       const carried = (h.carried || [])
         .filter(([mk]) => !mk.startsWith('ret:') || !TRIVIAL.test(mk.slice(4)))
         .sort((a, b) => b[1] - a[1]);
-      const cardG = EXT2GRAMMAR[extname(h.label)]; // `h.label` is this card's own file rel path
+      const cardG = EXT2GRAMMAR[langExt(h.label)]; // `h.label` is this card's own file rel path
       if (carried.length)
         lines.push(
           `  carries: ${carried

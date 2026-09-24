@@ -26,7 +26,7 @@ test('a REOPENED (ambiguous) constant silences — resolveUnique undefined, no f
 
       expect(st.resolveUnique('ruby', 'Widget')).toBeUndefined();
 
-      const ownerIndex = { ownerOf: () => 'someNode' };
+      const ownerIndex = { ownerOf: (f) => f.split('/')[1] }; // src/<node>/… — the two declaring files are two NODES
       const resolver = makeResolver({
         ownerIndex,
         symbolTable: st,
