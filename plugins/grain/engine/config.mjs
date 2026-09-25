@@ -225,4 +225,8 @@ export const NCAP = 700; // role clustering: distinct-feature-bag sample cap
 export const SUP = { nodeType: 20, call: 8, imp: 5, ext: 4, shape: 15, deco: 8, ret: 4, pt: 4 }; // vocabulary support floors per enumerator
 export const TOPK = { nodeType: 30, call: 80, imp: 60, ext: 30, shape: 40, deco: 40, ret: 30, pt: 30 }; // vocabulary top-K per enumerator
 export const AGENT_AUTHOR_RE = /claude|copilot|cursor|codex|devin|\bbot\b|gpt|gemini|dependabot/i;
+// A `Co-authored-by:` trailer counts only when it names an AI coding agent. The author-side list above also holds
+// generic automation (`bot`, dependabot); on the co-author side those would turn a person's squash-merge that lists
+// dependabot[bot], renovate[bot], github-actions[bot] or pre-commit-ci[bot] as co-authors into agent-written code.
+export const AGENT_COAUTHOR_RE = /claude|anthropic|copilot|cursor|codex|openai|devin|gpt|gemini|aider/i;
 export const FIX_RE = /^(fix|hotfix|bugfix)\b|(^|\s)revert(s|ed)?\b|^fix[(:]|This reverts commit/i;

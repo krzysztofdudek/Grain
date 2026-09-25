@@ -8,6 +8,7 @@
 // End to end: three fixture histories built with real commits —
 //   agentRepo  — every commit by a human, each with an agent co-author trailer (two spellings of the key) ⇒ 100%;
 //   pairRepo   — the same code, the co-author a human ⇒ 0%;
+//   botRepo    — the same code, a squash-merge crediting dependabot[bot] as co-author ⇒ 0%;
 //   plainRepo  — the same code, no trailer at all ⇒ 0%.
 // Old caches: a store written before trailers were read (history `h11`, model `m28`) holds `agent: false` for
 // every co-authored commit; the version bump alone must make the next run re-walk history and re-learn.
@@ -36,7 +37,16 @@ test('isAgentCommit: an agent co-author makes a human-authored commit agent-writ
   assert.equal(isAgentCommit('Alice <alice@example.com>', 'Bob <bob@example.com>\x1fCarol <carol@example.com>'), false);
 });
 
-let tmp, agentRepo, pairRepo, plainRepo;
+test('isAgentCommit: a bot co-author is not an agent (a squash-merge crediting automation stays human)', () => {
+  for (const bot of ['dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>', 'renovate[bot] <29139614+renovate[bot]@users.noreply.github.com>', 'github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>', 'pre-commit-ci[bot] <66853113+pre-commit-ci[bot]@users.noreply.github.com>'])
+    assert.equal(isAgentCommit('Alice <alice@example.com>', bot), false, bot);
+  // the author side is unchanged: a bot that commits itself is still automation, as before
+  assert.equal(isAgentCommit('dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>', ''), true);
+  for (const agent of ['Claude <noreply@anthropic.com>', 'Copilot <175728472+Copilot@users.noreply.github.com>', 'Codex <codex@openai.com>', 'Gemini <gemini@google.com>', 'Cursor Agent <cursoragent@cursor.com>', 'Devin AI <devin-ai-integration[bot]@users.noreply.github.com>', 'aider (openai/gpt-4o) <noreply@aider.chat>'])
+    assert.equal(isAgentCommit('Alice <alice@example.com>', agent), true, agent);
+});
+
+let tmp, agentRepo, pairRepo, botRepo, plainRepo;
 const env = (iso, name, email) => ({ GIT_AUTHOR_NAME: name, GIT_AUTHOR_EMAIL: email, GIT_COMMITTER_NAME: name, GIT_COMMITTER_EMAIL: email, GIT_AUTHOR_DATE: `${iso}T12:00:00Z`, GIT_COMMITTER_DATE: `${iso}T12:00:00Z` });
 const gitIn = (repo, e, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', env: { ...process.env, ...e } });
 const w = (repo, rel, content) => { mkdirSync(join(repo, dirname(rel)), { recursive: true }); writeFileSync(join(repo, rel), content); };
@@ -73,6 +83,7 @@ before(() => {
   // two spellings of the key: git matches trailer keys case-insensitively, and so must the walk
   agentRepo = build('agent', i => (i % 2 ? 'Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>' : 'Co-authored-by: Claude <noreply@anthropic.com>'));
   pairRepo = build('pair', () => 'Co-Authored-By: Bob <bob@example.com>');
+  botRepo = build('bot', () => 'Co-authored-by: dependabot[bot] <49699333+dependabot[bot]@users.noreply.github.com>');
   plainRepo = build('plain', () => '');
 });
 after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
@@ -97,6 +108,10 @@ test('a history co-authored by an agent reports its code as agent-authored', () 
 
 test('a human co-author does not make code agent-authored', () => {
   assert.match(shareLine(pairRepo), /: 0%/);
+});
+
+test('a bot co-author does not make code agent-authored', () => {
+  assert.match(shareLine(botRepo), /: 0%/);
 });
 
 test('a history with no trailer at all stays human', () => {

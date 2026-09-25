@@ -21,7 +21,7 @@ import {
 import { createInterface } from 'node:readline';
 import { extname, join } from 'node:path';
 import { parseFile, bindingFor, extractScopes, hashStr, CODE_RE, normalizeCR } from './core.mjs';
-import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, FIX_RE } from './config.mjs';
+import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, AGENT_COAUTHOR_RE, FIX_RE } from './config.mjs';
 import { tokenize, normTok, QSTOP, DOC_STOP } from './core.mjs';
 import { langExt, SFC_RE } from './base.mjs';
 
@@ -252,13 +252,14 @@ export class BlobCache {
 // matches the key case-insensitively, `unfold` keeps a folded trailer on this one line), joined by \x1f.
 export const LOG_FORMAT =
   '%x01%H%x00%ct%x00%an <%ae>%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)';
-// A commit is agent-written when its author OR any co-author names an agent. A human author with an agent
-// co-author (the pair case: the agent typed, the human approved) counts as agent-written, so its code gets the
-// agent provenance weight. Both identities go through the same AGENT_AUTHOR_RE, so an agent is recognised the
-// same way whichever line of the commit names it.
+// A commit is agent-written when its author names an agent (AGENT_AUTHOR_RE, unchanged) OR any co-author names an
+// AI coding agent (AGENT_COAUTHOR_RE — agent names only, no generic bot terms, so a squash-merge crediting
+// dependabot[bot] stays human). A human author with an agent co-author (the pair case: the agent typed, the human
+// approved) counts as agent-written, so its code gets the agent provenance weight. git reads trailers from the
+// message's closing trailer block only, so a `Co-authored-by:` line in the middle of the body is not a trailer.
 export function isAgentCommit(author, coAuthors) {
   if (AGENT_AUTHOR_RE.test(author || '')) return true;
-  for (const v of (coAuthors || '').split('\x1f')) if (v && AGENT_AUTHOR_RE.test(v)) return true;
+  for (const v of (coAuthors || '').split('\x1f')) if (v && AGENT_COAUTHOR_RE.test(v)) return true;
   return false;
 }
 async function walk(gitdir, range) {

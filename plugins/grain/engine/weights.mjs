@@ -39,7 +39,7 @@ export function mkWeightFn(H) {
       const ws = age < CFG.freshDays ? 0.5 : 1;
       const wp = L.agentLast
         ? CFG.agentBase + (1 - CFG.agentBase) * Math.min(1, stable / CFG.promoteDays)
-        : 1.0;
+        : 1;
       let w = Math.max(CFG.floor, ws * wp * (L.churn ? 0.25 : 1));
       return w;
     },

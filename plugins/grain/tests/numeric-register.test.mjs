@@ -1,10 +1,13 @@
 // The numeric register (docs/mathematics.md, "The numeric register") is the page's promise that a reader can see
 // every number the engine compares against. This test keeps the promise honest in both directions:
 //   1. every named constant in config.mjs (CFG, NCAP, SUP, TOPK) has a row, and the row's value equals the code's;
-//   2. every audited literal in engine/*.mjs code — a non-integer number, a literal ratio such as `2 / 3` or
+//   2. every audited literal in the top-level engine files (engine/*.mjs; engine/vendor and engine/grammars are
+//      not scanned) — a non-integer number, a literal ratio such as `2 / 3` or
 //      `(n * 2) / 3`, a literal day window `N * 86400` or `/ 86400 <= N` — sits on a line that a register row
 //      covers (same file, the row's code fragment on that line, the literal inside the fragment);
-//   3. every register row's code fragment still appears in its file, so a changed value cannot keep a stale row.
+//   3. every register row's code fragment still appears in its file, so a changed value cannot keep a stale row;
+//   4. every row's fragment is long enough to pin one site (at least MIN_FRAGMENT non-space characters, except a
+//      config.mjs row, which its unique key anchors; no wildcard file), and every number in its value column appears in the fragment.
 // Integer floors (`n >= 4`) are not audited; the page says so. Strings and comments are stripped before scanning, so
 // a literal inside a template string's `${…}` is not seen (the page lists the one such gate by hand).
 import { test } from 'node:test';
@@ -50,7 +53,8 @@ const sources = Object.fromEntries(engineFiles.map(f => [f, readFileSync(join(en
 const named = tableRows.filter(r => r.length === 3 && /^`\w+`$/.test(r[0]));
 const literalRows = tableRows
   .filter(r => r.length === 5 && r[0] !== 'value')
-  .map(r => ({ files: r[1] === '*' ? engineFiles : r[1].split(',').map(x => x.trim()), frag: r[2].replace(/^`|`$/g, ''), raw: r }));
+  .map(r => ({ files: r[1].split(',').map(x => x.trim()), frag: r[2].replace(/^`|`$/g, ''), value: r[0], raw: r }));
+const MIN_FRAGMENT = 12; // a config.mjs row is anchored by its unique key and exempt
 
 test('sanity: the register was parsed', () => {
   assert.ok(named.length >= 20, `named-constant rows parsed: ${named.length}`);
@@ -76,6 +80,22 @@ test('every register row names real files and its code still appears there', () 
     for (const f of row.files) if (!sources[f]) problems.push(`row ${row.raw.join(' | ')}: no engine file ${f}`);
     const found = row.files.some(f => sources[f] && sources[f].some(l => !/^\s*(\/\/|\*|\/\*)/.test(l) && norm(l).includes(norm(row.frag))));
     if (!found) problems.push(`row \`${row.frag}\` (${row.raw[1]}): code not found — the value changed or the line moved away`);
+  }
+  assert.deepEqual(problems, []);
+});
+
+test('every register row pins its site: a long enough fragment, and the value column\'s numbers inside it', () => {
+  const problems = [];
+  const glyph = { '½': '0.5', '¼': '0.25', '¾': '0.75' };
+  for (const row of literalRows) {
+    const f = norm(row.frag);
+    if (f.length < MIN_FRAGMENT && !(row.files.length === 1 && row.files[0] === 'config.mjs')) problems.push(`\`${row.frag}\` (${row.raw[1]}): shorter than ${MIN_FRAGMENT} characters, it could cover a new use unseen`);
+    const val = row.value.replace(/[½¼¾]/g, g => glyph[g]);
+    for (const n of val.match(/\d+(?:\.\d+)?(?:\/\d+)?/g) || []) {
+      const [a, b] = n.split('/');
+      const ok = b ? f.includes(`${a}/${b}`) || f.includes(`*${a})/${b}`) : f.includes(a);
+      if (!ok) problems.push(`\`${row.frag}\` (${row.raw[1]}): value ${row.value} (${n}) is not in the code`);
+    }
   }
   assert.deepEqual(problems, []);
 });
