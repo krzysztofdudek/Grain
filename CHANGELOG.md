@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Grain now parses with the same grammars as Yggdrasil 6.1.0, byte for byte: Rust and C 0.24.2, YAML 0.7.2, TypeScript and TSX with four upstream fixes (`using` declarations, `export type *`, variance annotations, type arguments on `import()` types), and newer C++ (C++20 modules, C++26 expansion statements), PHP, Ruby and C# (C# 14 extension blocks), with Java, JSON, Kotlin and TOML rebuilt on the current toolchain. Lua moves to 0.5.0 (Lua 5.5 syntax), and the parsing runtime to web-tree-sitter 0.27.0. Every grammar is pinned by the checksum of its files, and Grain refuses to ship one that does not match. Stores built by an earlier version are rebuilt on first use.
+- A TypeScript or JavaScript type-only import is now a dependency between modules, like any import, the same rule Yggdrasil 6.1.0 applies: `import type`, an all-inline `import { type A }`, `export type { … } from`, `export type * from`, `import type X = require(…)`, `typeof import('./m')`, an `import('./m').T` type, the type side of `as`/`satisfies`, a type argument, and a module augmentation (`declare module './m'`). A module that compiles only against another's types depends on it, so the architecture Grain proposes now includes those edges. An ambient `declare module` in a script file and a wildcard pattern stay silent, and an ambiguous target still gives no edge. A declaration file resolves like a source (`./types` → `types.d.ts`, `./api.js` → `api.d.ts`).
 
 ### Fixed
 
