@@ -68,7 +68,9 @@ test('each tier caps and reports overflow independently under --top', () => {
   const lines = report(model, { top: 0 });
   const text = lines.join('\n');
   // top:0 hides every fact in every tier, but each tier must still say honestly how many it left out (no silent caps)
-  assert.match(text, /… and 2 more — run with --top 2 for all/, `domain tier must report its own overflow: ${text}`);
+  // three domain facts: the handler group's decorator, the handlers directory's decorator, and src/other's absence of it
+  // (0 of 270 against 30 of 40 in the rest of the partition — a directory absence the contrast certifies)
+  assert.match(text, /… and 3 more — run with --top 3 for all/, `domain tier must report its own overflow: ${text}`);
   const structHeadingIdx = lines.findIndex(l => l.includes('syntax-shape facts'));
   assert.notEqual(structHeadingIdx, -1, `structural heading must still show even with --top 0: ${text}`);
   assert.match(lines[structHeadingIdx + 1] || '', /… and 1 more — run with --top 1 for all/, `structural tier must report its own overflow right after its heading: ${text}`);

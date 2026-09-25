@@ -1,6 +1,6 @@
 ---
 description: Plant synthetic deviations into conforming exemplars and report how many this repo's own model catches (or evaluate `how`, `where` or extraction itself against a naive baseline/oracle)
-argument-hint: [--json] | --how [--last N] [--json] | --where [--last N] [--json] | --extract [--json]
+argument-hint: [--json] | --how [--last N] [--json] | --where [--last N] [--json] | --extract [--json] | --null [--runs N] [--json]
 allowed-tools: Bash(node:*)
 ---
 ## grain selftest: $ARGUMENTS
@@ -25,5 +25,10 @@ extraction actually recorded as a scope, precision is the fraction of extraction
 are declarations. A grammar with no such node type at all (JSON/YAML/TOML) is reported as a boundary, not a score.
 `--json` adds the first 10 misses (a declaration the oracle sees that extraction did not record) and 10 extras
 (a scope extraction recorded that the oracle does not consider a declaration), each as `file:line name`.
+`selftest --null [--runs N]` measures false certifications: every family of claims is run again on a copy of the
+repository's own evidence with the link it claims destroyed and its marginals kept (role labels and directory placements dealt out again,
+import sets dealt out among files, the commit × file matrix swap-randomised, commit messages dealt out among
+commits), and it reports, per family, how many claims survive that (mean and maximum over the runs) beside the real
+count. Anything certified under the null is false by construction. Each run costs one full learn pass.
 Relay the numbers as reported; do not round them further or editorialize about whether they are "good enough" —
 that is a maintainer judgment, not something to assert on grain's behalf.

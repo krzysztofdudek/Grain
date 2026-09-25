@@ -24,7 +24,7 @@ const PROPOSE = join(here, 'stress', 'propose.mjs');
 
 let tmp, repo, out;
 
-const PKGS = ['owner', 'vet', 'visit', 'clinic', 'system'];
+const PKGS = ['owner', 'vet', 'visit', 'clinic', 'system', 'billing', 'room', 'staff', 'drug', 'report'];
 const TYPES = ['Service', 'Repository', 'Controller', 'Validator', 'Mapper'];
 
 function buildFixture(root, env) {
@@ -38,7 +38,7 @@ function buildFixture(root, env) {
         `  public List<String> all() {\n    return List.of("${p}");\n  }\n` +
         `  public String one() {\n    return "${p}";\n  }\n}\n`);
     }
-    // the name the language fixes, one per package — five in all
+    // the name the language fixes, one per package — ten in all
     w(`src/main/java/app/${p}/package-info.java`, `/** The ${p} package. */\npackage app.${p};\n`);
   }
   w('README.md', '# fixture\n');
@@ -80,10 +80,10 @@ test('a file-name rule exempts the names the language fixes, and says how many',
   const aspects = shapeAspects();
   assert.ok(aspects.length > 0, 'the fixture mined no file-name shape rule at all');
   for (const a of aspects) {
-    assert.match(a.evidence, /5 language marker files? exempted \(`package-info\.java`\)/, a.evidence);
-    // the five that left are not counted among the sites that break the rule
-    assert.ok(!/5 break it today/.test(a.evidence), a.evidence);
-    assert.match(a.evidence, /holds for all 25 files in scope/, a.evidence);
+    assert.match(a.evidence, /10 language marker files? exempted \(`package-info\.java`\)/, a.evidence);
+    // the ten that left are not counted among the sites that break the rule
+    assert.ok(!/10 break it today/.test(a.evidence), a.evidence);
+    assert.match(a.evidence, /holds for all 50 files in scope/, a.evidence);
   }
 });
 

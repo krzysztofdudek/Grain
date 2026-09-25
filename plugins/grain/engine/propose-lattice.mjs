@@ -10,7 +10,7 @@ export async function partitionLattice(repo) {
   const treePath = join(repo, '.grain', 'cache', 'tree.json');
   if (!existsSync(modelPath) || !existsSync(treePath)) return { rows: [], reason: 'no grain cache (.grain/cache/{model,tree}.json) — run `grain export` on this repo first' };
   const core = await import(`file://${CORE}`);
-  const { hydrateScope, applyVocab, buildVocab, skeyR, isBool, kt } = core;
+  const { hydrateScope, applyVocab, buildVocab, skeyR, isBool, kt, STRUCT_PID } = core;
   const model = JSON.parse(readFileSync(modelPath, 'utf8'));
   const tree = JSON.parse(readFileSync(treePath, 'utf8'));
   const byFile = new Map();
@@ -18,7 +18,11 @@ export async function partitionLattice(repo) {
     const rel = k.slice(k.indexOf('|') + 1);
     byFile.set(rel, (Array.isArray(v) ? v : v.s) || []);
   }
-  const rows = [];
+  // pass 1: every partition's cells, so the index cost is paid ONCE over the whole repository's candidates (§9.4a)
+  // and a partition-wide cell can be contrasted with the same (kind, predicate) everywhere else
+  const parts = [];
+  const repoAll = new Map(); // "kind\x01pid" -> value tally over every partition
+  let universe = 0;
   for (const part of model.partitions || []) {
     const ps = [];
     for (const rel of part.files || []) for (const raw of byFile.get(rel) || []) { if (raw.name !== '<anon>') ps.push(hydrateScope(raw)); }
@@ -44,28 +48,60 @@ export async function partitionLattice(repo) {
         if (r !== undefined) add2('r' + r + ':' + s.kind, pid, v, s);
       }
     }
-    const idxCost = Math.ceil(Math.log2(Math.max(cells.size, 2)));
+    universe += cells.size;
+    for (const [key, c] of cells) {
+      const [cid, pid] = key.split(CELL_SEP);
+      if (!cid.startsWith('_all')) continue;
+      const rk = cid.slice(5) + CELL_SEP + pid;
+      const t = repoAll.get(rk) || repoAll.set(rk, Object.create(null)).get(rk);
+      for (const [v, n] of Object.entries(c)) t[v] = (t[v] || 0) + n;
+    }
+    parts.push({ part, cells, sites });
+  }
+  const idxCost = Math.ceil(Math.log2(Math.max(universe, 2)));
+  const sum = c => Object.values(c).reduce((a, b) => a + b, 0);
+  const rows = [];
+  for (const { part, cells, sites } of parts) {
     const factKey = new Set((part.facts || []).map(f => f.cid + CELL_SEP + f.pid + CELL_SEP + f.exp));
     for (const [key, c] of cells) {
       const [cid, pid] = key.split(CELL_SEP);
       if (!pid) continue;
       const kind = cid.split(':').pop();
-      const n = Object.values(c).reduce((a, b) => a + b, 0);
+      const n = sum(c);
       if (n < 3) continue;
       const Vv = Object.keys(c).sort();
       const bl = isBool(pid);
       const K = bl ? 2 : Vv.length + 1;
       const allC = cells.get('_all:' + kind + CELL_SEP + pid);
-      const allN = allC ? Object.values(allC).reduce((a, b) => a + b, 0) : n;
-      let data = 0;
-      if (cid.startsWith('_all')) { const B = Math.max(bl ? 2 : Vv.length, 2); for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) * B); }
-      else if (!allC) continue; // no partition-wide reference for this cell — nothing to contrast against
-      else for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) / kt(allC, K, v, allN));
-      const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost;
+      const allN = allC ? sum(allC) : n;
       let exp = null, ne = -1;
       for (const v of Vv) if (c[v] > ne) { exp = v; ne = c[v]; }
       if (!bl && ['other', 'none', 'mixed', '?'].includes(exp)) continue;
-      if (bl && exp === 'false') { const tot = allN; if (!tot || (allC?.['true'] || 0) / tot < 0.2) continue; }
+      const isAll = cid.startsWith('_all');
+      // the reference population a cell's outcomes are contrasted with: the rest of the repository for a
+      // partition-wide ABSENCE (the same two-population cell an architecture norm uses — "never X here" is news only
+      // where X is used more elsewhere), the partition for a role cell; a partition-wide presence keeps the flat code
+      let ref = null, refN = 0;
+      if (isAll && bl && exp === 'false') {
+        const t = repoAll.get(kind + CELL_SEP + pid) || {};
+        ref = { true: (t.true || 0) - (c.true || 0), false: (t.false || 0) - (c.false || 0) };
+        refN = ref.true + ref.false;
+        if (!refN) continue; // one partition only: nothing outside it to contrast an absence with
+      } else if (!isAll) {
+        if (!allC) continue; // no partition-wide reference for this cell — nothing to contrast against
+        ref = allC;
+        refN = allN;
+      }
+      // an absence is a contrast only in its own direction: this cell uses the thing LESS than its reference does
+      if (bl && exp === 'false' && ref && !((c.true || 0) * refN < (ref.true || 0) * n)) continue;
+      let data = 0;
+      if (!ref) { const B = Math.max(bl ? 2 : Vv.length, 2); for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) * B); }
+      else for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) / kt(ref, K, v, refN));
+      const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost;
+      let parentExp = null;
+      if (!isAll && allC) { let pn = -1; for (const [v, m] of Object.entries(allC)) if (m > pn) { parentExp = v; pn = m; } }
+      // structural facts describe the language unless they CONTRAST with the partition — the same rule mine() applies
+      const structural = STRUCT_PID.test(pid) && (isAll || parentExp === null || parentExp === exp);
       const share = ne / n;
       const isNorm = factKey.has(cid + CELL_SEP + pid + CELL_SEP + exp);
       // The row's own host site: the first site among this cell's OWN majority-value population,
@@ -74,7 +110,7 @@ export async function partitionLattice(repo) {
       // the same "nothing declared" shape a hand-built test row already gets when it omits these fields.
       const hostSite = (sites.get(key) || []).find(s => s.v === exp) || null;
       rows.push({
-        partition: part.name, cid, pid, exp, share, n, ne, bits: +bits.toFixed(1), isNorm,
+        partition: part.name, cid, pid, exp, share, n, ne, K, bits: +bits.toFixed(1), isNorm, structural,
         role: /^r(\d+):/.exec(cid)?.[1] ?? null, kind,
         tparams: hostSite?.tparams || [], own: hostSite?.own || null,
         deviants: (sites.get(key) || []).filter(s => s.v !== exp).map(s => `${s.rel}#${s.name}`),
@@ -83,11 +119,54 @@ export async function partitionLattice(repo) {
   }
   return { rows, reason: null };
 }
-// The sub-gate band: practised by a supermajority but below the certification bound, with real support. These
-// are the rows a maintainer reads as "a house rule that has not finished spreading".
+// log Γ at a positive integer or half-integer, exactly: Γ(1) = 1, Γ(½) = √π, Γ(x + 1) = x·Γ(x)
+const lgammaHalf = x => {
+  let s = Number.isInteger(x) ? 0 : Math.log(Math.PI) / 2;
+  for (let y = Number.isInteger(x) ? 1 : 0.5; y < x; y++) s += Math.log(y);
+  return s;
+};
+// the regularized incomplete beta I_x(a, b), by its continued fraction (modified Lentz), for the KT posterior
+// Beta(k + ½, n − k + ½) — run to the precision of a double, not to a chosen tolerance
+export function betaCdf(x, a, b) {
+  if (x <= 0) return 0;
+  if (x >= 1) return 1;
+  const front = Math.exp(a * Math.log(x) + b * Math.log(1 - x) - (lgammaHalf(a) + lgammaHalf(b) - lgammaHalf(a + b)));
+  const cf = (x2, p, q) => {
+    const tiny = Number.MIN_VALUE;
+    const fix = v => (Math.abs(v) < tiny ? tiny : v);
+    let c = 1,
+      d = 1 / fix(1 - ((p + q) * x2) / (p + 1)),
+      h = d;
+    for (let m = 1; m <= 1000; m++) {
+      const m2 = 2 * m;
+      let aa = (m * (q - m) * x2) / ((p + m2 - 1) * (p + m2));
+      d = 1 / fix(1 + aa * d);
+      c = fix(1 + aa / c);
+      h *= d * c;
+      aa = (-(p + m) * (p + q + m) * x2) / ((p + m2) * (p + m2 + 1));
+      d = 1 / fix(1 + aa * d);
+      c = fix(1 + aa / c);
+      const del = d * c;
+      h *= del;
+      if (Math.abs(del - 1) <= Number.EPSILON) break;
+    }
+    return h;
+  };
+  return x < (a + 1) / (a + b + 2) ? (front * cf(x, a, b)) / a : 1 - (front * cf(1 - x, b, a)) / b;
+}
+// The sub-gate band: the rows a maintainer reads as "a house rule that has not finished spreading". A row enters
+// only where grain's own objective holds for it and its practice is a supermajority with λ-level confidence:
+//   - its contrast bits are positive (a role cell against its partition, a partition-wide absence against the rest
+//     of the repository, one index cost over the whole repository's lattice) — a raw share is not evidence;
+//   - a structural predicate speaks only as a contrast, as it does in mine();
+//   - the KT posterior Beta(k + ½, n − k + ½) puts at most 1/λ of its mass below the two-thirds supermajority;
+//   - and it is still BELOW the certification bound: its posterior predictive does not reach 1 − 1/λ.
+// Ranked by bits, so the per-partition reading cap keeps the strongest evidence rather than the highest share.
 export const subGate = rows => rows
-  .filter(r => !r.isNorm && r.n >= MIN_SUPPORT && r.share >= SUPERMAJORITY && r.share < LAMBDA_BOUND)
-  .sort((a, b) => b.share - a.share || b.n - a.n || (a.pid < b.pid ? -1 : 1));
+  .filter(r => !r.isNorm && !r.structural && r.n >= MIN_SUPPORT && r.bits > 0
+    && (r.ne + 0.5) / (r.n + r.K / 2) < LAMBDA_BOUND
+    && betaCdf(SUPERMAJORITY, r.ne + 0.5, r.n - r.ne + 0.5) <= 1 - LAMBDA_BOUND)
+  .sort((a, b) => b.bits - a.bits || b.n - a.n || (a.pid < b.pid ? -1 : 1));
 // The identifier a lattice pid or a convention feature is ABOUT — what an aspect draft names, and the thing a
 // comparison against a hand-written mechanical rule can match on.
 export const identifierOf = pid => {

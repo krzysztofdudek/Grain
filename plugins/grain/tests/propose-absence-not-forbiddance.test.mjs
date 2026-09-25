@@ -12,9 +12,12 @@
 // CERTIFIED is a different fact — "this partition never uses X" — and stays eligible, with its provenance
 // saying which direction it came from.
 //
-// The fixture: 28 uniform TypeScript modules, 20 importing `node:os` and 8 importing `node:fs`. The first mines
-// a `true`-direction row at share 0.714 and the second a `false`-direction row at the same share, from one
-// partition, so the two directions are compared with everything else held equal.
+// The fixture: 60 uniform TypeScript modules under `src/`, 48 importing `node:os` and 12 importing `node:fs`,
+// and 30 pages under `web/`, written in another style, every one of which imports `node:fs`. `src/` mines a
+// `true`-direction row at share 0.8 and a `false`-direction row at the same share, from one partition, so the two
+// directions are compared with everything else held equal. The `web/` partition is what makes the absence a
+// candidate at all: a sub-gate absence is contrasted with the same import elsewhere in the repository, and one
+// that the rest of the repository does not use more often never reaches the band (§mathematics, "The sub-gate band").
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -36,16 +39,19 @@ const mod = (n, extra) =>
   `export function name${cap(n)}(base: string): string {\n  return join('${n}', base);\n}\n\n` +
   `export function path${cap(n)}(base: string): string {\n  return join(base, base, '${n}');\n}\n`;
 
-const NAMES = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'one', 'two', 'three',
-  'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten', 'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen',
-  'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+const WORDS = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa'];
+const NAMES = Array.from({ length: 60 }, (_, i) => `${WORDS[i % 10]}${['one', 'two', 'three', 'four', 'five', 'six'][Math.floor(i / 10)]}`);
+const page = k =>
+  `import { readFileSync } from "node:fs"\nexport class Page${k} {\n    render(): string {\n        return readFileSync("page${k}.html", "utf8")\n    }\n` +
+  `    title(): string {\n        return "Page ${k}"\n    }\n}\n`;
 
 function buildFixture(root, env) {
   mkdirSync(root, { recursive: true });
   const w = (rel, content) => { const p = join(root, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
   const OS = "import { tmpdir } from 'node:os';\nvoid tmpdir;\n";
   const FS = "import { readFileSync } from 'node:fs';\nvoid readFileSync;\n";
-  for (const [i, n] of NAMES.entries()) w(`src/${n}Task.ts`, mod(n, i < 20 ? OS : FS));
+  for (const [i, n] of NAMES.entries()) w(`src/${n}Task.ts`, mod(n, i < 48 ? OS : FS));
+  for (let k = 1; k <= 30; k++) w(`web/page${k}.ts`, page(k));
   w('README.md', '# fixture\n');
   execFileSync('git', ['-C', root, 'init', '-q', '-b', 'main'], { env });
   execFileSync('git', ['-C', root, 'add', '-A'], { env });
@@ -88,7 +94,7 @@ test('a `false`-direction sub-gate row is kept as an observation, never as a pro
   const yaml = readFileSync(join(out, '.yggdrasil', 'aspects', row.id, 'yg-aspect.yaml'), 'utf8');
   assert.ok(!/No file .* may/.test(yaml), `an absence is worded as an obligation: ${yaml}`);
   assert.match(yaml, /an absence, not a rule/);
-  assert.match(yaml, /20 of 28 files/);
+  assert.match(yaml, /48 of 60 files/);
   assert.match(yaml, /status: draft/);
 });
 

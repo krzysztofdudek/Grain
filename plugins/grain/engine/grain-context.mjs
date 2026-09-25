@@ -54,6 +54,7 @@ export function parseArgv(argv) {
           'range',
           'on',
           'last',
+          'runs',
           'holdout',
           'family-candidates',
           'graph',

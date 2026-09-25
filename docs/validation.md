@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2918 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2936 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -105,6 +105,33 @@ accusation prints.
 **Total: 73 of 76 detected, 0 false fires.** The three misses are not defects but the loss constant made visible:
 all three cells sit at 7.0 to 7.8 : 1 odds, below the 8 : 1 that λ demands before grain accuses an instance
 (see [mathematics.md](mathematics.md)). Lower the constant and they fire, at the price the constant exists to refuse.
+
+## False certifications under a null
+
+The mutation harness counts false fires; `grain selftest --null` counts false certifications. Each family of claims is re-run on a copy of the repository's own evidence where the link it claims has been destroyed and its marginals kept. The role labels and the directory each scope is read in are dealt out again within each scope kind. The out-edge sets are dealt out among the files that have one. The commit × file matrix is swap-randomised (curveball trades keep every commit's size and every file's commit count, and a file's birth flag and touched scopes travel with it). The commit message tokens are dealt out among the commits. Whatever a family still certifies is false by construction. The history families are counted over the retained footprints in both arms, so their real column can differ from what the shipped model prints.
+
+Measured 2026-09-25 on two repositories of the family, 3 runs each with seeds 1 to 3, on the same model and history. "Before" is the 6.1.0 mathematics; "after" is this build. Cells read *real · null mean per run (runs)*.
+
+| family | Grain before | Grain after | Yggdrasil before | Yggdrasil after |
+| --- | --- | --- | --- | --- |
+| role conventions | 22 · 0 | 22 · 0 | 34 · 0 | 39 · 0 |
+| directory conventions | 12 · 0 | 12 · 0 | 4 · 0 | 13 · 0 |
+| architecture norms | 4 · 12.7 (10, 12, 16) | 15 · 0 | 9 · 19.7 (21, 19, 19) | 34 · 0 |
+| of which absences | 3 · 12.7 | 2 · 0 | 8 · 19.7 | 23 · 0 |
+| birth obligations | 0 · 0 | 0 · 0 | 0 · 0 | 0 · 0 |
+| co-change partners | 20 · 6.7 (6, 8, 6) | same | 392 · 191 (202, 187, 184) | same |
+| commit-archetype cells | 38 · 39.3 (45, 32, 41) | same | 96 · 39 (39, 43, 35) | same |
+| language bridge | 1 · 0 | 1 · 0 | 10 · 0 | 10 · 0 |
+| **total under the null** | **58.7** | **46** | **249.7** | **230** |
+
+The target is at most one false certification per repository across all families. This build does not meet it, and the table says where:
+
+- **Architecture norms met it.** Under the old flat 50/50 coin, shuffled edges certified more absence norms than the real edges did (12.7 against 3 on Grain, 19.7 against 8 on Yggdrasil). The two-population contrast certifies 0 on shuffled edges in every run on both, and 0 over 20 further permutations each. It now certifies boundaries nobody has crossed, such as `tests/e2e -/-> src/model` on Yggdrasil (0 of 77 against 323 of 807 elsewhere), which the old candidate universe could not contain.
+- **Role and directory conventions, obligations and the bridge were already at 0**, and the group and directory absences the contrast now certifies in place of the 30% floor (five more role cells and nine more directory cells on Yggdrasil) stay at 0.
+- **Co-change is not.** A partner is named on a raw confidence share (a third of the edited file's commits), and two files that are each touched often co-occur often by chance: 191 pairs a run on Yggdrasil, half the real count. This is the co-change gate the research filed separately; this build does not change it.
+- **Commit archetypes are not.** An archetype's cells are chosen by the clustering and then certified on the same footprints, so a shuffled history yields about as many certified cells as the real one on Grain (39.3 against 38) and 39 against 96 on Yggdrasil. The contrast is paid twice on the same data. Not corrected in this build.
+
+The mutation harness on the same two repositories, after the change: Grain 7 of 7 planted deviations caught, 0 false fires (6 of 6 before); Yggdrasil 25 of 25 caught, 0 false fires (14 of 14 before). The extra plantable cases are the directory absences the contrast now certifies.
 
 ## Match-by-example (`how`) vs. a grep baseline
 

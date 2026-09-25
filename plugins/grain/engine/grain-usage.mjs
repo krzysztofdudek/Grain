@@ -44,6 +44,7 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
   selftest --where [--last N] [--json]    where's own ranking of the file a past commit ADDED, from that commit's message, vs a path-match baseline, over the last N such commits
   selftest --obligation [--last N] [--json]  leave-one-out: the birth-obligation table's own coverage/precision predicting what a past commit that ADDED a file also touched, over the last N such events
   selftest --extract [--json]             per grammar, what fraction of the declarations a node-types.json-derived oracle sees does extraction actually record as a scope
+  selftest --null [--runs N] [--json]     each claim family re-run on history and edges shuffled so the link it claims is gone: how many claims it still certifies (false certifications), beside the real count
   refresh [--full]                        rebuild the index now (every query already auto-refreshes)
   version                                 engine, extractor and grammar versions
 aliases:

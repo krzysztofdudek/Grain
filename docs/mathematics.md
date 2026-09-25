@@ -22,6 +22,7 @@ Everything the tool prints is a special case:
 | a partition | a cut of the directory tree that compresses the file style distributions |
 | a deviation | an instance whose pointwise codelength excess clears the loss bound |
 | drift, nucleation | the arrival process of a rule's instances along the history |
+| an architecture norm | a (source, target module) cell whose reach rate, contrasted with the reach rate outside both, has a positive codelength gain |
 | a commit archetype | a sub-population of past commit footprints whose codelength gain, against the whole history's own base rate, is positive |
 | a value concordance | a set of values whose joint presence across files compresses better than treating them independently |
 | a structural twin | two role groups whose anti-unified templates share a core exceeding both sides combined |
@@ -116,6 +117,18 @@ identifiers folded, so a per instance name cannot split a bucket the way it spli
 template stands only on its own terms. A template's time axis is the arrival process of its instances, read from the
 lifecycle rows without re-extracting any old blob.
 
+## Architecture norms
+
+A layering norm is a statement about one source (a module, or a role group one level finer) and one target module: "files here reach it" or "files here do not". It is decided as a contrast between two populations, the same cell the language bridge and the birth obligations use, never against a flat coin. Only *capable* files enter it, meaning files with at least one resolved out-edge: a file that imports nothing says nothing about which modules it avoids. For a source A and a target B, k_A of the n_A capable files of A reach B, and k_O of the n_O capable files outside A and outside B do. The gain codes A's reach/no-reach outcomes at A's own KT rate instead of at the outside KT rate, pays the BIC half log, and pays one index cost over every (A, B) pair where B is reached by at least the raw floor of capable files and the outside population is at least that large. That universe includes the pairs A never crosses: a boundary nobody has crossed is a candidate. On Yggdrasil, none of the 77 capable end-to-end test files reaches the model module, against 323 of 807 capable files elsewhere, and that absence certifies at 40 bits. A norm speaks when the gain is positive, when the λ posterior names its value, and when the contrast points the way the value says: an absence only where A reaches B less often than the rest of the repository, a presence only where it reaches B more often. That direction replaces the old 10% "reach elsewhere" floor.
+
+The same contrast now decides a group or directory absence inside a partition: the cell is coded against the scopes of its kind outside the cell, and the absence stands only where the gain survives and the cell uses the thing less. That replaces a 30% partition-wide floor. A partition-wide absence keeps its declared 10% floor, because `mine()` sees one partition at a time and has no outside population to contrast it with.
+
+Measured under an edge-permutation null (validation.md, *False certifications under a null*): the flat coin certified 12.9 absence norms per shuffle on Grain and 17.7 on Yggdrasil, as many as or more than on the real edges; the contrast certifies 0 on both.
+
+## The sub-gate band
+
+`propose` also reads the lattice below certification: rows practised by a supermajority that did not clear the λ bound. They can become `advisory` rules, so a row enters the band only where the objective holds for it. Its contrast bits must be positive: a role row against its partition, a partition-wide absence against the same predicate in every other partition, a partition-wide presence under the flat code, and one index cost over the whole repository's lattice. A structural predicate enters only as a contrast, as in `mine()`. The KT posterior Beta(k + ½, n − k + ½) may put at most 1/λ of its mass below the two-thirds supermajority, which is λ applied to the band's lower edge instead of a raw share. The posterior predictive must still sit below 1 − 1/λ, or the row would be certified. The per-partition reading cap keeps the rows with the most bits, not the highest share.
+
 ## Commit archetypes
 
 A commit's footprint is a feature bag — the refined module of each file it touched, the role group of each scope it
@@ -128,7 +141,9 @@ predicate is judged by. A cell every commit in the repository touches carries no
 inside one archetype; the contrast is what tells the two apart, where a flat evidence-only test cannot. `how`'s
 certified-shape line and `missing: change shape:`'s residual cells both read straight off this certification —
 which commits cluster together is a modelling choice, not itself a claim; only which of the resulting cells survive
-the contrast is.
+the contrast is. A limit measured since: the contrast is paid on the same footprints the clustering chose the cells from, so a
+swap-randomised history (validation.md, *False certifications under a null*) still yields about as many certified
+cells as the real one on Grain and about half as many on Yggdrasil. This build does not correct for it.
 
 ## Birth obligations
 
@@ -287,7 +302,11 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | ½ | commit-log.mjs | `data - 0.5 * (K3 - 1) * Math.log2(Math.max(df, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
 | ½ | learn.mjs | `data - 0.5 * (KD - 1) * Math.log2(Math.max(neff, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
 | ½ | learn.mjs | `data - 0.5 * (KV - 1) * Math.log2(Math.max(neff, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
-| ½ | arch.mjs, mine.mjs | `(ne + 0.5) / (neff + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | mine.mjs | `(ne + 0.5) / (neff + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | arch.mjs | `(ne + 0.5) / (nA + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | propose-lattice.mjs | `(r.ne + 0.5) / (r.n + r.K / 2) < LAMBDA_BOUND` | derived — KT posterior predictive: a sub-gate row is still below the certification bound | — |
+| ½ | propose-lattice.mjs | `r.ne + 0.5, r.n - r.ne + 0.5)` | derived — the KT posterior Beta(k + ½, n − k + ½) whose mass below two thirds gates a sub-gate row | — |
+| ½ | propose-lattice.mjs | `? 1 : 0.5; y < x; y++)` | derived — Γ(½) = √π starts the exact half-integer log Γ recursion | — |
 | ½ | commit-log.mjs | `(k + 0.5) / (df + K3 / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
 | ½ | commit-log.mjs | `(k + 0.5) / (n + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
 | ½ | facts.mjs | `0) + 0.5) / (n + K / 2);` | derived — KT posterior predictive | — |
@@ -332,10 +351,7 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 14 days | history.mjs | `e.c.ts - L.first <= 14 * 86400` | weight — "rewritten right after birth" window (equal to `freshDays` today, not tied to it) | none |
 | ½ | mine.mjs | `Math.min(sd.weight, 0.5 * neffReal)` | weight — a maintainer seed counts at most half the cell | none |
 | 0.1 | mine.mjs | `partitionTrueShare(f.kind, f.pid) >= 0.1` | gate — a partition-wide absence needs 10% use of the thing | none |
-| 0.3 | mine.mjs | `partitionTrueShare(f.kind, f.pid) >= 0.3` | gate — a local absence needs 30% partition-wide use | none |
 | 0.1 | mine.mjs | `confCarriers / f.conform.length >= 0.1` | gate — an alternative marker must be rare among conformers | none |
-| 0.1 | arch.mjs | `outsideShare(n) >= 0.1` | gate — an architecture absence norm needs 10% reach elsewhere | none |
-| 0.2 | propose-lattice.mjs | `0) / tot < 0.2) continue; }` | gate — a sub-gate "never X" row, which `propose` may turn into an advisory rule, needs 20% partition-wide use | none |
 | 0.2 | spectrum.mjs | `0) / tot < 0.2) continue;` | display — `explain` shows a "never X" lattice row only at 20% partition-wide use | none |
 | 0.02 | weights.mjs | `if (slope > 0.02 && minority` | gate — drift slope per window for nucleation | none |
 | 0.05 | weights.mjs | `1 - last.share > 0.05` | gate — nucleation needs 5% current deviation | none |

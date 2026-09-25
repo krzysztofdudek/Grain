@@ -5,6 +5,9 @@ import { PREAMBLE, pct, yamlEmit } from './propose-base.mjs';
 import { isAbsenceRow } from './propose-classify.mjs';
 import { mdTable } from './propose-drills.mjs';
 import { TYPE_LEVELS } from './propose-levels.mjs';
+// an established negative's own numbers: how many of the source's files cross into the target, against how many
+// files elsewhere in the repository do — the contrast the norm was certified on ("0 of 22 cross, vs 96 of 221 elsewhere")
+const crossingEvidence = d => `${d.neff - d.ne} of ${d.neff} cross${d.kOut != null && d.nOut ? `, vs ${d.kOut} of ${d.nOut} elsewhere` : ''}`;
 
 export function renderProposalMd({ repo, exp, files, active, alternatives, nodes, aspects, rels, sub, lat, counts, typesWithNoLaw = [] }) {
   const L = [];
@@ -69,8 +72,8 @@ export function renderProposalMd({ repo, exp, files, active, alternatives, nodes
     'code contains an import a `deny` would forbid, the two statements are both true about different things —',
     'class (c), undecidable without a human — and the negative stays a backlog line rather than becoming a rule',
     'that contradicts the code.', '',
-    mdTable(['from', 'to', 'share', 'became', 'why'],
-      [...rels.denies, ...rels.backlog].map(d => [`\`${d.from}\``, `\`${d.to}\``, d.share.toFixed(3), d.becomes, d.whyNot || 'nothing observed contradicts it'])), '');
+    mdTable(['from', 'to', 'share', 'evidence', 'became', 'why'],
+      [...rels.denies, ...rels.backlog].map(d => [`\`${d.from}\``, `\`${d.to}\``, d.share.toFixed(3), crossingEvidence(d), d.becomes, d.whyNot || 'nothing observed contradicts it'])), '');
   // §class 4: a proposed type that hosts no aspect and is on neither side of any measured
   // dependency edge obliges nothing — still emitted, since the maintainer needs the node to see the directory
   // at all (coverage), but it is not law, and a reader of the graph alone cannot tell that from a type that
@@ -172,6 +175,6 @@ export function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
     'different statement. Where the code contains an import that a deny would forbid, the negative stays here as',
     'a question for you rather than becoming a rule that contradicts the code. In the three-class vocabulary of',
     'the reconstruction report this is class (c): undecidable without a human.', '',
-    mdTable(['from', 'to', 'share', 'why it is not a deny'], rels.backlog.map(d => [`\`${d.from}\``, `\`${d.to}\``, d.share.toFixed(3), d.whyNot])), '');
+    mdTable(['from', 'to', 'share', 'evidence', 'why it is not a deny'], rels.backlog.map(d => [`\`${d.from}\``, `\`${d.to}\``, d.share.toFixed(3), crossingEvidence(d), d.whyNot])), '');
   return L.join('\n') + '\n';
 }
