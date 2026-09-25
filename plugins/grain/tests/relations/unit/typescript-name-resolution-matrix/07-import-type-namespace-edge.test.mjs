@@ -12,8 +12,8 @@ import {
   makeResolvePathToFile,
 } from '../_unit-harness.mjs';
 
-// Ported from Yggdrasil's typescript-name-resolution-matrix.test.ts case 'typescript-export-type-star-reexport-silence',
-// backed by reference/relations/typescript/typescript-export-type-star-reexport-silence.md. This file inlines the
+// Ported from Yggdrasil's typescript-name-resolution-matrix.test.ts case 'typescript-import-type-namespace-edge',
+// backed by reference/relations/typescript/typescript-import-type-namespace-edge.md. This file inlines the
 // reference-case-runner's runCase() logic (materialize -> parse -> symbol table ->
 // resolver -> extractor.uses() -> resolveCandidateGroup -> edge assertions) since
 // runCase itself is not part of the ported unit-harness surface.
@@ -24,18 +24,18 @@ function nodeOf(filePath) {
   return segs.length >= 2 ? segs[segs.length - 2] : '';
 }
 
-test('typescript-export-type-star-reexport-silence', async () => {
+test('typescript-import-type-namespace-edge', async () => {
   const files = [
-  { path: "r/t/types.ts", language: "typescript", code: "export interface A {}\n" },
-  { path: "r/app/use.ts", language: "typescript", code: "export type * from '../t/types';\n" },
+  { path: "r/t/types.ts", language: "typescript", code: "export interface T {}\n" },
+  { path: "r/app/use.ts", language: "typescript", code: "import type * as T from '../t/types';\nconst x: T.T = {} as T.T;\n" },
   ];
   const materializeOnlyFiles = [
 
   ];
   const expectEdges = [
-
+  { fromFile: "r/app/use.ts", line: 1, node: "t" },
   ];
-  const expectSilence = true;
+  const expectSilence = false;
 
   const root = mkdtempSync(path.join(os.tmpdir(), 'grain-tsmatrix-'));
   try {

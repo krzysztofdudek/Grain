@@ -12,8 +12,8 @@ import {
   makeResolvePathToFile,
 } from '../_unit-harness.mjs';
 
-// Ported from Yggdrasil's typescript-name-resolution-matrix.test.ts case 'typescript-import-type-whole-statement-silence',
-// backed by reference/relations/typescript/typescript-import-type-whole-statement-silence.md. This file inlines the
+// Ported from Yggdrasil's typescript-name-resolution-matrix.test.ts case 'typescript-import-type-whole-statement-edge',
+// backed by reference/relations/typescript/typescript-import-type-whole-statement-edge.md. This file inlines the
 // reference-case-runner's runCase() logic (materialize -> parse -> symbol table ->
 // resolver -> extractor.uses() -> resolveCandidateGroup -> edge assertions) since
 // runCase itself is not part of the ported unit-harness surface.
@@ -24,7 +24,7 @@ function nodeOf(filePath) {
   return segs.length >= 2 ? segs[segs.length - 2] : '';
 }
 
-test('typescript-import-type-whole-statement-silence', async () => {
+test('typescript-import-type-whole-statement-edge', async () => {
   const files = [
   { path: "r/t/types.ts", language: "typescript", code: "export interface T {}\n" },
   { path: "r/app/use.ts", language: "typescript", code: "import type { T } from '../t/types';\nconst x: T = {} as T;\n" },
@@ -33,9 +33,9 @@ test('typescript-import-type-whole-statement-silence', async () => {
 
   ];
   const expectEdges = [
-
+  { fromFile: "r/app/use.ts", line: 1, node: "t" },
   ];
-  const expectSilence = true;
+  const expectSilence = false;
 
   const root = mkdtempSync(path.join(os.tmpdir(), 'grain-tsmatrix-'));
   try {

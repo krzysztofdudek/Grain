@@ -4,8 +4,7 @@ import { expect, runExtractor, extractorForLanguage } from '../_unit-harness.mjs
 const run = (code, ext = '.ts', lang = 'typescript') =>
   runExtractor(extractorForLanguage('typescript'), lang, ext, code);
 
-test('excludes an all-inline-type named import (`import { type A, type B } from`)', async () => {
-  // Every specifier carries `type`; no default/namespace binding remains at runtime.
+test('gives an all-inline-type named import its edge (`import { type A, type B } from`)', async () => {
   const { uses } = await run(`import { type A, type B } from './alltype';`);
-  expect(uses).toHaveLength(0);
+  expect(uses.map((u) => u.candidates[0])).toEqual([{ kind: 'path', specifier: './alltype' }]);
 });
