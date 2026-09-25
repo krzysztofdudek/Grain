@@ -43,10 +43,7 @@ worktree.
 | `refresh` | `--full` | rebuild now (queries auto-refresh anyway); `--full` re-walks the whole history |
 | `version` | | engine, extractor and grammar versions |
 
-The agent-authored share (`status`, `report`) classifies the commit author string of the last commit to touch each
-surviving line against `AGENT_AUTHOR_RE`, over committed history only — it never sees the uncommitted worktree in
-either direction (the norm is the accepted past), so a 0% or low reading means recent committers on that code weren't
-tool-named authors, not that no AI-assisted work happened there.
+The agent-authored share (`status`, `report`) classifies the last commit to touch each surviving line. The commit is agent-written when either of two things holds. Its author matches `AGENT_AUTHOR_RE` (`claude`, `copilot`, `cursor`, `codex`, `devin`, `gpt`, `gemini`, the word `bot`, `dependabot`). Or one of its `Co-authored-by:` trailers, with the key in any letter case, matches `AGENT_COAUTHOR_RE` (`claude`, `anthropic`, `copilot`, `cursor`, `codex`, `openai`, `devin`, `gpt`, `gemini`, `aider`). The co-author list names AI coding agents only. A squash-merge that credits `dependabot[bot]`, `renovate[bot]`, `github-actions[bot]` or `pre-commit-ci[bot]` as co-author stays human. Trailers are read the way git reads them, from the closing trailer block of the commit message only, so a `Co-authored-by:` line in the middle of the body does not count. A human-authored commit with an agent co-author counts as agent-written, and its code takes the agent provenance weight like code an agent committed itself. It reads committed history only — it never sees the uncommitted worktree in either direction (the norm is the accepted past), so a 0% or low reading means recent commits on that code named no agent as author or co-author, not that no AI-assisted work happened there.
 
 A type name can legitimately appear at more than one declaration in the same file where a language allows arity- or
 generic-parameter overloading (the same identifier naming genuinely distinct declarations); grain counts each as its

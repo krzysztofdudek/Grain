@@ -39,7 +39,7 @@ export function mkWeightFn(H) {
       const ws = age < CFG.freshDays ? 0.5 : 1;
       const wp = L.agentLast
         ? CFG.agentBase + (1 - CFG.agentBase) * Math.min(1, stable / CFG.promoteDays)
-        : 1.0;
+        : 1;
       let w = Math.max(CFG.floor, ws * wp * (L.churn ? 0.25 : 1));
       return w;
     },
@@ -158,7 +158,7 @@ export function rejectedValues(fact, ps, H) {
 export function calibrate(fact, ps, H) {
   const split = H.NOW - CFG.calibHorizonDays * 86400;
   const settle = H.NOW - CFG.calibSettleDays * 86400;
-  if (H.firstTs > split) return { available: false, reason: 'history<2x horizon' };
+  if (H.firstTs > split) return { available: false, reason: 'history<horizon' };
   const evts = [];
   for (const gi of fact.conform.concat(fact.deviants.map(d => d.gi))) {
     const s = ps[gi];

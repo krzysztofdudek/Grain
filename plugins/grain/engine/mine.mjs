@@ -412,7 +412,9 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   );
   // absence facts are boundaries, not rarity: "files here do not import `re` — 60/65" is the base rate of a rare import, not a
   // rule anyone holds (measured across the corpus: most absence speech was this). Keep an absence fact only where the thing
-  // is a real choice — accepted as PRESENT in another cell of the same kind, or used by ≥ 20% of the kind partition-wide.
+  // is a real choice. A partition-wide absence needs the thing accepted as PRESENT in another cell of the same kind AND
+  // used by ≥ 10% of the kind partition-wide; a local (group/directory) absence needs ≥ 30% partition-wide use. Both
+  // floors are declared, not derived — see the numeric register in docs/mathematics.md.
   const presentSomewhere = new Set(
     out.filter(f => isBool(f.pid) && f.exp === 'true').map(f => f.kind + S + f.pid)
   );

@@ -28,9 +28,7 @@ Everything the tool prints is a special case:
 
 ## The one loss constant
 
-Six tuned thresholds (a bits margin, four family specific taus, a display share floor) used to guard speech. They are
-gone. Evidence is codelength alone: a fact exists iff its bits are positive. The decision to *speak* is one loss
-ratio, λ = 8, applied to three questions consistently:
+Six tuned thresholds used to guard speech: a bits margin on every fact, four family specific taus, and `minShare`, a share floor below which no fact was displayed. λ replaced those six. Evidence is codelength alone: a fact exists iff its bits are positive. The decision to *speak* is one loss ratio, λ = 8, applied to three questions consistently:
 
 1. **Naming an expected value.** Grain names it only when the KT posterior predictive bounds the error at one wrong
    steer per λ followed ones: (n_expected + ½) / (n_total + K⁄2) ≥ 1 − 1/λ.
@@ -44,6 +42,8 @@ Vacuity is not a threshold problem and is handled by the null model instead: str
 statement shapes, first statement, return shape, arity, variable shape) speak only as a *contrast*, in a group or
 directory whose default differs from the partition's. "Methods here always contain a member_expression" describes the
 language, not a choice anyone made, and no bar on bits can know that; the reference distribution can.
+
+λ is not the only number the engine compares against. Power floors, compute guards, display and ranking weights remain, and so do evidence gates that λ does not derive: the absence floors, the trend detector, the co-change single-file floor, the calibration margins. One of them is a bits margin again: where history calibrates a convention and its repair precision is below 0.8, an accusation needs log₂ λ + 1.5 bits instead of log₂ λ. Every such number is listed with its file and role in *The numeric register* at the end of this page, and a test keeps that list and the code in step.
 
 ## What counts as the repository
 
@@ -227,5 +227,157 @@ What remains that mathematics does not decide, on the record:
   container's certified population threshold, a structural twin's shared core, and a historical rename's placement
   precedent, named once here rather than re-derived at each site (a role group's name-stem kinship with another
   group uses a different, deliberately non-MDL floor — 0.6 over at least 4 members, see `impliedOf.companion`);
+- the evidence gates, weights and display bars in *The numeric register* below — declared, not derived, and most of them without a recorded measurement behind the value;
 - the boundary between form and meaning: grain measures the shape of code, not its semantics; two behaviourally
   identical implementations with different trees are different to it, and it never pretends otherwise.
+
+## The numeric register
+
+Every non-integer numeric literal and every literal ratio (`2 / 3`, `(n * 2) / 3`) in the top-level engine files (`plugins/grain/engine/*.mjs`; the vendored runtime and the grammars are not scanned), and every literal day window (`N * 86400`, `/ 86400 <= N`), is on this list with its role. Each row quotes enough of its line to pin that one site, so a new use of the same number elsewhere in the file needs a row of its own. A few integer floors that decide speech are listed too, but integers are not audited: `n >= 4` and its kin can still enter unlisted. The test `numeric-register.test.mjs` fails when a literal of the audited kinds appears in those files without a row here, when a row's code no longer appears in its file, and when a row's value is not the number in its code, so a changed value cannot keep an old row. Two blind spots: a literal inside a template string's `${…}` is not scanned (the report's alarm row below is listed by hand), and a multi-line string is not stripped.
+
+Roles:
+
+- **derived** — follows from the KT code, the BIC penalty, λ, or a standard statistic; not a choice.
+- **declared** — a named constant already described on this page.
+- **gate** — decides whether a claim is spoken or a fact is kept, and λ does not derive it.
+- **weight** — scales how much a scope or an event counts as evidence.
+- **extraction** — decides the value a predicate records for a file or a template slot.
+- **dedup** — two sets this similar are treated as one.
+- **retrieval** — decides which matches a query returns or in which order.
+- **display** — changes wording, a label or an order only; no claim appears or disappears.
+- **instrument** — used only by a measurement command.
+
+The named constants in `config.mjs` come first. The test compares every value here with the code, and fails when a constant is added there without a row here.
+
+| constant | value | role |
+|---|---|---|
+| `lambda` | 8 | the one loss constant |
+| `minRaw` | 5 | power floor: below it positive bits are unreachable anyway |
+| `minEff` | 3 | power floor on the survival-weighted count |
+| `valueDfMin` | 2 | value-index population gate |
+| `valueDfMaxShare` | 0.2 | value-index population gate |
+| `ambGap` | 0.15 | clustering ambiguity |
+| `minMemb` | 0.35 | clustering ambiguity |
+| `survDays` | 120 | the window of "recent" code the agent share is measured over |
+| `freshDays` | 14 | code younger than this weighs half |
+| `agentBase` | 0.15 | agent-written code's starting weight |
+| `promoteDays` | 180 | days over which agent-written code is promoted to full weight |
+| `floor` | 0.05 | the lowest weight a scope can have |
+| `calibHorizonDays` | 365 | calibration's temporal split; a history shorter than this is not calibrated |
+| `calibSettleDays` | 30 | departures younger than this are not yet judged repaired or kept |
+| `calibMinEv` | 12 | departures needed before calibration speaks |
+| `denyMinEv` | 35 | departures needed before `denyEligible` |
+| `targetPrec` | 0.8 | repair precision under which the accusation margin applies |
+| `cochangeMinSup` | 8 | commits a pair must share before it is named |
+| `cochangeMinConf` | 0.75 | share of the edited file's commits a partner must cover |
+| `megaCap` | 30 | commits touching more files than this are left out of pairing |
+| `fpsCap` | 20000 | per-commit footprints retained |
+| `scopePairCap` | 200 | scope pairs counted per commit |
+| `trendWinDays` | 90 | width of one trend window |
+| `dirMin` | 25 | scopes of a kind a directory needs to be its own context |
+| `NCAP` | 700 | role clustering sample cap |
+| `SUP` | nodeType 20, call 8, imp 5, ext 4, shape 15, deco 8, ret 4, pt 4 | vocabulary support floors per enumerator |
+| `TOPK` | nodeType 30, call 80, imp 60, ext 30, shape 40, deco 40, ret 30, pt 30 | vocabulary top-K per enumerator |
+
+The literals in the code follow. "Cited" names the measurement a value rests on where one is recorded; `none` means neither the code comment nor [results.md](results.md) records one.
+
+| value | file | code | role | cited |
+|---|---|---|---|---|
+| ½ | arch.mjs, commit-log.mjs, mine.mjs, obligations.mjs, propose-lattice.mjs, spectrum.mjs | `data - 0.5 * (K - 1) * Math.log2(Math.max(` | derived — BIC penalty, ½ log₂ n per free parameter | — |
+| ½ | commit-log.mjs | `data - 0.5 * (K3 - 1) * Math.log2(Math.max(df, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
+| ½ | learn.mjs | `data - 0.5 * (KD - 1) * Math.log2(Math.max(neff, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
+| ½ | learn.mjs | `data - 0.5 * (KV - 1) * Math.log2(Math.max(neff, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
+| ½ | arch.mjs, mine.mjs | `(ne + 0.5) / (neff + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | commit-log.mjs | `(k + 0.5) / (df + K3 / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | commit-log.mjs | `(k + 0.5) / (n + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | facts.mjs | `0) + 0.5) / (n + K / 2);` | derived — KT posterior predictive | — |
+| ½ | facts.mjs | `(k + 0.5) / (n + K2 / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | learn.mjs | `(local.has_fix + 0.5) / (neff + KD / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | learn.mjs | `(ne + 0.5) / (neff + KV / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | mine.mjs | `0) + 0.5) / (sraw + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | obligations.mjs | `(k + 0.5) / (rec.n + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | mine.mjs | `nc * h + 0.5 * Math.log2(Math.max(nc, 2))` | derived — BIC penalty in the role clustering codelength | — |
+| ½ | partition.mjs | `c += 0.5 * Math.max(0, vs.length - 1)` | derived — BIC penalty in the partition codelength | — |
+| 1 − 1/8 | propose-base.mjs | `LAMBDA_BOUND = 1 - 1 / 8` | derived — the λ bound | — |
+| 1.96 | weights.mjs | `const z = 1.96,` | derived — 95% Wilson interval | — |
+| ½ | mine.mjs | `ri.amb.has(i) ? 0.5` | derived — the ambiguous member's half vote | — |
+| 2/3 | propose-base.mjs | `SUPERMAJORITY = 2 / 3` | declared — the two-thirds supermajority | none |
+| 2/3 | learn.mjs | `den >= CFG.minRaw && num / den >= 2 / 3)` | declared — a fact is "held mostly by agent-authored code" | none |
+| 2/3 | learn.mjs | `top2[1] >= Math.ceil((n * 2) / 3)` | declared — a marker's own established value | none |
+| 2/3 | learn.mjs | `k >= Math.ceil((n * 2) / 3)) obs.push` | declared — a marker's own established value (per-carrier observations) | none |
+| 2/3 | learn.mjs | `Math.ceil((declaring * 2) / 3);` | declared — a value container's sibling key set | none |
+| 2/3 | learn.mjs | `Math.min(Math.ceil((m * 2) / 3), m - 1)` | declared — a value container's certified population threshold | none |
+| 3 | learn.mjs | `if (n < 3) continue;` | gate — a marker speaks from 3 carriers | none |
+| 2/3 | mine.mjs | `if (n / ofDeviants < 2 / 3) return null;` | declared — an alternative marker among deviants | none |
+| 2/3 | mine.mjs | `if (topCount / credited < 2 / 3) return null;` | declared — one author holds a convention | none |
+| 2/3 | placement.mjs | `n / T.length < 2 / 3) continue;` | declared — a placement precedent | none |
+| 2/3 | placement.mjs | `&& tn >= 2 && tn / total >= 2 / 3)` | declared — a placement precedent by pair | none |
+| 2/3 | weights.mjs | `t >= CFG.minRaw && r / t >= 2 / 3)` | declared — a value tried and reverted | none |
+| 0.6 | partition.mjs | `topComp[1] / mf.length >= 0.6)` | declared — `impliedOf.companion` | none |
+| 0.6 | partition.mjs | `topImp[1] / mf.length >= 0.6 && topImp[1] >= 4` | declared — `impliedOf.companion` | none |
+| 0.6 | partition.mjs | `top2[1] / mf.length >= 0.6 && top2[1] >= 4` | declared — `impliedOf.companion` | none |
+| 0.6 | partition.mjs | `best.n / fa.length < 0.6) continue;` | declared — group name-stem kinship | none |
+| 0.2 | config.mjs | `valueDfMaxShare: 0.2` | declared — value-index population gate | none |
+| 0.15 | config.mjs | `ambGap: 0.15,` | declared — clustering ambiguity | none |
+| 0.35 | config.mjs | `minMemb: 0.35,` | declared — clustering ambiguity | none |
+| 0.75 | config.mjs | `cochangeMinConf: 0.75` | declared — co-change partner floor | none |
+| 0.8 | config.mjs | `targetPrec: 0.8,` | gate — calibrated repair precision under which the accusation margin applies | none |
+| 1.5 | weights.mjs | `Math.log2(CFG.lambda) + 1.5` | gate — accusation margin in bits for a convention history calibrates below `targetPrec` | none |
+| 0.9 | weights.mjs | `denyEligible: lb >= 0.9 && n >= CFG.denyMinEv` | gate — Wilson lower bound for `denyEligible` (report only; nothing blocks) | none |
+| 0.15 | config.mjs | `agentBase: 0.15,` | weight — agent-written code's starting weight, promoted over `promoteDays` | none |
+| 0.05 | config.mjs | `floor: 0.05,` | weight — the lowest weight a scope can have | none |
+| 0.3 | weights.mjs | `if (!L) return 0.3;` | weight — a scope with no history row | none |
+| ½ | weights.mjs | `CFG.freshDays ? 0.5` | weight — code younger than `freshDays` | none |
+| ¼ | weights.mjs | `* wp * (L.churn ? 0.25 : 1));` | weight — code rewritten right after birth | none |
+| 14 days | history.mjs | `e.c.ts - L.first <= 14 * 86400` | weight — "rewritten right after birth" window (equal to `freshDays` today, not tied to it) | none |
+| ½ | mine.mjs | `Math.min(sd.weight, 0.5 * neffReal)` | weight — a maintainer seed counts at most half the cell | none |
+| 0.1 | mine.mjs | `partitionTrueShare(f.kind, f.pid) >= 0.1` | gate — a partition-wide absence needs 10% use of the thing | none |
+| 0.3 | mine.mjs | `partitionTrueShare(f.kind, f.pid) >= 0.3` | gate — a local absence needs 30% partition-wide use | none |
+| 0.1 | mine.mjs | `confCarriers / f.conform.length >= 0.1` | gate — an alternative marker must be rare among conformers | none |
+| 0.1 | arch.mjs | `outsideShare(n) >= 0.1` | gate — an architecture absence norm needs 10% reach elsewhere | none |
+| 0.2 | propose-lattice.mjs | `0) / tot < 0.2) continue; }` | gate — a sub-gate "never X" row, which `propose` may turn into an advisory rule, needs 20% partition-wide use | none |
+| 0.2 | spectrum.mjs | `0) / tot < 0.2) continue;` | display — `explain` shows a "never X" lattice row only at 20% partition-wide use | none |
+| 0.02 | weights.mjs | `if (slope > 0.02 && minority` | gate — drift slope per window for nucleation | none |
+| 0.05 | weights.mjs | `1 - last.share > 0.05` | gate — nucleation needs 5% current deviation | none |
+| 2 | weights.mjs | `minority[1].size >= 2` | gate — nucleation needs 2 human authors of the minority value | none |
+| 4 | weights.mjs | `if (n >= 4) shares.push` | gate — a trend window counts from 4 scopes | none |
+| ½ | weights.mjs | `attractor = last.share >= 0.5 ? fact.exp` | gate — the attractor is the expected value while it holds half | none |
+| 1/3 | cards.mjs | `minConf = file ? 1 / 3 : CFG.cochangeMinConf` | gate — single-file co-change partner floor | none |
+| 1/3 | completeness.mjs | `changed.length === 1 ? 1 / 3` | gate — single-file co-change partner floor | none |
+| 1/3 | grain-advise.mjs | `MUTUAL_CONF_FLOOR = 1 / 3` | gate — co-change advice floor, both directions | none |
+| ½ | propose-base.mjs | `MIN_WHEN_FIDELITY = 0.5` | gate — a drafted `when` must select half its own set | none |
+| 0.08 | lexical.mjs | `if (c >= sp * 0.08) {` | extraction — an indentation width counts from 8% of indented lines | none |
+| 0.8 | lexical.mjs | `sq >= (sq + dq) * 0.8 ?` | extraction — a file's quote and semicolon style needs 80% | none |
+| 0.8 | lexical.mjs | `semi >= (semi + nosemi) * 0.8 ?` | extraction — a file's quote and semicolon style needs 80% | none |
+| 0.8 | lexical.mjs | `c >= tot * 0.8 ? k :` | extraction — a file's dominant lexical value needs 80% | none |
+| 0.8 | superposition.mjs | `n2 >= tot * 0.8 ? k :` | extraction — a file's dominant module export form needs 80% | none |
+| 0.8 | superposition.mjs | `Math.max(3, sl.total * 0.8));` | extraction — a template slot is per-instance at 80% distinct | none |
+| 0.8 | superposition.mjs | `sl.distinct < sl.total * 0.8` | extraction — a template slot is per-instance at 80% distinct | none |
+| 0.6 | superposition.mjs | `sl.top[0][1] / sl.total >= 0.6` | extraction — a template slot is skewed at 60% one value | none |
+| ½ | superposition.mjs | `pf.coverage < 0.5) continue;` | gate — a template needs a cluster prior covering half | none |
+| ½ | relations.mjs | `files.length * 0.5` | extraction — a dominant module holds half the files (and at least 40) | none |
+| 0.6 | mine.mjs | `jacW(medoids[b].feats, md.feats) >= 0.6)` | dedup — two role medoids this close are one role | none |
+| 0.9 | mine.mjs | `jac(oppP, oppQ) >= 0.9` | dedup — redundant predicates | none |
+| 0.9 | mine.mjs | `c.conform)) >= 0.9` | dedup — facts over the same conformers | none |
+| 0.9 | propose-family.mjs | `jaccard(g.files, a.files) >= 0.9);` | dedup — a family candidate is its host | none |
+| 0.9 | propose-types.mjs | `host.files) >= 0.9` | dedup — a type candidate is its host | none |
+| ½ | placement.mjs | `cands.length * 0.5` | retrieval — a token in over half the candidates places nothing | none |
+| 0.8 | placement.mjs | `cands.length >= 0.8` | retrieval — a placement directory holds 80% of candidates | none |
+| 0.34 | how.mjs | `if (score >= 0.34) scored.push` | retrieval — `how` match floor | none |
+| 0.34 | how.mjs | `if (score >= 0.34 && (!best` | retrieval — `how` match floor | none |
+| 0.34 | where.mjs | `&& hits[0].score < 0.34) {` | retrieval — `where` weak-match floor | none |
+| ½, ¼ | where.mjs | `cover >= 0.5 ? Math.max(c.score, 1) : Math.min(1, c.score + 0.25)` | retrieval — card scoring | none |
+| ½ | where.mjs | `cover >= 0.5 ? Math.max(c.score, 1) : Math.max(c.score, cover)` | retrieval — card scoring | none |
+| ½ | where.mjs | `(c.degenerate) c.score *= 0.5;` | retrieval — a degenerate card counts half | none |
+| 1.5, ¼ | where.mjs | `: 1.5) + (c.facts.length ? 0.25` | retrieval — card order by kind | none |
+| ½ | where.mjs | `concentration >= 0.5` | retrieval — a concentrated partial match | none |
+| ½ | grain.mjs | `matches.filter(m => m.score >= 0.5).length >= 2` | retrieval — an unsolicited `how` injection needs two matches at 0.5 | none |
+| ¾, ½ | cards.mjs | `fact: 0.75, imp: 0.5, doc: 0.5` | retrieval — card vocabulary weights | none |
+| 0.6 | cards.mjs | `suffix: share < 0.6 ?` | display — "(mixed)" module label | none |
+| 0.1 | mine.mjs | `0) + f.bpi * 0.1 + 0.1;` | display — role lift order | none |
+| 0.1 | report.mjs | `if (Math.abs(b2 - a) >= 0.1` | display — a fact listed as moving | none |
+| 0.85 | report.mjs | `model.agentShare >= 0.85` | display — the agent-share alarm | none |
+| 0.6 | report-facts.mjs | `if (!(c.share >= 0.6)` | display — an uncertified "usually" row | none |
+| 180 days | learn.mjs | `(H.NOW - f) / 86400 <= 180` | display — the "fresh" count in a rule's history line | none |
+| ½ | oracle.mjs | `const HIT = 0.5;` | instrument — oracle hit at Jaccard 0.5 | results.md |
+| 0.8 | oracle.mjs | `hit8: rows.filter(r => r.best >= 0.8)` | instrument — oracle strong-hit count | results.md |

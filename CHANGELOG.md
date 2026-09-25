@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Code written with an agent now counts as agent-written when a person committed it. Grain used to read only the commit author, so a commit by a person with a `Co-Authored-By:` line naming an agent (the usual way agent-assisted work is committed) counted as human. Grain now reads those lines too, when they name an AI coding agent. A co-author line crediting an automation bot, such as the one a squash-merge adds for dependabot, still counts as human. On a repository written mostly this way, the agent-authored share rises from near zero to its real value, the alarm fires where it should, conventions held up mostly by agent-written code carry less weight, and some drop out. A store built by an earlier version re-reads its history on first use.
+- The mathematics page no longer claims the tuned thresholds are all gone. Six are, but other numbers still decide what Grain says, and the page now lists them with what each one does. Two statements that disagreed with the code are corrected. Grain says "never X" when X is used by 10% of the partition, or 30% for a single directory or group, not 20%. When Grain does not calibrate a convention, the reason it gives now says the history is shorter than one horizon, not two.
+
 ## [6.1.0] - 2026-09-25
 
 **Numbered with the family, not by Semantic Versioning.** Grain ships under the family's one number with Yggdrasil and Horde (the reasoning is in Yggdrasil's docs/family-contracts.md, under "One number for the family"), so this release carries changes that can break what you built on the previous one under a minor number. What changes under you: a TypeScript or JavaScript type-only import is now a dependency, so proposals and checks see edges they did not see before; `grain propose` writes its family candidates to `.family-candidates.grain.json` instead of `.family-candidates.json`; family-candidate ids change once; and stores built by an earlier version are rebuilt on first use. Each is described under **Changed** and **Fixed** below. Read those before you upgrade, and pin the exact versions of the family tools your pipeline runs.
