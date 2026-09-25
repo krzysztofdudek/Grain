@@ -40,6 +40,7 @@ worktree.
 | `selftest --where` | `--last N`, `--json` | how `where` ranks the file a past commit added, from that commit's own message, against a path-match baseline |
 | `selftest --obligation` | `--last N`, `--json` | leave-one-out coverage/precision of the birth-obligation table predicting what a past commit that added a file also touched, against a "hottest recent files" and a random-file null |
 | `selftest --extract` | `--json` | per grammar, what fraction of the declarations a node-types.json-derived oracle sees does extraction actually record as a scope (recall), and what fraction of recorded scopes the oracle agrees are declarations (precision) |
+| `selftest --null` | `--runs N`, `--json` | each family of claims (role conventions, architecture norms, birth obligations, co-change partners, commit archetypes, the language bridge) re-run on a randomisation that keeps its marginals and destroys the link it claims — role labels and directory placements dealt out again within each scope kind, out-edge sets dealt out among the files that have one, the commit × file matrix swap-randomised, message tokens dealt out among commits — reporting what each still certifies (false by construction) beside the real count. Costs one learn pass per run; meant for measuring the engine, not for everyday use |
 | `refresh` | `--full` | rebuild now (queries auto-refresh anyway); `--full` re-walks the whole history |
 | `version` | | engine, extractor and grammar versions |
 
@@ -305,9 +306,12 @@ only changes how `check` SPEAKS about that deviation — a decided voice instead
 mining or weighting, and the scope still counts as governed and non-conforming in every other number here.
 `found: false` means the named scope no longer exists at HEAD (inert, kept for audit).
 
-`archNorms`: established layering per (source module, target module) pair — the same acceptance test (§mathematics)
-as every other convention, applied to the module graph. Each entry: `from, to, exp` (`"true"` the module reaches the
-target as established practice, `"false"` it does not), `ne, neff, share, bits`. A pair absent here cleared no
+`archNorms`: established layering per (source module, target module) pair — a two-population contrast
+(§mathematics, "Architecture norms") over the module's capable files (at least one resolved out-edge) against the
+capable files outside both modules, under the same KT/BIC/index-cost test and λ bound as every other convention. Each
+entry: `from, to, exp` (`"true"` the module reaches the target as established practice, `"false"` it does not),
+`ne, neff, share, bits`, and `kOut, nOut` — how many capable files elsewhere reach the target, the rate the pair was
+contrasted with. A pair the module never crosses can be a norm (`ne` equal to `neff`). A pair absent here cleared no
 acceptance floor; that is silence, never a claim of `"false"`. The in-memory model's finer (role-group, module)
 rows (`fromKind: "group"`) are excluded here — internal until there is a concrete consumer for that finer shape.
 

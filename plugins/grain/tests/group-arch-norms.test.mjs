@@ -1,6 +1,7 @@
 // J5.7(a) — a second candidate population inside architectureNorms(): (role-group, target module) pairs, decided
-// by the IDENTICAL KT/BIC/idxCost test as the existing (source module, target module) population — see the doc
-// comment on architectureNorms() itself (core.mjs) for the full cell shape. Three things this ticket's own review
+// by the IDENTICAL contrast as the (source module, target module) population — see the doc comment on
+// architectureNorms() itself (arch.mjs) for the full cell shape. Only CAPABLE files (at least one resolved
+// out-edge) count, so every fixture file below that is meant to count imports something. Three things this ticket's own review
 // corrections called out as easy to get wrong, each with its own test below:
 //
 //   (a1) a role group's `neff` MUST be distinct FILES carrying a member of the group, never raw scope occurrences
@@ -26,12 +27,13 @@ import { architectureNorms } from '../engine/core.mjs';
 // ===== Part 1: the acceptance math, on hand-built models =====
 
 test('(a1) a group→module norm counts DISTINCT FILES, not raw scope occurrences, for neff/ne', () => {
-  const files = [];
+  const files = ['A/base.ts'];
   for (let i = 1; i <= 14; i++) files.push(`A/${i}.ts`);
   files.push('A/0.ts'); // the one file that reaches B — and the one carrying MULTIPLE members of the group
   for (let i = 0; i < 15; i++) files.push(`C/${i}.ts`); // sibling reaching B fully — absence-boundary evidence
   files.push('B/idx.ts');
   const edges = [{ from: 'A/0.ts', to: 'B/idx.ts' }];
+  for (let i = 0; i <= 14; i++) edges.push({ from: `A/${i}.ts`, to: 'A/base.ts' }); // every A file is capable
   for (let i = 0; i < 15; i++) edges.push({ from: `C/${i}.ts`, to: 'B/idx.ts' });
   const assignments = {};
   for (let i = 1; i <= 14; i++) assignments[`A/${i}.ts#type#Widget${i}`] = 0;
@@ -55,13 +57,15 @@ test('(a1) a group→module norm counts DISTINCT FILES, not raw scope occurrence
 });
 
 test('(a2) idxCost is ONE shared value over both populations — archNorms is no longer byte-identical to a module-only computation', () => {
-  const files = [];
+  const files = ['Y/base.ts'];
   for (let i = 0; i < 15; i++) files.push(`C/${i}.ts`); // survivor: large margin, must still certify under the widened idxCost
   for (let i = 0; i < 5; i++) files.push(`X/${i}.ts`);  // flipper: small margin, must stop certifying
+  for (let i = 0; i < 15; i++) files.push(`Y/${i}.ts`); // the population that does NOT reach B, so reaching it is a contrast
   files.push('B/idx.ts');
   const edges = [];
   for (let i = 0; i < 15; i++) edges.push({ from: `C/${i}.ts`, to: 'B/idx.ts' });
   for (let i = 0; i < 5; i++) edges.push({ from: `X/${i}.ts`, to: 'B/idx.ts' });
+  for (let i = 0; i < 15; i++) edges.push({ from: `Y/${i}.ts`, to: 'Y/base.ts' });
 
   const withoutGroups = architectureNorms({ filesAll: files, edges, pkgs: [], partitions: [] });
   const cWithout = withoutGroups.find(n => n.from === 'C' && n.to === 'B');
@@ -69,8 +73,8 @@ test('(a2) idxCost is ONE shared value over both populations — archNorms is no
   assert.ok(cWithout && xWithout, `sanity: both module pairs certify against the module-only idxCost: ${JSON.stringify(withoutGroups)}`);
 
   // 10 decoy single-file role-groups, each its OWN partition, all reaching B — enough extra candidates to push the
-  // shared idxCost from ceil(log2(2))=1 to ceil(log2(12))=4, a 3-bit rise applied to EVERY candidate, module-module
-  // included. None of these decoys itself clears CFG.minRaw (neff=1 each): they exist purely to widen the ONE
+  // shared idxCost from ceil(log2(3))=2 (C, X and Y against B) to ceil(log2(13))=4, a 2-bit rise applied to EVERY
+  // candidate, module-module included. None of these decoys itself clears CFG.minRaw (neff=1 each): they exist purely to widen the ONE
   // shared candidate universe idxCost is counted over, never to certify on their own.
   const partitions = [];
   for (let i = 0; i < 10; i++) partitions.push({ name: `decoy${i}`, assignments: { 'X/0.ts#type#Decoy': 0 }, medoids: [{ label: 'Decoy' }] });
@@ -78,7 +82,7 @@ test('(a2) idxCost is ONE shared value over both populations — archNorms is no
   assert.ok(!withGroups.some(n => n.fromKind === 'group'), `sanity: none of the 10 decoys individually certifies (neff=1 < CFG.minRaw): ${JSON.stringify(withGroups)}`);
 
   const xWith = withGroups.find(n => n.fromKind === 'module' && n.from === 'X' && n.to === 'B');
-  assert.ok(!xWith, `X→B (bits=${xWithout.bits} at the old idxCost) must correctly FAIL once the shared idxCost widens by 3 bits: ${JSON.stringify(withGroups)}`);
+  assert.ok(!xWith, `X→B (bits=${xWithout.bits} at the old idxCost) must correctly FAIL once the shared idxCost widens by 2 bits: ${JSON.stringify(withGroups)}`);
 
   const cWith = withGroups.find(n => n.fromKind === 'module' && n.from === 'C' && n.to === 'B');
   assert.ok(cWith, `C→B has enough margin to survive the widened idxCost (sanity that widening does not simply blank the function): ${JSON.stringify(withGroups)}`);
@@ -86,7 +90,7 @@ test('(a2) idxCost is ONE shared value over both populations — archNorms is no
   // are pure functions of (ne, neff), unaffected by model.partitions. So this bits delta IS the idxCost delta,
   // directly proving a SINGLE idxCost shared over both populations: a wrongly-separate, locally-taxed idxCost for
   // group candidates would leave module-module bits (and this delta) at exactly 0.
-  assert.equal(cWithout.bits - cWith.bits, 3, 'archNorms must not be byte-identical to a module-only computation: bits must drop by exactly the idxCost delta (ceil(log2(12)) - ceil(log2(2)) = 3)');
+  assert.equal(cWithout.bits - cWith.bits, 2, 'archNorms must not be byte-identical to a module-only computation: bits must drop by exactly the idxCost delta (ceil(log2(13)) - ceil(log2(3)) = 2)');
 });
 
 test('(a3) a group with fewer than CFG.minRaw DISTINCT FILES stays silent, even when its raw scope count alone would clear the floor', () => {
@@ -125,8 +129,11 @@ before(() => {
   // per-file name token (`H0Handler`, `H1Handler`, …) actively resists merging under the same MDL clustering
   // induceRoles/induceClusters uses (each unique token costs more to code once shared than to leave as noise on a
   // singleton) — the identical, repeated `run`/`Promise<void>` signature is the real, uniform group signal.
-  w('packages/handlers/h0.ts', "import { util } from '../target/util';\n@Handler()\nexport class H0Handler {\n  constructor(private readonly repo: Repo) {}\n  async run(cmd: Cmd): Promise<void> {\n    util();\n  }\n}\n");
-  for (let i = 1; i <= 14; i++) w(`packages/handlers/h${i}.ts`, `@Handler()\nexport class H${i}Handler {\n  constructor(private readonly repo: Repo) {}\n  async run(cmd: Cmd): Promise<void> {\n    await this.repo.save(cmd);\n    await this.repo.flush();\n  }\n}\n`);
+  // every handler imports its own module's `Repo`, so every one is CAPABLE — a file that imports nothing is no
+  // evidence of avoiding anything
+  w('packages/handlers/repo.ts', 'export interface Repo { save(x: unknown): Promise<void>; flush(): Promise<void>; }\n');
+  w('packages/handlers/h0.ts', "import { util } from '../target/util';\nimport { Repo } from './repo';\n@Handler()\nexport class H0Handler {\n  constructor(private readonly repo: Repo) {}\n  async run(cmd: Cmd): Promise<void> {\n    util();\n  }\n}\n");
+  for (let i = 1; i <= 14; i++) w(`packages/handlers/h${i}.ts`, `import { Repo } from './repo';\n@Handler()\nexport class H${i}Handler {\n  constructor(private readonly repo: Repo) {}\n  async run(cmd: Cmd): Promise<void> {\n    await this.repo.save(cmd);\n    await this.repo.flush();\n  }\n}\n`);
   git('add', '-A'); git('commit', '-qm', 'base');
   const r = grain(['status']); assert.equal(r.code, 0, r.err);
   const m = model();

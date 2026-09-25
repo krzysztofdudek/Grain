@@ -49,7 +49,8 @@ function runPropose(repo, out) {
 let tmp1, repo1, out1, sidecar1;
 
 // 30 of 36 functions' first statement is `return join(...)` (majority `first1`/`ret`/`stshape`, all node-type
-// values by construction); the other 6 declare a local first, so the row sits inside the sub-gate band.
+// values by construction); the other 6 declare a local first. Partition-wide and structural, such a row never enters
+// the sub-gate band at all.
 function buildStructFixture(root) {
   mkdirSync(join(root, 'src'), { recursive: true });
   const N = 36, DECL = 6;
@@ -78,8 +79,9 @@ test('class 1: a STRUCT_PID row (first1/ret/stshape) is dropped, not drafted as 
   const aspects = sidecar1.evidence.filter(e => e.kind === 'aspect');
   assert.ok(!aspects.some(a => a.enumerator === 'first1' || a.enumerator === 'ret' || a.enumerator === 'stshape'),
     'a node-type-valued row must never reach the aspect list, prose or not');
-  assert.ok(sidecar1.counts.aspectsSkippedNotARuleByReason['parser-node-type-as-identifier'] >= 3,
-    JSON.stringify(sidecar1.counts.aspectsSkippedNotARuleByReason));
+  // the sub-gate band itself no longer admits a partition-wide structural row — a structural predicate speaks
+  // only as a contrast (§mathematics, "The sub-gate band") — so these rows stop before the renderer's own
+  // node-type guard, which the call-target fixture below still exercises
   // every one of these families is composed ENTIRELY of node types (`return_statement`, `call_expression`,
   // the nested `stshape` structure) — none of it should leak into `proseByClass` either, since it never became
   // a draft in the first place.
@@ -105,7 +107,7 @@ let tmp2, repo2, out2, sidecar2;
 function buildCallCoincidenceFixture(root) {
   mkdirSync(join(root, 'src'), { recursive: true });
   writeFileSync(join(root, 'src', '_util.ts'), `export function identifier(x: string): string {\n  return x;\n}\n`);
-  const CALLS = 26, SKIP = 6;
+  const CALLS = 52, SKIP = 12;
   for (let i = 0; i < CALLS; i++) {
     writeFileSync(join(root, 'src', `caller${i}.ts`), `import { identifier } from './_util';\n\nexport function task${i}(x: string): string {\n  return identifier(x);\n}\n`);
   }
@@ -145,7 +147,7 @@ let tmp3, repo3, out3, sidecar3;
 
 function buildGenericFixture(root) {
   mkdirSync(join(root, 'src'), { recursive: true });
-  const GENERIC = 25, CONCRETE = 5;
+  const GENERIC = 50, CONCRETE = 10;
   for (let i = 0; i < GENERIC; i++) {
     writeFileSync(join(root, 'src', `identity${i}.ts`), `export function identity${i}<T>(x: T): T {\n  return x;\n}\n`);
   }

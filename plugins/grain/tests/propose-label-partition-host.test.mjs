@@ -8,10 +8,11 @@
 // at four of seventeen repositories, two of them (`leveldb`, 134 files; `kotlin-datetime`, 251) proposing ZERO
 // aspects for this reason alone.
 //
-// The fixture below is that shape, small and real: 28 TypeScript modules — eight at the repository root, twenty
-// under `src/` — uniform enough that grain's own cut declines to split them, so its one partition is `_root`.
-// Two import rows sit in the sub-gate band by construction (20 of 28 import `node:os`; 8 of 28 import
-// `node:fs`), which is what a partition with a host has to be able to produce.
+// The fixture below is that shape, small and real: 60 TypeScript modules — sixteen at the repository root,
+// forty-four under `src/` — uniform enough that grain's own cut declines to split them, so its one partition is
+// `_root`. An import row sits in the sub-gate band by construction (48 of 60 import `node:os`), which is what a
+// partition with a host has to be able to produce. (The 12 that import `node:fs` make no absence row: with one
+// partition there is nothing elsewhere to contrast "does not import it" with.)
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -33,9 +34,9 @@ const mod = (n, extra) =>
   `export function name${cap(n)}(base: string): string {\n  return join('${n}', base);\n}\n\n` +
   `export function path${cap(n)}(base: string): string {\n  return join(base, base, '${n}');\n}\n`;
 
-const ROOT = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta'];
-const SRC = ['one', 'two', 'three', 'four', 'five', 'six', 'seven', 'eight', 'nine', 'ten',
-  'eleven', 'twelve', 'thirteen', 'fourteen', 'fifteen', 'sixteen', 'seventeen', 'eighteen', 'nineteen', 'twenty'];
+const WORDS = ['alpha', 'beta', 'gamma', 'delta', 'epsilon', 'zeta', 'eta', 'theta', 'iota', 'kappa', 'lambda'];
+const ROOT = Array.from({ length: 16 }, (_, i) => `${WORDS[i % 11]}${['root', 'base'][Math.floor(i / 11)]}`);
+const SRC = Array.from({ length: 44 }, (_, i) => `${WORDS[i % 11]}${['one', 'two', 'three', 'four'][Math.floor(i / 11)]}`);
 
 function buildFixture(root, env) {
   mkdirSync(root, { recursive: true });
@@ -43,7 +44,7 @@ function buildFixture(root, env) {
   const all = [...ROOT.map(n => [n, `${n}Task.ts`]), ...SRC.map(n => [n, `src/${n}Task.ts`])];
   const OS = "import { tmpdir } from 'node:os';\nvoid tmpdir;\n";
   const FS = "import { readFileSync } from 'node:fs';\nvoid readFileSync;\n";
-  for (const [i, [n, rel]] of all.entries()) w(rel, mod(n, i < 20 ? OS : FS));
+  for (const [i, [n, rel]] of all.entries()) w(rel, mod(n, i < 48 ? OS : FS));
   w('README.md', '# fixture\n');
   execFileSync('git', ['-C', root, 'init', '-q', '-b', 'main'], { env });
   execFileSync('git', ['-C', root, 'add', '-A'], { env });
@@ -72,7 +73,7 @@ test('the fixture really is the shape this ticket is about: one partition, named
   const names = model.partitions.map(p => p.name);
   assert.deepEqual(names, ['_root'], `expected a single \`_root\` partition, got ${names.join(', ')}`);
   assert.ok(!existsSync(join(repo, '_root')), 'no directory of that name may exist — that is the whole point');
-  assert.ok(sidecar().counts.subGate >= 2, 'the fixture must offer the miner something to attach');
+  assert.ok(sidecar().counts.subGate >= 1, 'the fixture must offer the miner something to attach');
 });
 
 test('a row mined in a partition that is not a directory still finds a host type', () => {
@@ -88,12 +89,12 @@ test('a row mined in a partition that is not a directory still finds a host type
 test('the host is an emitted type that actually holds the partition\'s files, and the aspect says so', () => {
   const j = sidecar();
   const aspects = j.evidence.filter(e => e.kind === 'aspect');
-  // `src/` holds 20 of the partition's 28 files and the repository root holds 8, so the type that holds most of
+  // `src/` holds 44 of the partition's 60 files and the repository root holds 16, so the type that holds most of
   // it is `src` — chosen by counting files, never by name.
   assert.ok(aspects.every(a => a.host === 'src'), `expected every host to be \`src\`, got ${[...new Set(aspects.map(a => a.host))].join(', ')}`);
   for (const a of aspects) {
     assert.match(a.evidence, /`_root` is a label, not a directory/, `aspect ${a.id} does not disclose how its host was resolved`);
-    assert.match(a.evidence, /20 of its 28 files/);
+    assert.match(a.evidence, /44 of its 60 files/);
   }
   // and the scope predicate is the host type's own glob, not a path built out of the label
   const yaml = readFileSync(join(out, '.yggdrasil', 'aspects', aspects[0].id, 'yg-aspect.yaml'), 'utf8');

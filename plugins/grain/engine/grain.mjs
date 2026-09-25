@@ -40,6 +40,7 @@ import {
   skipLineNote,
 } from './core.mjs';
 import { loadHistory, headSha, headTree, readHistoryState } from './history.mjs';
+import { nullTest } from './selftest-null.mjs';
 import { createHash } from 'node:crypto';
 import { partitionFor, DIRTY_TREE_NOTE } from './core.mjs';
 import { cmdAdvise } from './grain-advise.mjs';
@@ -52,6 +53,7 @@ import {
   log,
   parseArgv,
   readJson,
+  readSeeds,
   relPath,
   repoDirty,
   short,
@@ -626,8 +628,40 @@ export async function main(argv) {
     case 'selftest': {
       if (args.length)
         throw new Error(
-          'usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --obligation [--last N] [--json] | grain selftest --extract [--json] — takes no positional arguments'
+          'usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --obligation [--last N] [--json] | grain selftest --extract [--json] | grain selftest --null [--runs N] [--json] — takes no positional arguments'
         );
+      if (opts.null) {
+        // the false-certification counterpart of the mutation harness: each family on a label-destroying randomisation
+        let H = null;
+        if (isGit) {
+          try {
+            H = (await loadHistory({ gitdir: root, store, log })).H;
+          } catch (e) {
+            log('history unavailable for selftest --null: ' + e.message);
+          }
+        }
+        const treeCache = readJson(store.treePath);
+        const tree = isGit && head ? headTree(root, { skip: (rel, sha) => !!(treeCache && treeCache[sha + '|' + rel]) }) : null;
+        const res = await nullTest({
+          model,
+          H,
+          learnArgs: { root, log, tree, treeCache, ...readSeeds(store) },
+          runs: Math.max(1, +opts.runs || 3),
+          seed: +opts.seed || 1,
+          log,
+        });
+        if (opts.json) lines = [JSON.stringify({ ...res, asOf: stamp().replace(/^as of /, '') }, null, 1)];
+        else
+          lines = [
+            `selftest --null (${res.runs} run${res.runs > 1 ? 's' : ''}, ${res.footprints} commits): certified under the null, mean per run (max) · real`,
+            ...Object.entries(res.families).map(
+              ([f, v]) => `  ${f}: ${v.nullMean ?? 'n/a'} (${v.nullMax ?? 'n/a'}) · real ${v.real}`
+            ),
+            `  total false certifications, mean per run: ${res.nullTotalMean}`,
+            stamp(),
+          ];
+        break;
+      }
       if (opts.extract) {
         // §3.B loop-v2: per-grammar declaration recall/precision against a node-types.json-derived oracle — no history needed, just the current tree
         let files = null,

@@ -209,6 +209,7 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     a.add(v);
   };
   // directory contexts (pattern locality below the partition): ancestor dirs holding ≥ dirMin scopes of a kind,
+  // read from `nullRel` instead of `rel` only under `grain selftest --null`, which deals the placements out at random
   // but fewer than the whole partition — a proper spatial sub-community that can carry its own local default
   const dirsOf = rel => {
     const segs = rel.split('/').slice(0, -1);
@@ -218,7 +219,7 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   };
   const dirCount = new Map();
   for (const s of ps)
-    for (const d of dirsOf(s.rel)) {
+    for (const d of dirsOf(s.nullRel || s.rel)) {
       const k = d + S + s.kind;
       dirCount.set(k, (dirCount.get(k) || 0) + 1);
     }
@@ -241,7 +242,7 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
           ri.amb.has(i) ? -1 : i,
           surv
         );
-      for (const d of dirsOf(s.rel))
+      for (const d of dirsOf(s.nullRel || s.rel))
         if (dirEligible(d + S + s.kind)) add('d[' + d + ']:' + s.kind, pid, v, w, 1, i, surv);
     }
   });
@@ -282,7 +283,7 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
       const cids = [
         '_all:' + s.kind,
         ...(r !== undefined ? ['r' + r + ':' + s.kind] : []),
-        ...dirsOf(s.rel)
+        ...dirsOf(s.nullRel || s.rel)
           .filter(d => dirEligible(d + S + s.kind))
           .map(d => 'd[' + d + ']:' + s.kind),
       ];
@@ -413,8 +414,8 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   // absence facts are boundaries, not rarity: "files here do not import `re` — 60/65" is the base rate of a rare import, not a
   // rule anyone holds (measured across the corpus: most absence speech was this). Keep an absence fact only where the thing
   // is a real choice. A partition-wide absence needs the thing accepted as PRESENT in another cell of the same kind AND
-  // used by ≥ 10% of the kind partition-wide; a local (group/directory) absence needs ≥ 30% partition-wide use. Both
-  // floors are declared, not derived — see the numeric register in docs/mathematics.md.
+  // used by ≥ 10% of the kind partition-wide — declared, not derived (the numeric register in docs/mathematics.md): this
+  // call sees one partition, so a partition-wide cell has no outside population here to be contrasted with.
   const presentSomewhere = new Set(
     out.filter(f => isBool(f.pid) && f.exp === 'true').map(f => f.kind + S + f.pid)
   );
@@ -424,14 +425,35 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     const tot = Object.values(c.raw).reduce((a, b) => a + b, 0);
     return tot ? (c.raw['true'] || 0) / tot : 0;
   };
-  // a local (group/directory) absence is a boundary only against something COMMON in the partition (≥ 30% of the kind use it);
-  // a partition-wide absence only when some group/directory is accepted with it present and it is not vanishingly rare
+  // A local (group/directory) absence is contrasted with the rest of its OWN partition, the same two-population cell
+  // an architecture norm uses: the cell's outcomes are coded at its own KT rate instead of at the rate of the
+  // partition's scopes of that kind outside the cell, and the absence stands only where that gain survives the BIC
+  // half log and the index cost AND the cell uses the thing LESS than the rest of the partition does.
+  const localAbsenceHolds = f => {
+    const cell = cells.get(f.cid + S + f.pid),
+      allC = cells.get('_all:' + f.kind + S + f.pid);
+    if (!cell || !allC) return false;
+    const n = (cell.counts.true || 0) + (cell.counts.false || 0);
+    const outside = {
+      true: Math.max(0, (allC.counts.true || 0) - (cell.counts.true || 0)),
+      false: Math.max(0, (allC.counts.false || 0) - (cell.counts.false || 0)),
+    };
+    const nO = outside.true + outside.false;
+    if (!(n > 0 && nO > 0) || !((cell.counts.true || 0) * nO < outside.true * n)) return false;
+    const K = 2;
+    let data = 0;
+    for (const v of ['true', 'false']) {
+      const nv = cell.counts[v] || 0;
+      if (nv) data += nv * Math.log2(kt(cell.counts, K, v, n) / kt(outside, K, v, nO));
+    }
+    return data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost > 0;
+  };
   out = out.filter(
     f =>
       !(isBool(f.pid) && f.exp === 'false') ||
       (f.cid.startsWith('_all')
         ? presentSomewhere.has(f.kind + S + f.pid) && partitionTrueShare(f.kind, f.pid) >= 0.1
-        : partitionTrueShare(f.kind, f.pid) >= 0.3)
+        : localAbsenceHolds(f))
   );
   // redundant-refinement filter: a dir fact agreeing with its parent's default while an accepted `_all`
   // fact already states it repo/package-wide is not local information — it would only re-say the general rule

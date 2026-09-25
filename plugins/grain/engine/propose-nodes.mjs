@@ -20,7 +20,7 @@ export function buildRelations(exp, typeOfFile, active) {
   for (const an of exp.archNorms || []) {
     if (an.exp !== 'false' || an.fromKind !== 'module') continue;
     const fromT = dirOfType.get(an.from), toT = dirOfType.get(an.to);
-    const rec = { from: an.from, to: an.to, fromType: fromT || null, toType: toT || null, share: an.share, ne: an.ne, neff: an.neff, bits: an.bits };
+    const rec = { from: an.from, to: an.to, fromType: fromT || null, toType: toT || null, share: an.share, ne: an.ne, neff: an.neff, bits: an.bits, kOut: an.kOut ?? null, nOut: an.nOut ?? null };
     const observed = fromT && uses.get(fromT) && uses.get(fromT).size;
     if (fromT && !observed) { denies.push(rec); rec.becomes = 'default: deny'; }
     else { rec.becomes = 'backlog only'; rec.whyNot = observed ? `type \`${fromT}\` has ${uses.get(fromT).size} observed outgoing dependencies — a deny here would contradict imports the code contains` : `\`${an.from}\` is not a proposed type, so there is nothing to deny on`; backlog.push(rec); }

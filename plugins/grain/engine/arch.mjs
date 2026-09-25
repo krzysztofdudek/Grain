@@ -15,121 +15,111 @@ import {
   hydrateTable,
   makeEdgeResolver,
 } from './relations.mjs';
-import { toPosix, S } from './base.mjs';
-import { kt, part } from './facts.mjs';
+import { toPosix } from './base.mjs';
+import { kt } from './facts.mjs';
 import { voice } from './mine.mjs';
 
-// established layering norms: a (source module, target module) pair is a cell exactly like a `_all`-scoped predicate
-// cell in mine() (§9.4a in mathematics.md) — counts = { true: files in A that reach B, false: files in A that don't },
-// neff = |files in A| — decided with the IDENTICAL KT/BIC/index-cost test as mine()'s isAll branch (core.mjs mine(),
-// ~line 552-560): same kt(), same CFG.lambda, no new constant. Uses the SAME refined module assignment as
-// moduleGraph (via the shared refineModOf), consistently with computeArchHits below — both now agree with what
-// report/rules display (§G11 fixed a prior inconsistency here), and its own edge aggregation straight from
-// model.edges/model.filesAll — never model.moduleGraph's nodes/edges.
+// established layering norms: a (source, target module) pair is a two-population contrast cell, the same cell the
+// language bridge, the birth obligations and a role cell against `_all:` already decide by (mathematics.md,
+// "Architecture norms"). Only CAPABLE files enter it — a file with at least one resolved out-edge; a file that
+// imports nothing at all says nothing about which modules it avoids. For a source A (a module, or a role group one
+// level finer, §J5.7a) and a target module B: k_A of the n_A capable files of A reach B, and k_O of the n_O capable
+// files outside A and outside B do. The data term codes A's reach/no-reach outcomes at A's own KT rate instead of
+// at the outside KT rate; the model term is the BIC half log; the index cost is paid once over every (A, B) where B
+// is reached by at least minRaw capable files and the outside population holds at least minRaw — INCLUDING the
+// pairs A never crosses (k_A = 0), which is what lets a boundary nobody has crossed be a candidate. It speaks when
+// the gain is positive, the λ posterior
+// names the value, and the contrast points the way the value says: an absence only where A reaches B LESS than
+// the rest of the repository, a presence only where it reaches B MORE. That direction is what used to be patched
+// with a 10% "reach elsewhere" floor; the outside rate now carries it, and a flat 50/50 coin no longer decides
+// whether "A never reaches B" is news.
 export function architectureNorms(model) {
   const files = model.filesAll || [];
   const pkgs = model.pkgs || [];
-  const EMPTY = new Set();
   const refined = refineModOf(files, pkgs, model.srcRoots || []);
   const modOf = new Map();
   for (const f of files) modOf.set(f, refined(f));
-  // per-file reached-module set: a target module counts once per file, regardless of how many edges/how much .n land on it
+  // per-file reached-module set (a target module counts once per file), and the capable files
   const reached = new Map();
+  const capable = new Set();
   for (const e of model.edges || []) {
     const a = modOf.get(e.from),
       b = modOf.get(e.to);
-    if (a === undefined || b === undefined || a === b) continue;
+    if (a === undefined || b === undefined || e.from === e.to) continue;
+    capable.add(e.from);
+    if (a === b) continue;
     (reached.get(e.from) || reached.set(e.from, new Set()).get(e.from)).add(b);
   }
-  const filesOf = new Map(); // module -> its files
-  for (const f of files) {
+  const capIn = new Map(); // module -> capable files in it
+  const reachCount = new Map(); // module B -> capable files anywhere that reach B
+  for (const f of capable) {
     const m = modOf.get(f);
-    (filesOf.get(m) || filesOf.set(m, []).get(m)).push(f);
+    capIn.set(m, (capIn.get(m) || 0) + 1);
+    for (const b of reached.get(f) || []) reachCount.set(b, (reachCount.get(b) || 0) + 1);
   }
-  // candidate universe: every (A,B) with ≥ 1 file in A reaching B — counted ONCE, repo-wide, exactly as mine()'s C
-  const pairs = new Map(); // "A\x01B" -> { A, B, trueN, neff }
-  for (const [A, fs2] of filesOf) {
-    const targets = new Set();
-    for (const f of fs2) for (const b of reached.get(f) || EMPTY) targets.add(b);
-    for (const B of targets) {
-      let trueN = 0;
-      for (const f of fs2) if ((reached.get(f) || EMPTY).has(B)) trueN++;
-      pairs.set(A + S + B, { A, B, trueN, neff: fs2.length });
-    }
+  const capTotal = capable.size;
+  const targets = [...reachCount.keys()].filter(b => reachCount.get(b) >= CFG.minRaw).sort();
+  // the sources: every module, and every role group (§J5.7a) — a group's population is the DISTINCT capable files
+  // carrying a member of it, never its scope count (a file holding 20 methods of one role is one file's evidence)
+  const sources = [];
+  const byModule = new Map();
+  for (const f of capable) {
+    const m = modOf.get(f);
+    (byModule.get(m) || byModule.set(m, []).get(m)).push(f);
   }
-  // second candidate population (§J5.7a): (role-group, target module) pairs, the same cell shape one level finer
-  // than a module. neff MUST be distinct FILES carrying a member of the group, never raw scope count — a file
-  // holding 20 methods of one role is one file's worth of independent evidence about its own edges, not twenty,
-  // and neff feeds directly into the BIC penalty and the λ bound below. Read off the SAME per-file `reached` map
-  // the module-module population above uses — never rebuilt.
-  const groupPairs = new Map(); // "part#role\x01B" -> { A: groupKey, B, trueN, neff }
+  for (const [A, fs2] of byModule) sources.push({ A, fs: fs2, fromKind: 'module' });
   for (const part of model.partitions || []) {
-    const filesByRole = new Map(); // role -> Set of distinct files carrying a member of that role
+    const filesByRole = new Map();
     for (const [key, role] of Object.entries(part.assignments || {})) {
       if (!Number.isInteger(role) || role === -1) continue;
       const path = key.slice(0, key.indexOf('#'));
+      if (!capable.has(path)) continue;
       (filesByRole.get(role) || filesByRole.set(role, new Set()).get(role)).add(path);
     }
-    for (const [role, fset] of filesByRole) {
-      const A = part.name + '#' + role;
-      const targets = new Set();
-      for (const f of fset) for (const b of reached.get(f) || EMPTY) targets.add(b);
-      for (const B of targets) {
-        let trueN = 0;
-        for (const f of fset) if ((reached.get(f) || EMPTY).has(B)) trueN++;
-        groupPairs.set(A + S + B, { A, B, trueN, neff: fset.size });
-      }
-    }
+    for (const [role, fset] of filesByRole) sources.push({ A: part.name + '#' + role, fs: [...fset], fromKind: 'group' });
   }
-  // ONE idxCost over BOTH populations, counted before either's per-pair minRaw/minEff/bits filtering below — the
-  // same discipline mine()'s own idxCost, bridgeBits' universe3 and J4.1's cellGlobal all follow: a widened
-  // candidate universe is never split into two separately-taxed sub-universes. Consequence, real and unavoidable:
-  // this raises the bar for module-module pairs too, so this function's output is no longer byte-identical to a
-  // module-only computation on the same input (architecture-norms.test.mjs / group-arch-norms.test.mjs cover this).
-  const idxCost = Math.ceil(Math.log2(Math.max(pairs.size + groupPairs.size, 2)));
+  // the cells, and ONE index cost over both populations counted before any per-cell floor — a widened candidate
+  // universe is never split into separately-taxed sub-universes (the same discipline as mine()'s own index cost)
+  const cells = [];
+  for (const { A, fs: fs2, fromKind } of sources)
+    for (const B of targets) {
+      if (fromKind === 'module' && A === B) continue;
+      let nA = 0,
+        kA = 0;
+      for (const f of fs2) {
+        if (modOf.get(f) === B) continue; // a file inside B cannot cross into B
+        nA++;
+        if ((reached.get(f) || EMPTY_SET).has(B)) kA++;
+      }
+      const kO = reachCount.get(B) - kA;
+      const nO = capTotal - (capIn.get(B) || 0) - nA;
+      if (nO < CFG.minRaw) continue; // too few capable files outside A and B to be a rate at all
+      cells.push({ A, B, kA, nA, kO, nO, fromKind });
+    }
+  const idxCost = Math.ceil(Math.log2(Math.max(cells.length, 2)));
   const K = 2;
-  const preAccept = [];
-  const evaluate = (A, B, trueN, neff, fromKind) => {
-    const raw = neff; // every file counts exactly once (weight 1), so raw === neff for this cell shape
-    if (raw < CFG.minRaw || neff < CFG.minEff) return;
-    const counts = { true: trueN, false: neff - trueN };
+  const out = [];
+  for (const { A, B, kA, nA, kO, nO, fromKind } of cells) {
+    if (nA < CFG.minRaw || nA < CFG.minEff) continue; // every file counts once (weight 1), so raw === neff here
+    const local = { true: kA, false: nA - kA },
+      glob = { true: kO, false: nO - kO };
     let data = 0;
     for (const v of ['true', 'false']) {
-      const nv = counts[v];
-      if (nv) data += nv * Math.log2(kt(counts, K, v, neff) * 2);
+      const nv = local[v];
+      if (nv) data += nv * Math.log2(kt(local, K, v, nA) / kt(glob, K, v, nO));
     }
-    const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(neff, 2)) - idxCost;
-    if (bits <= 0) return; // evidence = codelength gain, nothing else
-    const exp = counts.true > counts.false ? 'true' : 'false';
-    const ne = counts[exp];
-    if (!((ne + 0.5) / (neff + K / 2) >= 1 - 1 / CFG.lambda)) return; // the one loss constant, same posterior-predictive bound
-    preAccept.push({ from: A, to: B, exp, ne, neff, share: ne / neff, bits, fromKind });
-  };
-  for (const { A, B, trueN, neff } of pairs.values()) evaluate(A, B, trueN, neff, 'module');
-  for (const { A, B, trueN, neff } of groupPairs.values()) evaluate(A, B, trueN, neff, 'group');
-  // absence-boundary discipline (mirrors mine()'s presentSomewhere/partitionTrueShare, §9.4 in mathematics.md): a
-  // module or group "never reaching B" is a boundary only against something a real, live option elsewhere — either
-  // (a) some OTHER module's or group's accepted practice IS to reach B, or (b) reaching B is at least a non-trivial
-  // share (mine()'s own repo-wide floor, 10%) of the files outside A. mine() ANDs its two conditions, but that is
-  // for a partition-relative cell with a real parent population to contrast against; a module/group pair has none —
-  // it IS the top-level population, like an `_all`-scoped fact — so either half of the live-option evidence
-  // suffices here.
-  const trueTargets = new Set(preAccept.filter(n => n.exp === 'true').map(n => n.to));
-  // globalReachByB is drawn ONLY from the module-module population: modules already partition the whole repo, so
-  // a group's reaching files are already counted here through their containing module — adding the group's own
-  // trueN again would double-count the same files.
-  const globalReachByB = new Map();
-  for (const { B, trueN } of pairs.values()) globalReachByB.set(B, (globalReachByB.get(B) || 0) + trueN);
-  const totalFiles = files.length;
-  // n.trueN is not stored on preAccept entries (it would be a schema-visible field fully derivable from exp/ne/neff)
-  const outsideShare = n => {
-    const denom = totalFiles - n.neff;
-    if (denom <= 0) return 0;
-    const trueN = n.exp === 'true' ? n.ne : n.neff - n.ne;
-    return (globalReachByB.get(n.to) - trueN) / denom;
-  };
-  return preAccept.filter(n => n.exp === 'true' || trueTargets.has(n.to) || outsideShare(n) >= 0.1);
+    const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(nA, 2)) - idxCost;
+    if (bits <= 0) continue; // evidence = codelength gain, nothing else
+    const exp = local.true > local.false ? 'true' : 'false';
+    const ne = local[exp];
+    if (!((ne + 0.5) / (nA + K / 2) >= 1 - 1 / CFG.lambda)) continue; // the one loss constant, same posterior-predictive bound
+    // the direction the contrast points must be the direction the value names
+    if (exp === 'false' ? !(kA * nO < kO * nA) : !(kA * nO > kO * nA)) continue;
+    out.push({ from: A, to: B, exp, ne, neff: nA, share: ne / nA, bits, fromKind, kOut: kO, nOut: nO });
+  }
+  return out;
 }
+const EMPTY_SET = new Set();
 // architecture: the file's CURRENT out-edges resolved against the accepted tree — a reference that creates the FIRST
 // edge between two modules is a boundary crossing worth saying at edit time; one whose reverse already exists closes a
 // cycle. Existing crossings (the module pair already has edges at HEAD) stay silent — practice already speaks there.

@@ -37,6 +37,39 @@ import { mineTemplates, profileOf } from './superposition.mjs';
 import { shapeWords } from './verbalize.mjs';
 import { calibrate, heritageKindOf, mkWeightFn, rejectedValues, trendsFor } from './weights.mjs';
 
+// the label null behind `grain selftest --null`: the (role, ambiguous) labels of the assigned scopes of each kind, and
+// the directories all scopes of each kind sit in, are dealt out again at random among those same scopes — group and
+// directory sizes, ambiguity counts and every predicate survive; only the link between a scope and its group or its
+// directory is destroyed. The directory is dealt out on `nullRel`, which only mine()'s directory contexts read.
+function shuffleLabels(ps, ri, rnd) {
+  const kinds = new Map();
+  ps.forEach((s, i) => (kinds.get(s.kind) || kinds.set(s.kind, []).get(s.kind)).push(i));
+  for (const idx of kinds.values()) {
+    const rels = idx.map(i => ps[i].rel);
+    for (let j = rels.length - 1; j > 0; j--) {
+      const r = Math.floor(rnd() * (j + 1));
+      [rels[j], rels[r]] = [rels[r], rels[j]];
+    }
+    idx.forEach((i, j) => (ps[i].nullRel = rels[j]));
+  }
+  const byKind = new Map();
+  for (const [i] of ri.assign) {
+    const k = ps[i].kind;
+    (byKind.get(k) || byKind.set(k, []).get(k)).push(i);
+  }
+  for (const idx of byKind.values()) {
+    const labels = idx.map(i => [ri.assign.get(i), ri.amb.has(i)]);
+    for (let j = labels.length - 1; j > 0; j--) {
+      const r = Math.floor(rnd() * (j + 1));
+      [labels[j], labels[r]] = [labels[r], labels[j]];
+    }
+    idx.forEach((i, j) => {
+      ri.assign.set(i, labels[j][0]);
+      if (labels[j][1]) ri.amb.add(i);
+      else ri.amb.delete(i);
+    });
+  }
+}
 // ===== LEARN: current tree + history → model =====
 export async function learn({
   root,
@@ -47,6 +80,7 @@ export async function learn({
   log = () => {},
   tree = null,
   treeCache = null,
+  nullLabels = null,
 }) {
   const t0 = Date.now();
   // `tree` (from history.mjs headTree) = the files and contents of HEAD: the norm is the accepted past, so an uncommitted edit,
@@ -167,6 +201,11 @@ export async function learn({
       }
     }
     pr.ri = induceRoles(pr.ps);
+    // `grain selftest --null` only (a random source, never set by a query): the role labels, and the directory each
+    // scope is read in, are dealt out again within each scope kind, so every role group and every directory keeps its
+    // size and the partition keeps its predicates; a role or directory cell the objective still certifies afterwards
+    // is a false certification by construction
+    if (nullLabels) shuffleLabels(pr.ps, pr.ri, nullLabels);
     Crepo += countCandidates(pr.ps, pr.ri);
   }
   const idxCost = Math.ceil(Math.log2(Math.max(Crepo, 2)));

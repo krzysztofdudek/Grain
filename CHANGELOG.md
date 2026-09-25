@@ -6,10 +6,21 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Added
+
+- `grain selftest --null [--runs N]` measures how often Grain states something that is not there. It shuffles the repository's own evidence so that each kind of claim loses the link it rests on, then counts what Grain still claims. Shuffling keeps the counts: each group keeps its size, each file its imports, each commit its size. Every claim that survives the shuffle is false. The command reports those counts per kind of claim, next to the real ones. Each run costs one full rebuild of the model, so it is a measuring tool, not an everyday command. On Grain and Yggdrasil, conventions, birth obligations, the commit-message bridge and now architecture norms claim nothing on shuffled data. Co-change partners and commit shapes still do, and `docs/validation.md` gives the numbers.
+
+### Changed
+
+- Architecture norms now compare a module with the rest of the repository. "Files here do not import that module" is stated only when this module's files import it less often than files elsewhere do. The check used to compare against a coin flip. Only files that import something count. A boundary no file has ever crossed can now be stated, with its numbers ("0 of 77 files here, against 323 of 807 elsewhere"). On shuffled imports, the old rule stated more "never imports" norms than the real code gave. The new one states none. Stores built by an earlier version re-learn on first use.
+- A "never X" statement for a group or a directory now needs the rest of its partition to use X more often. It used to need 30% of the partition to use X. Some statements appear that the old floor hid, and some disappear.
+- `grain propose` offers far fewer below-the-bar candidate rules. A candidate must now pass the same test as a real convention. Its evidence must compress the repository. A "does not use X" candidate must use X less often than the rest of the repository does. The practice must be above two thirds with high confidence, not just in the raw share. The strongest evidence comes first. On Grain and Yggdrasil the candidate pool falls from about 500 and 740 rows to 37 and 61. Of the 14 sampled candidates a reviewer judged "not a rule at all", 13 are gone. Advisory rules from a self-proposal fall from 8 to 5 and from 13 to 9, still with no false alarm.
+- The table of negatives in `PROPOSAL.md` shows each pair's evidence: how many of the module's files cross into the target, and how many files elsewhere do.
+
 ### Fixed
 
 - Code written with an agent now counts as agent-written when a person committed it. Grain used to read only the commit author, so a commit by a person with a `Co-Authored-By:` line naming an agent (the usual way agent-assisted work is committed) counted as human. Grain now reads those lines too, when they name an AI coding agent. A co-author line crediting an automation bot, such as the one a squash-merge adds for dependabot, still counts as human. On a repository written mostly this way, the agent-authored share rises from near zero to its real value, the alarm fires where it should, conventions held up mostly by agent-written code carry less weight, and some drop out. A store built by an earlier version re-reads its history on first use.
-- The mathematics page no longer claims the tuned thresholds are all gone. Six are, but other numbers still decide what Grain says, and the page now lists them with what each one does. Two statements that disagreed with the code are corrected. Grain says "never X" when X is used by 10% of the partition, or 30% for a single directory or group, not 20%. When Grain does not calibrate a convention, the reason it gives now says the history is shorter than one horizon, not two.
+- The mathematics page no longer claims the tuned thresholds are all gone. Six are, but other numbers still decide what Grain says, and the page now lists them with what each one does. Two statements that disagreed with the code are corrected. Grain says "never X" across a partition when X is used by 10% of it, not 20%. When Grain does not calibrate a convention, the reason it gives now says the history is shorter than one horizon, not two.
 
 ## [6.1.0] - 2026-09-25
 

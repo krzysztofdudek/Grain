@@ -75,6 +75,7 @@ const NON_CLAIM = [
   /^template \(/, /^pre-existing \(/,
   /^(?:package |group «|local \(|repo-wide)/,                                         // factLabel: where it holds
   /^[0-9a-f]{8}$/,                                                                    // report's seed catalogue row key
+  /^established layering$/,                                                           // report's architecture summary: a count of practiced norms, first seen here once a boundary nobody crossed could certify
   /^change shape$/,                                                                   // missingLines' practiced sources lead with a label (`co-change:`/`kin:`/`recipe:` share this shape too, unaudited only because none fires on this fixture) that reads like a marker but isn't one — J4.2's shape: is the first to actually trigger here
 ];
 const bareOf = line => line.replace(/^\[grain\] /, '').replace(/^\s+/, '').replace(/^- /, '');
