@@ -158,7 +158,7 @@ export function rejectedValues(fact, ps, H) {
 export function calibrate(fact, ps, H) {
   const split = H.NOW - CFG.calibHorizonDays * 86400;
   const settle = H.NOW - CFG.calibSettleDays * 86400;
-  if (H.firstTs > split) return { available: false, reason: 'history<2x horizon' };
+  if (H.firstTs > split) return { available: false, reason: 'history<horizon' };
   const evts = [];
   for (const gi of fact.conform.concat(fact.deviants.map(d => d.gi))) {
     const s = ps[gi];

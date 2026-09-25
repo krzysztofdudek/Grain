@@ -6,6 +6,11 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+### Fixed
+
+- Code written with an agent now counts as agent-written when a person committed it. Grain used to read only the commit author, so a commit by a person with a `Co-Authored-By:` line naming an agent (the usual way agent-assisted work is committed) counted as human. Grain now reads those lines too. On a repository written mostly this way, the agent-authored share rises from near zero to its real value, the alarm fires where it should, conventions held up mostly by agent-written code carry less weight, and some drop out. A store built by an earlier version re-reads its history on first use.
+- The mathematics page no longer says the tuned thresholds are all gone. It now lists every number the engine checks against, with where it sits and what it does, and a test fails when the code gains one the list does not name. Two statements that disagreed with the code are corrected: the floor for saying "never X" is 10% use across the partition and 30% for a single directory or group, not 20%, and the reason Grain gives for not calibrating a convention now says its history is shorter than one horizon, not two.
+
 ## [6.1.0] - 2026-09-25
 
 **Numbered with the family, not by Semantic Versioning.** Grain ships under the family's one number with Yggdrasil and Horde (the reasoning is in Yggdrasil's docs/family-contracts.md, under "One number for the family"), so this release carries changes that can break what you built on the previous one under a minor number. What changes under you: a TypeScript or JavaScript type-only import is now a dependency, so proposals and checks see edges they did not see before; `grain propose` writes its family candidates to `.family-candidates.grain.json` instead of `.family-candidates.json`; family-candidate ids change once; and stores built by an earlier version are rebuilt on first use. Each is described under **Changed** and **Fixed** below. Read those before you upgrade, and pin the exact versions of the family tools your pipeline runs.

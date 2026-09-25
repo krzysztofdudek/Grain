@@ -43,10 +43,7 @@ worktree.
 | `refresh` | `--full` | rebuild now (queries auto-refresh anyway); `--full` re-walks the whole history |
 | `version` | | engine, extractor and grammar versions |
 
-The agent-authored share (`status`, `report`) classifies the commit author string of the last commit to touch each
-surviving line against `AGENT_AUTHOR_RE`, over committed history only — it never sees the uncommitted worktree in
-either direction (the norm is the accepted past), so a 0% or low reading means recent committers on that code weren't
-tool-named authors, not that no AI-assisted work happened there.
+The agent-authored share (`status`, `report`) classifies the last commit to touch each surviving line against `AGENT_AUTHOR_RE`: the commit is agent-written when its author, or any `Co-authored-by:` trailer on it (the key in any letter case), names an agent. A human-authored commit with an agent co-author therefore counts as agent-written, and its code takes the agent provenance weight like code an agent committed itself. It reads committed history only — it never sees the uncommitted worktree in either direction (the norm is the accepted past), so a 0% or low reading means recent commits on that code named no agent as author or co-author, not that no AI-assisted work happened there.
 
 A type name can legitimately appear at more than one declaration in the same file where a language allows arity- or
 generic-parameter overloading (the same identifier naming genuinely distinct declarations); grain counts each as its

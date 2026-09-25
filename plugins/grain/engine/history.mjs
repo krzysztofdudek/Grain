@@ -248,6 +248,19 @@ export class BlobCache {
 }
 
 // ----- the walk: one streaming `git log --raw` over a commit range -----
+// One header line per commit: sha, commit time, author, subject, then every `Co-authored-by:` trailer value (git
+// matches the key case-insensitively, `unfold` keeps a folded trailer on this one line), joined by \x1f.
+export const LOG_FORMAT =
+  '%x01%H%x00%ct%x00%an <%ae>%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)';
+// A commit is agent-written when its author OR any co-author names an agent. A human author with an agent
+// co-author (the pair case: the agent typed, the human approved) counts as agent-written, so its code gets the
+// agent provenance weight. Both identities go through the same AGENT_AUTHOR_RE, so an agent is recognised the
+// same way whichever line of the commit names it.
+export function isAgentCommit(author, coAuthors) {
+  if (AGENT_AUTHOR_RE.test(author || '')) return true;
+  for (const v of (coAuthors || '').split('\x1f')) if (v && AGENT_AUTHOR_RE.test(v)) return true;
+  return false;
+}
 async function walk(gitdir, range) {
   // streamed: the raw log of a large repository is hundreds of MB; only the parsed records are kept
   const { spawn } = await import('node:child_process');
@@ -265,7 +278,7 @@ async function walk(gitdir, range) {
       '--no-abbrev',
       '--no-merges',
       '-M',
-      '--format=%x01%H%x00%ct%x00%an <%ae>%x00%s',
+      `--format=${LOG_FORMAT}`,
       ...(range ? [range] : []),
     ],
     { stdio: ['ignore', 'pipe', 'ignore'] }
@@ -280,7 +293,7 @@ async function walk(gitdir, range) {
       cur = {
         sha: p[0],
         ts: +p[1],
-        agent: AGENT_AUTHOR_RE.test(p[2]),
+        agent: isAgentCommit(p[2], p[4]),
         author: hashStr(p[2]),
         fix: FIX_RE.test(p[3] || ''),
         msg: (p[3] || '').slice(0, 120),
