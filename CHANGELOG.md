@@ -6,6 +6,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ## [Unreleased]
 
+## [6.1.0] - 2026-09-25
+
 **Numbered with the family, not by Semantic Versioning.** Grain ships under the family's one number with Yggdrasil and Horde (the reasoning is in Yggdrasil's docs/family-contracts.md, under "One number for the family"), so this release carries changes that can break what you built on the previous one under a minor number. What changes under you: a TypeScript or JavaScript type-only import is now a dependency, so proposals and checks see edges they did not see before; `grain propose` writes its family candidates to `.family-candidates.grain.json` instead of `.family-candidates.json`; family-candidate ids change once; and stores built by an earlier version are rebuilt on first use. Each is described under **Changed** and **Fixed** below. Read those before you upgrade, and pin the exact versions of the family tools your pipeline runs.
 
 ### Added
@@ -94,7 +96,8 @@ Released as a portfolio piece, with the complete measured record attached. Devel
 ### Added
 - First public release.
 
-[Unreleased]: https://github.com/krzysztofdudek/Grain/compare/v6.0.0...HEAD
+[Unreleased]: https://github.com/krzysztofdudek/Grain/compare/v6.1.0...HEAD
+[6.1.0]: https://github.com/krzysztofdudek/Grain/compare/v6.0.0...v6.1.0
 [6.0.0]: https://github.com/krzysztofdudek/Grain/compare/v0.4.0...v6.0.0
 [0.4.0]: https://github.com/krzysztofdudek/Grain/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/krzysztofdudek/Grain/compare/v0.1.0...v0.3.0
