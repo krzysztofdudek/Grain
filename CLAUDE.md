@@ -35,7 +35,7 @@ Every number in `README.md` traces to `docs/results.md`; a claim without a row t
 
 ## Versioning
 
-This project uses [Semantic Versioning](https://semver.org/) and maintains a [CHANGELOG.md](CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/) format.
+This project maintains a [CHANGELOG.md](CHANGELOG.md) following the [Keep a Changelog](https://keepachangelog.com/) format. Its version numbers follow the Yggdrasil family's one-number policy, not Semantic Versioning: the core (Yggdrasil, Grain and Horde) ships together under one number, so a release may carry breaking changes under a minor number, and its CHANGELOG section says so and names them.
 
 When the user says "bump version":
 1. Move `[Unreleased]` entries in `CHANGELOG.md` into a new version section with today's date

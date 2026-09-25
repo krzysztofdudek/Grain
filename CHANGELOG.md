@@ -2,10 +2,11 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the Yggdrasil family's one-number policy, not Semantic Versioning: the core of the family (Yggdrasil, Grain and Horde) ships together under one number, so a release may carry breaking changes under a minor number. Read a release's **Changed** and **Fixed** sections before you upgrade.
 
 ## [Unreleased]
+
+**Numbered with the family, not by Semantic Versioning.** Grain ships under the family's one number with Yggdrasil and Horde (the reasoning is in Yggdrasil's docs/family-contracts.md, under "One number for the family"), so this release carries changes that can break what you built on the previous one under a minor number. What changes under you: a TypeScript or JavaScript type-only import is now a dependency, so proposals and checks see edges they did not see before; `grain propose` writes its family candidates to `.family-candidates.grain.json` instead of `.family-candidates.json`; family-candidate ids change once; and stores built by an earlier version are rebuilt on first use. Each is described under **Changed** and **Fixed** below. Read those before you upgrade, and pin the exact versions of the family tools your pipeline runs.
 
 ### Added
 
