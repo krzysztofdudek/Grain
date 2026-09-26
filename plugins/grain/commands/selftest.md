@@ -25,12 +25,12 @@ extraction actually recorded as a scope, precision is the fraction of extraction
 are declarations. A grammar with no such node type at all (JSON/YAML/TOML) is reported as a boundary, not a score.
 `--json` adds the first 10 misses (a declaration the oracle sees that extraction did not record) and 10 extras
 (a scope extraction recorded that the oracle does not consider a declaration), each as `file:line name`.
-`selftest --null [--runs N]` measures false certifications: every family of claims is run again on a copy of the
+`selftest --null [--runs N] [--seed N]` measures false certifications: every family of claims is run again on a copy of the
 repository's own evidence with the link it claims destroyed and its marginals kept (role labels and directory placements dealt out again,
 import sets dealt out among files, the commit × file matrix swap-randomised, commit messages dealt out among
 commits, value-set members dealt out among the files declaring the set, fix commits dealt out among all edits), and it reports, per family, how many claims survive that (mean and maximum over the runs) beside the real
 count. Anything certified under the null is false by construction. Each run costs two full learn passes.
-`selftest --cochange [--runs N]` measures co-change partners the way they are used: learned from the oldest 80% of
+`selftest --cochange [--runs N] [--seed N]` measures co-change partners the way they are used: learned from the oldest 80% of
 the commits, scored on the newest 20% (hit@3, the non-obvious hit@3 outside the 10 hottest files, precision@1, how
 often a partner is named), beside the null that always names the 3 hottest files and the same rule with a base
 rate per commit instead of per commit size, and then how many partners each rule names on swap-randomised copies of

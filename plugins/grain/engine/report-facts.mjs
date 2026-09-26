@@ -4,7 +4,7 @@ import { extname } from 'node:path/posix';
 import { EXT2GRAMMAR, CFG } from './config.mjs';
 import { relSupported, relPathOnly } from './relations.mjs';
 import { baselineClause } from './cards.mjs';
-import { STRUCT_PID, archCellLabel, factLabel, isDefiningFact, part, pct, scopeLabel } from './facts.mjs';
+import { STRUCT_PID, archCellLabel, factLabel, fixScopesNote, isDefiningFact, part, pct, scopeLabel } from './facts.mjs';
 import { deviationPhrase } from './verbalize.mjs';
 import { langExt } from './base.mjs';
 
@@ -214,7 +214,7 @@ export function healthRows(model, outcomes) {
       if (!ex) continue;
       const mult = (f.cost.k / f.cost.n / (f.cost.baseK / f.cost.baseN)).toFixed(1);
       rows.push(
-        `${factLabel(p, f)} — edits to its deviants were fixes ${mult}× as often (${f.cost.k} of ${f.cost.n} edits vs ${f.cost.baseK} of ${f.cost.baseN})` +
+        `${factLabel(p, f)} — edits to its deviants were fixes ${mult}× as often (${f.cost.k} of ${f.cost.n} edits vs ${f.cost.baseK} of ${f.cost.baseN}${fixScopesNote(f.cost)})` +
           ` → grain decide steer ${ex.rel}#${ex.name} --surfaces ${f.pid} --note "codify — edits to deviants were fixes ${mult}× as often"`
       );
     }

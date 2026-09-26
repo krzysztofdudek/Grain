@@ -80,7 +80,8 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
   const segs = rel.split('/').slice(0, -1);
   const myDirs = [];
   for (let k = 1; k <= segs.length; k++) myDirs.push(segs.slice(0, k).join('/'));
-  const cells = new Map();
+  const cells = new Map(),
+    pool = new Map();
   const add2 = (cid, pid, v) => {
     const k = cid + S + pid;
     let c = cells.get(k);
@@ -95,6 +96,17 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
       add2('_all:' + s.kind, pid, v);
       const r = roleOf(s, i);
       if (r !== undefined && myRoles.has('r' + r + ':' + s.kind)) add2('r' + r + ':' + s.kind, pid, v);
+      // every assigned scope of the kind: the population a role row is contrasted with where the kind has more than
+      // one group, as in mine() (issue 385). The same population, not the same counts: spectrum's cells count each
+      // scope once and leave ambiguous scopes out (roleOf), where mine() weighs scopes by their history and counts an
+      // ambiguous one at half weight, so a row's display bits here can differ from the bits that certified the fact
+      // (the NORM mark comes from the model, never from these bits)
+      if (r !== undefined) {
+        const t =
+          pool.get(s.kind + S + pid) || pool.set(s.kind + S + pid, { counts: Object.create(null), groups: new Set() }).get(s.kind + S + pid);
+        t.counts[v] = (t.counts[v] || 0) + 1;
+        t.groups.add(r);
+      }
       for (const d of myDirs) if (s.rel.startsWith(d + '/')) add2('d[' + d + ']:' + s.kind, pid, v);
     }
   });
@@ -110,13 +122,15 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
     const bl = isBool(pid);
     const K = bl ? 2 : Vv.length + 1;
     const allC = cells.get('_all:' + kind + S + pid);
-    const allN = allC ? Object.values(allC).reduce((a, b) => a + b, 0) : n;
+    const pl = /^r\d/.test(cid) ? pool.get(kind + S + pid) : null;
+    const refC = pl && pl.groups.size > 1 ? pl.counts : allC;
+    const refN = refC ? Object.values(refC).reduce((a, b) => a + b, 0) : n;
     let data = 0;
     const isAll = cid.startsWith('_all');
     if (isAll) {
       const B = Math.max(bl ? 2 : Vv.length, 2);
       for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) * B);
-    } else for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) / kt(allC, K, v, allN));
+    } else for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) / kt(refC, K, v, refN));
     const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost;
     let exp = null,
       ne = -1;
@@ -128,7 +142,8 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
     if (!bl && ['other', 'none', 'mixed', '?'].includes(exp)) continue;
     // "never X" rows are shown only where X is a real choice here (≥ 20% of the kind partition-wide use it) —
     // otherwise the lattice is a list of every callee the file happens not to call. This display floor is the
-    // lattice's own; mining's absence floors are 10% (partition-wide) and 30% (local), see docs/mathematics.md's register
+    // lattice's own; mining has no absence floor (a partition-wide absence is contrasted with the other partitions, a
+    // local one with the rest of its partition), see docs/mathematics.md's register
     if (bl && exp === 'false') {
       const tot = allC ? Object.values(allC).reduce((a, b) => a + b, 0) : 0;
       if (!tot || (allC['true'] || 0) / tot < 0.2) continue;

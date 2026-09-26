@@ -16,7 +16,7 @@ const RESERVED = new Set([
   'EXCL', 'MINE_EXCL', 'HARD_EXCL',
   'GRAMMAR_DIR', 'GRAMMARS', 'EXT2GRAMMAR', 'EXT_ALT',
   'ENGINE_VERSION', 'EXTR_V', 'HIST_V', 'MODEL_V',
-  'AGENT_AUTHOR_RE', 'FIX_RE',
+  'FIX_RE',
 ]);
 
 const WHY =

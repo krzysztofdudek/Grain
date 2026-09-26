@@ -629,7 +629,7 @@ export async function main(argv) {
     case 'selftest': {
       if (args.length)
         throw new Error(
-          'usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --obligation [--last N] [--json] | grain selftest --extract [--json] | grain selftest --null [--runs N] [--json] | grain selftest --cochange [--runs N] [--json] — takes no positional arguments'
+          'usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --obligation [--last N] [--json] | grain selftest --extract [--json] | grain selftest --null [--runs N] [--seed N] [--json] | grain selftest --cochange [--runs N] [--seed N] [--json] — takes no positional arguments'
         );
       if (opts.null) {
         // the false-certification counterpart of the mutation harness: each family on a label-destroying randomisation

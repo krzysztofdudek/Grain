@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2953 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2962 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -145,7 +145,8 @@ Measured 2026-09-26 on the same clones, 3 runs each with seeds 1 to 3, after the
 
 - **Co-change.** A partner is now named for the edited file's direction only, when its rate over that file's commits beats its own rate over all commits by the obligation cell (mathematics.md, *Co-change partners*). The null drops to 0 on Grain, 3.67 on Yggdrasil and 0.33 on express. It does not on typeorm, 10.67 → 12: a repository that commits many files at once makes any two busy files co-occur above their base rates, because the base rate ignores commit size. The target of at most one false certification per repository is still not met for co-change: 3.67 a run on Yggdrasil and 12 on typeorm. The prospective measurement below is the one that decided the gate. The commit-size base rate (issue 366, below) takes both to 0.
 - **Value norms.** Under the flat coin, shuffling the members among the declaring files certified every norm the real data certified, 2 of 2 on Grain and 1 of 1 on Yggdrasil: they were schema keys every declaring file carries, complete whatever the joint structure. Against independence, the shuffle certifies nothing. Of the four schema-key norms the research counted, three stop certifying (`$.scope` `per`/`file` on both, and `$.relations` `target`/`uses` was already gone at this snapshot). `$` `description`/`name` on Grain survives at 4.5 bits instead of 145.4: 175 of 177 qualifying files complete against 0.889 under independence. Yggdrasil gains one: twelve keys of `$.node_types.leaf`, 8 of 8 complete against 0.061, all in copies of one test-fixture architecture file. The twelve corpus repositories measured certify no value norm before or after, so the survivors the research expected (enum and switch sets in code) could not be inspected here.
-- **Deviation fix rate.** The old per-scope label with its 7-of-8 bound certified no claim on any of the 14 repositories below. Per edit, 4 claims certify (1 on Yggdrasil, 3 on typeorm), and the fix-label shuffle certifies 0.33 a run on Grain and 0 elsewhere. Each surviving claim was checked against the popularity-matched control of result 153: every deviant paired with the non-deviant scope of the same fact with the nearest edit count. Deviant edits were fixes at 0.80, 0.39, 0.26 and 0.18; the matched controls at 0.27, 0.00, 0.06 and 0.05, and the whole populations at 0.32, 0.04, 0.07 and 0.05. The matched control shows no lift over the population, so none of the four is exposure. The deviants are not the hottest scopes either: their median edit count is 0, 7, 0 and 1 against 0, 6, 2 and 3 in the population.
+- **Deviation fix rate.** The old per-scope label with its 7-of-8 bound certified no claim on any of the 14 repositories below. Per edit, 4 claims certify (1 on Yggdrasil, 3 on typeorm), and the fix-label shuffle certifies 0.33 a run on Grain and 0 elsewhere. Each surviving claim was checked against the popularity-matched control of result 153: every deviant paired with the non-deviant scope of the same fact with the nearest edit count. Deviant edits were fixes at 0.80, 0.39, 0.26 and 0.18; the matched controls at 0.27, 0.00, 0.06 and 0.05, and the whole populations at 0.32, 0.04, 0.07 and 0.05. The matched control shows no lift over the population, so none of the four is exposure. The deviants are not the hottest scopes either: their median edit count is 0, 7, 0 and 1 against 0, 6, 2 and 3 in the population. The per-edit bound treats edits as independent, and edits cluster within scopes, so the note now says how many deviants the fix edits fell on (issue 368): on Yggdrasil 12 fix edits in 12 of 47 deviants; on typeorm 9 in 3 of 5, 9 in 7 of 44 and 96 in 80 of 318. The first typeorm claim rests on three scopes. No scope-level bound is applied.
+- **Pair cap.** The model keeps the 5000 file pairs with the most support and pays the co-change index cost over them; the null harness used to pay it over every pair it rebuilt. Both now keep the same 5000 (issue 368). No repository measured stores more than 976 pairs (typeorm), so no number on this page moves.
 
 The mutation harness after this build: Grain 7 of 7 planted deviations caught, Yggdrasil 25 of 25, 0 false fires on both.
 
@@ -196,6 +197,8 @@ A fact's instances are ordered by the commit that bore them, each commit contrib
 - **Counted per birth instead of per commit, rejected.** One rename commit on typeorm (2026-03-23, #12244) generated 11 one-word `connection` accessors in the drivers, and per birth that made the drivers' camelCase method names "fading" (16 births since, 31% camelCase). Two naming-shape cuts over 1338 and 1878 births came from the same effect. Per commit, all three are gone and the four cuts above remain.
 - **Young, fast repositories.** A 60-day fixture of 25 commits (`tests/rejected-values.test.mjs`) certifies nucleation that the windowed detector, with one window, could never see. On Grain, 32 days and 601 commits old at this clone, the axis now exists, and nothing on it has moved.
 - The mutation harness is unchanged (above). `selftest --null` has no drift family: a change point claims an order, and the swap randomisation of commits keeps no birth order to destroy.
+- **`check` stands down on a fading convention**, tested through `checkFile` (issue 383, `tests/fading-check.test.mjs`): a fixture that fades without any value nucleating accuses no new code under the convention, and the same file is accused once the fading flag is cleared.
+- **Calibration still reads the calendar (issue 383, not done).** The change point moved to commits; calibration did not. It measures how often departures were later repaired, over departures between 365 and 30 days old (`calibHorizonDays`, `calibSettleDays`), and it does not run at all on a history shorter than 365 days. At these clones that rules it out on Grain (32 days) and Yggdrasil (219 days); the older corpus repositories can calibrate. Moving it to the commit axis needs a horizon and a settling time in commits, two new numbers nothing here measures, so it stays as it is and every `check` on a young repository accuses at the uncalibrated log₂ λ.
 
 ### Co-change partners, prospective
 
@@ -237,7 +240,7 @@ Measured 2026-09-26 with `grain selftest --cochange`, which runs the protocol ab
 | requests | 1013 | 0.145 → 0.172 | 0.116 → 0.120 | 0.536 → 0.425 | 207 → 216 | 0.67 → 0.67 |
 | **pooled** | **16 964** | **0.228 → 0.217** | **0.108 → 0.108** | **0.503 → 0.512** | **4498 → 3338** | **175.0 → 8.7 (sum)** |
 
-- **The null.** Summed over the 14, 175 partners a run → 8.7; typeorm 93.67 → 0 and flask 5.33 → 0. Slim keeps 2.67 and sinatra 5.33. Those are not what commit size explains: they are files that shared the few large commits of histories whose commits are mostly one or two files (`Slim/Exception/Pass.php` and `Stop.php`, sinatra's README translations), and 5 trades per commit do not move a file out of a 20-file commit when almost every trade partner holds one file. With 50 trades per commit the new cell names 0 a run on Slim, sinatra, typeorm and flask, and the base rate per commit still names 19, 2.67, 55 and 8.67. `selftest --null` uses 5 trades per commit, so its other history families may carry the same under-mixing.
+- **The null.** Summed over the 14, 175 partners a run → 8.7; typeorm 93.67 → 0 and flask 5.33 → 0. Slim keeps 2.67 and sinatra 5.33. Those are not what commit size explains: they are files that shared the few large commits of histories whose commits are mostly one or two files (`Slim/Exception/Pass.php` and `Stop.php`, sinatra's README translations), and 5 trades per commit do not move a file out of a 20-file commit when almost every trade partner holds one file. With 50 trades per commit the new cell names 0 a run on Slim, sinatra, typeorm and flask, and the base rate per commit still names 19, 2.67, 55 and 8.67. Both harnesses now make 50 trades per commit (*Curveball mixing*, below): the new cell then names 0.33 a run summed over the 14 (CleanArchitecture, one partner in one run), and the base rate per commit 118.3.
 - **`selftest --null`, live partners only, 3 runs:** Grain 0 → 0, Yggdrasil 3.67 → 0, typeorm 12 → 0 (real 37 → 33), Slim 0 (real 48), flask 0.67 (real 234; one run named 2).
 - **What the answer loses.** Pooled hit@3 falls from 0.228 to 0.217: 271 cases lose their hit and 81 gain one. In 201 of the 271, every partner that had hit was one of the 10 files the training window touched most. The non-obvious hit@3 is unchanged at 0.108, and precision@1 rises. The hits that go are the ones naming the busiest files, which the null that always names the 3 hottest files gets more of (0.364). Yggdrasil, whose commits carry 4.5 files on average, loses most (0.118 → 0.088) and gains in non-obvious hits and precision@1.
 - **Rejected on the way.** Each commit's own size in place of the mean (hit@3 0.221, non-obvious 0.106, null 9.0 summed): no better on the null, worse on the non-obvious hits, and it would store a size histogram per file. The partner's own rate among commits of each size (hit@3 0.199, non-obvious 0.088, null 0): it explains away real partners that both favour large commits.
@@ -254,7 +257,58 @@ Grain no longer reads who wrote a commit. Code last touched by an agent used to 
 | mutation harness | 25 of 25 caught, 0 false fires, 65 unsupported | 35 of 35, 0, 124 | 7 of 7, 0, 64 | 23 of 23, 0, 239 |
 | `selftest --null`, total per run | 3.67 (all co-change) | 3.67 (all co-change) | 1 | 9.67 |
 
-On Yggdrasil the role and directory nulls stay at 0, so the conventions the discount used to hide are not ones a shuffled repository also yields. On Grain they are, in part: with the role labels dealt out again, 9 role cells certify in every run, the same 9 whatever the seed. They restate a partition's own majority at the level of one of its groups, in small partitions where almost every method has the value anyway: camelCase method names in `plugins/grain/tests` (85 of 87 members), in the Ruby relation unit tests (19 of 19, with three structural facts of the same 19) and in three groups of the root partition, and "does not call `runExtractor`" (28 of 28). The agent weight of 0.15 kept their evidence under the index cost; at full weight it clears it. That is a weakness of role cells that restate their partition, not of the weight, and it is not fixed here.
+On Yggdrasil the role and directory nulls stay at 0, so the conventions the discount used to hide are not ones a shuffled repository also yields. On Grain they are, in part: with the role labels dealt out again, 9 role cells certify in every run, the same 9 whatever the seed. They restate a partition's own majority at the level of one of its groups, in small partitions where almost every method has the value anyway: camelCase method names in `plugins/grain/tests` (85 of 87 members), in the Ruby relation unit tests (19 of 19, with three structural facts of the same 19) and in three groups of the root partition, and "does not call `runExtractor`" (28 of 28). The agent weight of 0.15 kept their evidence under the index cost; at full weight it clears it. That is a weakness of role cells that restate their partition, not of the weight; the next section fixes it.
+
+### Partition-wide absences against the other partitions (issue 358)
+
+A "never X" across a whole partition used to need X accepted as present in another cell of the partition and used by 10% of it, a declared floor. It is now contrasted with the same predicate in the repository's other partitions, the way the sub-gate lattice already did, and keeps the first requirement (mathematics.md, *Architecture norms*). Measured 2026-09-26 on the 14 clones, the partition-wide absences each learns (floor → contrast): Grain 2 → 2, Yggdrasil 0 → 1, gin 2 → 3, click 1 → 2, flask 2 → 1, typeorm 2 → 0, Slim 1 → 0, axum 1 → 0, the other six 0 → 0; 11 → 9 in all. None of the 11 survives the contrast. Among them are flask's source "does not use `@setupmethod`", a decorator only its source uses (10 to 17 times in each of three files), and typeorm's source "does not take a boolean parameter" and "does not return a string". Among the 9 that replace them, Yggdrasil's end-to-end test methods do not return a Promise, which methods in its other partitions do far more often. A repository cut into one partition states none, where the floor could. Dropping the second requirement as well (the contrast alone) gives 76, and falling back to the floor where there is no outside population 127; neither ships.
+
+The same review's other points: the sub-gate band's direction test is now symmetric (a row other than an absence must carry its value more often than its reference; no row of the bands above moves); the band keeps its own index cost, because the certification's candidate count, one bit cheaper, grows it from 36 to 62 rows on Grain (mathematics.md, *The sub-gate band*); the λ bound in the band reads `CFG.lambda`; the absence tests' second index cost is kept and stated as deliberate; `shuffleLabels` has a test that group sizes, ambiguity counts, the assigned scopes and each kind's directories survive a shuffle.
+
+### Curveball mixing (issue 386)
+
+The swap-randomised history behind `selftest --null` and `selftest --cochange` is built by curveball trades between two commits. At 5 trades per retained commit, a file in one of the few large commits of a history made mostly of one-file commits rarely left it, because almost every trade partner holds a single file, so pairs from those commits survived the shuffle (Slim, sinatra). Measured 2026-09-26 on the same clones: the number of partners the co-change cells name under the null, mean over 5 runs (seeds 1 to 5), by trades per commit, and the time the 5 shuffles and counts took.
+
+| repository · cell | 5 | 20 | 50 | 100 | 200 |
+| --- | --- | --- | --- | --- | --- |
+| Grain · shipped cell | 0 | 0 | 0 | 0 | 0 |
+| Slim · shipped cell | 2.8 | 0 | 0 | 0 | 0 |
+| sinatra · shipped cell | 3.6 | 0 | 0 | 0 | 0 |
+| typeorm · shipped cell | 0.2 | 0 | 0 | 0 | 0 |
+| Slim · base rate per commit | 39.4 | 19.8 | 17.2 | 18.2 | 13.4 |
+| sinatra · base rate per commit | 13.6 | 1.4 | 1.8 | 2.8 | 1.8 |
+| typeorm · base rate per commit | 88.6 | 60.2 | 52 | 59.4 | 61.6 |
+| time for 5 runs, Slim · typeorm | 0.25 s · 1.1 s | 0.44 s · 1.3 s | 0.65 s · 2.3 s | 1.2 s · 3.3 s | 2.2 s · 5.4 s |
+
+- **Where the counts settle.** The shipped cell reaches 0 at 20 trades and stays there; the comparison arm stops falling at 20 to 50 and then moves only with the seed. The default is now 50 trades per commit, above the point where both settle. A run of `selftest --null` spends its time in the two learn passes, so the extra trades add at most a second or two.
+- **The other history families.** Birth obligations, co-change and commit archetypes on all 14 repositories (5 runs, 5 to 100 trades): every mean is 0 except single-run residues of at most 0.4 (archetypes on click and koa at 5 trades, co-change on flask at 20), with no trend in the trade count. They were not under-mixed. The full `selftest --null` at 50 trades (3 runs, seeds 1 to 3) gives a total of 1.33 false certifications a run summed over the 14 (express archetypes 0.67, axum and typeorm co-change 0.33 each), against 1.67 at 5 trades (Grain archetypes 0.67, flask 0.67 and click 0.33 co-change); every other family stays at 0 on every repository.
+- **`selftest --cochange` at 50 trades**, same 14 repositories, 3 runs: the shipped cell names 0.33 a run summed (was 8.7 at 5 trades), the base rate per commit 118.3 (was 175). The accuracy columns do not depend on the shuffle and are unchanged.
+
+### Role cells against the assigned scopes (issue 385)
+
+The 9 cells above had one thing in common. Role induction assigns only scopes with some content of their own, and every scope it assigned in those partitions had the value: camelCase method names, where the methods left unassigned are one-word `it` callbacks. Each group beat the partition only by being assigned, and the label null deals labels among the assigned scopes, so it certified the same cells whatever the seed. A role cell is now coded against every scope of its kind assigned to any group, and a group absence against the rest of those scopes (mathematics.md, *Groups*). Where a kind has one group, the group is that population and keeps the partition as its reference. Measured 2026-09-26 on the same clones, `selftest --null` with 3 runs and seeds 1 to 3, before (the build of issues 366 and 369) and after this change alone. Each cell reads *real · null per run*.
+
+| repository | role conventions before | role conventions after |
+| --- | --- | --- |
+| Grain | 125 · 9 (9, 9, 9) | 96 · 0 |
+| Yggdrasil | 84 · 0 | 77 · 0 |
+| typeorm | 57 · 0 | 52 · 0 |
+| express | 27 · 0 | 24 · 0 |
+| flask | 41 · 0 | 38 · 0 |
+| requests | 20 · 0 | 17 · 0 |
+| click | 68 · 0 | 67 · 0 |
+| koa | 11 · 0 | 10 · 0 |
+| CleanArchitecture | 8 · 0 | 7 · 0 |
+| gin | 59 · 0 | 60 · 0 |
+| chi | 3 · 0 | 4 · 0 |
+| axum, Slim, sinatra | 59, 7, 2 · 0 | unchanged |
+
+- **The null.** Grain's 9 role cells a run go to 0; every other family and every other repository is unchanged, so Grain's total falls from 9.67 to 0.67 a run (the commit-archetype residue).
+- **What is lost.** 571 role conventions across the 14 become 520. On Grain the 29 that go restate the assigned scopes: camelCase names in six groups, and small unit-test partitions whose groups hold nearly every non-trivial method (the Ruby and Rust name-resolution tests, a stress-test oracle). A few that go were the lead of a set of facts with one conform set, and a sibling now leads. On Yggdrasil 7 go, of the same kind: camelCase in three test groups, a return type (`void`, `Promise`, `ValidationIssue`) or a statement shape in groups where the other assigned methods have it too, and with them one partition-wide absence that needed a group presence beside it. gin and chi each gain one, a group that differs from the other groups more than from the partition.
+- **Conventions certified.** Grain 267 → 238, Yggdrasil 163 → 155.
+- **Mutation harness.** Grain 19 of 19 caught, 0 false fires, 217 unsupported (was 23 of 23, 239); Yggdrasil 35 of 35, 0, 116 (was 35, 0, 124).
+- **The sub-gate band** codes a role row against the same population. Over one model, the band goes from 37 to 36 rows on Grain, 60 to 52 on Yggdrasil and 67 to 48 on typeorm.
+- **No single-group case moved.** No repository measured certifies a role cell of a kind with one group (the null would reproduce every such cell, and it reproduced none before this change beyond Grain's 9, all in kinds with several groups). The fixture repository does: its 30 command handlers are the only group of methods in their partition, and "handlers call `validate`" is stated against the partition's constructors, as before.
 
 ## Match-by-example (`how`) vs. a grep baseline
 
@@ -466,6 +520,8 @@ to nodes — gives 6/9/6/57 pairs with **67%/56%/50%/61%** of them touching a si
 repository's churn centre every time (the changelog and the package manifest, on Yggdrasil). Five undeclared pairs
 from the looser variants were spot-checked by reading the code: three real, two artefacts of a release ritual and
 a repository-wide sweep.
+
+**The floor stays (issue 368).** The single-file readers of co-change replaced their one-third floors with a contrast against the partner's base rate, and the witness pair here could take the same test: its two declarations have commit counts, and the model counts the commits they are drawn from. Measured 2026-09-26 with the pair required to pass that contrast in both directions instead of the floor: Yggdrasil (`65bfb39`, its own graph) goes from 2 pairs to 6, the 2 declared ones plus 1 more declared and 3 undeclared; express (the oracle above) from 0 to 1, `response` against the unit tests, which is the `res.send` hub the floor rejects; grain 0 to 0. A declaration's base rate over every commit is close to zero, so nearly every pair stored at 8 or more commits passes the contrast both ways, and it no longer tells a hub from a pair. On 5 swap-randomised copies of Yggdrasil's footprints both gates name 0 pairs, so the null does not separate them either. Not shipped.
 
 So the pairs ship as `--json` data with a disclosed weak-signal line, and the text surface prints their count, the
 concentration and the two rates instead of the pairs themselves — recomputed on every run, so a repository where

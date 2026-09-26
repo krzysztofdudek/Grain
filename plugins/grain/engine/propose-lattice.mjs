@@ -49,6 +49,18 @@ export async function partitionLattice(repo) {
       }
     }
     universe += cells.size;
+    // a role row's reference: every scope of its kind that role induction assigned to a group, the sum of the kind's
+    // role cells, or the partition where the kind has one group — the populations mine() codes a role cell against
+    // (issue 385)
+    const pool = new Map();
+    for (const [key, c] of cells) {
+      if (!/^r\d/.test(key)) continue;
+      const [cid, pid] = key.split(CELL_SEP);
+      const pk = cid.split(':').pop() + CELL_SEP + pid;
+      const t = pool.get(pk) || pool.set(pk, { counts: Object.create(null), groups: 0 }).get(pk);
+      t.groups++;
+      for (const [v, n] of Object.entries(c)) t.counts[v] = (t.counts[v] || 0) + n;
+    }
     for (const [key, c] of cells) {
       const [cid, pid] = key.split(CELL_SEP);
       if (!cid.startsWith('_all')) continue;
@@ -56,12 +68,16 @@ export async function partitionLattice(repo) {
       const t = repoAll.get(rk) || repoAll.set(rk, Object.create(null)).get(rk);
       for (const [v, n] of Object.entries(c)) t[v] = (t[v] || 0) + n;
     }
-    parts.push({ part, cells, sites });
+    parts.push({ part, cells, sites, pool });
   }
+  // one index cost over the whole repository's lattice: every cell it built, which is about one bit more than the
+  // certification's own count (learn()'s cells with the raw floor). Paying the certification's count instead was
+  // measured and not shipped: the band grows from 36 to 62 rows on Grain and from 52 to 59 on Yggdrasil on that one
+  // bit, and no review of the added rows backs a looser band (docs/mathematics.md, *The sub-gate band*)
   const idxCost = Math.ceil(Math.log2(Math.max(universe, 2)));
   const sum = c => Object.values(c).reduce((a, b) => a + b, 0);
   const rows = [];
-  for (const { part, cells, sites } of parts) {
+  for (const { part, cells, sites, pool } of parts) {
     const factKey = new Set((part.facts || []).map(f => f.cid + CELL_SEP + f.pid + CELL_SEP + f.exp));
     for (const [key, c] of cells) {
       const [cid, pid] = key.split(CELL_SEP);
@@ -73,14 +89,14 @@ export async function partitionLattice(repo) {
       const bl = isBool(pid);
       const K = bl ? 2 : Vv.length + 1;
       const allC = cells.get('_all:' + kind + CELL_SEP + pid);
-      const allN = allC ? sum(allC) : n;
       let exp = null, ne = -1;
       for (const v of Vv) if (c[v] > ne) { exp = v; ne = c[v]; }
       if (!bl && ['other', 'none', 'mixed', '?'].includes(exp)) continue;
       const isAll = cid.startsWith('_all');
       // the reference population a cell's outcomes are contrasted with: the rest of the repository for a
       // partition-wide ABSENCE (the same two-population cell an architecture norm uses — "never X here" is news only
-      // where X is used more elsewhere), the partition for a role cell; a partition-wide presence keeps the flat code
+      // where X is used more elsewhere), the assigned scopes of its kind for a role cell; a partition-wide presence
+      // keeps the flat code
       let ref = null, refN = 0;
       if (isAll && bl && exp === 'false') {
         const t = repoAll.get(kind + CELL_SEP + pid) || {};
@@ -88,12 +104,15 @@ export async function partitionLattice(repo) {
         refN = ref.true + ref.false;
         if (!refN) continue; // one partition only: nothing outside it to contrast an absence with
       } else if (!isAll) {
-        if (!allC) continue; // no partition-wide reference for this cell — nothing to contrast against
-        ref = allC;
-        refN = allN;
+        const t = pool.get(kind + CELL_SEP + pid);
+        ref = t && t.groups > 1 ? t.counts : allC;
+        if (!ref) continue; // no reference for this cell — nothing to contrast against
+        refN = sum(ref);
       }
-      // an absence is a contrast only in its own direction: this cell uses the thing LESS than its reference does
+      // a contrast only in its own direction: an absence uses the thing LESS than its reference does, any other row
+      // carries its value MORE often than its reference does (as architecture norms test both ways)
       if (bl && exp === 'false' && ref && !((c.true || 0) * refN < (ref.true || 0) * n)) continue;
+      if (!(bl && exp === 'false') && ref && !((c[exp] || 0) * refN > (ref[exp] || 0) * n)) continue;
       let data = 0;
       if (!ref) { const B = Math.max(bl ? 2 : Vv.length, 2); for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) * B); }
       else for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) / kt(ref, K, v, refN));
