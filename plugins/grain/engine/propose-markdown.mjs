@@ -26,8 +26,8 @@ export function renderProposalMd({ repo, exp, files, active, alternatives, nodes
     ]), '',
     `Of the ${aspects.length} drafted, ${counts.aspectsProse} could not be rendered as a check because the convention asserts a SHAPE rather than a name` + (Object.keys(counts.proseByClass || {}).length ? ` — by class: ${Object.entries(counts.proseByClass).sort((a, b) => b[1] - a[1]).map(([k, v]) => `\`${k}\` ${v}`).join(', ')}` : '') + '. Each such aspect says so in its own `content.md`.', '',
     counts.nodeCycles
-      ? `**This proposal is RED on \`yg check\`, for one reason:** ${counts.nodeCycles} dependency cycle(s) in the proposed node graph. Yggdrasil cannot express a loop, and the proposal declares every dependency the code contains rather than quietly dropping one. See \`REFACTOR-BACKLOG.md\` §4 — that is the first thing to fix, and it is a finding about the repository, not about the proposal.`
-      : 'The proposed node graph is acyclic.', '',
+      ? `**The code has ${counts.nodeCycles} dependency cycle(s) between proposed nodes.** Yggdrasil cannot express a loop, so each one is broken at its weakest edge: that dependency is left out of the node's relations, and \`yg check\` reports the imports behind it as undeclared dependencies (inherited debt under progressive mode until a change reaches them). See \`REFACTOR-BACKLOG.md\` §4 for every edge left out and the loop it closes — that is the first thing to fix, and it is a finding about the repository, not about the proposal.`
+      : 'The code has no dependency cycle between proposed nodes.', '',
     counts.drillHoldout
       ? `Drills are cut with a TIME HOLD-OUT at ${counts.drillHoldout} (${counts.drillDropped} pre-cut sites dropped), by the export's per-site first-appearance date rather than by a cut sha.`
       : '**Drills carry NO hold-out.** Every case is cut from the sites the rule was mined on, so a passing drill shows only that the rendered check reproduces grain\'s own count. Re-cut with `--holdout <YYYY-MM-DD>`.', '');
@@ -162,16 +162,12 @@ export function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
 
   const cyc = exp.moduleGraph?.cycles || [];
   L.push(`## 4. Dependency cycles — ${cyc.length} in grain's module graph, ${nodeCycles.length} in the proposed node graph`, '',
-    '**THIS IS WHY THE PROPOSAL IS RED.** Yggdrasil refuses a graph whose node relations form a loop',
-    '(`structural-cycle`, a blocking error), and the proposal declares every dependency the code contains. Until',
-    'a loop below is broken in the CODE — extract a shared interface, invert a dependency, or merge the nodes —',
-    'no honest graph over this repository can be green. Cutting the edge out of the proposal instead was tried',
-    'and measured: it turned one error that names the real defect into four that ask for the edge back.', '');
+    'Yggdrasil refuses a graph whose node relations form a loop (`structural-cycle`, a blocking error that `yg adopt` will not take in). So each loop in the proposed node graph is broken at its weakest edge, the one carried by the fewest resolved imports: that edge is NOT declared, and `yg check` reports the imports behind it as undeclared dependencies. They are the places to cut the cycle in the CODE — extract a shared interface, invert a dependency, or merge the nodes — after which the undeclared findings go away on their own.', '');
   cyc.forEach((c, i) => {
     const cut = (exp.moduleGraph?.cycleCuts || [])[i];
     L.push(`- grain's own module cycle: ${c.map(x => `\`${x}\``).join(' → ')} → …${cut && cut.cut.length ? ` — ${cutPhrase(cut, { fmt: x => '`' + x + '`' })}` : ''}`);
   });
-  L.push('', mdTable(['weakest edge in the loop', 'resolved imports', 'the loop'],
+  L.push('', mdTable(['edge left undeclared (the weakest in its loop)', 'resolved imports', 'the loop'],
     nodeCycles.map(d => [`\`${d.from}\` → \`${d.to}\``, d.n, d.cycle.map(x => `\`${x}\``).join(' → ')])), '');
 
   L.push('## 5. Established negatives that are NOT proposed as `deny`', '',

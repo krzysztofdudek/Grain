@@ -358,6 +358,24 @@ Does the cut point at what maintainers actually remove? Measured 2026-09-26 on t
 - **Better than a random edge, no better than the lightest edges.** When a cycle breaks, the edges that went are in the cut more often than chance puts them there, but naming the lightest edges does as well: maintainers remove light dependencies, and the smallest cut is made of light ones. What the cut adds over that list is that removing it provably breaks the cycle.
 - **A small sample.** 14 broken cycles, in four of the six repositories (Slim, express, sinatra and Yggdrasil; none in axum or typeorm); 459 snapshot pairs kept their cycle and 13 lost it because a member module disappeared. A snapshot pair spans many commits, so an edge that went may have gone for reasons that had nothing to do with the cycle.
 
+### A proposal `yg adopt` accepts over a cyclic codebase (issue 394)
+
+`grain propose` declared every resolved dependency between proposed nodes, including both directions between a node and its own descendant and both directions of every code cycle, so the graph carried `structural-cycle` errors and `yg adopt` refused it whole. A node and its ancestor or descendant now declare nothing to each other (Yggdrasil never asks for that relation), and each remaining loop is broken at its weakest edge, which is left undeclared and listed in `REFACTOR-BACKLOG.md` §4; `yg check` then reports the imports behind it as undeclared dependencies. Measured 2026-09-26 with `yg adopt --dry-run` (Yggdrasil 6.0.0 on PATH) on each proposal, before (the build at `a04b7c2`) and after:
+
+| repository | cycles in the node graph, before → after | `yg adopt`, before → after |
+| --- | --- | --- |
+| Yggdrasil (`c5cdd8a`) | 8 → 2 | refused (2 `structural-cycle`) → accepted |
+| typeorm | 66 → 62 | refused (6 `structural-cycle`) → accepted |
+| Slim | 6 → 2 | refused (1) → accepted |
+| axum | 2 → 1 | refused (2) → accepted |
+| CleanArchitecture, chi, click, express, flask, gin, koa, requests, sinatra | 0 → 0 | accepted → accepted |
+
+On Yggdrasil the relations drop from 251 to 236, and the two loops left are real code cycles, each broken at the edge the module-cycle cut above also names: `structure → core` (1 import, `structure/observations.ts`) and `cli → portal` (2 imports). After a real `yg adopt --replace` on a throwaway clone, `yg check` reports `relation-undeclared-dependency` on exactly those 2 node pairs and no `structural-cycle`. Grain 6.0.0 fails the same way on the same clone (1 `structural-cycle`, the `src → cli → core → structure → core` loop), so this is not a 6.1.0 regression.
+
+### A sibling surface under a more specific cell (issue 393)
+
+The one false fire the mutation harness reported on Grain (issue 390's row above) was real `check` output. On `plugins/grain/tests/relations/unit/go-name-resolution-matrix/01-go-single-import-edge.test.mjs`, `check` told `nodeOf` both that it deviates from "methods never call `filePath.split`" and that it conforms to "methods here call `filePath.split`" (29 of 29). The first came from the root partition's `_all:method` fact whose lead surface is "never calls `byPath.get`" and which carries `filePath.split` as a sibling surface with the same conform set; the second from the role cell `r2:method`, which is the fact that governs `filePath.split` for that scope. A sibling surface was checked without asking which fact governs its own pid. It is now silent where a more specific fact governs that pid, by the same specificity order that picks the governing fact (smaller evidence class first, then role before directory before partition). Measured 2026-09-26 with `grain selftest` on this repository at `a04b7c2`: before, 20 caught, 0 missed, 82 silent, 1 false fire, 212 unsupported; after, 20, 0, 83, 0, 213. The fact that used to false-fire now counts as unsupported, because the harness has no mutation for a "does call" fact.
+
 ## Match-by-example (`how`) vs. a grep baseline
 
 `grain selftest --how [--last N]` runs a leave-one-out evaluation of `how`: for each of the last N real commits
