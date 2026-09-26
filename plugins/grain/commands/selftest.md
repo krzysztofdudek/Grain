@@ -32,7 +32,8 @@ commits, value-set members dealt out among the files declaring the set, fix comm
 count. Anything certified under the null is false by construction. Each run costs two full learn passes.
 `selftest --cochange [--runs N]` measures co-change partners the way they are used: learned from the oldest 80% of
 the commits, scored on the newest 20% (hit@3, the non-obvious hit@3 outside the 10 hottest files, precision@1, how
-often a partner is named), beside the null that always names the 3 hottest files, and then how many partners the
-same rule names on swap-randomised copies of the history.
+often a partner is named), beside the null that always names the 3 hottest files and the same rule with a base
+rate per commit instead of per commit size, and then how many partners each rule names on swap-randomised copies of
+the history.
 Relay the numbers as reported; do not round them further or editorialize about whether they are "good enough" —
 that is a maintainer judgment, not something to assert on grain's behalf.

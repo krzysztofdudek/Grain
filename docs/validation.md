@@ -244,17 +244,17 @@ Measured 2026-09-26 with `grain selftest --cochange`, which runs the protocol ab
 
 ### Every commit weighs the same (issue 369)
 
-Grain no longer reads who wrote a commit. Code last touched by an agent used to enter a convention's evidence at 0.15 of a person's weight, rising to full weight over 180 days, and a commit counted as an agent's when its author or a `Co-authored-by:` trailer named one. On a repository built mostly with an agent that discounted nearly all young code. Measured 2026-09-26 on the Yggdrasil clone above (`65bfb39`), same history, before and after this change alone:
+Grain no longer reads who wrote a commit. Code last touched by an agent used to enter a convention's evidence at 0.15 of a person's weight, rising to full weight over 180 days, and a commit counted as an agent's when its author or a `Co-authored-by:` trailer named one. On a repository built mostly with an agent that discounted nearly all young code (95% of Yggdrasil's young code and 88% of Grain's counted as agent-written). Measured 2026-09-26 on the Yggdrasil clone above (`65bfb39`) and the Grain clone (`16581fb`), same history, before and after. Yggdrasil's "after" is this change alone; Grain's also carries the commit-size base rate below, which moves only its co-change row.
 
-| measure | before | after |
-| --- | --- | --- |
-| conventions certified | 90 | 163 |
-| role conventions (`selftest --null` real column) | 39 | 84 |
-| directory conventions | 13 | 23 |
-| mutation harness | 25 of 25 caught, 0 false fires, 65 unsupported | 35 of 35 caught, 0 false fires, 124 unsupported |
-| `selftest --null`, false certifications per run | 3.67 (all co-change) | 3.67 (all co-change) |
+| measure | Yggdrasil before | Yggdrasil after | Grain before | Grain after |
+| --- | --- | --- | --- | --- |
+| conventions certified | 90 | 163 | 71 | 267 |
+| role conventions · null per run | 39 · 0 | 84 · 0 | 22 · 0 | 125 · 9 (9, 9, 9) |
+| directory conventions · null per run | 13 · 0 | 23 · 0 | 12 · 0 | 22 · 0 |
+| mutation harness | 25 of 25 caught, 0 false fires, 65 unsupported | 35 of 35, 0, 124 | 7 of 7, 0, 64 | 23 of 23, 0, 239 |
+| `selftest --null`, total per run | 3.67 (all co-change) | 3.67 (all co-change) | 1 | 9.67 |
 
-The role and directory nulls stay at 0 in every run, so the conventions the discount used to hide are not ones a shuffled repository would also yield.
+On Yggdrasil the role and directory nulls stay at 0, so the conventions the discount used to hide are not ones a shuffled repository also yields. On Grain they are, in part: with the role labels dealt out again, 9 role cells certify in every run, the same 9 whatever the seed. They restate a partition's own majority at the level of one of its groups, in small partitions where almost every method has the value anyway: camelCase method names in `plugins/grain/tests` (85 of 87 members), in the Ruby relation unit tests (19 of 19, with three structural facts of the same 19) and in three groups of the root partition, and "does not call `runExtractor`" (28 of 28). The agent weight of 0.15 kept their evidence under the index cost; at full weight it clears it. That is a weakness of role cells that restate their partition, not of the weight, and it is not fixed here.
 
 ## Match-by-example (`how`) vs. a grep baseline
 
