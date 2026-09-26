@@ -612,6 +612,24 @@ of them ticket directories), `Examples` on express (80 files, nine independent p
 already the size of one thing. That last row is what makes the other four worth reading, and both answers are
 pinned by tests against the real oracles.
 
+### Commit-level node co-change against its base rate, by channel (issue 265)
+
+The measurement above paired named declarations. `tests/stress/coupling.mjs` pairs nodes by the commits that touch them: every non-merge commit of at most `megaCap` files that touches a file a node owns at HEAD becomes the set of nodes it touched, and a pair is certified when either direction passes the co-change cell the engine uses for file partners (`partnerBits`: the pair's co-change against the partner's base rate, commit size included, one index cost over every pair seen, both directions paid). For a certified pair nothing in the graph joins, it names a channel: `test-of` (one node is a test node whose name contains the other's last segment), `docs` (most of one node's files are documentation), `vocabulary` (the two nodes' identifiers overlap, IDF-weighted, more than all but 1/λ of the repository's node pairs), or `none`. It gates nothing.
+
+Measured 2026-09-27 on Yggdrasil at `c5cdd8a` with its own graph: 1231 commits, 515 nodes, 5353 node pairs that ever changed together, **141 certified**: 79 declared as a relation, 2 at a coarser level, 2 nested, **58 undeclared** (18 between code nodes, 24 between code and tests, 16 between tests). Channels of the 58: vocabulary 32, test-of 13, docs 3, none 10. The one-third mutual floor `advise` uses, applied to the same node commits, names 21 pairs, 2 of them undeclared. On 3 curveball-shuffled copies of the same commits (seeds 1 to 3; each commit keeps its size and each node its commit count) the cell certifies 0, 0 and 0.
+
+Time split: certified on the oldest 80% of those commits (984), scored on the newest 247. For each certified pair and direction, the share of later commits touching one node that also touched the other, against a popularity-matched control, the node whose earlier commit count is nearest the partner's (the control of results.md 153):
+
+| pairs certified before the split | pairs | later commits scored | partner touched | control touched | directions won / lost / tied |
+| --- | --- | --- | --- | --- | --- |
+| all certified | 93 | 1444 | 0.299 | 0.123 | 96 / 10 / 36 |
+| certified and undeclared | 38 | 757 | 0.254 | 0.184 | 32 / 4 / 15 |
+| advise's floor, for comparison | 15 | 194 | 0.423 | 0.072 | 21 / 1 / 6 |
+
+At node level, unlike the file partners of row 153, a certified partner predicts later co-change better than a node as busy as it, undeclared pairs included, though by less (0.254 against 0.184). The strongest undeclared pairs, by bits: `cli/knowledge` ↔ `docs/guides` (67 co-commits, docs), `cli/config/build` ↔ `root/project-config` (72, none), `cli/knowledge` ↔ `cli/knowledge-authoring` (26, vocabulary), `docs/site` ↔ `tools` (7, none), `cli/commands/aspects` ↔ `cli/tests/e2e/aspects-health` (7, test-of), `cli/portal/contract` ↔ `cli/portal/frontend/views` (6, vocabulary: the contract that crosses from TypeScript into browser JavaScript, which no import resolver sees). `node tests/stress/coupling.mjs <repo> --top 20` prints the list.
+
+**Not shipped into `advise`.** The time split holds, but the research's other bar, a maintainer labelling the top 20 undeclared pairs real or noise with at least 60% real, has not been run, and only one repository with a committed graph and a long history was available. The advice contract's "data, not advice" for change-together stands until that label exists.
+
 ## A fifth kind of oracle: the correction an adopter made
 
 The four graphs above were each written by hand, by a session forbidden to look at grain's output, which is why
