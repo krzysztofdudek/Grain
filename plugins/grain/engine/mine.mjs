@@ -182,7 +182,7 @@ export function assignAll(ps, medoids) {
 export function countCandidates(ps, ri) {
   return mine(ps, ri, () => 1, [], null, null, { countOnly: true }).C;
 }
-export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCostOverride = null } = {}) {
+export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCostOverride = null, repoAll = null } = {}) {
   const cells = new Map();
   const alph = new Map();
   const add = (cid, pid, v, w, rw, gi, surv) => {
@@ -436,18 +436,10 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   );
   // absence facts are boundaries, not rarity: "files here do not import `re` — 60/65" is the base rate of a rare import, not a
   // rule anyone holds (measured across the corpus: most absence speech was this). Keep an absence fact only where the thing
-  // is a real choice. A partition-wide absence needs the thing accepted as PRESENT in another cell of the same kind AND
-  // used by ≥ 10% of the kind partition-wide — declared, not derived (the numeric register in docs/mathematics.md): this
-  // call sees one partition, so a partition-wide cell has no outside population here to be contrasted with.
+  // is a real choice: a contrast with a population that uses the thing more (below).
   const presentSomewhere = new Set(
     out.filter(f => isBool(f.pid) && f.exp === 'true').map(f => f.kind + S + f.pid)
   );
-  const partitionTrueShare = (kind, pid) => {
-    const c = cells.get('_all:' + kind + S + pid);
-    if (!c) return 0;
-    const tot = Object.values(c.raw).reduce((a, b) => a + b, 0);
-    return tot ? (c.raw['true'] || 0) / tot : 0;
-  };
   // A local (group/directory) absence is contrasted with the rest of its OWN partition (a group's, with the rest of
   // the scopes role induction assigned, the population its role cell is coded against above), the same two-population cell
   // an architecture norm uses: the cell's outcomes are coded at its own KT rate instead of at the rate of the
@@ -472,12 +464,35 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     }
     return data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost > 0;
   };
+  // A partition-wide absence is contrasted with the same (kind, predicate) in every OTHER partition (`repoAll`, the
+  // weighted outcomes of the whole repository, which learn() passes; the sub-gate lattice's partition-wide cell): it
+  // stands only where the thing is accepted as present in another cell of this partition, this partition uses it less
+  // than the rest of the repository, and that gain survives. With no outside population (one partition, or the kind
+  // lives only here) there is nothing to contrast it with, and no partition-wide absence is stated.
+  const allAbsenceHolds = f => {
+    if (!presentSomewhere.has(f.kind + S + f.pid)) return false;
+    const cell = cells.get(f.cid + S + f.pid),
+      t = repoAll && repoAll.get(f.kind + S + f.pid);
+    if (!cell || !t) return false;
+    const n = (cell.counts.true || 0) + (cell.counts.false || 0);
+    const outside = {
+      true: Math.max(0, t.true - (cell.counts.true || 0)),
+      false: Math.max(0, t.false - (cell.counts.false || 0)),
+    };
+    const nO = outside.true + outside.false;
+    if (!(n > 0 && nO > 0) || !((cell.counts.true || 0) * nO < outside.true * n)) return false;
+    const K = 2;
+    let data = 0;
+    for (const v of ['true', 'false']) {
+      const nv = cell.counts[v] || 0;
+      if (nv) data += nv * Math.log2(kt(cell.counts, K, v, n) / kt(outside, K, v, nO));
+    }
+    return data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost > 0;
+  };
   out = out.filter(
     f =>
       !(isBool(f.pid) && f.exp === 'false') ||
-      (f.cid.startsWith('_all')
-        ? presentSomewhere.has(f.kind + S + f.pid) && partitionTrueShare(f.kind, f.pid) >= 0.1
-        : localAbsenceHolds(f))
+      (f.cid.startsWith('_all') ? allAbsenceHolds(f) : localAbsenceHolds(f))
   );
   // redundant-refinement filter: a dir fact agreeing with its parent's default while an accepted `_all`
   // fact already states it repo/package-wide is not local information — it would only re-say the general rule

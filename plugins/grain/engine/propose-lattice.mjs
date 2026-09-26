@@ -70,6 +70,10 @@ export async function partitionLattice(repo) {
     }
     parts.push({ part, cells, sites, pool });
   }
+  // one index cost over the whole repository's lattice: every cell it built, which is about one bit more than the
+  // certification's own count (learn()'s cells with the raw floor). Paying the certification's count instead was
+  // measured and not shipped: the band grows from 36 to 62 rows on Grain and from 52 to 59 on Yggdrasil on that one
+  // bit, and no review of the added rows backs a looser band (docs/mathematics.md, *The sub-gate band*)
   const idxCost = Math.ceil(Math.log2(Math.max(universe, 2)));
   const sum = c => Object.values(c).reduce((a, b) => a + b, 0);
   const rows = [];
@@ -105,8 +109,10 @@ export async function partitionLattice(repo) {
         if (!ref) continue; // no reference for this cell — nothing to contrast against
         refN = sum(ref);
       }
-      // an absence is a contrast only in its own direction: this cell uses the thing LESS than its reference does
+      // a contrast only in its own direction: an absence uses the thing LESS than its reference does, any other row
+      // carries its value MORE often than its reference does (as architecture norms test both ways)
       if (bl && exp === 'false' && ref && !((c.true || 0) * refN < (ref.true || 0) * n)) continue;
+      if (!(bl && exp === 'false') && ref && !((c[exp] || 0) * refN > (ref[exp] || 0) * n)) continue;
       let data = 0;
       if (!ref) { const B = Math.max(bl ? 2 : Vv.length, 2); for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) * B); }
       else for (const v of Vv) if (c[v]) data += c[v] * Math.log2(kt(c, K, v, n) / kt(ref, K, v, refN));

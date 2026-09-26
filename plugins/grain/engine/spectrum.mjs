@@ -139,7 +139,8 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
     if (!bl && ['other', 'none', 'mixed', '?'].includes(exp)) continue;
     // "never X" rows are shown only where X is a real choice here (≥ 20% of the kind partition-wide use it) —
     // otherwise the lattice is a list of every callee the file happens not to call. This display floor is the
-    // lattice's own; mining's absence floors are 10% (partition-wide) and 30% (local), see docs/mathematics.md's register
+    // lattice's own; mining has no absence floor (a partition-wide absence is contrasted with the other partitions, a
+    // local one with the rest of its partition), see docs/mathematics.md's register
     if (bl && exp === 'false') {
       const tot = allC ? Object.values(allC).reduce((a, b) => a + b, 0) : 0;
       if (!tot || (allC['true'] || 0) / tot < 0.2) continue;

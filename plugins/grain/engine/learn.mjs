@@ -1,6 +1,7 @@
 // grain engine · learn — the current tree plus history folded into the model every query is answered from
 // Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename, dirname } from 'node:path/posix';
+import { S } from './base.mjs';
 import { CFG } from './config.mjs';
 import { refineModOf, sfcRelations } from './relations.mjs';
 import { applyRelationLayer } from './arch.mjs';
@@ -86,7 +87,7 @@ export function shuffleFixes(lc, rnd) {
   }
   return out;
 }
-function shuffleLabels(ps, ri, rnd) {
+export function shuffleLabels(ps, ri, rnd) {
   const kinds = new Map();
   ps.forEach((s, i) => (kinds.get(s.kind) || kinds.set(s.kind, []).get(s.kind)).push(i));
   for (const idx of kinds.values()) {
@@ -260,6 +261,19 @@ export async function learn({
   }
   const idxCost = Math.ceil(Math.log2(Math.max(Crepo, 2)));
   model.candidateCountLog2 = idxCost;
+  // every partition's boolean outcomes per (kind, predicate), weighted as mine() weighs them: the population outside a
+  // partition that a partition-wide absence is contrasted with (the rest of the repository, as in the sub-gate lattice)
+  const repoAll = new Map();
+  for (const { ps } of prepared)
+    for (const s of ps) {
+      const w = baseW(s);
+      for (const [pid, v] of Object.entries(s.preds)) {
+        if (v !== 'true' && v !== 'false') continue;
+        const k = s.kind + S + pid;
+        const t = repoAll.get(k) || repoAll.set(k, { true: 0, false: 0 }).get(k);
+        t[v] += w;
+      }
+    }
   // package-wide lexical facts: file scopes of the whole package, lexical surfaces only, no roles — a 7-file source tree
   // cannot pay the index cost alone for "single quotes — 7 of 7", the 141 files of the package can (measured on express)
   const pkgLexFacts = new Map();
@@ -277,6 +291,7 @@ export async function learn({
   for (const { pname, ps, vocab, ri } of prepared) {
     const { facts, C } = mine(ps, ri, baseW, seeds, ageFn, process.env.GRAIN_DBG, {
       idxCostOverride: idxCost,
+      repoAll,
     });
     const lifts = roleLift(ps, ri, facts);
     const assignments = {};

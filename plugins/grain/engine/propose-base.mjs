@@ -4,7 +4,7 @@ import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HARD_EXCL } from './config.mjs';
+import { CFG, HARD_EXCL } from './config.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 export const BIN = resolve(here, '..', 'bin', 'grain.mjs');
@@ -20,10 +20,10 @@ export const CORE = resolve(here, 'core.mjs');
 // marker's established value, a value container's certified population and a structural twin's shared core. A
 // sub-gate row at or above it is a practice a maintainer would recognise; below it, it is a coincidence.
 export const SUPERMAJORITY = 2 / 3;
-// λ = 8 ⇒ the certification bound (n+½)/(n_total+K/2) ≥ 1 − 1/λ = 0.875. A row at or above this that grain did
+// λ (CFG.lambda = 8) ⇒ the certification bound (n+½)/(n_total+K/2) ≥ 1 − 1/λ = 0.875. A row at or above this that grain did
 // NOT certify failed on population, not on share, and is not what "below the gate" means; the sub-gate band is
 // therefore [SUPERMAJORITY, LAMBDA_BOUND).
-export const LAMBDA_BOUND = 1 - 1 / 8;
+export const LAMBDA_BOUND = 1 - 1 / CFG.lambda;
 // The same support-floor family as `cochangeMinSup` (8 commits): below it a single small cell fabricates a rule.
 export const MIN_SUPPORT = 8;
 // A directory card is promoted to its own type only from this many files up — below it the split is noise a
