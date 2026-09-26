@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2942 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2954 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -129,7 +129,7 @@ The target is at most one false certification per repository across all families
 - **Architecture norms met it.** Under the old flat 50/50 coin, shuffled edges certified more absence norms than the real edges did (12.7 against 3 on Grain, 19.7 against 8 on Yggdrasil). The two-population contrast certifies 0 on shuffled edges in every run on both, and 0 over 20 further permutations each. It now certifies boundaries nobody has crossed, such as `tests/e2e -/-> src/model` on Yggdrasil (0 of 77 against 323 of 807 elsewhere), which the old candidate universe could not contain.
 - **Role and directory conventions, obligations and the bridge were already at 0**, and the group and directory absences the contrast now certifies in place of the 30% floor (five more role cells and nine more directory cells on Yggdrasil) stay at 0.
 - **Co-change was not** under 6.1.0. A partner was named on a raw confidence share (a third of the edited file's commits), and two files that are each touched often co-occur often by chance: 191 pairs a run on Yggdrasil, half the real count. The base-rate contrast below takes that to 3.67.
-- **Commit archetypes are not.** An archetype's cells are chosen by the clustering and then certified on the same footprints, so a shuffled history yields about as many certified cells as the real one on Grain (39.3 against 38) and 39 against 96 on Yggdrasil. The contrast is paid twice on the same data. Not corrected in this build.
+- **Commit archetypes are not.** An archetype's cells are chosen by the clustering and then certified on the same footprints, so a shuffled history yields about as many certified cells as the real one on Grain (39.3 against 38) and 39 against 96 on Yggdrasil. The contrast is paid twice on the same data. Corrected by issue 357, below: *Commit archetypes, held to a test the clustering does not decide*.
 
 The mutation harness on the same two repositories, after the change: Grain 7 of 7 planted deviations caught, 0 false fires (6 of 6 before); Yggdrasil 25 of 25 caught, 0 false fires (14 of 14 before). The extra plantable cases are the directory absences the contrast now certifies.
 
@@ -148,6 +148,54 @@ Measured 2026-09-26 on the same clones, 3 runs each with seeds 1 to 3, after the
 - **Deviation fix rate.** The old per-scope label with its 7-of-8 bound certified no claim on any of the 14 repositories below. Per edit, 4 claims certify (1 on Yggdrasil, 3 on typeorm), and the fix-label shuffle certifies 0.33 a run on Grain and 0 elsewhere. Each surviving claim was checked against the popularity-matched control of result 153: every deviant paired with the non-deviant scope of the same fact with the nearest edit count. Deviant edits were fixes at 0.80, 0.39, 0.26 and 0.18; the matched controls at 0.27, 0.00, 0.06 and 0.05, and the whole populations at 0.32, 0.04, 0.07 and 0.05. The matched control shows no lift over the population, so none of the four is exposure. The deviants are not the hottest scopes either: their median edit count is 0, 7, 0 and 1 against 0, 6, 2 and 3 in the population.
 
 The mutation harness after this build: Grain 7 of 7 planted deviations caught, Yggdrasil 25 of 25, 0 false fires on both.
+
+### Commit archetypes, held to a test the clustering does not decide (issue 357)
+
+The in-shape contrast now only makes a cell a candidate. A candidate is certified when, over every commit of the history that carries the shape's other candidates in files of their own, the files left over touch it more often than as many files drawn from the history's anchor-free touches would (mathematics.md, *Commit archetypes*). Measured 2026-09-26 on the same clones, the harness with 3 runs and seeds 1 to 3; "before" is this harness's run on the build of issues 258 to 260.
+
+| repository | archetype cells, before | after | all families under the null, before → after |
+| --- | --- | --- | --- |
+| Grain | 38 · 37.33 | 23 · 0.67 (2, 0, 0) | 37.66 → 1 |
+| Yggdrasil | 96 · 46.67 | 36 · 0 (0, 0, 0) | 50.34 → 3.67 |
+| express | 208 · 112.33 | 105 · 0 (0, 0, 0) | 112.66 → 0.33 |
+| typeorm | 172 · 76.67 | 27 · 0 (0, 0, 0) | 88.67 → 12 |
+
+The harness consumes its random source in two learn passes before it shuffles the history, so it can only be run on a repository that is fully learned. For a wider view the certification alone was re-run on ten repositories, each on the real footprints and on five swap-randomised copies (seeds 1 to 5), without the learn passes. Cells read *real · null mean per run*.
+
+| repository | footprints | 6.1.0 | this build |
+| --- | --- | --- | --- |
+| Grain | 445 | 38 · 36.4 | 23 · 0 |
+| Yggdrasil | 1427 | 96 · 49.8 | 36 · 0 |
+| express | 5675 | 208 · 122.4 | 105 · 0 |
+| typeorm | 5035 | 172 · 80.6 | 27 · 0 |
+| koa | 1132 | 75 · 82 | 15 · 0.4 |
+| flask | 3808 | 192 · 134.8 | 59 · 0 |
+| click | 2163 | 98 · 93.6 | 34 · 0.2 |
+| gin | 1798 | 83 · 98.8 | 10 · 0 |
+| CleanArchitecture | 835 | 77 · 53 | 20 · 0 |
+| Slim | 3291 | 167 · 150.8 | 32 · 0 |
+
+The target of at most one false certification per repository is met for commit archetypes on all ten: the worst single run is 2 cells (Grain in the harness, koa once in five). What 6.1.0 certified beyond its own null (real minus null) was about 2 cells on Grain, 46 on Yggdrasil, 86 on express, 91 on typeorm, 57 on flask, 24 on CleanArchitecture and 16 on Slim; on koa and gin the null certified more than the real history. This build certifies more than that excess on seven of the ten, and less on typeorm (27 against 91) and Yggdrasil (36 against 46). The certified cells read as co-change: on Yggdrasil the unit tests with the code under test (342 of 389 commits against 0.66 expected), root Markdown files with source and test changes, the `.cursor/rules` files with the CLI's own files; on Grain the tests with the engine (123 of 139 commits against 0.37 expected) and an issue's JSON with its Markdown. Fewer shapes are shown: 15 → 7 on Grain, 40 → 14 on Yggdrasil.
+
+The three remedies the issue named, and two more, measured the same way (real · null mean per run, Grain, Yggdrasil, express, typeorm):
+
+- **A permutation threshold, family-wise.** Seven swap-randomised copies (λ − 1, so a fresh null beats them all at most one time in λ), and a cell certified only above the largest bits any of them certified: null 1.33, 0, 0, 0, but real 11, 10, 2 and 3. The in-shape bits grow with the members (858 bits for one null cell on express), so the largest null cell sits above almost every real one.
+- **A permutation threshold per cell** (the cell's own largest bits over the seven copies): real 23, 44, 44, 20, null 2.67, 1.33, 11, 7.67. Not shipped: the null stays above one on three of four.
+- **Charging the selection in the code length.** Not built. A null cell earns 29 bits in a 28-member shape on Grain and 858 on express; a charge that does not grow with the members cannot absorb it, and one that does is the contrast itself.
+- **The conditional test with a flat base rate** (the cell's share of all commits, ignoring how many files a commit leaves over; measured on an earlier form of the test population): null 0.33, 16.33, 1, 50. Commits that carry an anchor are bigger than most, and a big commit touches more by chance.
+- **Sample splitting: members selected, the rest tested.** The shape's own members left out of the test population: null 0 on all ten repositories, but real 12, 10, 51, 14 (and 0 on koa), about half of what the whole-history test keeps. The whole history is shipped: its null is at most 0.4 a run on every repository, and it keeps twice the real cells.
+
+The mutation harness after this build: Grain 7 of 7, Yggdrasil 25 of 25, express 2 of 2, typeorm 21 of 21 (21 of 21 before), 0 false fires on all four.
+
+### Drift and nucleation as a change point in birth order (issue 256)
+
+A fact's instances are ordered by the commit that bore them, each commit contributing one observation per distinct value, and a change point is certified when two KT codes split at a commit boundary beat one KT code by more than naming the boundary and one index cost over every fact that had a boundary to cut at (mathematics.md, *Drift and nucleation*). The 90-day windows are gone, with the four hand thresholds they needed.
+
+- **A known migration.** typeorm renamed `@Table` to `@Entity` on 2017-01-13 (`82249a4`, "renamed all tables into entities and deprecated table decorator"). Three `@Entity` facts in its tests are cut exactly there in birth order: 0 of the 10 (and 0 of 9) entities born before the cut carry `@Entity`, 56 of 56 (and 77 of 78) born after do, at 22.4, 21.8 and 5.4 bits. No entity of those groups was born between the last birth before the cut and the rename, or between the rename and the first birth after it, so no cut can sit closer. In commits, those empty gaps are wide: the rename is 237 commits after the last birth before the cut and 61 before the first after it (32 and 183 for the relations directory). A fourth cut, on `extends TypeORMError` in `src/error`, falls at the commit that created the base error (`137bec7`, 2021-06-24, "refactor: create base error"): 0 of the 57 error classes born up to and including it extend it, all 3 born since do, 3.1 bits. The target of a cut within a few commits of a known migration is met in birth order; in commit order the resolution is the gap between two births of the same group.
+- **Spot checks.** Grain: 6 facts carry a readable birth sequence, 0 change points. Yggdrasil: 14 facts, 0. express: no fact of the five value families the history decodes. flask, koa, CleanArchitecture, Slim, gin: 0. click: 1. Its test commands in `tests/test_basic.py` carried `@click.command` and `@click.option` for their first 18 births (2014 to 2016); the 5 born since 2018-09-13 carry `@click.group` and no option. The rule is marked fading and `check` stops accusing a new group command of lacking `@click.option`. That is right: the old rule would have been a false accusation.
+- **Counted per birth instead of per commit, rejected.** One rename commit on typeorm (2026-03-23, #12244) generated 11 one-word `connection` accessors in the drivers, and per birth that made the drivers' camelCase method names "fading" (16 births since, 31% camelCase). Two naming-shape cuts over 1338 and 1878 births came from the same effect. Per commit, all three are gone and the four cuts above remain.
+- **Young, fast repositories.** A 60-day fixture of 25 commits (`tests/rejected-values.test.mjs`) certifies nucleation that the windowed detector, with one window, could never see. On Grain, 32 days and 601 commits old at this clone, the axis now exists, and nothing on it has moved.
+- The mutation harness is unchanged (above). `selftest --null` has no drift family: a change point claims an order, and the swap randomisation of commits keeps no birth order to destroy.
 
 ### Co-change partners, prospective
 
