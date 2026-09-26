@@ -88,3 +88,36 @@ test('a real cycle between sibling nodes is broken at its weakest edge, which is
   // an edge that closes no loop is never touched
   assert.deepEqual(byId.get('src/cli').relations.map(r => r.target), ['src/core']);
 });
+
+test('a graph that needs more than 500 cuts still ends acyclic, and says so (issue 396)', () => {
+  // every pair of 35 sibling nodes imports each other: breaking every loop takes 35·34/2 = 595 cuts, past the
+  // fixed 500 the cut used to stop at, which left loops declared without a word
+  const K = 35;
+  const act = Array.from({ length: K }, (_, i) => type(`m${i}`, `src/m${i}`, [`src/m${i}/a.ts`]));
+  const edges = [];
+  for (let i = 0; i < K; i++) for (let j = 0; j < K; j++) if (i !== j) edges.push(edge(`src/m${i}/a.ts`, `src/m${j}/a.ts`, 1 + ((i * 7 + j) % 5)));
+  const { nodes, cycles, unbroken } = buildNodes(act, { edges });
+  assert.equal(findLoop(nodes), null);
+  assert.equal(unbroken, null);
+  assert.ok(cycles.length > 500, `cuts: ${cycles.length}`);
+});
+
+test('the node whose relation was cut says so in its own yg-node.yaml, pointing at the backlog (issue 396)', async () => {
+  const { mkdtempSync, readFileSync, rmSync } = await import('node:fs');
+  const { tmpdir } = await import('node:os');
+  const { join } = await import('node:path');
+  const { writeNodeFiles } = await import('../engine/propose-write.mjs');
+  const { parseYaml } = await import('../engine/yggdrasil-graph.mjs');
+  const { nodes, cycles } = buildNodes(active, exp);
+  const dir = mkdtempSync(join(tmpdir(), 'grain-396-'));
+  try {
+    writeNodeFiles(dir, nodes, () => {}, cycles);
+    const cutText = readFileSync(join(dir, 'model', 'src/structure', 'yg-node.yaml'), 'utf8');
+    assert.match(cutText, /^# `uses` → `src\/core` is left undeclared: it is the weakest edge \(1 resolved import\) of the dependency loop .*REFACTOR-BACKLOG\.md §4\.$/m);
+    assert.deepEqual(parseYaml(cutText).relations, []);
+    const keptText = readFileSync(join(dir, 'model', 'src/core', 'yg-node.yaml'), 'utf8');
+    assert.doesNotMatch(keptText, /left undeclared/);
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+});
