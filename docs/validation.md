@@ -321,6 +321,28 @@ The change above left one case on the partition: a kind with a single role group
 - **Mutation harness.** Yggdrasil 35 of 35 caught, 0 false fires; CleanArchitecture 6 of 6, 0; Grain 20 of 20 with 1 false fire, `r2:method` "calls `filePath.split`" accusing its own exemplar `nodeOf` in the Go name-resolution matrix. The build before this change gives the same false fire on this clone (19 of 19, 1), so it is not this change's; issue 385 recorded 0 on its clone.
 - `spectrum`, which reads one partition, still codes a lone group against the partition; its rows are display only, and the NORM mark comes from the model.
 
+### Repair as a tiering signal: measured, not shipped (issue 255)
+
+The research behind 6.1.0 (GM-3) proposed that a convention a team enforces shows it in history: a departure from it is later repaired. Grain measures that in one place, calibration, which never runs on the family's repositories (it needs 365 days) and decodes values for five kinds of predicate only (name shape, first statement, return shape, decorators, supertypes). The proposal: decode every kind, contrast the repair rate of departures with a base rate, certify it with the KT code, the BIC penalty, one index cost and λ, and use it when choosing a rule's tier. Measured 2026-09-26 on scratch builds, before building it.
+
+The cell measured: for each accepted convention, every in-place change of a scope's value away from the expected one is a departure, repaired when the scope later carries the expected value again; the base rate is the same outcome for every other change of that value (a change toward the expected value, or between two others), returning to the value it left. Departures coded at their own KT rate against that rate, the BIC half log, one index cost over the conventions with a departure, and the λ bound on the repair rate. The history cut is by commit order: the first 70% of commits train, departures after the cut test. The wider decoding stored each scope's calls, node types, statement shapes and declared return types in every value event.
+
+| repository | conventions | with a decoded event | departures, repaired | other changes, returned | certified "repaired in practice", whole history | history size with the wider decoding |
+|---|---|---|---|---|---|---|
+| Grain | 240 | 121 | 0 | 0 | 0 | +33% |
+| Yggdrasil | 156 | 115 | 31, 0 | 9, 0 | 0 | +17% |
+| express | 29 | 24 | 0 | 0 | 0 | +32% |
+| flask | 42 | 39 | 29, 27 | 67, 23 | 2 (`@setupmethod` on source methods, `@app.route` on test functions) | +33% |
+| click | 72 | 64 | 171, 149 | 281, 97 | 7 (return types in three source groups, `@click.group`, `@click.option`, `@click.command` in test groups) | +27% |
+| typeorm | 185 | 125 | 154, 62 | 1405, 26 | 3 | +24% |
+
+- **On the family's own repositories there is nothing to measure.** A name change is a new scope, so a name never departs in place, and on Grain and Yggdrasil almost nothing else does: 31 departures on Yggdrasil, none repaired, 0 on Grain. The four hand-written oracles (express, Grain, spring-petclinic, Yggdrasil) are where a tier could be scored against hand rules; on the three measured here nothing is repaired (none of Yggdrasil's 31 departures, and no departure at all on express and Grain), so the AUC against hand deterministic rules the research asked for cannot be computed.
+- **On older repositories written by people it exists,** 12 conventions over three repositories. With the old five decodings alone it is 10 of them (click 7, flask 2, typeorm 1).
+- **It does not predict.** Learned on the first 70% of commits, the cell certifies 0 conventions on click and flask and 2 on typeorm, and none of those has a departure after the cut, so there is nothing to test it on. The departures after the cut are repaired at 0.76 on click and 0.92 on flask whatever the cell said.
+- **The cost.** The wider decoding grows the history store by 17% to 33%, and changes the extractor version, so every existing store re-extracts every historical blob.
+
+Not shipped: the tier would rest on a cell that certifies nothing on the family's repositories, has no prospective test, and cannot be scored against a hand rule, at the price of a full re-extraction for every adopter. Calibration stays as it was. Kept for a later release: the base-rate contrast above, which on the old decodings alone already reads click, flask and typeorm.
+
 ## Match-by-example (`how`) vs. a grep baseline
 
 `grain selftest --how [--last N]` runs a leave-one-out evaluation of `how`: for each of the last N real commits
