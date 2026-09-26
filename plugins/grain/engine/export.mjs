@@ -219,6 +219,8 @@ export function exportModel({
         "(issue 125) a site's own `tparams`: the type parameters that SITE declares in its own header (`<T>`, `[T, +U]`), never a domain type — `[]` for a site with no generics of its own, and, in every language this covers, for a member whose enclosing type is generic but which redeclares nothing new itself (its own header carries none; the enclosing type's site carries `T`). Read this before treating a `ptype`/`returns`/`extends` argument as a real type name: an argument equal to one of a scope's own `tparams` (or, for a member, its OWNER's) names a type parameter, not a type in the repository's domain. Present on every site (`conformingSites`/`deviatingSites`, and the sub-gate lattice's own row), including `exemplars`, which carry it too where the underlying scope had one.",
       own:
         "(issue 123) a `method`-kind site's own receiver/owner type NAME where the grammar exposes one structurally (Go's `func (b Box[T]) …`, Rust's `impl<T> Box<T>`) — `null` everywhere else, including every nested member in a language whose methods sit inside a class body rather than declaring a detached receiver (Java/TS/C#/Kotlin: the enclosing type is never named on the member's own site at all). Look this NAME up among the repository's own `type`-kind sites to read the owner's `tparams` — grain does not resolve it for you, because the site that names the owner and the site that declares its type parameters are not always the same one this export ever saw together.",
+      trend:
+        'the arrival of a convention\'s instances in birth order (§mathematics, "Drift and nucleation"): `shares` has ONE segment (the whole birth sequence) unless a change point in that order is certified, and then two, before and after it — `until` is the last birth of each segment. `fading` = the births after the change point no longer carry the expected value at the lambda odds, and `check` does not accuse new code under it; `since` = the first of those births; `nucleating` = a value those births carry at the lambda odds.',
       calibration:
         'available only when the history holds >= calibMinEv value-transition events inside the horizon — rare on ordinary repos; trend/lifecycle do not depend on it.',
       waivers:
@@ -228,7 +230,7 @@ export function exportModel({
       exemplars:
         "the in-memory model may attach `.why` to a convention's first exemplar (a one-line reason it is the canonical pattern to copy). This export deliberately drops it — `.why` is a render-facing hint, not part of the published schema.",
       changeArchetypes:
-        'recurring shapes of past commits (§mathematics, "Commit archetypes"): `cells[]` is the archetype\'s FULL candidate cell bag, not only the certified ones — `certified: true` marks the cells that actually cleared the codelength test and make up the shape\'s `label`; an uncertified cell is retained because `grain how`/`grain map` match against the whole bag, and is not itself a claim.',
+        'recurring shapes of past commits (§mathematics, "Commit archetypes"): `cells[]` is the archetype\'s FULL candidate cell bag, not only the certified ones — `certified: true` marks the cells that actually cleared the codelength test and make up the shape\'s `label`; an uncertified cell is retained because `grain how`/`grain map` match against the whole bag, and is not itself a claim. `given` = the test that certified it: of the `n` commits carrying the shape\'s other cells in files of their own, `k` also touched this cell in their remaining files, against `q`, the share as many random files would reach.',
       twins:
         'role groups whose superposition templates anti-unify to a shared core exceeding the two sides\' non-shared remainders combined (§mathematics, "Structural twins") — the same code shape kept under two different names/directories. `namedDifferently` is present only when the two groups\' dominant name-token suffix differs.',
       moves:
@@ -573,6 +575,8 @@ export function exportModel({
               shares: f.trend.shares.map(x => ({ until: iso(x.end), share: x.share, n: x.n })),
               attractor: f.trend.attractor,
               nucleating: f.trend.nucleating,
+              fading: !!f.trend.fading,
+              since: f.trend.since ? iso(f.trend.since) : null,
             }
           : null,
         calibration: f.calib || null,

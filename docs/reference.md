@@ -318,7 +318,9 @@ rows (`fromKind: "group"`) are excluded here — internal until there is a concr
 `changeArchetypes`: recurring, certified shapes of past commits (§mathematics, "Commit archetypes"). Each entry:
 `id, label, n, cells, exemplars, toks`. `cells[]` carries the archetype's whole candidate cell bag, each with
 `certified` — only certified cells make up `label` and count as the shape's actual claim; the rest exist so
-`grain how`/`grain map` can match a query against the full bag.
+`grain how`/`grain map` can match a query against the full bag. A cell that went through the certification test
+carries `given: {k, n, q, bits}`: of the `n` commits that carried the shape's other places in files of their own,
+`k` also touched this one in their remaining files, where `q` is the share that as many random files would reach.
 
 `twins`: role groups whose superposition template anti-unifies with another group's exceeding the two sides'
 non-shared remainders combined — the same code shape kept under two different names or directories. Each entry: `a, b` (each
@@ -342,6 +344,9 @@ packageWide, seeded, contested, statement, parentDefault, localContrast, alphabe
 bitsPerInstance, gapThresholdBits, surfaces, siblings, trend, calibration, lifecycle, sites, exemplars,
 conformingSites, deviatingSites (each with observed value, phrase, gap in bits, whether it fires, and the nearest
 conforming exemplar), check` (a machine executable description of how to verify the convention on a new file).
+`trend` reads the birth order of the convention's instances (§mathematics, "Drift and nucleation"): `shares` holds one
+segment, or two around a certified change point, and `fading`/`since` say whether code born after it still carries
+the convention at the λ odds (a fading convention does not accuse new code).
 `exemplars[].why` (a render-facing reason the first exemplar is canonical — see `schemaNotes.exemplars`) is
 stripped from the exported copy; `grain report --json` (not a schema this contract covers) does not strip it — a
 known, accepted asymmetry between the two JSON surfaces, not a bug to chase here.

@@ -21,9 +21,9 @@ Everything the tool prints is a special case:
 | a template | a shared subtree with holes whose instances anti-unify (Plotkin's least general generalization) |
 | a partition | a cut of the directory tree that compresses the file style distributions |
 | a deviation | an instance whose pointwise codelength excess clears the loss bound |
-| drift, nucleation | the arrival process of a rule's instances along the history |
+| drift, nucleation | a change point in the birth order of a rule's instances, counted per commit, whose codelength gain is positive |
 | an architecture norm | a (source, target module) cell whose reach rate, contrasted with the reach rate outside both, has a positive codelength gain |
-| a commit archetype | a sub-population of past commit footprints whose codelength gain, against the whole history's own base rate, is positive |
+| a commit archetype | a recurring cluster of past commit footprints; a cell of it is certified when, over every commit carrying the shape's other cells, its rate in the remaining files has a positive codelength gain against as many random files |
 | a value concordance | a set of values whose joint presence across files compresses better than treating them independently |
 | a co-change partner | a file whose touched rate over the edited file's commits, contrasted with its own rate over all commits, has a positive codelength gain |
 | a deviation's fix rate | the share of edits to a convention's deviants made by fix commits, contrasted with the share over edits to its whole population |
@@ -46,7 +46,7 @@ statement shapes, first statement, return shape, arity, variable shape) speak on
 directory whose default differs from the partition's. "Methods here always contain a member_expression" describes the
 language, not a choice anyone made, and no bar on bits can know that; the reference distribution can.
 
-λ is not the only number the engine compares against. Power floors, compute guards, display and ranking weights remain, and so do evidence gates that λ does not derive: the absence floors, the trend detector, the node-level co-change floor in `advise`, the calibration margins. One of them is a bits margin again: where history calibrates a convention and its repair precision is below 0.8, an accusation needs log₂ λ + 1.5 bits instead of log₂ λ. Every such number is listed with its file and role in *The numeric register* at the end of this page, and a test keeps that list and the code in step.
+λ is not the only number the engine compares against. Power floors, compute guards, display and ranking weights remain, and so do evidence gates that λ does not derive: the absence floors, the node-level co-change floor in `advise`, the calibration margins. One of them is a bits margin again: where history calibrates a convention and its repair precision is below 0.8, an accusation needs log₂ λ + 1.5 bits instead of log₂ λ. Every such number is listed with its file and role in *The numeric register* at the end of this page, and a test keeps that list and the code in step.
 
 ## What counts as the repository
 
@@ -119,6 +119,26 @@ identifiers folded, so a per instance name cannot split a bucket the way it spli
 template stands only on its own terms. A template's time axis is the arrival process of its instances, read from the
 lifecycle rows without re-extracting any old blob.
 
+## Drift and nucleation
+
+A rule's instances arrive in an order: the order their scopes were born, read from the history's lifecycle rows
+without re-extracting any old blob. The unit is the commit. Each commit contributes one observation per distinct value
+it bore, 1 for the expected value and 0 for any other, so eleven accessors one rename generates are one departure,
+not eleven. One KT code for the whole sequence is compared with two KT codes split at a commit boundary τ, plus
+log₂ of the number of boundaries, which names τ. A change point exists when that gain, less one index cost over
+every fact that had a boundary to cut at, is positive. KT is exchangeable, so each segment's code depends only on its
+counts and the search is linear in the number of commits.
+
+After a certified τ the λ bound is read on the observations that follow it. When the expected value's KT predictive
+there is below 1 − 1/λ and lower than before τ, the rule is *fading*: `check` no longer accuses new code under it,
+because the code written since does not carry it at the odds an accusation needs. When another value's predictive
+there reaches 1 − 1/λ, that value is *nucleating*, and `check` stands down on it. A change point towards the
+expected value is reported as a trend and nothing more.
+
+The axis is commits, never calendar days. The earlier detector fitted a slope through 90-day windows and needed three
+of them, so no repository younger than about 270 days could show drift at all, whatever its pace. It also rested on
+four hand thresholds (a slope, two authors, a 5% deviation, four scopes a window), all gone.
+
 ## Architecture norms
 
 A layering norm is a statement about one source (a module, or a role group one level finer) and one target module: "files here reach it" or "files here do not". It is decided as a contrast between two populations, the same cell the language bridge and the birth obligations use, never against a flat coin. Only *capable* files enter it, meaning files with at least one resolved out-edge: a file that imports nothing says nothing about which modules it avoids. For a source A and a target B, k_A of the n_A capable files of A reach B, and k_O of the n_O capable files outside A and outside B do. The gain codes A's reach/no-reach outcomes at A's own KT rate instead of at the outside KT rate, pays the BIC half log, and pays one index cost over every (A, B) pair where B is reached by at least the raw floor of capable files and the outside population is at least that large. That universe includes the pairs A never crosses: a boundary nobody has crossed is a candidate. On Yggdrasil, none of the 77 capable end-to-end test files reaches the model module, against 323 of 807 capable files elsewhere, and that absence certifies at 40 bits. A norm speaks when the gain is positive, when the λ posterior names its value, and when the contrast points the way the value says: an absence only where A reaches B less often than the rest of the repository, a presence only where it reaches B more often. That direction replaces the old 10% "reach elsewhere" floor.
@@ -140,12 +160,25 @@ shape is certified only when coding its rate WITHIN the shape's own members cost
 rate of every footprint the history holds — a likelihood-ratio contrast against the whole population, the same
 branch `mine()` uses to test a role cell against its partition, never the uniform coin-flip null a package-wide
 predicate is judged by. A cell every commit in the repository touches carries no shape, however unanimous it is
-inside one archetype; the contrast is what tells the two apart, where a flat evidence-only test cannot. `how`'s
-certified-shape line and `missing: change shape:`'s residual cells both read straight off this certification —
-which commits cluster together is a modelling choice, not itself a claim; only which of the resulting cells survive
-the contrast is. A limit measured since: the contrast is paid on the same footprints the clustering chose the cells from, so a
-swap-randomised history (validation.md, *False certifications under a null*) still yields about as many certified
-cells as the real one on Grain and about half as many on Yggdrasil. This build does not correct for it.
+inside one archetype; the contrast is what tells the two apart, where a flat evidence-only test cannot. That contrast only makes a cell a
+*candidate*. It is paid on the footprints the clustering chose because they share the cell, so on its own it
+certified about as many cells on a swap-randomised history as on the real one (36.4 against 38 a run on Grain, 150.8
+against 167 on Slim; validation.md, *False certifications under a null*).
+
+A candidate is certified by a second test that the selection does not decide. Its *anchor* is the shape's other
+candidates, minus the ones that live in the same files as this cell among the members: a module and its own suffix
+are one file, not two places a change goes. Over every footprint of the history (members or not) in which each anchor
+cell is carried by a file that does not carry this cell, and which has at least one file carrying no anchor cell,
+the outcome is whether one of those s remaining files carries the cell. Had those files been drawn at random from the
+history's file touches that carry no anchor cell, one would carry it with probability 1 − (1 − p)^s, p that
+population's KT share. The outcomes coded at their own KT rate must beat those expectations after the BIC half log
+and the family's index cost, and the rate must be the higher one. So a bigger commit is expected to touch more by
+chance, a cell that only rides along with big commits earns nothing, a suffix that is simply what is left once the
+anchor's files are set aside earns nothing, and a shape whose candidates all live in one file certifies nothing: it
+is a place commits touch, not a shape of what else they touch. `how`'s certified-shape line and `missing: change
+shape:`'s residual cells both read off this certification; which commits cluster together is a modelling choice, not
+itself a claim. On the same randomised histories the test certifies 0 cells on 8 of 10 repositories and at most 0.4 a
+run on the other two.
 
 ## Birth obligations
 
@@ -304,7 +337,6 @@ The named constants in `config.mjs` come first. The test compares every value he
 | `megaCap` | 30 | commits touching more files than this are left out of pairing |
 | `fpsCap` | 20000 | per-commit footprints retained |
 | `scopePairCap` | 200 | scope pairs counted per commit |
-| `trendWinDays` | 90 | width of one trend window |
 | `dirMin` | 25 | scopes of a kind a directory needs to be its own context |
 | `NCAP` | 700 | role clustering sample cap |
 | `SUP` | nodeType 20, call 8, imp 5, ext 4, shape 15, deco 8, ret 4, pt 4 | vocabulary support floors per enumerator |
@@ -325,6 +357,11 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | ½ | propose-lattice.mjs | `? 1 : 0.5; y < x; y++)` | derived — Γ(½) = √π starts the exact half-integer log Γ recursion | — |
 | ½ | commit-log.mjs | `(k + 0.5) / (df + K3 / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
 | ½ | commit-log.mjs | `(k + 0.5) / (n + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | commit-log.mjs | `const p = (freeC + 0.5) / (free + 1);` | derived — KT estimate of the share of anchor-free file touches that carry an archetype cell | — |
+| ½ | commit-log.mjs | `const rate = (k + 0.5) / (n + 1);` | derived — KT rate of an archetype cell over the footprints that carry its anchor | — |
+| ½ | commit-log.mjs | `data - 0.5 * Math.log2(Math.max(n, 2)) - idxCost` | derived — BIC penalty, ½ log₂ n for the one free rate | — |
+| ½ | weights.mjs | `lgh[k - 1] + Math.log(k - 0.5)` | derived — Γ(k + ½) by the recurrence Γ(x + 1) = x·Γ(x), for the KT code of a birth sequence | — |
+| ½ | weights.mjs | `((post[v] || 0) + 0.5) / (m + K / 2)` | derived — KT posterior predictive after a change point | — |
 | ½ | facts.mjs | `0) + 0.5) / (n + K / 2);` | derived — KT posterior predictive | — |
 | ½ | facts.mjs | `(k + 0.5) / (n + K2 / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
 | ½ | learn.mjs | `betaCdf(q, local.fix + 0.5, local.plain + 0.5) <= 1 / CFG.lambda` | derived — the KT posterior Beta(k + ½, n − k + ½) whose mass below the population rate gates a deviation's fix rate | — |
@@ -368,11 +405,6 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 0.1 | mine.mjs | `partitionTrueShare(f.kind, f.pid) >= 0.1` | gate — a partition-wide absence needs 10% use of the thing | none |
 | 0.1 | mine.mjs | `confCarriers / f.conform.length >= 0.1` | gate — an alternative marker must be rare among conformers | none |
 | 0.2 | spectrum.mjs | `0) / tot < 0.2) continue;` | display — `explain` shows a "never X" lattice row only at 20% partition-wide use | none |
-| 0.02 | weights.mjs | `if (slope > 0.02 && minority` | gate — drift slope per window for nucleation | none |
-| 0.05 | weights.mjs | `1 - last.share > 0.05` | gate — nucleation needs 5% current deviation | none |
-| 2 | weights.mjs | `minority[1].size >= 2` | gate — nucleation needs 2 human authors of the minority value | none |
-| 4 | weights.mjs | `if (n >= 4) shares.push` | gate — a trend window counts from 4 scopes | none |
-| ½ | weights.mjs | `attractor = last.share >= 0.5 ? fact.exp` | gate — the attractor is the expected value while it holds half | none |
 | 1/3 | grain-advise.mjs | `MUTUAL_CONF_FLOOR = 1 / 3` | gate — node-level co-change advice floor, both directions (a node has no commit count to contrast with) | none |
 | ½ | propose-base.mjs | `MIN_WHEN_FIDELITY = 0.5` | gate — a drafted `when` must select half its own set | none |
 | 0.08 | lexical.mjs | `if (c >= sp * 0.08) {` | extraction — an indentation width counts from 8% of indented lines | none |
@@ -404,7 +436,6 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | ¾, ½ | cards.mjs | `fact: 0.75, imp: 0.5, doc: 0.5` | retrieval — card vocabulary weights | none |
 | 0.6 | cards.mjs | `suffix: share < 0.6 ?` | display — "(mixed)" module label | none |
 | 0.1 | mine.mjs | `0) + f.bpi * 0.1 + 0.1;` | display — role lift order | none |
-| 0.1 | report.mjs | `if (Math.abs(b2 - a) >= 0.1` | display — a fact listed as moving | none |
 | 0.85 | report.mjs | `model.agentShare >= 0.85` | display — the agent-share alarm | none |
 | 0.6 | report-facts.mjs | `if (!(c.share >= 0.6)` | display — an uncertified "usually" row | none |
 | 180 days | learn.mjs | `(H.NOW - f) / 86400 <= 180` | display — the "fresh" count in a rule's history line | none |

@@ -20,6 +20,9 @@
 //   data = 8·log2(0.9444/0.6875) = 3.66 bits;  bits = 3.66 − 1.50 − 5 = −2.84 ≤ 0 → silent, as it must be.
 // So the fixture clears the bound with ~4.8 bits of headroom on its carrying cells and fails it by ~2.8 on its
 // shared ones: the universe would have to grow past C = 2^9 = 512 candidate cells before a carrying cell went quiet.
+// That contrast only makes a cell a candidate (issue 357). Each carrying cell is then certified by the conditional
+// test over the whole history (`conditionalCellBits`): every commit that touches the shape's other places in files of
+// their own also touches this one, where as many random files would reach it far less often.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -140,6 +143,7 @@ test('(a) two change archetypes are induced, each certified on the places it OWN
     assert.ok(a.cells.some(c => !c.certified), `the un-filtered cell bag must be persisted, not only the certified subset: ${JSON.stringify(a.cells)}`);
     for (const c of a.cells) { assert.equal(typeof c.k, 'number'); assert.equal(typeof c.share, 'number'); assert.equal(typeof c.bits, 'number'); assert.equal(typeof c.certified, 'boolean'); }
     for (const c of a.cells.filter(x => x.certified)) assert.ok(c.k * 2 > a.n, `a certified cell must hold in a MAJORITY of the shape's members: ${JSON.stringify(c)} of n=${a.n}`);
+    for (const c of a.cells.filter(x => x.certified)) assert.ok(c.given && c.given.bits > 0 && c.given.k / c.given.n > c.given.q, `a certified cell carries the conditional test it passed: ${JSON.stringify(c)}`);
     assert.equal(a.exemplars.length, 3, `three most recent exemplars expected, got ${JSON.stringify(a.exemplars)}`);
     for (const [sha, msg, ts] of a.exemplars) { assert.match(sha, /^[0-9a-f]{40}$/); assert.equal(typeof msg, 'string'); assert.equal(typeof ts, 'number'); }
     assert.ok(a.exemplars[0][2] >= a.exemplars[1][2] && a.exemplars[1][2] >= a.exemplars[2][2], 'exemplars are newest-first');
