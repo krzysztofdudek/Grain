@@ -28,7 +28,7 @@ are declarations. A grammar with no such node type at all (JSON/YAML/TOML) is re
 `selftest --null [--runs N]` measures false certifications: every family of claims is run again on a copy of the
 repository's own evidence with the link it claims destroyed and its marginals kept (role labels and directory placements dealt out again,
 import sets dealt out among files, the commit × file matrix swap-randomised, commit messages dealt out among
-commits), and it reports, per family, how many claims survive that (mean and maximum over the runs) beside the real
-count. Anything certified under the null is false by construction. Each run costs one full learn pass.
+commits, value-set members dealt out among the files declaring the set, fix commits dealt out among all edits), and it reports, per family, how many claims survive that (mean and maximum over the runs) beside the real
+count. Anything certified under the null is false by construction. Each run costs two full learn passes.
 Relay the numbers as reported; do not round them further or editorialize about whether they are "good enough" —
 that is a maintainer judgment, not something to assert on grain's behalf.

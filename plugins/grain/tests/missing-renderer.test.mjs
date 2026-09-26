@@ -2,7 +2,7 @@
 // `review` used to build its own single co-change line straight out of `completenessDirectional`; now it asks
 // `missingLines` for BOTH sources (co-change + recipe) and gets back one `missing from your change:` block, silent
 // when nothing qualifies. `cochangeData(model, changed)` is the new shared DATA source (same loop, same
-// CFG.cochangeMinConf threshold as `completenessDirectional`) — `check-hook` reads it too but keeps its own terse
+// co-change contrast as `completenessDirectional`) — `check-hook` reads it too but keeps its own terse
 // rendering; `completeness <file>` keeps calling `completenessDirectional` and must print byte-identical text.
 import { test, before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -34,11 +34,14 @@ before(() => {
     `\nexport const handlers = [${CARRIERS.map(i => `Handler${i}Handler`).join(', ')}];\n`);
   git(d1, 'add', '-A'); git(d1, 'commit', '-qm', 'handlers + registrar');
   // a real, directional co-change pair: 9 commits always touching both together — 9/9 clears cochangeMinSup (8) and
-  // cochangeMinConf (0.75), same fixture shape as review-command.test.mjs / completeness-hook.test.mjs
+  // the base-rate contrast, same fixture shape as review-command.test.mjs / completeness-hook.test.mjs
   w('src/pair-a.ts', 'export const a = () => 0;\n');
   w('src/pair-b.ts', 'export const b = () => 0;\n');
   git(d1, 'add', '-A'); git(d1, 'commit', '-qm', 'base pair');
   for (let i = 1; i <= 8; i++) { w('src/pair-a.ts', `export const a = () => ${i};\n`); w('src/pair-b.ts', `export const b = () => ${i};\n`); git(d1, 'add', '-A'); git(d1, 'commit', '-qm', `pair change ${i}`); }
+  // ten commits that touch neither file: the pair's partner must be touched beside pair-a more often than it is
+  // touched anyway (the co-change base-rate contrast), which a history made only of pair commits cannot show
+  for (let i = 1; i <= 10; i++) { w('CHANGES.md', `entry ${i}\n`); git(d1, 'add', '-A'); git(d1, 'commit', '-qm', `changes ${i}`); }
   // pushes HEAD's own timestamp forward past freshDays (14) so the @Handler() convention is "established"
   w('NOTES.md', 'notes\n');
   const d2 = dateEnv('2026-03-01T12:00:00Z');

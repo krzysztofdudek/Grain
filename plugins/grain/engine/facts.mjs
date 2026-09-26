@@ -135,6 +135,24 @@ export const kt = (c, K, x, n) =>
 // repo's other display-bound checks already use.
 const K2 = 2;
 export const clearsOwnRate = (k, n) => n > 0 && (k + 0.5) / (n + K2 / 2) >= 1 - 1 / CFG.lambda;
+// the co-change cell (issue 259), the obligation cell read for one edited file: of the `n` commits that touched the
+// edited file, `k` also touched the partner, whose own commits are `gp` of the `N` commits the counts were drawn
+// from. Coding the partner's touched/untouched outcome at the edited file's KT rate instead of at the partner's own
+// base rate must pay the BIC half log and one index cost over every directed pair the model holds. Returns the gain
+// in bits when it is positive and the partner is touched MORE often beside this file than anyway, else null. One
+// direction at a time: editing a hub names the partner only if the hub's own commits raise the partner's rate, and
+// a partner that changes with a third of all commits is not named for changing with a third of this file's.
+export const cochangeIdxCost = pairs => Math.ceil(Math.log2(Math.max(2 * pairs, 2)));
+export function partnerBits(k, n, gp, N, idxCost) {
+  if (!(N > 0 && n > 0) || !(k * N > gp * n)) return null;
+  const K = K2,
+    local = { t: k, u: n - k },
+    glob = { t: gp, u: Math.max(N - gp, 0) };
+  let data = 0;
+  for (const v of ['t', 'u']) if (local[v]) data += local[v] * Math.log2(kt(local, K, v, n) / kt(glob, K, v, N));
+  const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost;
+  return bits > 0 ? +bits.toFixed(2) : null;
+}
 // file-level lineage over `H.fps`: `H.lc`'s keys are rewritten FORWARD on a rename (history.mjs moves the row to the
 // new path and DELETES the old key), so a historical path is simply absent from it and cannot be looked up there.
 // The usable old→new mapping is `fps[*].renames`, which records both sides of every code-file rename. Returns the

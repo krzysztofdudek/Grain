@@ -108,7 +108,9 @@ see everything grain already knows about it in one place.
   exemplars. `100% of 29` is a rule — follow it or say in one line why not. `85% of 240` is a tendency.
 - `In this file, \`x\` (line N) conforms.` names a neighbour in the same file to copy; `(held since …, last reinforced …)`
   says how old and how alive the rule is; `not to copy:` on a `where` card names the members that deviate. A note
-  ending `deviants get fixes N× more often` means leaving this one uncorrected has a measured, historical cost.
+  ending `edits to deviants were fixes N× as often` says that, in this repository's history, edits to code that
+  broke this rule were fix commits more often than edits elsewhere. It is an association, not proof that the
+  deviation caused the fixes.
 - **Pre-existing** deviations (scopes you did not touch) are folded into one line. They are not yours to fix;
   `--all` lists them if you are asked to.
 - **Zero deviations is not a review.** If the "conforms to" list is empty or grain says no convention governs the
@@ -165,8 +167,8 @@ by asking `grain how <query>` yourself before writing code.
 
 - **`report [--top N]`** / **`status`** — the model overview: size, freshness, signal verdict, top conventions with
   trends and ages, the measured architecture (modules, dependencies, cycles), the `check` feedback rate (notes
-  acted on vs. ignored after warning), and a `== health ==` section flagging conventions worth a decision: costly
-  deviations, rejected alternatives, conventions carried mostly by agent-authored code, under-adopted shapes,
+  acted on vs. ignored after warning), and a `== health ==` section flagging conventions worth a decision: deviations
+  whose edits were fixes more often, rejected alternatives, conventions carried mostly by agent-authored code, under-adopted shapes,
   conventions with several waivers already, dead steers. Every health line ends with a suggested `grain decide …`
   — text, never an executed command.
 - **`rules [--out <file>]`** — the same data as `report`, rendered as a standalone Markdown document stamped with

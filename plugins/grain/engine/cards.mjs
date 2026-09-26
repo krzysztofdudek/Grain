@@ -1,9 +1,9 @@
 // grain engine · card building and the card-level line renderers every answer is assembled from
 // Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { dirname, extname } from 'node:path/posix';
-import { EXT2GRAMMAR, CFG } from './config.mjs';
+import { EXT2GRAMMAR } from './config.mjs';
 import { refineModOf } from './relations.mjs';
-import { decoLabel, factLabel, part, pct } from './facts.mjs';
+import { cochangeIdxCost, decoLabel, factLabel, part, partnerBits, pct } from './facts.mjs';
 import { tokenize } from './parse.mjs';
 import { partitionFor } from './partition.mjs';
 import { langExt } from './base.mjs';
@@ -284,7 +284,10 @@ export const normTok = t => {
 };
 export function cochangePartners(model, dirs, max = 3, file = null) {
   const out = [];
-  const minConf = file ? 1 / 3 : CFG.cochangeMinConf; // one file's history is sparse; a third of its commits is a real signal
+  // the co-change cell (facts.mjs, issue 259), read from the side inside `dirs`/`file`: its commits must raise the
+  // partner's rate above the partner's own base rate — the same gate `completeness` applies
+  const N = model.nonMegaCommits || 0,
+    idx = cochangeIdxCost((model.cochange || []).length);
   // a partner is a HISTORICAL fact — the pair really did co-change — but the path itself may be gone by HEAD
   // (renamed away, deleted). Same liveness source `howCmd`'s places[] uses for its own `exists` flag (core.mjs
   // ~2817): `model.pathsAll` (every tracked path, code or not) ∪ `model.filesAll` (defensive union, same idiom).
@@ -292,9 +295,9 @@ export function cochangePartners(model, dirs, max = 3, file = null) {
   for (const p of model.cochange || []) {
     const aIn = file ? p.a === file : dirs.some(d => p.a.startsWith(d + '/')),
       bIn = file ? p.b === file : dirs.some(d => p.b.startsWith(d + '/'));
-    if (aIn && !bIn && p.sup / (p.commitsA || 1) >= minConf)
+    if (aIn && !bIn && partnerBits(p.sup, p.commitsA || p.sup, p.commitsB || 0, N, idx) != null)
       out.push({ partner: p.b, sup: p.sup, commits: p.commitsA || p.sup, dead: !live.has(p.b) });
-    else if (bIn && !aIn && p.sup / (p.commitsB || 1) >= minConf)
+    else if (bIn && !aIn && partnerBits(p.sup, p.commitsB || p.sup, p.commitsA || 0, N, idx) != null)
       out.push({ partner: p.a, sup: p.sup, commits: p.commitsB || p.sup, dead: !live.has(p.a) });
   }
   out.sort((x, y) => y.sup / y.commits - x.sup / x.commits || (x.partner < y.partner ? -1 : 1));

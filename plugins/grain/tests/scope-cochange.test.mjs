@@ -48,6 +48,7 @@ test('(b1) two scopes touched together across >= cochangeMinSup commits appear i
   assert.equal(pair.sup, 9, `all 9 commits touch both scopes together: ${JSON.stringify(pair)}`);
   assert.equal(pair.commitsA, 9); assert.equal(pair.commitsB, 9);
   assert.equal(pair.conf, 1);
+  assert.equal(H.scopeCommitsN, 9, 'the scope-touching commits the counts are drawn from (the scope co-change base-rate population)');
 });
 
 test('(b2) a commit whose touched scope-set exceeds CFG.scopePairCap contributes NO scope-cochange pairs at all (not partially)', async () => {
@@ -145,6 +146,12 @@ before(() => {
     writeFileSync(join(repo2, 'src/pair-a.ts'), `export function validate() { helper${i}(); return 1; }\n`);
     writeFileSync(join(repo2, 'src/pair-b.ts'), `export function schema() { helper${i}(); return 1; }\n`);
     commitAll(repo2, `pair change ${i}`);
+  }
+  // commits that touch a scope of neither pair file: the scope co-change contrast weighs schema's rate beside
+  // validate against schema's own rate over every scope-touching commit, which pair commits alone cannot show
+  for (let i = 1; i <= 10; i++) {
+    writeFileSync(join(repo2, 'src/other.ts'), `export function other() { tool${i}(); return 1; }\n`);
+    commitAll(repo2, `other change ${i}`);
   }
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo2, encoding: 'utf8' });
   assert.equal(st.status, 0, st.stdout + st.stderr);

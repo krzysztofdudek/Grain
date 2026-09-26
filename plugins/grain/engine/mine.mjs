@@ -724,12 +724,12 @@ export function factNotes(f) {
     out.push(
       `held since ${f.held.since}${f.held.lastReinforced && f.held.lastReinforced !== f.held.since ? `, last reinforced ${f.held.lastReinforced}` : ''}${f.held.repairs ? `, ${f.held.repairs} repair${f.held.repairs > 1 ? 's' : ''} toward it` : ''}${f.held.departures ? `, ${f.held.departures} departure${f.held.departures > 1 ? 's' : ''}` : ''}`
     );
-  // what deviating from it has cost so far. `baseK === 0` cannot happen while the base population CONTAINS the
-  // deviants (baseK >= k >= 1 whenever the cell speaks at all); the branch is here so that narrowing the base
-  // population later cannot turn this line into a division by zero — the two counts read fine without a multiplier.
+  // how often edits to its deviants were fix commits, against edits to the whole population — an association, never
+  // a cause (issue 258). `baseK === 0` cannot happen while the base population CONTAINS the deviants (baseK >= k >= 1
+  // whenever the cell speaks at all); the branch keeps a narrower base population later from dividing by zero.
   if (f.cost)
     out.push(
-      `deviants get fixes ${f.cost.baseK ? `${(f.cost.k / f.cost.n / (f.cost.baseK / f.cost.baseN)).toFixed(1)}× more often ` : ''}(${f.cost.k} of ${f.cost.n} vs ${f.cost.baseK} of ${f.cost.baseN})`
+      `edits to deviants were fixes ${f.cost.baseK ? `${(f.cost.k / f.cost.n / (f.cost.baseK / f.cost.baseN)).toFixed(1)}× as often ` : ''}(${f.cost.k} of ${f.cost.n} edits vs ${f.cost.baseK} of ${f.cost.baseN})`
     );
   // a value tried on enough scopes and then reverted — the structural opposite of `suppressedValue`'s nucleation
   if (f.rejected)

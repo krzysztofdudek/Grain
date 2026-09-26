@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2936 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2942 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -128,10 +128,42 @@ The target is at most one false certification per repository across all families
 
 - **Architecture norms met it.** Under the old flat 50/50 coin, shuffled edges certified more absence norms than the real edges did (12.7 against 3 on Grain, 19.7 against 8 on Yggdrasil). The two-population contrast certifies 0 on shuffled edges in every run on both, and 0 over 20 further permutations each. It now certifies boundaries nobody has crossed, such as `tests/e2e -/-> src/model` on Yggdrasil (0 of 77 against 323 of 807 elsewhere), which the old candidate universe could not contain.
 - **Role and directory conventions, obligations and the bridge were already at 0**, and the group and directory absences the contrast now certifies in place of the 30% floor (five more role cells and nine more directory cells on Yggdrasil) stay at 0.
-- **Co-change is not.** A partner is named on a raw confidence share (a third of the edited file's commits), and two files that are each touched often co-occur often by chance: 191 pairs a run on Yggdrasil, half the real count. This is the co-change gate the research filed separately; this build does not change it.
+- **Co-change was not** under 6.1.0. A partner was named on a raw confidence share (a third of the edited file's commits), and two files that are each touched often co-occur often by chance: 191 pairs a run on Yggdrasil, half the real count. The base-rate contrast below takes that to 3.67.
 - **Commit archetypes are not.** An archetype's cells are chosen by the clustering and then certified on the same footprints, so a shuffled history yields about as many certified cells as the real one on Grain (39.3 against 38) and 39 against 96 on Yggdrasil. The contrast is paid twice on the same data. Not corrected in this build.
 
 The mutation harness on the same two repositories, after the change: Grain 7 of 7 planted deviations caught, 0 false fires (6 of 6 before); Yggdrasil 25 of 25 caught, 0 false fires (14 of 14 before). The extra plantable cases are the directory absences the contrast now certifies.
+
+### Co-change, value norms and the deviation fix rate (issues 258, 259, 260)
+
+Measured 2026-09-26 on the same clones, 3 runs each with seeds 1 to 3, after the history re-walk the scope population counter needs. Two new families enter the harness: value norms, whose members are given at random to as many declaring files as carried each, and deviation fix rates, whose fix flags are dealt out again among all modification events. Their "before" column is this build's harness with the 6.1.0 mathematics for those two cells (a flat 50/50 coin for value norms, "the scope ever had a fix" for the deviation cell). The second learn pass per run consumes the random source, so the curveball history differs from the table above; the commit-archetype cells, unchanged by this build, read 37.33 on Grain and 46.67 on Yggdrasil under it. Express and typeorm are public corpus repositories (`9a34acf`, `f279fd1`), "before" there being the 6.1.0 engine.
+
+| family | Grain before | Grain after | Yggdrasil before | Yggdrasil after | express before | express after | typeorm before | typeorm after |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| co-change partners | 20 · 6.7 (6, 8, 6) | 19 · 0 (0, 0, 0) | 392 · 191 (202, 187, 184) | 199 · 3.67 (2, 7, 2) | 71 · 7.67 (8, 6, 9) | 85 · 0.33 (0, 1, 0) | 48 · 10.67 (9, 14, 9) | 37 · 12 (14, 13, 9) |
+| value norms | 2 · 2 (2, 2, 2) | 1 · 0 (0, 0, 0) | 1 · 1 (1, 1, 1) | 1 · 0 (0, 0, 0) | not counted | 0 · 0 | not counted | 0 · 0 |
+| deviation fix rate | 0 · 0 | 0 · 0.33 (0, 1, 0) | 0 · 0 | 1 · 0 (0, 0, 0) | not counted | 0 · 0 | not counted | 3 · 0 (0, 0, 0) |
+
+- **Co-change.** A partner is now named for the edited file's direction only, when its rate over that file's commits beats its own rate over all commits by the obligation cell (mathematics.md, *Co-change partners*). The null drops to 0 on Grain, 3.67 on Yggdrasil and 0.33 on express. It does not on typeorm, 10.67 → 12: a repository that commits many files at once makes any two busy files co-occur above their base rates, because the base rate ignores commit size. The target of at most one false certification per repository is still not met for co-change: 3.67 a run on Yggdrasil and 12 on typeorm. The prospective measurement below is the one that decided the gate.
+- **Value norms.** Under the flat coin, shuffling the members among the declaring files certified every norm the real data certified, 2 of 2 on Grain and 1 of 1 on Yggdrasil: they were schema keys every declaring file carries, complete whatever the joint structure. Against independence, the shuffle certifies nothing. Of the four schema-key norms the research counted, three stop certifying (`$.scope` `per`/`file` on both, and `$.relations` `target`/`uses` was already gone at this snapshot). `$` `description`/`name` on Grain survives at 4.5 bits instead of 145.4: 175 of 177 qualifying files complete against 0.889 under independence. Yggdrasil gains one: twelve keys of `$.node_types.leaf`, 8 of 8 complete against 0.061, all in copies of one test-fixture architecture file. The twelve corpus repositories measured certify no value norm before or after, so the survivors the research expected (enum and switch sets in code) could not be inspected here.
+- **Deviation fix rate.** The old per-scope label with its 7-of-8 bound certified no claim on any of the 14 repositories below. Per edit, 4 claims certify (1 on Yggdrasil, 3 on typeorm), and the fix-label shuffle certifies 0.33 a run on Grain and 0 elsewhere. Each surviving claim was checked against the popularity-matched control of result 153: every deviant paired with the non-deviant scope of the same fact with the nearest edit count. Deviant edits were fixes at 0.80, 0.39, 0.26 and 0.18; the matched controls at 0.27, 0.00, 0.06 and 0.05, and the whole populations at 0.32, 0.04, 0.07 and 0.05. The matched control shows no lift over the population, so none of the four is exposure. The deviants are not the hottest scopes either: their median edit count is 0, 7, 0 and 1 against 0, 6, 2 and 3 in the population.
+
+The mutation harness after this build: Grain 7 of 7 planted deviations caught, Yggdrasil 25 of 25, 0 false fires on both.
+
+### Co-change partners, prospective
+
+The protocol of maintainer note *obligations-design* §2, rebuilt: train on the oldest 80% of the retained footprints, score on the newest 20%, and for every file of a held-out commit of 2 to 40 files, name at most three partners and compare them with the files the commit really touched. hit@3 is the share of cases where one of the three was touched; "non-obvious" counts only companions outside the 10 hottest files of the training window; precision@1 is over the cases where anything was named. Pooled over 14 repositories (Grain, Yggdrasil, express, gin, flask, chi, sinatra, Slim, axum, CleanArchitecture, typeorm, koa, click, requests), 16 964 cases; the null count is the curveball null summed over the 14, mean per run, counted by the same harness over all partners it would name.
+
+| gate | hit@3 | non-obvious hit@3 | precision@1 | named cases | null, summed |
+| --- | --- | --- | --- | --- | --- |
+| 6.1.0: max of both directions ≥ 1/3 | 0.215 | 0.105 | 0.443 | 0.375 | 454.1 |
+| the edited file's direction ≥ 1/3, no contrast | 0.202 | 0.073 | 0.632 | 0.289 | 227.6 |
+| **the contrast (this build)** | **0.228** | **0.107** | **0.501** | **0.380** | **175.3** |
+| the contrast and a KT rate ≥ 1/3 | 0.185 | 0.073 | 0.624 | 0.270 | 21.4 |
+| the contrast and a KT rate ≥ 1/2 | 0.151 | 0.051 | 0.699 | 0.206 | 7.4 |
+| the contrast and the λ bound (7 of 8) | 0.025 | 0.009 | 0.965 | 0.026 | 0.7 |
+| null: the 3 hottest files | 0.364 | 0.000 | 0.282 | 1.000 | — |
+
+The contrast beats the 6.1.0 gate on every accuracy column, pooled and per repository in most (hit@3 higher on 10 of 14, lower on 2; precision@1 higher on 9, lower on 4), and certifies 61% fewer partners under the null. It is not better everywhere on the null: typeorm 22.7 → 93.7, Slim 20.7 → 37.7 and flask 2.7 → 5.3 per run under this harness (the shipped `selftest --null` counts fewer, 10.67 → 12 on typeorm, because it counts only live partners). The λ bound the research proposed names a partner in 2.6% of cases and was rejected. A floor on the edited file's own rate cuts the null to about one per repository but loses a third of the non-obvious hits, which are the half of the answer co-change is for: the hub-to-test partners that only the reverse direction used to reach. The hottest-files null still has the higher hit@3, as under 6.1.0.
 
 ## Match-by-example (`how`) vs. a grep baseline
 

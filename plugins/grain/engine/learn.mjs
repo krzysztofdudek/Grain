@@ -33,6 +33,7 @@ import {
   serializeScope,
 } from './partition.mjs';
 import { nameTokens, sufOf } from './placement.mjs';
+import { betaCdf } from './propose-lattice.mjs';
 import { mineTemplates, profileOf } from './superposition.mjs';
 import { shapeWords } from './verbalize.mjs';
 import { calibrate, heritageKindOf, mkWeightFn, rejectedValues, trendsFor } from './weights.mjs';
@@ -41,6 +42,50 @@ import { calibrate, heritageKindOf, mkWeightFn, rejectedValues, trendsFor } from
 // the directories all scopes of each kind sit in, are dealt out again at random among those same scopes — group and
 // directory sizes, ambiguity counts and every predicate survive; only the link between a scope and its group or its
 // directory is destroyed. The directory is dealt out on `nullRel`, which only mine()'s directory contexts read.
+// `grain selftest --null` only: the outcome labels the value and deviation cells read are dealt out again with their
+// marginals kept. In each value container, each member is given to as many declaring files as carried it, chosen at
+// random (each member keeps its carrier count, files lose their joint sets; a declaring file left with no member drops
+// out, so the declaring population D, and with it every share, can shrink); over the whole history, the fix flags are dealt
+// out again among all modification events (every scope keeps its edit count, the repository its fix count).
+export function shuffleMembers(contFiles, rnd) {
+  for (const fm of contFiles.values()) {
+    const files = [...fm.keys()],
+      keys = [...new Set([...fm.values()].flatMap(set => [...set]))].sort();
+    const counts = keys.map(k => files.filter(f => fm.get(f).has(k)).length);
+    for (const f of files) fm.set(f, new Set());
+    keys.forEach((k, j) => {
+      const pool = files.slice();
+      for (let x = 0; x < counts[j]; x++) {
+        const r = x + Math.floor(rnd() * (pool.length - x));
+        [pool[x], pool[r]] = [pool[r], pool[x]];
+        fm.get(pool[x]).add(k);
+      }
+    });
+    for (const f of files) if (!fm.get(f).size) fm.delete(f);
+  }
+}
+export function shuffleFixes(lc, rnd) {
+  const rows = [...lc.entries()];
+  let F = 0,
+    M = 0;
+  for (const [, L] of rows) {
+    F += L.fix || 0;
+    M += L.mods || 0;
+  }
+  const out = new Map();
+  for (const [key, L] of rows) {
+    let k = 0;
+    for (let x = 0; x < (L.mods || 0); x++) {
+      if (rnd() * M < F) {
+        k++;
+        F--;
+      }
+      M--;
+    }
+    out.set(key, k);
+  }
+  return out;
+}
 function shuffleLabels(ps, ri, rnd) {
   const kinds = new Map();
   ps.forEach((s, i) => (kinds.get(s.kind) || kinds.set(s.kind, []).get(s.kind)).push(i));
@@ -81,6 +126,7 @@ export async function learn({
   tree = null,
   treeCache = null,
   nullLabels = null,
+  nullOutcomes = null,
 }) {
   const t0 = Date.now();
   // `tree` (from history.mjs headTree) = the files and contents of HEAD: the norm is the accepted past, so an uncommitted edit,
@@ -130,23 +176,28 @@ export async function learn({
   // survived when it had no history, which inverted the gate. A history-less repository therefore yields groups and
   // placement but no spoken conventions — `status` says why.
   const ageFn = ageFnH || (() => 0);
-  // the cost of deviating (§H3): is departing from an accepted convention CORRELATED with the scope later needing a
-  // bugfix? One cell per accepted fact, K = 2 (`has_fix` : `no_fix`), the fact's deviants contrasted against the
-  // fact's WHOLE observable population — conform ∪ deviants, a parent tally that contains the child's own counts,
-  // exactly like mine()'s `_all:`, the archetype cell's `glob` and bridgeBits' base rate. Contrasting against the
-  // conformers alone would be a different (and worse) estimator: kt(local)/kt(parent) is a real codelength saving
-  // only when the parent is the code you would have used BEFORE splitting the subset out.
+  // the deviation's fix rate (§H3, issue 258): are EDITS to the scopes that depart from an accepted convention fix
+  // commits more often than edits to the fact's whole population? An association, never a cost: a scope edited more
+  // often meets more fix commits whatever it does, so the unit is one modification, not one scope — "had any fix"
+  // per scope measured exposure (P(fix > 0) climbs from 0.13 at one or two edits to 0.53 at six or more on Grain's
+  // own history). One cell per accepted fact, K = 2 (a fix edit : a plain edit), the deviants' edits contrasted
+  // against the edits of the fact's WHOLE observable population — conform ∪ deviants, a parent tally that contains
+  // the child's own counts, exactly like mine()'s `_all:`, the archetype cell's `glob` and the bridge's base rate.
   // Observable = a HEAD scope with its OWN `H.lc` row (never mkWeightFn's file-level fallback: a sibling's repair
-  // is not this scope's) that has lived at least `CFG.freshDays`. Both sides draw from that same window, so code
-  // too young to have needed a fix cannot inflate either side.
+  // is not this scope's) that has lived at least `CFG.freshDays`, on both sides.
+  const nullFix = H && nullOutcomes ? shuffleFixes(H.lc, nullOutcomes) : null;
   const fixOutcome = s => {
     if (!H) return null;
-    const L = H.lc.get(skeyR(s.rel, s));
-    return L && ageFn(s) >= CFG.freshDays ? (L.fix > 0 ? 'has_fix' : 'no_fix') : null;
+    const key = skeyR(s.rel, s);
+    const L = H.lc.get(key);
+    return L && ageFn(s) >= CFG.freshDays ? { fix: nullFix ? nullFix.get(key) : L.fix || 0, mods: L.mods || 0 } : null;
   };
   const fixTally = vs => {
-    const c = { has_fix: 0, no_fix: 0 };
-    for (const v of vs) c[v]++;
+    const c = { fix: 0, plain: 0 };
+    for (const v of vs) {
+      c.fix += v.fix;
+      c.plain += Math.max(v.mods - v.fix, 0);
+    }
     return c;
   };
   const devCostCand = []; // { ef, dv, all } per candidate fact — scored once the whole repo's candidate count is known
@@ -600,25 +651,26 @@ export async function learn({
     const KD = 2;
     const idxCostD = Math.ceil(Math.log2(Math.max(devCostCand.length, 2)));
     for (const { ef, dv, all } of devCostCand) {
-      const neff = dv.length,
-        N = all.length;
-      if (neff < CFG.minEff) continue;
+      if (dv.length < CFG.minEff) continue;
       const local = fixTally(dv),
         glob = fixTally(all);
+      const nMods = local.fix + local.plain,
+        N = glob.fix + glob.plain;
+      if (!nMods || !N) continue;
       let data = 0;
-      for (const v of ['has_fix', 'no_fix']) {
+      for (const v of ['fix', 'plain']) {
         const nv = local[v];
-        if (nv) data += nv * Math.log2(kt(local, KD, v, neff) / kt(glob, KD, v, N));
+        if (nv) data += nv * Math.log2(kt(local, KD, v, nMods) / kt(glob, KD, v, N));
       }
-      const bits = data - 0.5 * (KD - 1) * Math.log2(Math.max(neff, 2)) - idxCostD;
+      const bits = data - 0.5 * (KD - 1) * Math.log2(Math.max(nMods, 2)) - idxCostD;
       if (bits <= 0) continue;
-      if (!(local.has_fix / neff > glob.has_fix / N)) continue; // an excess, never a deficit: deviants that need FEWER repairs are not a cost
-      // mine()'s own loss bound, applied to `has_fix` specifically: telling a maintainer that leaving a deviation will
-      // cost a repair is a claim about the next deviant, and it may be wrong at most 1 time in λ. It already implies a
-      // majority, so no separate vacuity test is needed. It is also why this speaks only for near-unanimous deviant
-      // populations (5 of 5, 11 of 12) — "9 of 12" is real evidence and still not worth a maintainer's trust.
-      if (!((local.has_fix + 0.5) / (neff + KD / 2) >= 1 - 1 / CFG.lambda)) continue;
-      ef.cost = { k: local.has_fix, n: neff, baseK: glob.has_fix, baseN: N, bits: +bits.toFixed(2) };
+      const q = glob.fix / N;
+      if (!(local.fix / nMods > q)) continue; // an excess, never a deficit
+      // the loss bound on the claimed direction: the KT posterior of the deviants' per-edit fix rate may put at most
+      // 1/λ of its mass at or below the population's rate — "edits to deviants were fixes more often" is wrong at
+      // most one time in λ. The old bound asked 7 of 8 deviants to carry a fix at all, which exposure alone meets.
+      if (!(betaCdf(q, local.fix + 0.5, local.plain + 0.5) <= 1 / CFG.lambda)) continue;
+      ef.cost = { k: local.fix, n: nMods, baseK: glob.fix, baseN: N, scopes: dv.length, bits: +bits.toFixed(2) };
     }
   }
   applySteers(model, prepared, seeds);
@@ -659,6 +711,7 @@ export async function learn({
   // that does not apply here: cochange's commitsA/commitsB are already historical-path-keyed, so this must stay
   // historical-path-keyed too, or the two counts would disagree about what a "file" is).
   model.nonMegaCommits = H ? H.nonMegaCommits : 0;
+  model.scopeCommitsN = H ? H.scopeCommitsN || 0 : 0; // the same, for `model.scopeCochange`'s commitsA/commitsB
   // scope-level co-change (§J5.7b): mirrors model.cochange above, but `a`/`b` are scope keys whose path half is a
   // HISTORICAL path (§J4.1) — remapped through currentPathOf ONCE here, at learn-time, because checkFile never
   // sees H (only the model, exactly like model.cochange/model.moves/model.msgAffinity).
@@ -762,6 +815,7 @@ export async function learn({
       (fm.get(s.rel) || fm.set(s.rel, new Set()).get(s.rel)).add(key);
     }
   }
+  if (nullOutcomes) shuffleMembers(contFiles, nullOutcomes);
   // extraction already deduped per (v, k) per file, so a place count IS a document frequency. The upper bound is
   // rounded UP: on a 17-file repository a fifth is 3.4 files, and a value in 3 of them still says something.
   const dfMax = Math.ceil(CFG.valueDfMaxShare * files.length);
@@ -806,11 +860,16 @@ export async function learn({
   model.valueContainer = {};
   for (const c of Object.keys(model.valueSiblings)) model.valueContainer[c] = vNames.get(+c) ?? null; // container ids are hashStr numbers; Object.keys hands them back as strings
   // value co-travel norms (§J3.2): certify "this container's members appear together" as a repo fact — the same
-  // KT/BIC/idxCost cell shape as architectureNorms, against a FIXED 50/50 null rather than bridgeBits' fitted
-  // baseline, because there is no natural per-file base rate for "carries the whole set". The residual files that
+  // KT/BIC/idxCost cell shape as architectureNorms, contrasted with INDEPENDENCE of the members given their own
+  // marginals (issue 260). Among the files that declare the container, member j is carried by a share p_j; if the
+  // members were carried independently, a qualifying file (at least t members) would be a complete carrier with
+  // probability q = Π p_j / P(X ≥ t), X the Poisson-binomial count over those p_j. A set whose members are each
+  // near-ubiquitous (a schema's required keys) is complete by the marginals alone, q ≈ 1, and compresses nothing; a
+  // set whose members are individually optional but travel together beats q. The old flat 50/50 coin certified the
+  // first kind: every certified norm on Grain and Yggdrasil was a pair of YAML schema keys. The residual files that
   // qualify for the population but are not complete carriers are then what a change can be measured against.
   // One candidate per CONTAINER, never per (container, member) or (container, file): widening the universe would
-  // raise idxCost for nothing.
+  // raise idxCostV for nothing.
   const contIds = Object.keys(model.valueSiblings);
   const idxCostV = Math.ceil(Math.log2(Math.max(contIds.length, 2))); // ONCE, repo-wide, over every container before any minRaw/minEff/bits filtering — exactly as architectureNorms counts pairs.size
   const KV = 2;
@@ -838,15 +897,17 @@ export async function learn({
       else if (n === m - 1) near.push(f);
     }
     if (neff < CFG.minRaw || neff < CFG.minEff) continue;
+    const q = completeUnderIndependence(sibs, contFiles.get(+c), t);
     const counts = { present: full.length, missing: neff - full.length };
+    const nullP = { present: q, missing: 1 - q };
     let data = 0;
     for (const v of ['present', 'missing']) {
       const nv = counts[v];
-      if (nv) data += nv * Math.log2(kt(counts, KV, v, neff) * 2);
+      if (nv) data += nv * Math.log2(kt(counts, KV, v, neff) / Math.max(nullP[v], Number.MIN_VALUE));
     }
     const bits = data - 0.5 * (KV - 1) * Math.log2(Math.max(neff, 2)) - idxCostV;
     if (bits <= 0) continue; // evidence = codelength gain, nothing else
-    if (counts.present <= counts.missing) continue; // direction test: "this set does NOT travel together" is a true fact but not a norm anything can be a residual of
+    if (!(counts.present / neff > q)) continue; // direction test: a set carried together LESS often than independence predicts is a true fact but not a norm anything can be a residual of
     const ne = counts.present;
     if (!((ne + 0.5) / (neff + KV / 2) >= 1 - 1 / CFG.lambda)) continue; // the one loss constant, same posterior-predictive bound
     model.valueNorms[c] = {
@@ -854,6 +915,7 @@ export async function learn({
       ne,
       neff,
       bits,
+      q: +q.toFixed(3),
       full: full.sort().slice(0, VALUE_NORM_PLACES),
       near: near.sort().slice(0, VALUE_NORM_PLACES),
     };
@@ -861,4 +923,29 @@ export async function learn({
   model.historyStats = H ? { commits: H.stats.commits, events: H.stats.events, blobs: H.stats.blobs } : null; // parsed/cached/mb are run diagnostics, not repo facts — they would break byte-identity across cache states
   model.files = files.length;
   return { model, ms: Date.now() - t0, scopes: all.length, rawScopes, treeCacheOut };
+}
+// the independence null of a value container (issue 260): among the files that declare the container (`fm`, file →
+// the member keys it carries there), member j is carried by a share p_j; a qualifying file carries at least t of the
+// m members. Returns P(all m | at least t) had each member been carried independently at its own share — Π p_j over
+// the exact Poisson-binomial tail P(X ≥ t), O(m²).
+export function completeUnderIndependence(sibs, fm, t) {
+  const D = fm.size;
+  if (!D) return 1;
+  const p = sibs.map(k => {
+    let n = 0;
+    for (const memberSet of fm.values()) if (memberSet.has(k)) n++;
+    return n / D;
+  });
+  let dist = [1]; // dist[x] = P(X = x) over the members folded in so far
+  for (const pj of p) {
+    const next = new Array(dist.length + 1).fill(0);
+    for (let x = 0; x < dist.length; x++) {
+      next[x] += dist[x] * (1 - pj);
+      next[x + 1] += dist[x] * pj;
+    }
+    dist = next;
+  }
+  let tail = 0;
+  for (let x = t; x < dist.length; x++) tail += dist[x];
+  return tail > 0 ? Math.min(1, dist[dist.length - 1] / tail) : 1;
 }

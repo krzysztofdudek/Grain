@@ -1,5 +1,5 @@
-// Ticket 074 — `completeness` must label ambient co-change partners separately from specific ones. Follows
-// the max-directional-confidence ranking (unchanged here) and reuses the obligation miner's exact machinery: a
+// Ticket 074 — `completeness` must label ambient co-change partners separately from specific ones. A specific
+// partner passes the directional base-rate contrast (issue 259); the ambient test reuses the obligation miner's exact machinery: a
 // candidate's OWN global rate (commitsX / nonMegaCommits) is tested against the same λ=8 display bound
 // `certifyObligationRules`' ambient gate already applies (`clearsOwnRate`, core.mjs) — no new constant.
 //
@@ -61,7 +61,7 @@ test('`completeness <file>`: the ambient partner is listed under its own labelle
   assert.ok(!lines[ambientIdx + 1].includes('co-changed'), `ambient row must use its own wording, not the specific list's: ${lines[ambientIdx + 1]}`);
 });
 
-test('the max-directional-confidence ranking within the specific set is preserved unchanged by the ambient split', () => {
+test('the ranking within the specific set (the edited file’s own rate) is preserved by the ambient split', () => {
   const lines = completenessDirectional(model(), ['src/foo.ts']);
   const specificIdx = lines.findIndex(l => l === '[grain] Edits like this historically also touch:');
   const ambientIdx = lines.findIndex(l => /^ambient /.test(l));
@@ -80,17 +80,17 @@ test('a query with only an ambient partner still prints the named-threshold spec
     filesAll: ['src/foo.ts', 'CHANGES'],
   });
   const lines = completenessDirectional(onlyAmbient(), ['src/foo.ts']);
-  assert.match(lines[0], /^no partner above 33% co-change confidence$/, `expected the honest specific-side negative first: ${JSON.stringify(lines)}`);
+  assert.match(lines[0], /^no file changes with these more often than it changes anyway$/, `expected the honest specific-side negative first: ${JSON.stringify(lines)}`);
   assert.match(lines[1], /^ambient \(this repo touches these with almost everything\):$/, JSON.stringify(lines));
   assert.match(lines[2], /^\s+CHANGES\s+53 of 53 commits$/, JSON.stringify(lines));
 });
 
-test('with no nonMegaCommits on the model (degraded/no-history population), nothing is ever classified ambient', () => {
+test('with no nonMegaCommits on the model (degraded/no-history population), no partner is named at all — there is no base rate to contrast with', () => {
   const noHistoryPop = () => ({
     cochange: [{ a: 'src/foo.ts', b: 'CHANGES', sup: 13, commitsA: 13, commitsB: 53, conf: 1 }],
     pathsAll: ['src/foo.ts', 'CHANGES'],
     filesAll: ['src/foo.ts', 'CHANGES'],
   });
   const hits = cochangeData(noHistoryPop(), ['src/foo.ts']);
-  assert.equal(hits[0].ambient, false, 'no population to test the own-rate against — must default to specific, never ambient');
+  assert.deepEqual(hits, [], 'no population to contrast the partner with — silence, never a guess');
 });

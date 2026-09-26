@@ -230,7 +230,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
                 (exs.length
                   ? `\n  See: ${exs.map(e => `${ptr(e.rel, e.line, e.endLine)} ${scopeBacktick({ kind: f.kind, name: e.name })}${skipLineNote(part, f, e)}`).join(' · ')}`
                   : '') +
-                // any note the fact carries, not only `held` — the cost of deviating is the one a reader most needs here,
+                // any note the fact carries, not only `held` — how often edits to deviants were fixes is the one a reader most needs here,
                 // and it can be present on a fact whose `held.since` is not
                 (() => {
                   const n = factNotes(f);

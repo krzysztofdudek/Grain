@@ -1,6 +1,6 @@
 // PreToolUse hook on Edit|MultiEdit (§J6.4): before an agent edits a file, grain names co-change partners from this
 // repo's own history — the SAME threshold `check-hook`'s own PostToolUse co-change line and `completeness` use
-// (`cochangeData`, CFG.cochangeMinConf). Kin is deliberately never wired in here: see the ticket's own structural
+// (`cochangeData`, the co-change cell). Kin is deliberately never wired in here: see the ticket's own structural
 // proof — a file under `Edit` is by definition already known/committed, so `missingLines`'s name-stem half (which
 // iterates `newFileScopes[rel]`, populated only for files NOT already known) is provably always empty for this
 // hook's use case; the value half would need to parse the file on the hot path of every single Edit for

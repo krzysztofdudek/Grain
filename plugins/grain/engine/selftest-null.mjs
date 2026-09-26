@@ -13,11 +13,15 @@
 //   co-change,    commit keeps its size and every file its number of commits; a file's birth flag and its touched
 //   archetypes    scopes travel with the file
 //   bridge        the message tokens are dealt out again among the commits
+//   value norms   in each value container, each member is given to as many declaring files as carried it, at random
+//   deviation     the fix flags are dealt out again among every modification event of the history, so each scope
+//   fix rate      keeps its edit count and the repository its fix count
 //
 // The history families are counted twice over the SAME footprints — once as recorded, once randomised — and both
 // aggregates are rebuilt from those footprints, so a real count and a null count always come from one population
 // (the shipped bridge reads aggregates over every commit, the footprints keep the newest `fpsCap`).
-// Nothing here is used by a query: it costs one learn pass per run for the role and directory null, and is meant for the corpus.
+// Nothing here is used by a query: it costs two learn passes per run (the role and directory null, then the value and
+// fix-label null), and is meant for the corpus.
 import { CFG } from './config.mjs';
 import { architectureNorms } from './arch.mjs';
 import { applyChangeArchetypes, applyMsgAffinity } from './commit-log.mjs';
@@ -140,6 +144,7 @@ const archCounts = norms => ({
   arch: norms.length,
   archAbsence: norms.filter(n => n.exp === 'false').length,
 });
+const costFacts = model => model.partitions.reduce((a, p) => a + p.facts.filter(f => f.cost).length, 0);
 const cellFacts = (model, re) => model.partitions.reduce((a, p) => a + p.facts.filter(f => re.test(f.cid)).length, 0);
 const ROLE = /^r\d/,
   DIR = /^d\[/;
@@ -151,8 +156,14 @@ export function permuteEdgeSources(edges, rnd) {
   return edges.map(e => ({ ...e, from: to.get(e.from) })).filter(e => e.from !== e.to);
 }
 export async function nullTest({ model, H, learnArgs, runs = 3, seed = 1, log = () => {} }) {
-  const families = ['conventions', 'directories', 'arch', 'archAbsence', 'obligations', 'cochange', 'archetypes', 'bridge'];
-  const real = { conventions: cellFacts(model, ROLE), directories: cellFacts(model, DIR), ...archCounts(model.archNorms || []) };
+  const families = ['conventions', 'directories', 'arch', 'archAbsence', 'obligations', 'cochange', 'archetypes', 'bridge', 'valueNorms', 'deviationFix'];
+  const real = {
+    conventions: cellFacts(model, ROLE),
+    directories: cellFacts(model, DIR),
+    ...archCounts(model.archNorms || []),
+    valueNorms: Object.keys(model.valueNorms || {}).length,
+    deviationFix: costFacts(model),
+  };
   const fps = H && H.fps ? H.fps : [];
   if (fps.length) Object.assign(real, historyCounts(model, aggregatesOf(fps)));
   const nulls = Object.fromEntries(families.map(f => [f, []]));
@@ -162,6 +173,10 @@ export async function nullTest({ model, H, learnArgs, runs = 3, seed = 1, log = 
     const { model: mr } = await learn({ ...learnArgs, H, nullLabels: rnd });
     nulls.conventions.push(cellFacts(mr, ROLE));
     nulls.directories.push(cellFacts(mr, DIR));
+    log(`[null] run ${r + 1}/${runs}: value and fix-label null (one learn pass)`);
+    const { model: mo } = await learn({ ...learnArgs, H, nullOutcomes: rnd });
+    nulls.valueNorms.push(Object.keys(mo.valueNorms || {}).length);
+    nulls.deviationFix.push(H ? costFacts(mo) : 0);
     const an = archCounts(architectureNorms({ ...model, edges: permuteEdgeSources(model.edges || [], rnd) }));
     nulls.arch.push(an.arch);
     nulls.archAbsence.push(an.archAbsence);

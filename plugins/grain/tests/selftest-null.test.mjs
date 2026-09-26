@@ -12,6 +12,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { aggregatesOf, curveball, permuteEdgeSources, rng } from '../engine/selftest-null.mjs';
 import { architectureNorms } from '../engine/core.mjs';
+import { shuffleFixes, shuffleMembers } from '../engine/learn.mjs';
 
 const fps = [];
 {
@@ -102,7 +103,7 @@ test('`grain selftest --null --json` reports, per family, the real count and one
   assert.equal(r.status, 0, r.stderr);
   const j = JSON.parse(r.stdout.slice(r.stdout.indexOf('{')));
   assert.equal(j.runs, 2);
-  for (const f of ['conventions', 'directories', 'arch', 'archAbsence', 'obligations', 'cochange', 'archetypes', 'bridge']) {
+  for (const f of ['conventions', 'directories', 'arch', 'archAbsence', 'obligations', 'cochange', 'archetypes', 'bridge', 'valueNorms', 'deviationFix']) {
     assert.ok(j.families[f], `family ${f} is reported`);
     assert.equal(typeof j.families[f].real, 'number');
     assert.equal(j.families[f].null.length, 2, `${f}: one null count per run`);
@@ -110,10 +111,27 @@ test('`grain selftest --null --json` reports, per family, the real count and one
   assert.equal(typeof j.nullTotalMean, 'number');
 });
 
+test('the value null keeps every member\'s share of the declaring files and breaks the files\' joint sets', () => {
+  const fm = new Map([['f1', new Set(['a', 'b'])], ['f2', new Set(['a', 'b'])], ['f3', new Set(['a'])], ['f4', new Set(['b'])]]);
+  const share = (m, k) => [...m.values()].filter(x => x.has(k)).length;
+  const counts = { a: share(fm, 'a'), b: share(fm, 'b') };
+  const conts = new Map([[1, fm]]);
+  shuffleMembers(conts, rng(7));
+  assert.deepEqual({ a: share(conts.get(1), 'a'), b: share(conts.get(1), 'b') }, counts);
+});
+
+test('the fix-label null keeps each scope\'s edit count and the total fix count', () => {
+  const lc = new Map([['x', { mods: 5, fix: 5 }], ['y', { mods: 3, fix: 0 }], ['z', { mods: 0, fix: 0 }], ['w', { mods: 4, fix: 1 }]]);
+  const out = shuffleFixes(lc, rng(3));
+  assert.equal([...out.values()].reduce((a, b) => a + b, 0), 6);
+  for (const [k, L] of lc) assert.ok(out.get(k) <= L.mods, `${k}: no more fixes than edits`);
+  assert.equal(out.get('z'), 0);
+});
+
 test('`grain selftest --null` text names every family and the total', () => {
   const r = spawnSync('node', [BIN, 'selftest', '--null', '--runs', '1'], { cwd: repo, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /selftest --null \(1 run, \d+ commits\)/);
-  for (const f of ['conventions', 'directories', 'arch', 'obligations', 'cochange', 'archetypes', 'bridge']) assert.match(r.stdout, new RegExp(`^  ${f}: `, 'm'));
+  for (const f of ['conventions', 'directories', 'arch', 'obligations', 'cochange', 'archetypes', 'bridge', 'valueNorms', 'deviationFix']) assert.match(r.stdout, new RegExp(`^  ${f}: `, 'm'));
   assert.match(r.stdout, /total false certifications, mean per run: /);
 });
