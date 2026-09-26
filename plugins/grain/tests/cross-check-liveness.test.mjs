@@ -31,6 +31,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CFG } from '../engine/config.mjs';
+import { cochangeIdxCost, partnerBits } from '../engine/facts.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -116,7 +117,7 @@ before(() => {
   // C2..C10: 9 commits editing zqalpha.js and zqdeadrouter.js TOGETHER, every one carrying HOW_QUERY's own words —
   // pairSup(zqalpha,zqdeadrouter) reaches 1(C1)+9=10, comfortably above CFG.cochangeMinSup(8); fileCommits for
   // BOTH sides stays at exactly 10 at this point, so every directional confidence ratio computed off either side
-  // is 10/10 = 1.0 — clears CFG.cochangeMinConf(0.75) AND the looser 1/3 single-file threshold with room to spare.
+  // is 10/10 = 1.0, against the dead file's own 11 of the 15 commits the history counts — the contrast passes.
   for (let i = 1; i <= 9; i++) {
     wIn(repo, 'lib/zqalpha.js', zqAlpha(i));
     wIn(repo, 'lib/zqdeadrouter.js', zqDead(i));
@@ -165,10 +166,9 @@ test('PRECONDITION: model.cochange certifies the (zqalpha,zqdeadrouter) pair abo
   const pair = model.cochange.find(p => (p.a === LIVE_PATH && p.b === DEAD_PATH) || (p.a === DEAD_PATH && p.b === LIVE_PATH));
   assert.ok(pair, `expected a cochange pair between ${LIVE_PATH} and ${DEAD_PATH} in model.cochange: ${JSON.stringify(model.cochange)}`);
   assert.ok(pair.sup >= CFG.cochangeMinSup, `sup ${pair.sup} must clear CFG.cochangeMinSup ${CFG.cochangeMinSup}: ${JSON.stringify(pair)}`);
-  const commitsAlpha = pair.a === LIVE_PATH ? pair.commitsA : pair.commitsB;
-  const confFromAlpha = pair.sup / commitsAlpha;
-  assert.ok(confFromAlpha >= CFG.cochangeMinConf, `direction-from-${LIVE_PATH} confidence ${confFromAlpha} must clear CFG.cochangeMinConf ${CFG.cochangeMinConf} — this is what gates check/completeness's cochange line: ${JSON.stringify(pair)}`);
-  assert.ok(confFromAlpha >= 1 / 3, `must also clear the looser 1/3 threshold whereCmd's single-file cochangePartners uses: ${JSON.stringify(pair)}`);
+  const [commitsAlpha, commitsDead] = pair.a === LIVE_PATH ? [pair.commitsA, pair.commitsB] : [pair.commitsB, pair.commitsA];
+  const bits = partnerBits(pair.sup, commitsAlpha, commitsDead, model.nonMegaCommits, cochangeIdxCost(model.cochange.length));
+  assert.ok(bits != null, `direction-from-${LIVE_PATH} must pass the co-change contrast — this is what gates check/completeness/where's cochange line: ${JSON.stringify(pair)} of ${model.nonMegaCommits}`);
 });
 
 test('PRECONDITION: model.moves carries an entry for the lib/ -> lib/moved/ rename (data-shape check — see final report for why its one consumer is not exercised live)', () => {

@@ -25,8 +25,9 @@
 //      - ONE-WAY CONFIDENCE IS A HUB TEST (§3). `sup/commitsA` alone says "A's commits usually touch B", which
 //        every file in a repository can say about its hub. The mutual form — min of both directions — is the
 //        natural anti-hub test, and it took the file-level lever to zero fires on two of three repositories.
-//        It is the gate here, at the 1/3 floor `cochangePartners`/`completenessDirectional` already apply to a
-//        single subject's own sparse history. No constant is introduced by this file and none is changed.
+//        It is the gate here, at a 1/3 floor. The single-file consumers (`cochangePartners`, `completenessDirectional`)
+//        dropped that floor for the base-rate contrast (issue 259); a node pair has no base rate to contrast with,
+//        because nothing in the model counts the commits that touched a whole node (see below), so the floor stays.
 //
 // WHAT THE EVIDENCE IS AND IS NOT. `model.scopeCochange` pairs SCOPES (a declaration, keyed `<path>#<kind>#
 // <name>` at its current path), not files and not directories, so the pair that reaches a node here is a pair
@@ -50,9 +51,9 @@ import { typeEvidence, purityOf } from './propose-levels.mjs';
 import { expandMapping, readGraph } from './yggdrasil-graph.mjs';
 
 export const ADVICE_SCHEMA = 'grain-advice/1';
-// The single-subject co-change floor already in force in `cochangePartners` (cards.mjs) and
-// `completenessDirectional` (completeness.mjs): one subject's history is sparse, and a third of its commits is
-// a real signal. Applied here to BOTH directions at once, which is strictly the stronger test.
+// The node-level co-change floor: a third of a witness pair's commits, applied to BOTH directions at once. The file-level
+// consumers used the same third until issue 259 replaced it with the base-rate contrast, which needs a node's own
+// commit count — a number the model does not hold.
 const MUTUAL_CONF_FLOOR = 1 / 3;
 
 // ==================================================================================================

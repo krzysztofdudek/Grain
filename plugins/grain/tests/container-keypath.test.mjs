@@ -91,18 +91,17 @@ before(() => {
 });
 after(() => { if (tmp1) rmSync(tmp1, { recursive: true, force: true }); });
 
-test('(1) heterogeneous `scripts` containers across 5 files certify the CORE members, never the minority one', () => {
+test('(1) heterogeneous `scripts` containers across 5 files keep the CORE members as siblings, never the minority one', () => {
   const m = modelIn(repo1);
   assert.equal(m.files, 21, 'fixture must have exactly 21 code files for the density-gate arithmetic above');
   assert.ok(m.valueIndex['key:lint'], '`lint` must survive the df population gate (df=2, well inside [2,5]) — its exclusion below is the CORE-not-UNION fix at work, not the population gate');
   const [c, sibs] = Object.entries(m.valueSiblings).find(([, ms]) => ms.includes('key:build'));
   assert.ok(sibs.includes('key:test'), `'test' (present in all 5 files) must be a certified sibling: ${sibs}`);
   assert.ok(!sibs.includes('key:lint'), `'lint' (present in only 2 of 5 declaring files, below the 2/3 supermajority) must NOT be a sibling: ${sibs}`);
-  const N = m.valueNorms[c];
-  assert.ok(N, `the scripts container must certify a co-travel norm: ${JSON.stringify(m.valueNorms)}`);
-  assert.equal(N.ne, 5); assert.equal(N.neff, 5);
-  assert.ok(N.bits > 0, `bits must be a positive codelength gain: ${N.bits}`);
-  assert.deepEqual(N.full, ['pkgs/p1/package.json', 'pkgs/p2/package.json', 'pkgs/p3/package.json', 'pkgs/p4/package.json', 'pkgs/p5/package.json']);
+  // `build` and `test` sit in every declaring `scripts` object, so independence of the members already predicts every
+  // qualifying file complete, and the co-travel cell has nothing to add (issue 260): no norm, where the old 50/50
+  // coin certified one at 5 of 5. The sibling set above is what this test is about.
+  assert.equal(m.valueNorms[c], undefined, `members every declaring file carries are furniture, not a concordance: ${JSON.stringify(m.valueNorms)}`);
   assert.equal(m.valueContainer[c], '$.scripts', "a data container's label is its key-path, not null");
 });
 

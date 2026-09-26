@@ -208,14 +208,14 @@ export function healthRows(model, outcomes) {
   const rows = [];
   for (const p of model.partitions || [])
     for (const f of p.facts) {
-      // 1: costly to deviate from (J5.1)
+      // 1: edits to its deviants were fixes more often than edits elsewhere (J5.1, issue 258) — an association
       if (!f.cost || !f.cost.baseK) continue;
       const ex = f.exemplars[0];
       if (!ex) continue;
       const mult = (f.cost.k / f.cost.n / (f.cost.baseK / f.cost.baseN)).toFixed(1);
       rows.push(
-        `${factLabel(p, f)} costs ${mult}× more fixes when deviated from (${f.cost.k} of ${f.cost.n} vs ${f.cost.baseK} of ${f.cost.baseN})` +
-          ` → grain decide steer ${ex.rel}#${ex.name} --surfaces ${f.pid} --note "codify — deviating costs ${mult}× more fixes"`
+        `${factLabel(p, f)} — edits to its deviants were fixes ${mult}× as often (${f.cost.k} of ${f.cost.n} edits vs ${f.cost.baseK} of ${f.cost.baseN})` +
+          ` → grain decide steer ${ex.rel}#${ex.name} --surfaces ${f.pid} --note "codify — edits to deviants were fixes ${mult}× as often"`
       );
     }
   for (const p of model.partitions || [])

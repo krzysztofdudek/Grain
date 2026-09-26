@@ -4,7 +4,7 @@
 // over data already extracted — no new extraction:
 //   (1) same-stem naming: a file-stem convention (`UpdateTodoList.cs` -> `UpdateTodoListTests.cs`) or the
 //       symbol's own name as a segment of an already test-like path (`res.sendStatus` -> `test/res.sendStatus.js`).
-//   (2) model.cochange, at the single-file 1/3 floor the directional ranking's cochangeData already established for a single changed
+//   (2) model.cochange, through the same co-change contrast the directional ranking's cochangeData applies for a single changed
 //       file — restricted to partners whose own path reads as a test (`lib/express/collection.js` <->
 //       `spec/spec.collection.js`, the ticket's own motivating example).
 //   (3) model.edges: a test-like file importing the defining file.
@@ -80,6 +80,9 @@ before(() => {
     w(repoB, 'spec/spec.collection.js', `export function helper() { return ${i}; }\n`);
     gitIn(repoB, 'add', '-A'); gitIn(repoB, 'commit', '-qm', `collection change ${i}`);
   }
+  // commits that touch neither file, so the spec's own base rate is below its rate beside collection.js (the
+  // co-change contrast cannot tell a partner from background in a history made only of pair commits)
+  for (let i = 1; i <= 10; i++) { w(repoB, 'CHANGES.md', `entry ${i}\n`); gitIn(repoB, 'add', '-A'); gitIn(repoB, 'commit', '-qm', `changes ${i}`); }
   const st = grainIn(repoB, ['status']); assert.equal(st.code, 0, st.err);
 });
 after(() => { if (tmpB) rmSync(tmpB, { recursive: true, force: true }); });

@@ -25,7 +25,7 @@ function baseModel() {
   const costFact = { cid: '_all', kind: 'method', pid: 'auto.call:validate', exp: 'true', share: 0.9, sraw: 120, deviantsN: 12,
     exemplars: [{ rel: 'alpha/T0.ts', name: 'run', line: 2, endLine: 4 }],
     deviants: [{ rel: 'alpha/T1.ts', name: 'run', line: 2, obs: 'false' }],
-    cost: { k: 11, n: 12, baseK: 13, baseN: 120, bits: 27.12 } };
+    cost: { k: 11, n: 12, baseK: 13, baseN: 120, scopes: 12, bits: 27.12 } };
   const rejectedFact = { cid: '_all', kind: 'type', pid: 'auto.deco:@Handler', exp: 'true', share: 0.95, sraw: 20, deviantsN: 0,
     exemplars: [{ rel: 'src/handlers/H0.ts', name: 'H0', line: 1, endLine: 3 }],
     rejected: [{ v: 'false', tried: 5, reverted: 5 }] };
@@ -75,7 +75,7 @@ test('(a) red -> green: a fixture with cost + rejected + agentShare + outcomes s
   const headingIdx = lines.findIndex(l => /^== health — \d+ signal/.test(l));
   assert.notEqual(headingIdx, -1, `expected a health heading: ${text}`);
 
-  assert.match(text, /costs 8\.5× more fixes when deviated from \(11 of 12 vs 13 of 120\)/, text);
+  assert.match(text, /edits to its deviants were fixes 8\.5× as often \(11 of 12 edits vs 13 of 120\)/, text);
   assert.match(text, /→ grain decide steer alpha\/T0\.ts#run --surfaces auto\.call:validate --note "codify/, text);
 
   assert.match(text, /is not annotated with `@Handler` tried 5×, reverted 5× — a rejection, not an alternative/, text);
@@ -119,8 +119,8 @@ test('(e) rulesMarkdown renders the same health section as Markdown', () => {
   const outcomes = { acted: 1, ignored: 3, byFact: { 'pkgA::auto.call:validate': 3 } };
   const md = rulesMarkdown(model, { outcomes }).join('\n');
   assert.match(md, /## Health/, md);
-  assert.match(md, /costs 8\.5× more fixes when deviated from/, md);
-  assert.match(md, /^- .*costs 8\.5× more fixes when deviated from/m, md);
+  assert.match(md, /edits to its deviants were fixes 8\.5× as often/, md);
+  assert.match(md, /^- .*edits to its deviants were fixes 8\.5× as often/m, md);
 });
 
 test('(f) check-outcomes.json wiring: present -> ignored row shows; absent -> silently absent, never a crash', () => {

@@ -33,8 +33,11 @@ before(() => {
   // touching MORE than 30 files from co-change pairing — kept separate so it never dilutes the pair below)
   for (let i = 0; i < 30; i++) w(`src/handlers/Handler${i}.ts`, handler(i, i));
   git(d1, 'add', 'src/handlers'); git(d1, 'commit', '-qm', 'add handlers');
+  // ten commits that touch neither file: the pair's partner must be touched beside pair-a more often than it is
+  // touched anyway (the co-change base-rate contrast), which a history made only of pair commits cannot show
+  for (let i = 1; i <= 10; i++) { w('CHANGES.md', `entry ${i}\n`); git(d1, 'add', '-A'); git(d1, 'commit', '-qm', `changes ${i}`); }
   // a real, directional co-change pair: 9 commits (this base + 8 more) always touching both together — 9/9 clears
-  // both cochangeMinSup (8) and cochangeMinConf (0.75), the same fixture shape as completeness-hook.test.mjs
+  // cochangeMinSup (8) and the base-rate contrast, the same fixture shape as completeness-hook.test.mjs
   w('src/pair-a.ts', 'export const a = () => 0;\n');
   w('src/pair-b.ts', 'export const b = () => 0;\n');
   git(d1, 'add', '-A'); git(d1, 'commit', '-qm', 'base'); pairStartSha = git({}, 'rev-parse', 'HEAD');

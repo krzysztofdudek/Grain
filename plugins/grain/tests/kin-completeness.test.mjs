@@ -4,7 +4,8 @@
 //
 //   (A) VALUES. `learn()` certifies, per value container (one `model.valueSiblings` entry), the repo fact "the
 //       members of this container travel together" — the same KT/BIC/idxCost cell shape as `architectureNorms`,
-//       against a fixed 50/50 null, plus the one posterior-predictive λ bound. Files that qualify for the
+//       against independence of the members given their own shares (issue 260), plus the one posterior-predictive
+//       λ bound. Files that qualify for the
 //       population (they carry ≥ ⌈m·2/3⌉ of the container's members) but are NOT complete carriers are the
 //       residual the norm reports against. A change that adds a NEW member to such a container is asked about
 //       every complete carrier that did not get it.
@@ -34,10 +35,14 @@ const resetIn = repo => { gitIn(repo, {}, 'checkout', '-q', 'HEAD', '--', '.'); 
 const initRepo = name => { const tmp = mkdtempSync(join(tmpdir(), name)); const repo = join(tmp, 'r'); mkdirSync(repo);
   gitIn(repo, {}, 'init', '-q', '-b', 'main'); gitIn(repo, {}, 'config', 'commit.gpgsign', 'false'); return { tmp, repo }; };
 
-// ===== fixture A ("values"): 21 code files, exactly ONE candidate container =====
-// One enum `UserStatus { ACTIVE, SUSPENDED, PENDING }` declared identically in 5 files. Each member therefore has
-// df 5, and ceil(CFG.valueDfMaxShare × 21) = 5, so all three clear J3.1's density gate — the cell needs the whole
-// set indexed. Nothing else in the tree names a value twice, so there is exactly ONE container: `idxCost` scales
+// ===== fixture A ("values"): 26 code files, exactly ONE candidate container =====
+// One enum `UserStatus { ACTIVE, SUSPENDED, PENDING }` declared in full in 5 files, and with a single member in 3
+// more (one each). Each member therefore has df 6, and ceil(CFG.valueDfMaxShare × 26) = 6, so all three clear J3.1's
+// density gate — the cell needs the whole set indexed. The single-member declarations are what make the set a
+// concordance: each member is carried by 6 of the 8 declaring files (p = 0.75), so independence predicts a
+// qualifying file (two or more members) to be complete half the time (0.75³ / (0.75³ + 3·0.75²·0.25) = 0.5), and all
+// five are. Five full declarations and nothing else would be schema furniture: every member in every declaring file,
+// independence predicts completeness, and nothing is certified. Nothing else in the tree names a value twice, so there is exactly ONE container: `idxCost` scales
 // with the number of CONTAINERS in the data, not the file count, and keeping it at ⌈log2 2⌉ = 1 bit is what lets
 // the cell fire at neff = 5 = CFG.minRaw on a fixture this small.
 // Every file carries a real class ON PURPOSE. `cmdReview` sources the changed file's current values from
@@ -48,17 +53,19 @@ const readerSrc = i => `export class Status${i}Reader {\n  readStatus(id: number
 const MEMBERS3 = ['ACTIVE', 'SUSPENDED', 'PENDING'];
 const statusFile = (i, members) => enumSrc(members) + readerSrc(i);
 const STATUS_FILES = [1, 2, 3, 4, 5].map(i => `src/status/s${i}.ts`);
+const PARTIAL = MEMBERS3.map((mbr, i) => [`src/partial/p${i + 1}.ts`, statusFile(6 + i, [mbr])]);
 let tmpA, repoA;
 before(() => {
   ({ tmp: tmpA, repo: repoA } = initRepo('grain-kin-values-'));
   STATUS_FILES.forEach((rel, i) => wIn(repoA, rel, statusFile(i + 1, MEMBERS3)));
-  for (let i = 1; i <= 16; i++) wIn(repoA, `src/fillers/filler${i}.ts`, `export class Filler${i}Service {\n  loadRecord(id: number): Record {\n    return this.store.fetch(id);\n  }\n}\n`);
+  for (const [rel, src] of PARTIAL) wIn(repoA, rel, src);
+  for (let i = 1; i <= 18; i++) wIn(repoA, `src/fillers/filler${i}.ts`, `export class Filler${i}Service {\n  loadRecord(id: number): Record {\n    return this.store.fetch(id);\n  }\n}\n`);
   const d1 = dateEnv('2026-01-10T12:00:00Z');
   gitIn(repoA, d1, 'add', '-A'); gitIn(repoA, d1, 'commit', '-qm', 'the value fixture');
   const st = grainIn(repoA, ['status']);
   assert.equal(st.code, 0, st.out + st.err);
   const m = modelIn(repoA);
-  assert.equal(m.files, 21, 'the density bounds above depend on exactly 21 code files');
+  assert.equal(m.files, 26, 'the density bounds above depend on exactly 26 code files');
   assert.equal(m.partitions.length, 1, 'checkFile hands back no scopes at all for a file no partition covers');
   assert.equal(Object.keys(m.valueSiblings).length, 1, `exactly one candidate container keeps idxCost at 1 bit: ${JSON.stringify(m.valueSiblings)}`);
   assert.deepEqual(Object.values(m.valueSiblings)[0], ['enum:ACTIVE', 'enum:PENDING', 'enum:SUSPENDED']);
@@ -114,6 +121,7 @@ test('(a) the certified co-travel norm is a model fact with the shape J3.2 speci
   assert.equal(N.neff, 5, 'population = files carrying >= ceil(3*2/3) = 2 members');
   assert.equal(N.ne, 5, 'all five are complete carriers');
   assert.ok(N.bits > 0, `bits must be a positive codelength gain: ${N.bits}`);
+  assert.equal(N.q, 0.5, 'independence of the members, each carried by 6 of 8 declaring files, predicts half the qualifiers complete');
   assert.deepEqual(N.full, STATUS_FILES);
   assert.deepEqual(N.near, []);
   assert.ok(N.neff >= CFG.minRaw && N.neff >= CFG.minEff);

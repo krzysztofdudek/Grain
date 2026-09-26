@@ -25,6 +25,8 @@ Everything the tool prints is a special case:
 | an architecture norm | a (source, target module) cell whose reach rate, contrasted with the reach rate outside both, has a positive codelength gain |
 | a commit archetype | a sub-population of past commit footprints whose codelength gain, against the whole history's own base rate, is positive |
 | a value concordance | a set of values whose joint presence across files compresses better than treating them independently |
+| a co-change partner | a file whose touched rate over the edited file's commits, contrasted with its own rate over all commits, has a positive codelength gain |
+| a deviation's fix rate | the share of edits to a convention's deviants made by fix commits, contrasted with the share over edits to its whole population |
 | a structural twin | two role groups whose anti-unified templates share a core exceeding both sides combined |
 
 ## The one loss constant
@@ -44,7 +46,7 @@ statement shapes, first statement, return shape, arity, variable shape) speak on
 directory whose default differs from the partition's. "Methods here always contain a member_expression" describes the
 language, not a choice anyone made, and no bar on bits can know that; the reference distribution can.
 
-λ is not the only number the engine compares against. Power floors, compute guards, display and ranking weights remain, and so do evidence gates that λ does not derive: the absence floors, the trend detector, the co-change single-file floor, the calibration margins. One of them is a bits margin again: where history calibrates a convention and its repair precision is below 0.8, an accusation needs log₂ λ + 1.5 bits instead of log₂ λ. Every such number is listed with its file and role in *The numeric register* at the end of this page, and a test keeps that list and the code in step.
+λ is not the only number the engine compares against. Power floors, compute guards, display and ranking weights remain, and so do evidence gates that λ does not derive: the absence floors, the trend detector, the node-level co-change floor in `advise`, the calibration margins. One of them is a bits margin again: where history calibrates a convention and its repair precision is below 0.8, an accusation needs log₂ λ + 1.5 bits instead of log₂ λ. Every such number is listed with its file and role in *The numeric register* at the end of this page, and a test keeps that list and the code in step.
 
 ## What counts as the repository
 
@@ -159,13 +161,28 @@ explain it — it is reported separately, as ambient, so a genuinely class-speci
 by one every commit happens to touch anyway. A rename is never mined as a birth: git already reports it as a
 distinct status, and only a genuine add counts.
 
+## Co-change partners
+
+A partner is named for one direction at a time, the edited file's own, by the obligation cell. Of the n commits that touched the edited file, k also touched the partner, whose own commits are g of the N commits the counts were drawn from. Coding the partner's touched/untouched outcome at the edited file's KT rate instead of at g/N must pay the BIC half log and one index cost over every directed pair the model holds, and the rate must be the higher one. A partner that changes with a third of every commit is not named for changing with a third of this file's; a hub names a test file only when the hub's own commits raise that file's rate, and it prints the hub's count ("8 of 392"), not the test's. Nothing else gates the answer: the old 75% floor for a multi-file change and the one-third floor for a single file are gone, and `cochangeMinSup` only decides which pairs are stored. A partner that fails the contrast but whose own rate clears the λ display bound is reported apart, as ambient. Scope-level co-change uses the same cell over the commits that touched any scope.
+
+The λ bound itself was measured as the display gate and rejected. Over 14 repositories (validation.md, *Co-change partners, prospective*), a partner whose rate over the edited file's commits must reach 7 of 8 is named in 2.6% of cases, and recovers a companion in 2.5% of them against 21.5% for the old gate. The contrast alone recovers 22.8%, names a true companion first more often (0.50 against 0.44 of fired cases), and certifies far fewer partners on a swap-randomised history: 175 against 454 per run summed over the 14. It is not uniformly better on that null: on typeorm, Slim and flask, which commit many files at once, it certifies more than the old gate (94 against 23 on typeorm), because a base rate over all commits ignores commit size. That is the limit of the cell.
+
+## Deviation fix rate
+
+Is an edit to a scope that departs from an accepted convention more often a fix commit than an edit to the convention's whole population? One cell per accepted fact, over modification events, not scopes: the deviants' fix edits and plain edits coded at their own KT rate instead of at the population's (conformers and deviants, the parent tally that contains them), with the BIC half log and one index cost over every fact with enough observable deviants. The claim needs the excess direction and the λ bound on it: the KT posterior Beta(fix + ½, plain + ½) of the deviants' per-edit rate may put at most 1/λ of its mass at or below the population's rate. The unit used to be the scope ("did it ever get a fix"), and that measured exposure: on Grain's own history P(fix > 0) climbs from 0.13 at one or two edits to 0.53 at six or more, so deviants that were simply edited more read as costly. The output says what was counted, as an association: "edits to deviants were fixes N× as often (k of m edits vs K of M)". It never says a deviation costs anything.
+
 ## Value concordance
 
 An enum's members, and the string literals that appear inside one syntactic container (a switch, an object literal,
 another enum), are values; a shared container identity groups them into siblings. Whether a set of siblings
 travels together — every file carrying most of them carries all of them — is a codelength question over a
-two-outcome cell (complete carrier vs. not) coded against a flat 50/50 null, not a fitted base rate: unlike the
-language bridge below, there is no natural per-file prior for "carries the whole set". A candidate is one whole
+two-outcome cell (complete carrier vs. not) coded against independence of the members given their own shares. Among
+the files that declare the container, member j is carried by a share p_j; had the members been carried
+independently, a qualifying file (at least t of the m members) would be complete with probability Π p_j / P(X ≥ t),
+X the Poisson-binomial count over the p_j, computed exactly. A set whose members are each near-ubiquitous, a schema's
+required keys, is complete by the marginals alone and compresses nothing; a set whose members are each optional but
+travel together does. The old null was a flat 50/50 coin, and every norm it certified on Grain and Yggdrasil was a
+pair of YAML schema keys. A candidate is one whole
 container, never one (container, file) or (container, value) pair, so the index cost does not grow with how many
 files a set could appear in. A file counts as carrying a member only when that member sits inside THAT container
 in THAT file, never merely somewhere in the file — reading membership globally would silently inflate both the
@@ -221,9 +238,9 @@ What remains that mathematics does not decide, on the record:
 - statistical power floors kept as compute short circuits (a partition below 30 scopes says nothing; below the raw
   minimum, positive bits are unreachable anyway) and the clustering ambiguity constants `ambGap`/`minMemb` (the
   half vote those two gate is derived, not tuned — see *Groups, and the ambiguous member's half vote*);
-- the co-change thresholds `cochangeMinSup` (a pair must co-occur in at least 8 commits before it is named at all)
-  and `cochangeMinConf` (a partner is spoken only once it covers 75% of the edited file's own commits) — configured
-  floors in the same family as the statistical power floors above, not a conclusion the KT/λ test derives;
+- the co-change support floor `cochangeMinSup` (a pair must co-occur in at least 8 commits before it is stored at
+  all) — a compute guard in the same family as the statistical power floors above; whether a stored pair is named is
+  decided by the co-change cell;
 - `fpsCap` (20 000 per-commit footprints retained, newest kept) and `scopePairCap` (200 scope-pairs per commit) —
   compute/memory guards on how much of history a match-by-example query or a scope-level co-change count walks,
   the same role `megaCap` already plays for files per commit; no MDL role, and no claim rests on where they sit;
@@ -283,8 +300,7 @@ The named constants in `config.mjs` come first. The test compares every value he
 | `calibMinEv` | 12 | departures needed before calibration speaks |
 | `denyMinEv` | 35 | departures needed before `denyEligible` |
 | `targetPrec` | 0.8 | repair precision under which the accusation margin applies |
-| `cochangeMinSup` | 8 | commits a pair must share before it is named |
-| `cochangeMinConf` | 0.75 | share of the edited file's commits a partner must cover |
+| `cochangeMinSup` | 8 | commits a pair must share before it is stored |
 | `megaCap` | 30 | commits touching more files than this are left out of pairing |
 | `fpsCap` | 20000 | per-commit footprints retained |
 | `scopePairCap` | 200 | scope pairs counted per commit |
@@ -298,9 +314,9 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 
 | value | file | code | role | cited |
 |---|---|---|---|---|
-| ½ | arch.mjs, commit-log.mjs, mine.mjs, obligations.mjs, propose-lattice.mjs, spectrum.mjs | `data - 0.5 * (K - 1) * Math.log2(Math.max(` | derived — BIC penalty, ½ log₂ n per free parameter | — |
+| ½ | arch.mjs, commit-log.mjs, facts.mjs, mine.mjs, obligations.mjs, propose-lattice.mjs, spectrum.mjs | `data - 0.5 * (K - 1) * Math.log2(Math.max(` | derived — BIC penalty, ½ log₂ n per free parameter | — |
 | ½ | commit-log.mjs | `data - 0.5 * (K3 - 1) * Math.log2(Math.max(df, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
-| ½ | learn.mjs | `data - 0.5 * (KD - 1) * Math.log2(Math.max(neff, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
+| ½ | learn.mjs | `data - 0.5 * (KD - 1) * Math.log2(Math.max(nMods, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
 | ½ | learn.mjs | `data - 0.5 * (KV - 1) * Math.log2(Math.max(neff, 2))` | derived — BIC penalty, ½ log₂ n per free parameter | — |
 | ½ | mine.mjs | `(ne + 0.5) / (neff + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
 | ½ | arch.mjs | `(ne + 0.5) / (nA + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
@@ -311,7 +327,7 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | ½ | commit-log.mjs | `(k + 0.5) / (n + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
 | ½ | facts.mjs | `0) + 0.5) / (n + K / 2);` | derived — KT posterior predictive | — |
 | ½ | facts.mjs | `(k + 0.5) / (n + K2 / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
-| ½ | learn.mjs | `(local.has_fix + 0.5) / (neff + KD / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
+| ½ | learn.mjs | `betaCdf(q, local.fix + 0.5, local.plain + 0.5) <= 1 / CFG.lambda` | derived — the KT posterior Beta(k + ½, n − k + ½) whose mass below the population rate gates a deviation's fix rate | — |
 | ½ | learn.mjs | `(ne + 0.5) / (neff + KV / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
 | ½ | mine.mjs | `0) + 0.5) / (sraw + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
 | ½ | obligations.mjs | `(k + 0.5) / (rec.n + K / 2) >= 1 - 1 / CFG.lambda` | derived — KT posterior predictive | — |
@@ -339,7 +355,6 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 0.2 | config.mjs | `valueDfMaxShare: 0.2` | declared — value-index population gate | none |
 | 0.15 | config.mjs | `ambGap: 0.15,` | declared — clustering ambiguity | none |
 | 0.35 | config.mjs | `minMemb: 0.35,` | declared — clustering ambiguity | none |
-| 0.75 | config.mjs | `cochangeMinConf: 0.75` | declared — co-change partner floor | none |
 | 0.8 | config.mjs | `targetPrec: 0.8,` | gate — calibrated repair precision under which the accusation margin applies | none |
 | 1.5 | weights.mjs | `Math.log2(CFG.lambda) + 1.5` | gate — accusation margin in bits for a convention history calibrates below `targetPrec` | none |
 | 0.9 | weights.mjs | `denyEligible: lb >= 0.9 && n >= CFG.denyMinEv` | gate — Wilson lower bound for `denyEligible` (report only; nothing blocks) | none |
@@ -358,9 +373,7 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 2 | weights.mjs | `minority[1].size >= 2` | gate — nucleation needs 2 human authors of the minority value | none |
 | 4 | weights.mjs | `if (n >= 4) shares.push` | gate — a trend window counts from 4 scopes | none |
 | ½ | weights.mjs | `attractor = last.share >= 0.5 ? fact.exp` | gate — the attractor is the expected value while it holds half | none |
-| 1/3 | cards.mjs | `minConf = file ? 1 / 3 : CFG.cochangeMinConf` | gate — single-file co-change partner floor | none |
-| 1/3 | completeness.mjs | `changed.length === 1 ? 1 / 3` | gate — single-file co-change partner floor | none |
-| 1/3 | grain-advise.mjs | `MUTUAL_CONF_FLOOR = 1 / 3` | gate — co-change advice floor, both directions | none |
+| 1/3 | grain-advise.mjs | `MUTUAL_CONF_FLOOR = 1 / 3` | gate — node-level co-change advice floor, both directions (a node has no commit count to contrast with) | none |
 | ½ | propose-base.mjs | `MIN_WHEN_FIDELITY = 0.5` | gate — a drafted `when` must select half its own set | none |
 | 0.08 | lexical.mjs | `if (c >= sp * 0.08) {` | extraction — an indentation width counts from 8% of indented lines | none |
 | 0.8 | lexical.mjs | `sq >= (sq + dq) * 0.8 ?` | extraction — a file's quote and semicolon style needs 80% | none |

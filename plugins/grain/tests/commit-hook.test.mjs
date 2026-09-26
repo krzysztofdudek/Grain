@@ -34,6 +34,9 @@ before(() => {
   const d1 = dateEnv('2026-01-10T12:00:00Z');
   for (let i = 0; i < 30; i++) w(`src/handlers/Handler${i}.ts`, handler(i, i)); // establishes @Handler()
   git(d1, 'add', 'src/handlers'); git(d1, 'commit', '-qm', 'add handlers');
+  // ten commits that touch neither pair file, so pair-b's own base rate sits below its rate beside pair-a (the
+  // co-change contrast cannot tell a partner from background in a history made only of pair commits)
+  for (let i = 1; i <= 10; i++) { w('CHANGES.md', `entry ${i}\n`); git(d1, 'add', '-A'); git(d1, 'commit', '-qm', `changes ${i}`); }
   // pair-a/pair-b get their OWN commits (never bundled with the 30 handler files above): megaCap (30) excludes any
   // bulk commit touching MORE than 30 files from co-change pairing, so mixing them in would silently drop a pair
   // commit (the same fixture shape review-command.test.mjs uses, for the same reason)

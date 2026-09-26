@@ -453,6 +453,7 @@ export const freshState = () => ({
   fps: [],
   scopePairSup: Object.create(null),
   scopeCommits: Object.create(null),
+  scopeCommitsN: 0,
 }); // §J5.7b: the scope-level mirror of pairSup/fileCommits — a SEPARATE accumulator, gated by its own scopePairCap (megaCap bounds files per commit, not scopes)
 
 // ----- history state persistence: newline-delimited, never one monolithic JSON.stringify -----
@@ -464,7 +465,7 @@ export const freshState = () => ({
 // remotely that large — every value here is bounded by a per-commit cap (`CFG.megaCap`/`CFG.scopePairCap`) or is
 // a lifecycle record for one path/scope — so writing and reading ONE JSON value per line, streamed, keeps every
 // string either side of this round-trip ever holds down to the size of one record, however large the file grows.
-const HIST_SCALAR_FIELDS = ['x', 'h', 'lastSha', 'commits', 'events', 'firstTs', 'nonMegaCommits'];
+const HIST_SCALAR_FIELDS = ['x', 'h', 'lastSha', 'commits', 'events', 'firstTs', 'nonMegaCommits', 'scopeCommitsN'];
 const HIST_MAP_FIELDS = [
   'blobShas',
   'msgAff',
@@ -690,6 +691,7 @@ function replay(state, events, commits, cache) {
     // which would otherwise pair combinatorially from a single commit.
     if (scopeKeys.length >= 1 && scopeKeys.length <= CFG.scopePairCap) {
       for (const sk of scopeKeys) state.scopeCommits[sk] = (state.scopeCommits[sk] || 0) + 1;
+      state.scopeCommitsN = (state.scopeCommitsN || 0) + 1; // the population `scopeCommits` is drawn from, the scope-level `nonMegaCommits`
       for (let i = 0; i < scopeKeys.length; i++)
         for (let j = i + 1; j < scopeKeys.length; j++) {
           const k = scopeKeys[i] + PAIR + scopeKeys[j];
@@ -717,9 +719,10 @@ function toH(state, gitdir) {
     const commitsA = state.fileCommits[a] || 1,
       commitsB = state.fileCommits[b] || 1;
     const ca = Math.max(sup / commitsA, sup / commitsB);
-    // commitsA/commitsB are persisted so a consumer can gate DIRECTIONALLY (editing `a` names `b` iff sup/commitsA ≥ minConf);
-    // the store keeps every pair above the support floor — confidence is a query-time decision, and a build-time cut threw
-    // away real partners (cli.py→tests/test_cli.py at 0.38) before the directional gate ever saw them
+    // commitsA/commitsB are persisted so a consumer can gate DIRECTIONALLY (editing `a` names `b` iff b's rate over a's
+    // commits beats b's own base rate, the co-change cell in facts.mjs); the store keeps every pair above the support
+    // floor — the gate is a query-time decision, and a build-time cut threw away real partners (cli.py→tests/test_cli.py
+    // at 0.38) before the directional gate ever saw them
     cochange.push({ a, b, sup, conf: +ca.toFixed(2), commitsA, commitsB });
   }
   cochange.sort((p, q) => q.sup - p.sup || (p.a < q.a ? -1 : p.a > q.a ? 1 : p.b < q.b ? -1 : 1));
@@ -749,6 +752,7 @@ function toH(state, gitdir) {
     msgTokCommits: state.msgTokCommits || {},
     fileCommits: state.fileCommits || {},
     nonMegaCommits: state.nonMegaCommits || 0,
+    scopeCommitsN: state.scopeCommitsN || 0,
     fps: state.fps || [],
     commitsN: state.commits,
     NOW: headTs(gitdir),

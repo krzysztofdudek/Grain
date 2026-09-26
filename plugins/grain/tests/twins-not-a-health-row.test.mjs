@@ -60,7 +60,7 @@ test('(a) report: a model carrying twins emits NO health row about them, while o
   assert.doesNotMatch(text, /«Foo group» \(pkgA\) and «Bar group» \(pkgA\)/, text);
   // ...and surgical: the cost row (signal 1) is untouched, so `== health ==` itself still works
   assert.match(text, /== health — 1 signal ==/, `the section must still render its remaining signals:\n${text}`);
-  assert.match(text, /costs 8\.5× more fixes when deviated from/, text);
+  assert.match(text, /edits to its deviants were fixes 8\.5× as often/, text);
 });
 
 test('(a2) report: a model whose ONLY health input is twins renders no health section at all', () => {
@@ -77,7 +77,7 @@ test('(b) rules: the generated CONVENTIONS.md carries no twin instruction, and s
   assert.doesNotMatch(md, TWIN_CLAIM, `a committed conventions document must not carry twin accusations:\n${md}`);
   assert.doesNotMatch(md, TWIN_INSTRUCTION, md);
   assert.match(md, /## Health/, md);
-  assert.match(md, /costs 8\.5× more fixes when deviated from/, md);
+  assert.match(md, /edits to its deviants were fixes 8\.5× as often/, md);
 });
 
 // ---------- half 2: a real repo — model.twins, export and `where` must be UNCHANGED (green in both arms) ----------

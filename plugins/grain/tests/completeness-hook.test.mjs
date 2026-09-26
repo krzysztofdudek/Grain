@@ -30,8 +30,8 @@ before(() => {
   w('src/solo.ts', 'export const s = () => 0;\n');
   git('add', '-A'); git('commit', '-qm', 'base');
   // 8 more commits that always touch pair-a.ts and pair-b.ts together (plus the base commit, 9 in all) — a real,
-  // established directional partner at 9/9 = 1.0 confidence, above cochangeMinConf (0.75) and cochangeMinSup (8) —
-  // and 4 commits that touch solo.ts alone, never paired with anything at the support floor
+  // established directional partner at 9/9, above cochangeMinSup (8) and, against pair-b's own 9 of 13 commits, past
+  // the co-change contrast — and 4 commits that touch solo.ts alone, never paired with anything at the support floor
   for (let i = 1; i <= 8; i++) { w('src/pair-a.ts', `export const a = () => ${i};\n`); w('src/pair-b.ts', `export const b = () => ${i};\n`); git('add', '-A'); git('commit', '-qm', `pair change ${i}`); }
   for (let i = 1; i <= 4; i++) { w('src/solo.ts', `export const s = () => ${i};\n`); git('add', '-A'); git('commit', '-qm', `solo change ${i}`); }
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo, encoding: 'utf8' }); assert.equal(st.status, 0, st.stderr);
