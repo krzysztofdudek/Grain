@@ -129,6 +129,14 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         });
       // the lead surface speaks for the cluster; a deviation on any sibling surface (same conform set) is still a deviation
       for (const sf of [f, ...(f.siblings || [])]) {
+        // a sibling surface is spoken for by the fact that governs its OWN pid when that fact is more specific:
+        // `_all` saying "methods never call X" as a sibling of another surface must not accuse a member of a role
+        // group whose own cell says "methods here call X" — the specificity rule above already decided that
+        // pid for this scope, and a sibling does not get to overrule it (issue 393)
+        if (sf !== f) {
+          const g = gov.get(sf.pid);
+          if (g && g !== f && (g.sraw < f.sraw || (g.sraw === f.sraw && ctxRank(g) < ctxRank(f)))) continue;
+        }
         const v = s.preds[sf.pid];
         if (v === undefined || v === sf.exp) continue;
         if (sf === f && f.suppressedValue && v === f.suppressedValue) continue; // nucleation stand-down
