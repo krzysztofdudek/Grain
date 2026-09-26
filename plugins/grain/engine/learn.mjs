@@ -44,7 +44,8 @@ import { calibrate, heritageKindOf, mkWeightFn, rejectedValues, trendsFor } from
 // directory is destroyed. The directory is dealt out on `nullRel`, which only mine()'s directory contexts read.
 // `grain selftest --null` only: the outcome labels the value and deviation cells read are dealt out again with their
 // marginals kept. In each value container, each member is given to as many declaring files as carried it, chosen at
-// random (members keep their shares, files lose their joint sets); over the whole history, the fix flags are dealt
+// random (each member keeps its carrier count, files lose their joint sets; a declaring file left with no member drops
+// out, so the declaring population D, and with it every share, can shrink); over the whole history, the fix flags are dealt
 // out again among all modification events (every scope keeps its edit count, the repository its fix count).
 export function shuffleMembers(contFiles, rnd) {
   for (const fm of contFiles.values()) {

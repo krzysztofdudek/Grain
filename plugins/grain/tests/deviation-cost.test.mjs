@@ -25,6 +25,8 @@
 //   (c) exposure: every deviant edited ten times (nine plain edits, one fix), every conformer twice (one plain, one
 //       fix for twelve of them) — one fix in ten edits on both sides. The old per-scope label read 12 of 12 deviants
 //       "fixed" against 24 of 120 and spoke at 5×; per edit it is 12 of 120 against 24 of 240, silent.
+//   (e) fixture (a)'s HEAD with its plain edits made and undone before HEAD, for `where`: 11 fix edits of 35 against
+//       13 of 133, (11/35)/(13/133) = 3.2×.
 //   (d) the age confound: deviants born 334 days before HEAD, conformers 40, every edit a fix on both sides: silent.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
@@ -36,7 +38,7 @@ import { fileURLToPath } from 'node:url';
 import { factNotes } from '../engine/core.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
-let tmp, repoA, repoB, repoC, repoD;
+let tmp, repoA, repoB, repoC, repoD, repoE;
 
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'Dev', GIT_AUTHOR_EMAIL: 'dev@x', GIT_COMMITTER_NAME: 'Dev', GIT_COMMITTER_EMAIL: 'dev@x', TZ: 'UTC', GIT_AUTHOR_DATE: `${iso}T12:00:00Z`, GIT_COMMITTER_DATE: `${iso}T12:00:00Z` });
 const gitIn = (repo, iso, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', env: { ...process.env, ...dateEnv(iso) } });
@@ -79,6 +81,18 @@ before(() => {
   writeAll(repoA, () => [], { from: TOTAL, to: TOTAL + 6 }); commit(repoA, '2026-02-26', 'feat: six more things');
   w(repoA, 'NOTES.md', 'notes\n'); commit(repoA, '2026-03-01', 'chore: notes');
 
+  // (e) fixture (a) with its plain edits undone before HEAD: scopes 0-59 gain a call in one feature commit and lose
+  // it in the next, so HEAD holds exactly the code fixture (a) held before issue 258 and `where alpha` ranks the
+  // directory card that owns the fact first (edits that stay in HEAD change the partition cut and the card order)
+  repoE = initRepo('e');
+  writeAll(repoE, () => []); commit(repoE, '2026-01-05', 'feat: the things');
+  writeAll(repoE, i => (i < 60 ? ['tweak'] : [])); commit(repoE, '2026-01-20', 'feat: tweak half the things');
+  writeAll(repoE, () => []); commit(repoE, '2026-01-25', 'feat: undo the tweak');
+  writeAll(repoE, i => (isDev(i) && i < 11 ? ['note'] : [])); commit(repoE, '2026-02-01', 'fix: handle the empty payload');
+  writeAll(repoE, i => ((isDev(i) && i < 11) || i === 20 || i === 21 ? ['note'] : [])); commit(repoE, '2026-02-05', 'fix: guard the null case');
+  writeAll(repoE, () => [], { from: TOTAL, to: TOTAL + 6 }); commit(repoE, '2026-02-26', 'feat: six more things');
+  w(repoE, 'NOTES.md', 'notes\n'); commit(repoE, '2026-03-01', 'chore: notes');
+
   // (b) one plain edit everywhere, then 2 of 12 deviants and 18 of 108 conformers fixed — the same per-edit rate
   repoB = initRepo('b');
   writeAll(repoB, () => []); commit(repoB, '2026-01-05', 'feat: the things');
@@ -115,8 +129,8 @@ test('(a) edits to deviants that were fixes more often are named, with edit coun
   assert.equal(f.raw, TOTAL + 6, 'the raw population does include the six young conformers');
 });
 
-// `where` renders the same `factNotes` string; with half the population edited by a uniquely named call, `where
-// alpha` no longer ranks the directory card first, so the rendering is checked on `factNotes` and `check`.
+// `where` is checked on fixture (e): with half the population still carrying a uniquely named call at HEAD, `where
+// alpha` here ranks file cards first.
 test('(a) factNotes and `check` render the clause as an association', () => {
   const f = validateFact(modelIn(repoA));
   assert.match(factNotes(f), / · edits to deviants were fixes 2\.7× as often \(11 of 23 edits vs 13 of 73\)$/);
@@ -124,6 +138,15 @@ test('(a) factNotes and `check` render the clause as an association', () => {
   assert.match(check, /\n {2}\(held since [\d-]+, last reinforced [\d-]+ · edits to deviants were fixes 2\.7× as often \(11 of 23 edits vs 13 of 73\)\)/,
     `\`check\` must carry the clause under the deviation, got:\n${check}`);
   assert.doesNotMatch(factNotes(f) + check, /cost/, 'never worded as a cost');
+});
+
+test('(e) `where` renders the clause on the directory card that owns the fact', () => {
+  const f = validateFact(modelIn(repoE));
+  assert.deepEqual({ ...f.cost, bits: undefined }, { k: 11, n: 35, baseK: 13, baseN: 133, scopes: 12, bits: undefined },
+    `11 fix edits of the deviants' 35 (two plain each, eleven fixes) against 13 of 133 — got ${JSON.stringify(f.cost)}`);
+  const where = grainOut(repoE, ['where', 'alpha']);
+  assert.match(where, /methods here call `validate` — 90% of 120 · held since [\d-]+, last reinforced [\d-]+ · edits to deviants were fixes 3\.2× as often \(11 of 35 edits vs 13 of 133\)/,
+    `\`where\` must carry the clause on the fact's bullet, got:\n${where}`);
 });
 
 test('(b) an even per-edit fix rate between the deviants and the population says nothing', () => {

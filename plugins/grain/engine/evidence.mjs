@@ -192,9 +192,9 @@ function sameStemTestCandidates(rel) {
 // lookups to answer "what tests this"). Same-stem (file-stem convention above, or the symbol's OWN name as an
 // exact dot/underscore/hyphen-delimited segment of an already test-like path's basename — the `res.sendStatus` ->
 // `test/res.sendStatus.js` shape, where the declaring file's own stem, `response`, shares nothing with the test
-// file at all) is tried first and wins outright when it fires. Otherwise: model.cochange, at the single-file 1/3
-// floor cochangeData already established for this exact narrower-question shape (one file, not a multi-
-// file change), restricted to partners whose OWN path reads as a test — never a general co-change claim; and
+// file at all) is tried first and wins outright when it fires. Otherwise: model.cochange, through the same co-change
+// contrast cochangeData applies (a partner touched beside the file more often than its own base rate, issue 259),
+// restricted to partners whose OWN path reads as a test — never a general co-change claim; and
 // model.edges, restricted to a test-like importer of the defining file. The two fallbacks are reported together —
 // different mechanisms, the same weaker tier of evidence for the same claim.
 export function testedByEvidence(model, definedFiles) {
