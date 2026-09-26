@@ -343,6 +343,21 @@ The cell measured: for each accepted convention, every in-place change of a scop
 
 Not shipped: the tier would rest on a cell that certifies nothing on the family's repositories, has no prospective test, and cannot be scored against a hand rule, at the price of a full re-extraction for every adopter. Calibration stays as it was. Kept for a later release: the base-rate contrast above, which on the old decodings alone already reads click, flask and typeorm.
 
+### The imports that hold a cycle together (issue 266)
+
+`report`, `report --json` and the proposal's refactor backlog now name, for each module cycle, the smallest set of module edges that breaks it and the file references behind each (mathematics.md, *Cycle cuts*). On Yggdrasil (`65bfb39`) the two cycles 093 found are the same two, and each is held by a handful of references: `portal → cli` (3 of the cycle's 19, both in `portal/engine-api.ts`), and `relations → core` plus `structure → core` (4 of 55, in `relations/allowed-types.ts`, `relations/type-gate.ts`, `structure/allowed-reads.ts` and `structure/observations.ts`). typeorm's 26-module component is above the exact bound: the local search names 60 module edges carrying 217 of its 1740 references, marked as not proven smallest.
+
+Does the cut point at what maintainers actually remove? Measured 2026-09-26 on the history of the six corpus repositories that ever had a module cycle (Slim, axum, express, sinatra, typeorm and Yggdrasil): the module graph and its cuts at 120 commits evenly spaced along each first-parent history (fewer where the history is shorter), and for every cycle a later snapshot no longer holds, the module edges inside it that had disappeared by then. A random edge of the same component is the baseline, and so is naming the component's lightest edges, as many as the cut has.
+
+| | removed edges in the cut | broken cycles with a removed edge in the cut | removed references in the cut |
+|---|---|---|---|
+| the cut | 13 of 19 (0.68) | 10 of 14 | 0.66 |
+| a random edge of the component | 0.36 expected (P of 13 or more = 0.001) | 6.5 expected (P of 10 or more = 0.044) | 0.17 |
+| the lightest edges, as many as the cut | 14 of 19 | 10 of 14 | |
+
+- **Better than a random edge, no better than the lightest edges.** When a cycle breaks, the edges that went are in the cut more often than chance puts them there, but naming the lightest edges does as well: maintainers remove light dependencies, and the smallest cut is made of light ones. What the cut adds over that list is that removing it provably breaks the cycle.
+- **A small sample.** 14 broken cycles, in four of the six repositories (Slim, express, sinatra and Yggdrasil; none in axum or typeorm); 459 snapshot pairs kept their cycle and 13 lost it because a member module disappeared. A snapshot pair spans many commits, so an edge that went may have gone for reasons that had nothing to do with the cycle.
+
 ## Match-by-example (`how`) vs. a grep baseline
 
 `grain selftest --how [--last N]` runs a leave-one-out evaluation of `how`: for each of the last N real commits

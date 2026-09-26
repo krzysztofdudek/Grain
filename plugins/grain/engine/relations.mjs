@@ -6,6 +6,7 @@
 // files themselves: a reference binds to a file of the indexed tree, or to nothing (the D7 non-event — an edge into an
 // unindexed file is a coverage matter, never an edge), and a symbol declared across several files of ONE directory binds
 // to the first of them (dirOwner, below).
+import { cycleCuts } from './cycle-cut.mjs';
 import { extractorForLanguage } from './vendor/relations/extractors/registry.mjs';
 import { extractCsharpRefs, assembleCsharpCandidates } from './vendor/relations/extractors/csharp.mjs';
 import { buildCsharpProjectScopes } from './vendor/relations/extractors/csharp-project.mjs';
@@ -594,5 +595,7 @@ export function moduleGraph(edges, files, pkgs = [], srcRoots = []) {
     }
   }
   for (const node of nodes) node.layer = layerOf.get(compOf.get(node.id));
-  return { nodes, edges: medges, cycles };
+  // the few dependencies that hold each cycle together: its smallest feedback arc set by reference count (issue 266)
+  const cuts = cycleCuts(cycles, medges, edges, modOf);
+  return { nodes, edges: medges, cycles, cycleCuts: cuts };
 }

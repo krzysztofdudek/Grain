@@ -1,5 +1,6 @@
 // grain engine · proposal writer · PROPOSAL.md, alternatives.md and the refactor backlog
 // Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
+import { cutPhrase } from './cycle-cut.mjs';
 import { describeRow } from './propose-aspects.mjs';
 import { PREAMBLE, pct, yamlEmit } from './propose-base.mjs';
 import { isAbsenceRow } from './propose-classify.mjs';
@@ -166,7 +167,10 @@ export function renderBacklogMd({ exp, sub, rels, nodeCycles }) {
     'a loop below is broken in the CODE — extract a shared interface, invert a dependency, or merge the nodes —',
     'no honest graph over this repository can be green. Cutting the edge out of the proposal instead was tried',
     'and measured: it turned one error that names the real defect into four that ask for the edge back.', '');
-  for (const c of cyc) L.push(`- grain's own module cycle: ${c.map(x => `\`${x}\``).join(' → ')} → …`);
+  cyc.forEach((c, i) => {
+    const cut = (exp.moduleGraph?.cycleCuts || [])[i];
+    L.push(`- grain's own module cycle: ${c.map(x => `\`${x}\``).join(' → ')} → …${cut && cut.cut.length ? ` — ${cutPhrase(cut, { fmt: x => '`' + x + '`' })}` : ''}`);
+  });
   L.push('', mdTable(['weakest edge in the loop', 'resolved imports', 'the loop'],
     nodeCycles.map(d => [`\`${d.from}\` → \`${d.to}\``, d.n, d.cycle.map(x => `\`${x}\``).join(' → ')])), '');
 

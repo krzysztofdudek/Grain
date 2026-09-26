@@ -1,5 +1,6 @@
 // grain engine · report, rules, status and the structural map
 // Split out of core.mjs: the statements below are the ones that stood there, unchanged.
+import { cutPhrase } from './cycle-cut.mjs';
 import { baselineClause, practicedBy } from './cards.mjs';
 import { archCellLabel, factLabel, pct, ptr, scopeLabel } from './facts.mjs';
 import { authorConcClause, fadingNote, skipLineNote, voice } from './mine.mjs';
@@ -87,10 +88,14 @@ export function report(model, { top = 15, outcomes } = {}) {
           .map(e => `${e.to}/ (${e.n})`)
           .join(' · ')}${es.length > 5 ? ` · +${es.length - 5} more` : ''}`
       );
-    for (const c of mg.cycles.slice(0, 4))
+    mg.cycles.slice(0, 4).forEach((c, i) => {
       lines.push(
         `  cycle (strongly connected): ${c.join(', ')} — every member reaches every other, not necessarily in this order`
       );
+      // the few references that hold it together (issue 266), when the model carries them
+      const cut = (mg.cycleCuts || [])[i];
+      if (cut && cut.cut.length) lines.push(`    ${cutPhrase(cut)}`);
+    });
     if (mg.cycles.length) lines.push(`  ${CYCLE_GRANULARITY_NOTE}`);
     const departures = (model.archNorms || []).filter(n => n.exp === 'false' && n.fromKind !== 'group'); // "module pair(s)" below is a claim about modules specifically — group-kind rows have their own home in computeArchHits, not this count
     if (departures.length)
@@ -361,7 +366,11 @@ export function rulesMarkdown(
         '**Cycles (strongly connected — every member reaches every other, not necessarily in this order):**',
         ''
       );
-      for (const c of mg.cycles.slice(0, 4)) lines.push(`- ${c.join(', ')}`);
+      mg.cycles.slice(0, 4).forEach((c, i) => {
+        const cut = (mg.cycleCuts || [])[i];
+        lines.push(`- ${c.join(', ')}`);
+        if (cut && cut.cut.length) lines.push(`  - ${cutPhrase(cut, { fmt: x => '`' + x + '`' })}`);
+      });
       lines.push('', CYCLE_GRANULARITY_NOTE);
     }
     const departures = (model.archNorms || []).filter(n => n.exp === 'false' && n.fromKind !== 'group'); // "module pair(s)" below is a claim about modules specifically — group-kind rows have their own home in computeArchHits, not this count

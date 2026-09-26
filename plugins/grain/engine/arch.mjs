@@ -313,7 +313,7 @@ export function applyRelationLayer(model, { root, files, pkgs, tree, relFacts, l
     log('relation pass failed: ' + (e?.message || e));
     model.edges = [];
     model.edgesTruncated = 0;
-    model.moduleGraph = { nodes: [], edges: [], cycles: [] };
+    model.moduleGraph = { nodes: [], edges: [], cycles: [], cycleCuts: [] };
     model.relDecls = null;
     model.archNorms = [];
   }

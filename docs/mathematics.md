@@ -153,6 +153,10 @@ The same contrast now decides a group or directory absence inside a partition: t
 
 Measured under an edge-permutation null (validation.md, *False certifications under a null*): the flat coin certified 12.9 absence norms per shuffle on Grain and 17.7 on Yggdrasil, as many as or more than on the real edges; the contrast certifies 0 on both.
 
+## Cycle cuts
+
+A cycle in the module graph is a strongly connected component: its members reach each other. The report used to name the members and stop there. It now also names the smallest set of module edges whose removal leaves no cycle, weighted by the references each edge carries, so the answer is the fewest references someone would move: a minimum-weight feedback arc set, which is the cheapest linear order of the members counted by the weight pointing backwards. It is solved exactly by dynamic programming over subsets, the cheapest order of every subset, while the component has at most `fasExactMax` members, a compute bound. Above that an Eades–Lin–Smyth order improved one member at a time gives a local minimum, which the output says is not proven smallest. On 300 random components of 4 to 16 modules that local search found the exact minimum 181 times and was 2.3% heavier on average. The cut is the cheapest, not necessarily the right one, and every surface says so.
+
 ## The sub-gate band
 
 `propose` also reads the lattice below certification: rows practised by a supermajority that did not clear the λ bound. They can become `advisory` rules, so a row enters the band only where the objective holds for it. Its contrast bits must be positive: a role row against the assigned scopes of its kind (the assigned scopes of its kind in the other partitions, where the kind has one group here), a partition-wide absence against the same predicate in every other partition, a partition-wide presence under the flat code, and one index cost over the whole repository's lattice. A structural predicate enters only as a contrast, as in `mine()`. The KT posterior Beta(k + ½, n − k + ½) may put at most 1/λ of its mass below the two-thirds supermajority, which is λ applied to the band's lower edge instead of a raw share. The posterior predictive must still sit below 1 − 1/λ, or the row would be certified. The per-partition reading cap keeps the rows with the most bits, not the highest share. Each row's contrast must point its own way: an absence row uses the thing less often than its reference, any other row carries its value more often (no row of the bands measured was affected). The index cost is paid over every cell the lattice builds, about one bit more than the certification's own candidate count. Paying the certification's count instead was measured: the band grows from 36 to 62 rows on Grain, 52 to 59 on Yggdrasil and 48 to 50 on typeorm on that bit, and it is not shipped without a review of the rows it adds.
@@ -345,6 +349,7 @@ The named constants in `config.mjs` come first. The test compares every value he
 | `megaCap` | 30 | commits touching more files than this are left out of pairing |
 | `fpsCap` | 20000 | per-commit footprints retained |
 | `scopePairCap` | 200 | scope pairs counted per commit |
+| `fasExactMax` | 16 | compute bound: a module cycle this small gets its exact smallest cut, a larger one a local-search cut marked as not proven smallest |
 | `dirMin` | 25 | scopes of a kind a directory needs to be its own context |
 | `nullTrades` | 50 | curveball trades per retained commit in `selftest --null` and `--cochange` (measurement only; counts are flat from 20, validation.md) |
 | `NCAP` | 700 | role clustering sample cap |
