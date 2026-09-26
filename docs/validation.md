@@ -579,6 +579,26 @@ comparison at 21/36 type recall (23/36 with alternatives) and 30/393 node recall
 engine, against 23/36, 25/36 and 43/402 here. The obligation stated above — that the type-level policy be
 re-measured when a fifth repository arrives — is not discharged by it.
 
+### The same record read as two partitions (issue 263)
+
+The node row and the relation row above are one fact seen twice: the accepted graph is cut about four times finer than the proposal, so a best-match Jaccard misses an accepted node that sits entirely inside a proposed one exactly as it misses a node drawn across the grain. `grain oracle score` now also reads both graphs as partitions of the files they own (a file belongs to the deepest node that maps it) and projects every accepted relation onto the proposed nodes by file majority, so no relation leaves the denominator (reference.md, *The oracle contract*). Measured 2026-09-26 on the committed record and on a fresh record made the same day: a clone of Yggdrasil at `65bfb39`, its own graph, and a proposal by this build.
+
+| | the committed record (`3a351e1`, grain 0.4.0) | a fresh record (`65bfb39`, this build) |
+|---|---|---|
+| files both graphs own | 1416 | 1806 |
+| H(P\|A): how much finer grain cuts | 0.102 bits | 0.161 bits |
+| H(A\|P): how much finer the accepted graph cuts | 2.038 bits | 2.017 bits |
+| NMI · ARI, leaves | 0.844 · 0.479 | 0.839 · 0.498 |
+| closest depth of the accepted tree | 4 (VI 1.517, NMI 0.878, ARI 0.662) | 4 (VI 1.603, NMI 0.871, ARI 0.643) |
+| relations, projected: recall | 205/230 = 0.891 | 236/261 = 0.904 |
+| relations, projected: precision | 205/216 = 0.949 | 236/244 = 0.967 |
+| accepted relations inside one proposed node · unmappable | 194 · 0 of 1298 | 261 · 0 of 1775 |
+| (for comparison) node recall · relations scored by Jaccard | 43/402 · 39 of 1298 | 46/471 · 44 of 1775 |
+
+- **What it says.** H(P|A) is near zero: almost every accepted node sits inside one proposed node. The accepted graph needs about two more bits per file, a factor of about four, which is its finer granularity. The proposal cuts where the accepted tree cuts at its fourth level, and the finer nodes below that are the maintainer's to add. The projected relations agree with 093's file-pair numbers (recall 0.894, precision 0.998), which the node-matched score could not see.
+- **A synthetic check** (`tests/oracle-partition.test.mjs`): splitting every proposed node in two across the accepted seams raises H(P|A) from 0 to 1 bit and leaves H(A|P) at 1 bit; merging them raises H(A|P) from 1 to 2 bits and leaves H(P|A) at 0; a proposal equal to the accepted tree cut at depth 1 is found there at VI 0.
+- **What it does not cover.** Only the Yggdrasil oracle is a recorded proposal beside an accepted graph. The express, Grain and spring-petclinic oracles are hand-written graphs scored by `tests/stress/propose.mjs`, which does not read this block. The fresh record is not committed: it is the same repository as the committed one and adds no fifth repository.
+
 The record is at `plugins/grain/tests/stress/oracles/yggdrasil/`, the memo is
 the maintainer note *oracle-5-yggdrasil*, and
 `tests/reconstruct.test.mjs` scores it on every run — with no checkout of Yggdrasil anywhere, because the file

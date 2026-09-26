@@ -306,6 +306,15 @@ for (const [name, F] of Object.entries(RECORDED)) {
     assert.equal(correction.relations.counts.kept, s.relations.matched);
     assert.equal(correction.relations.counts.added, s.relations.acceptedPairs - s.relations.matched);
     assert.equal(correction.relations.counts.removed, s.relations.proposedPairs - s.relations.matched);
+    // the partition block closes too: VI is the sum of the two conditional entropies, and every accepted relation
+    // lands in exactly one of pair, collapsed or unmappable (issue 263)
+    const pa = s.partition, rp = s.relationsProjected;
+    assert.ok(pa.filesOwned.both <= Math.min(pa.filesOwned.proposal, pa.filesOwned.accepted));
+    for (const row of [pa.leaves, ...pa.byDepth]) assert.ok(Math.abs(row.vi - row.hPgivenA - row.hAgivenP) < 0.002);
+    assert.equal(pa.lowestVI.vi, Math.min(...pa.byDepth.map(x => x.vi)));
+    assert.equal(rp.acceptedDeclared, F.acceptedRelations);
+    assert.ok(rp.acceptedPairs + rp.acceptedCollapsed + rp.acceptedUnmappable <= rp.acceptedDeclared);
+    assert.ok(rp.overlap <= Math.min(rp.acceptedPairs, rp.proposedPairs));
   });
 }
 
