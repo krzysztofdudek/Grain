@@ -215,6 +215,7 @@ export const CFG = {
   fpsCap: 20000, // per-commit footprint history retained (§J2.1); newest kept, oldest dropped
   scopePairCap: 200, // §J5.7b: megaCap bounds FILES per commit — a commit within that bound can still touch 200+ SCOPES (every method of a 30-file mega-refactor), which would otherwise pair ~19900-strong per commit. A plain compute/blow-up guard, same category as megaCap itself — no MDL role, just a sane cap on one commit's own pairing work.
   dirMin: 25,
+  nullTrades: 50, // `grain selftest --null`/`--cochange` only: curveball trades per retained commit when the commit × file matrix is swap-randomised (null counts are flat from 20 on, docs/validation.md)
 };
 export const NCAP = 700; // role clustering: distinct-feature-bag sample cap
 export const SUP = { nodeType: 20, call: 8, imp: 5, ext: 4, shape: 15, deco: 8, ret: 4, pt: 4 }; // vocabulary support floors per enumerator

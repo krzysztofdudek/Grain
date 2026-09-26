@@ -237,7 +237,7 @@ Measured 2026-09-26 with `grain selftest --cochange`, which runs the protocol ab
 | requests | 1013 | 0.145 → 0.172 | 0.116 → 0.120 | 0.536 → 0.425 | 207 → 216 | 0.67 → 0.67 |
 | **pooled** | **16 964** | **0.228 → 0.217** | **0.108 → 0.108** | **0.503 → 0.512** | **4498 → 3338** | **175.0 → 8.7 (sum)** |
 
-- **The null.** Summed over the 14, 175 partners a run → 8.7; typeorm 93.67 → 0 and flask 5.33 → 0. Slim keeps 2.67 and sinatra 5.33. Those are not what commit size explains: they are files that shared the few large commits of histories whose commits are mostly one or two files (`Slim/Exception/Pass.php` and `Stop.php`, sinatra's README translations), and 5 trades per commit do not move a file out of a 20-file commit when almost every trade partner holds one file. With 50 trades per commit the new cell names 0 a run on Slim, sinatra, typeorm and flask, and the base rate per commit still names 19, 2.67, 55 and 8.67. `selftest --null` uses 5 trades per commit, so its other history families may carry the same under-mixing.
+- **The null.** Summed over the 14, 175 partners a run → 8.7; typeorm 93.67 → 0 and flask 5.33 → 0. Slim keeps 2.67 and sinatra 5.33. Those are not what commit size explains: they are files that shared the few large commits of histories whose commits are mostly one or two files (`Slim/Exception/Pass.php` and `Stop.php`, sinatra's README translations), and 5 trades per commit do not move a file out of a 20-file commit when almost every trade partner holds one file. With 50 trades per commit the new cell names 0 a run on Slim, sinatra, typeorm and flask, and the base rate per commit still names 19, 2.67, 55 and 8.67. Both harnesses now make 50 trades per commit (*Curveball mixing*, below): the new cell then names 0.33 a run summed over the 14 (CleanArchitecture, one partner in one run), and the base rate per commit 118.3.
 - **`selftest --null`, live partners only, 3 runs:** Grain 0 → 0, Yggdrasil 3.67 → 0, typeorm 12 → 0 (real 37 → 33), Slim 0 (real 48), flask 0.67 (real 234; one run named 2).
 - **What the answer loses.** Pooled hit@3 falls from 0.228 to 0.217: 271 cases lose their hit and 81 gain one. In 201 of the 271, every partner that had hit was one of the 10 files the training window touched most. The non-obvious hit@3 is unchanged at 0.108, and precision@1 rises. The hits that go are the ones naming the busiest files, which the null that always names the 3 hottest files gets more of (0.364). Yggdrasil, whose commits carry 4.5 files on average, loses most (0.118 → 0.088) and gains in non-obvious hits and precision@1.
 - **Rejected on the way.** Each commit's own size in place of the mean (hit@3 0.221, non-obvious 0.106, null 9.0 summed): no better on the null, worse on the non-obvious hits, and it would store a size histogram per file. The partner's own rate among commits of each size (hit@3 0.199, non-obvious 0.088, null 0): it explains away real partners that both favour large commits.
@@ -255,6 +255,25 @@ Grain no longer reads who wrote a commit. Code last touched by an agent used to 
 | `selftest --null`, total per run | 3.67 (all co-change) | 3.67 (all co-change) | 1 | 9.67 |
 
 On Yggdrasil the role and directory nulls stay at 0, so the conventions the discount used to hide are not ones a shuffled repository also yields. On Grain they are, in part: with the role labels dealt out again, 9 role cells certify in every run, the same 9 whatever the seed. They restate a partition's own majority at the level of one of its groups, in small partitions where almost every method has the value anyway: camelCase method names in `plugins/grain/tests` (85 of 87 members), in the Ruby relation unit tests (19 of 19, with three structural facts of the same 19) and in three groups of the root partition, and "does not call `runExtractor`" (28 of 28). The agent weight of 0.15 kept their evidence under the index cost; at full weight it clears it. That is a weakness of role cells that restate their partition, not of the weight; the next section fixes it.
+
+### Curveball mixing (issue 386)
+
+The swap-randomised history behind `selftest --null` and `selftest --cochange` is built by curveball trades between two commits. At 5 trades per retained commit, a file in one of the few large commits of a history made mostly of one-file commits rarely left it, because almost every trade partner holds a single file, so pairs from those commits survived the shuffle (Slim, sinatra). Measured 2026-09-26 on the same clones: the number of partners the co-change cells name under the null, mean over 5 runs (seeds 1 to 5), by trades per commit, and the time the 5 shuffles and counts took.
+
+| repository · cell | 5 | 20 | 50 | 100 | 200 |
+| --- | --- | --- | --- | --- | --- |
+| Grain · shipped cell | 0 | 0 | 0 | 0 | 0 |
+| Slim · shipped cell | 2.8 | 0 | 0 | 0 | 0 |
+| sinatra · shipped cell | 3.6 | 0 | 0 | 0 | 0 |
+| typeorm · shipped cell | 0.2 | 0 | 0 | 0 | 0 |
+| Slim · base rate per commit | 39.4 | 19.8 | 17.2 | 18.2 | 13.4 |
+| sinatra · base rate per commit | 13.6 | 1.4 | 1.8 | 2.8 | 1.8 |
+| typeorm · base rate per commit | 88.6 | 60.2 | 52 | 59.4 | 61.6 |
+| time for 5 runs, Slim · typeorm | 0.25 s · 1.1 s | 0.44 s · 1.3 s | 0.65 s · 2.3 s | 1.2 s · 3.3 s | 2.2 s · 5.4 s |
+
+- **Where the counts settle.** The shipped cell reaches 0 at 20 trades and stays there; the comparison arm stops falling at 20 to 50 and then moves only with the seed. The default is now 50 trades per commit, above the point where both settle. A run of `selftest --null` spends its time in the two learn passes, so the extra trades add at most a second or two.
+- **The other history families.** Birth obligations, co-change and commit archetypes on all 14 repositories (5 runs, 5 to 100 trades): every mean is 0 except single-run residues of at most 0.4 (archetypes on click and koa at 5 trades, co-change on flask at 20), with no trend in the trade count. They were not under-mixed. The full `selftest --null` at 50 trades (3 runs, seeds 1 to 3) gives a total of 1.33 false certifications a run summed over the 14 (express archetypes 0.67, axum and typeorm co-change 0.33 each), against 1.67 at 5 trades (Grain archetypes 0.67, flask 0.67 and click 0.33 co-change); every other family stays at 0 on every repository.
+- **`selftest --cochange` at 50 trades**, same 14 repositories, 3 runs: the shipped cell names 0.33 a run summed (was 8.7 at 5 trades), the base rate per commit 118.3 (was 175). The accuracy columns do not depend on the shuffle and are unchanged.
 
 ### Role cells against the assigned scopes (issue 385)
 

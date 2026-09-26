@@ -51,8 +51,9 @@ const shuffle = (xs, rnd) => {
 };
 // curveball swap randomisation of the commit × file matrix (Strona et al. 2014): two commits trade a random share
 // of the files only one of them holds, which keeps every row sum and every column sum. Each file carries its own
-// birth flag and the scope keys the commit touched in it.
-export function curveball(fps, rnd, trades = 5 * fps.length) {
+// birth flag and the scope keys the commit touched in it. `CFG.nullTrades` trades per commit: at 5, a file in one of
+// the few large commits of a history of mostly one-file commits rarely left it (Slim, sinatra); counts are flat from 20.
+export function curveball(fps, rnd, trades = CFG.nullTrades * fps.length) {
   const rows = fps.map(fp => {
     const m = new Map();
     for (const f of fp.files) m.set(f, { added: false, scopes: [] });
