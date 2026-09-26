@@ -36,7 +36,7 @@ import { nameTokens, sufOf } from './placement.mjs';
 import { betaCdf } from './propose-lattice.mjs';
 import { mineTemplates, profileOf } from './superposition.mjs';
 import { shapeWords } from './verbalize.mjs';
-import { calibrate, heritageKindOf, mkWeightFn, rejectedValues, trendsFor } from './weights.mjs';
+import { calibrate, changePointFor, heritageKindOf, mkWeightFn, rejectedValues, settleChangePoints } from './weights.mjs';
 
 // the label null behind `grain selftest --null`: the (role, ambiguous) labels of the assigned scopes of each kind, and
 // the directories all scopes of each kind sit in, are dealt out again at random among those same scopes — group and
@@ -201,6 +201,7 @@ export async function learn({
     return c;
   };
   const devCostCand = []; // { ef, dv, all } per candidate fact — scored once the whole repo's candidate count is known
+  const cpCand = []; // { f, cp } per fact with a readable birth sequence — its change point, settled the same way
   const model = { engine: 'grain', repo: basename(root), pkgs, cuts, generatedAt: 0, partitions: [] };
   // heritageKind: repo-wide, name → 'ext'/'impl', from every type-kind scope's own supKind (§extractScopes).
   // A name classified the SAME way everywhere it's the target of a heritage clause is trustworthy; one classified
@@ -358,7 +359,7 @@ export async function learn({
           }
           if (den >= CFG.minRaw && num / den >= 2 / 3) agentShare = +(num / den).toFixed(2);
         }
-        const trend = H ? trendsFor(f, ps, H) : null;
+        const cp = H ? changePointFor(f, ps, H) : null;
         const calib = H ? calibrate(f, ps, H) : { available: false, reason: 'no history' };
         const rejected = H ? rejectedValues(f, ps, H) : undefined;
         const ef = {
@@ -381,10 +382,10 @@ export async function learn({
           heritageKind: heritageKindOf(f.pid, model),
           nSurfaces: f.nSurfaces,
           siblings: (f.siblings || []).map(sb => ({ ...sb, heritageKind: heritageKindOf(sb.pid, model) })),
-          trend: trend && trend.shares.length ? trend : undefined,
+          trend: undefined, // set by settleChangePoints once every fact's change point is known
           calib,
           rejected,
-          suppressedValue: f.contested ? f.contested.v : trend ? trend.nucleating : null,
+          suppressedValue: f.contested ? f.contested.v : null,
           denyEligible: !!(calib.available && calib.denyEligible),
           seeded: f.seeded && f.seeded.length ? f.seeded : undefined,
           contested: f.contested ? f.contested.id : undefined,
@@ -415,6 +416,7 @@ export async function learn({
           .map(gi => fixOutcome(ps[gi]))
           .filter(Boolean);
         if (dv.length >= CFG.minRaw && all.length >= CFG.minRaw) devCostCand.push({ ef, dv, all });
+        if (cp) cpCand.push({ f: ef, cp });
         return ef;
       });
     const pl = pkgLexFacts.get(pkgOf(pname));
@@ -673,6 +675,7 @@ export async function learn({
       ef.cost = { k: local.fix, n: nMods, baseK: glob.fix, baseN: N, scopes: dv.length, bits: +bits.toFixed(2) };
     }
   }
+  settleChangePoints(cpCand);
   applySteers(model, prepared, seeds);
   // cross-cell contested marking: any accepted fact asserting a value a seed's exemplar contradicts is superseded — its
   // deviations toward the seeded value stand down and its renderings say so (the old rule must not argue with the decision)

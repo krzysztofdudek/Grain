@@ -708,17 +708,22 @@ export function authorConcClause(ac) {
       ? '1 author'
       : `mostly one author (${ac.topCount} of ${ac.credited})`;
 }
+// a convention whose births after its change point no longer carry it at the λ odds: `check` stands down on it
+export const fadingNote = t =>
+  t && t.fading
+    ? `fading: ${pct(t.shares[1].share)}% of the ${t.shares[1].n} born since ${new Date(t.since * 1000).toISOString().slice(0, 7)} follow it, so new code is not accused`
+    : '';
 // one clause of calibration for a spoken convention: how it moved, and since when it has held
 export function factNotes(f) {
   const out = [];
   if (f.contested)
     out.push(`superseded by maintainer decision ${f.contested} — see the steer line / \`grain report\``);
 
-  if (f.trend && f.trend.shares && f.trend.shares.length >= 2) {
-    const a = pct(f.trend.shares[0].share),
-      b = pct(f.trend.shares[f.trend.shares.length - 1].share);
-    if (Math.abs(a - b) >= 10) out.push(`trend ${a}>${b}%`);
-  }
+  // two segments exist only where the change point on birth order is certified, so no size-of-move bar is needed
+  if (f.trend && f.trend.shares && f.trend.shares.length >= 2)
+    out.push(`trend ${pct(f.trend.shares[0].share)}>${pct(f.trend.shares[1].share)}%`);
+  const fn = fadingNote(f.trend);
+  if (fn && !f.suppressedValue) out.push(fn);
   if (f.suppressedValue && !f.contested) out.push(`a newer pattern is emerging: ${f.suppressedValue}`); // when contested, the superseded note already says it
   if (f.held && f.held.since)
     out.push(

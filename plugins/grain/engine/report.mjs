@@ -3,7 +3,7 @@
 import { CFG } from './config.mjs';
 import { baselineClause, practicedBy } from './cards.mjs';
 import { archCellLabel, factLabel, pct, ptr, scopeLabel } from './facts.mjs';
-import { authorConcClause, skipLineNote, voice } from './mine.mjs';
+import { authorConcClause, fadingNote, skipLineNote, voice } from './mine.mjs';
 import {
   CYCLE_GRANULARITY_NOTE,
   DIRTY_TREE_NOTE,
@@ -25,8 +25,9 @@ export function report(model, { top = 15, outcomes } = {}) {
     const { domain, structural, lexical, taut } = factTiers(p);
     const printFact = f => {
       const t = f.trend;
-      const tr = t
-        ? ` trend[${t.shares.map(s => pct(s.share)).join('>')}%]${t.nucleating ? ` — a newer pattern is emerging here: ${t.nucleating}` : ''}`
+      // a trend is spoken only where the birth order holds a certified change point (two segments)
+      const tr = t && t.shares.length >= 2
+        ? ` trend[${t.shares.map(s => pct(s.share)).join('>')}%]${t.nucleating ? ` — a newer pattern is emerging here: ${t.nucleating}` : t.fading ? ` — ${fadingNote(t)}` : ''}`
         : '';
       lines.push(
         `  ${voice(
@@ -102,10 +103,9 @@ export function report(model, { top = 15, outcomes } = {}) {
     const moving = [];
     for (const p2 of model.partitions)
       for (const f of p2.facts) {
+        // two segments exist only where the change point on birth order is certified
         if (!f.trend || !f.trend.shares || f.trend.shares.length < 2) continue;
-        const a = f.trend.shares[0].share,
-          b2 = f.trend.shares[f.trend.shares.length - 1].share;
-        if (Math.abs(b2 - a) >= 0.1 || f.suppressedValue) moving.push({ p: p2, f, d: b2 - a });
+        moving.push({ p: p2, f, d: f.trend.shares[1].share - f.trend.shares[0].share });
       }
     if (moving.length) {
       lines.push(`== drift — ${moving.length} convention(s) in motion ==`);
@@ -114,7 +114,7 @@ export function report(model, { top = 15, outcomes } = {}) {
           `  ${m.d > 0 ? '↑' : m.d < 0 ? '↓' : '~'} ${factLabel(m.p, m.f)}: ${verbalize(
             m.f,
             m.f.exemplars.map(e => e.name)
-          )} — ${m.f.trend.shares.map(x2 => pct(x2.share)).join('>')}%${m.f.suppressedValue ? ` · a newer pattern is emerging: ${m.f.suppressedValue}` : ''}`
+          )} — ${m.f.trend.shares.map(x2 => pct(x2.share)).join('>')}%${m.f.suppressedValue ? ` · a newer pattern is emerging: ${m.f.suppressedValue}` : m.f.trend.fading ? ` · ${fadingNote(m.f.trend)}` : ''}`
         );
     }
   }
@@ -265,8 +265,8 @@ export function rulesMarkdown(
   );
   const row = (p, f) => {
     const t = f.trend;
-    const tr = t
-      ? `trend ${t.shares.map(s => pct(s.share)).join('>')}%${t.nucleating ? ` — newer pattern emerging: ${t.nucleating}` : ''}`
+    const tr = t && t.shares.length >= 2
+      ? `trend ${t.shares.map(s => pct(s.share)).join('>')}%${t.nucleating ? ` — newer pattern emerging: ${t.nucleating}` : t.fading ? ` — ${fadingNote(t)}` : ''}`
       : '';
     const notes = [
       tr,

@@ -96,13 +96,71 @@ export function applyConcepts(model, H) {
       .map(([t]) => t);
   }
 }
+// the selection-free test of one archetype cell (issue 357). The clustering chose the shape's members because they
+// share the cell, so the members alone cannot certify it; the test runs on EVERY footprint of the history that carries
+// the shape's anchor, whichever shape it was clustered into. The ANCHOR is the shape's other candidate cells, minus
+// those that live in the same files as this one among the members (a module and its own suffix are one file, not two
+// places a change goes). A footprint is in the test when each anchor cell is carried by one of its files that does
+// not carry this cell and when it has a file carrying no anchor cell at all; the outcome is whether one of those s
+// remaining files carries the cell. Had they been drawn at random from the history's touched files that carry no anchor cell (the population
+// they come from), one would carry it with probability 1 − (1 − p)^s, p that population's KT-smoothed share of
+// carriers — so a bigger change is expected to touch more by chance, and a suffix that is simply what is left once
+// the anchor's files are set aside earns nothing. The outcomes are coded at their own KT rate instead of at those
+// expectations, with the BIC half log and the archetype family's index cost, and the rate must be the higher one. A
+// shape whose candidates all share one file has no anchor and certifies nothing: it is a place commits touch, not a
+// shape of what else they touch.
+export function conditionalCellBits(cell, S, members, fps, fpFiles, idxCost) {
+  const mates = new Set();
+  for (const fp of members) for (const [, cs] of fpFiles.get(fp)) if (cs.has(cell)) for (const x of cs) mates.add(x);
+  const A = S.filter(a => a !== cell && !mates.has(a));
+  if (!A.length) return null;
+  // the chance that one touched file carries the cell, among the history's file touches that carry none of the
+  // anchor cells: the population the remaining files of a test footprint are drawn from
+  let free = 0,
+    freeC = 0;
+  for (const fp of fps)
+    for (const [, cs] of fpFiles.get(fp)) {
+      if (A.some(a => cs.has(a))) continue;
+      free++;
+      if (cs.has(cell)) freeC++;
+    }
+  const p = (freeC + 0.5) / (free + 1);
+  const X = [],
+    Q = [];
+  for (const fp of fps) {
+    const fm = fpFiles.get(fp);
+    if (!A.every(a => [...fm.values()].some(cs => cs.has(a) && !cs.has(cell)))) continue;
+    let s = 0,
+      x = 0;
+    for (const [, cs] of fm) {
+      if (A.some(a => cs.has(a))) continue;
+      s++;
+      if (cs.has(cell)) x = 1;
+    }
+    if (!s) continue; // nothing left over to carry it: an outcome fixed in advance tells nothing
+    X.push(x);
+    Q.push(1 - Math.pow(1 - p, s));
+  }
+  const n = X.length;
+  if (n < CFG.minRaw) return null;
+  const k = X.reduce((a, b) => a + b, 0);
+  const q = Q.reduce((a, b) => a + b, 0) / n;
+  const rate = (k + 0.5) / (n + 1);
+  let data = 0;
+  for (let i = 0; i < n; i++) data += X[i] ? Math.log2(rate / Q[i]) : Math.log2((1 - rate) / (1 - Q[i]));
+  const bits = data - 0.5 * Math.log2(Math.max(n, 2)) - idxCost;
+  return { k, n, q: +q.toFixed(3), bits: +(k / n > q ? bits : Math.min(bits, 0)).toFixed(2) };
+}
 // change archetypes (§J4.1): the recurring SHAPES of past commits. A footprint's CELLS are the coarse, still-live
 // coordinates of what it touched — the refined module of each file, the role group of each scope it changed, the
-// file suffix — and `induceClusters` finds the combinations that recur. A cell is CERTIFIED for an archetype only
-// when coding its present/absent split at the archetype's own rate is cheaper than coding it at the whole
-// history's base rate: the same CONTRAST branch mine() uses for a role cell against `_all:` (core.mjs's `else`
-// arm), because an archetype is a sub-population of all footprints in exactly the way a role is of its partition.
-// A cell every commit in the repository touches carries no shape, however unanimous it is inside one archetype.
+// file suffix — and `induceClusters` finds the combinations that recur. A cell is a CANDIDATE for an archetype when
+// coding its present/absent split at the archetype's own rate is cheaper than coding it at the whole history's base
+// rate (the contrast mine() uses for a role cell against `_all:`), when the λ bound names it and when most members
+// touch it. That contrast cannot certify anything by itself: the clustering chose the members BECAUSE they share
+// the cell, so it is paid on the evidence that selected it, and a swap-randomised history passed it about as often as
+// the real one (issue 357). A candidate is CERTIFIED by a test over the whole history instead: among every footprint
+// that carries the shape's other candidates in files of their own, is the cell touched in the remaining files more
+// often than that many files drawn at random would touch it? See `conditionalCellBits`.
 export function applyChangeArchetypes(model, H) {
   model.changeArchetypes = [];
   if (H && H.fps && H.fps.length) {
@@ -133,8 +191,38 @@ export function applyChangeArchetypes(model, H) {
       }
       return out;
     };
-    const fpCells = new Map();
-    for (const fp of H.fps) fpCells.set(fp, cellsOf(fp));
+    // the same cells per FILE of the footprint (a scope's role cell belongs to the file it lives in): the conditional
+    // test must tell a cell carried by a file of its own from one carried by the file that also carries the anchor
+    const fileCellsOf = fp => {
+      const out = new Map();
+      const add = (f, c) => (out.get(f) || out.set(f, new Set()).get(f)).add(c);
+      for (const f of fp.files) {
+        const cur = currentOf(f);
+        add(f, 'm:' + refinedM(cur));
+        const sf = sufOf(cur);
+        if (sf) add(f, 'k:' + sf);
+      }
+      for (const key of fp.scopes || []) {
+        const i = key.indexOf('#');
+        if (i < 0) continue;
+        const f = key.slice(0, i);
+        if (!out.has(f)) continue;
+        const k2 = currentOf(f) + key.slice(i);
+        for (const p of model.partitions) {
+          const r = p.assignments[k2];
+          if (!Number.isInteger(r) || r === -1) continue;
+          add(f, 'g:' + p.name + '#' + r);
+          break;
+        }
+      }
+      return out;
+    };
+    const fpCells = new Map(),
+      fpFiles = new Map();
+    for (const fp of H.fps) {
+      fpCells.set(fp, cellsOf(fp));
+      fpFiles.set(fp, fileCellsOf(fp));
+    }
     const cellGlobal = new Map();
     for (const [, cs] of fpCells) for (const c of cs) cellGlobal.set(c, (cellGlobal.get(c) || 0) + 1);
     const dfTok = new Map();
@@ -167,10 +255,21 @@ export function applyChangeArchetypes(model, H) {
           if (nv) data += nv * Math.log2(kt(local, K, v, n) / kt(glob, K, v, N));
         }
         const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost;
-        // evidence, then the one loss constant, then vacuity: a cell the MAJORITY of the shape's own members do not
-        // touch describes what the shape avoids, and J4.2 would render it as a missing place to go add a file to
-        const certified = bits > 0 && (k + 0.5) / (n + K / 2) >= 1 - 1 / CFG.lambda && k * 2 > n;
-        cells.push({ cell, k, share: +(k / n).toFixed(3), bits: +bits.toFixed(2), certified });
+        // the contrast, then the one loss constant, then vacuity: a cell the MAJORITY of the shape's own members do
+        // not touch describes what the shape avoids, and J4.2 would render it as a missing place to go add a file to
+        const candidate = bits > 0 && (k + 0.5) / (n + K / 2) >= 1 - 1 / CFG.lambda && k * 2 > n;
+        cells.push({ cell, k, share: +(k / n).toFixed(3), bits: +bits.toFixed(2), certified: false, candidate });
+      }
+      const S = cells.filter(x => x.candidate).map(x => x.cell);
+      for (const x of cells) {
+        if (x.candidate) {
+          const given = conditionalCellBits(x.cell, S, c.members, H.fps, fpFiles, idxCost);
+          if (given) {
+            x.given = given;
+            x.certified = given.bits > 0;
+          }
+        }
+        delete x.candidate;
       }
       cells.sort(archCellSort);
       const cert = cells.filter(x => x.certified);

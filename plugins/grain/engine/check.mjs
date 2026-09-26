@@ -132,6 +132,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         const v = s.preds[sf.pid];
         if (v === undefined || v === sf.exp) continue;
         if (sf === f && f.suppressedValue && v === f.suppressedValue) continue; // nucleation stand-down
+        if (sf === f && f.trend && f.trend.fading) continue; // births after the change point no longer carry it
         if (sf === f && f.altMarker) {
           const am = /^auto\.(deco|extends|returns):/.exec(f.altMarker.pid); // an alternative-marker deviant already conforms — never a false accusation (§altMarkerFor)
           const arr = am && (am[1] === 'extends' ? s.sup : am[1] === 'deco' ? s.decos : s.rets);

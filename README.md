@@ -190,7 +190,7 @@ $ grain report
 
 == package src/handlers — 12 conventions · 9 groups · 151 scopes · 30 files ==
   package src/handlers: files here import `~/src/core/handler` — 100% of 29 established
-  package src/handlers: types here are annotated with `@Handler` — 100% of 29 established trend[100>100>97%] · held since 2024-02
+  package src/handlers: types here are annotated with `@Handler` — 100% of 29 established · held since 2024-02
   group «handle»: methods here call `this.service.apply` — 100% of 29 established · held since 2024-02
   template (unclustered methods ×30, ~89% of an average one): method_definition(constructor formal_parameters(…) statement_block)
   …

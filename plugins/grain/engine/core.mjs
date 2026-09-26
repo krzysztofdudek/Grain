@@ -80,7 +80,7 @@ export {
   roleLift,
 } from './mine.mjs';
 // history weighting (survival x provenance x churn), value trends and calibration
-export { mkWeightFn, valOf, trendsFor, rejectedValues, calibrate, heritageKindOf } from './weights.mjs';
+export { mkWeightFn, valOf, changePointFor, settleChangePoints, rejectedValues, calibrate, heritageKindOf } from './weights.mjs';
 // the verbalizer: units, shapes, and the English a convention or a deviation is said in
 export {
   unitOf,
