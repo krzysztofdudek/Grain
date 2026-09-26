@@ -693,6 +693,12 @@ The five largest changes in relations, with the commit's own subject: +462 on 20
 
 **Not shipped as a command.** The series is cheap and reads correctly, but it exists only where a graph has been committed for a while, it cannot tell enforcement from growth on its own, and the research's own test (the maintainer confirms or rejects the top five turning points) has not been run. It stays an instrument; the comparison with Grain's module graph on a repository without a graph was not run either.
 
+### A loop's issues as labels (issue 269)
+
+`tests/stress/labels.mjs loop <.jarl>` reads a Jarl issue loop: each issue's **Kind:**, **Status:**, **Repo:** (its last path segment names the repository) and **Files:** (each entry prefixed with that repository's directory name, which the reader strips, with a trailing line range), and the time it was filed from the log's `filed <id>` line. A `bug` issue names the files its defect was fixed in, found by research and review rather than by matching commit messages, which is the kind of label results.md 155 says history cannot give. Measured 2026-09-27 on the family's 6.1.0 release loop (a loop kept outside this repository): 396 issues filed from 2026-09-16, 215 of them bugs, 274 naming files; bugs that name files, by repository: Yggdrasil 80, Horde 35, Grain 15, JarlSkill 15, RatatoskrSkill 2, and 4 that name no repository. The research counted 231 issues ten days earlier; the loop is still being written, so a count is a snapshot and every analysis that uses it states its cutoff.
+
+Two things the research asked for are not here. Horde's retrospective (`retro.json`) records returns (a merge reverted, a ticket reopened) with a ticket, a text and a node, but no file set and no time of its own, and no mission store exists on the machine this was measured on, so there was nothing to read; the reader covers the Jarl format only. And a second, independent loop to test results out of sample does not exist yet.
+
 ## Known boundaries
 
 Stated, not hidden: a feature extending existing modules draws no placement note (name kin already live beside it);
