@@ -136,7 +136,7 @@ counts and the search is linear in the number of commits.
 After a certified τ the λ bound is read on the observations that follow it. When the expected value's KT predictive
 there is below 1 − 1/λ and lower than before τ, the rule is *fading*: `check` no longer accuses new code under it,
 because the code written since does not carry it at the odds an accusation needs. When another value's predictive
-there reaches 1 − 1/λ, that value is *nucleating*, and `check` stands down on it. A change point towards the
+there reaches 1 − 1/λ, that value is *nucleating*, and `check` stands down on it. With two values, three commits after the cut that all carry the new one already reach that bound, (3 + ½) / (3 + 1) = 7/8, so nucleation can rest on three commits; only the change point's gain, less its index cost, guards that edge. typeorm's cut where its errors began to extend `TypeORMError` has three births after it and certifies at 3.1 bits. A change point towards the
 expected value is reported as a trend and nothing more.
 
 The axis is commits, never calendar days. The earlier detector fitted a slope through 90-day windows and needed three
@@ -182,7 +182,10 @@ anchor's files are set aside earns nothing, and a shape whose candidates all liv
 is a place commits touch, not a shape of what else they touch. `how`'s certified-shape line and `missing: change
 shape:`'s residual cells both read off this certification; which commits cluster together is a modelling choice, not
 itself a claim. On the same randomised histories the test certifies 0 cells on 8 of 10 repositories and at most 0.4 a
-run on the other two.
+run on the other two. The family's index cost is log₂ of the cells the history carries at the raw floor, paid once; the conditional test is
+really searched over (shape, cell) pairs, one anchor per shape, so it under-pays by about log₂ of the number of shapes.
+It is left that way because the null does not show it (the counts above, and at most 0.67 a run under `selftest
+--null` since, validation.md); paying for the pairs would only remove real cells.
 
 ## Birth obligations
 

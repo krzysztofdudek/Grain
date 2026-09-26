@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2953 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2961 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -197,6 +197,8 @@ A fact's instances are ordered by the commit that bore them, each commit contrib
 - **Counted per birth instead of per commit, rejected.** One rename commit on typeorm (2026-03-23, #12244) generated 11 one-word `connection` accessors in the drivers, and per birth that made the drivers' camelCase method names "fading" (16 births since, 31% camelCase). Two naming-shape cuts over 1338 and 1878 births came from the same effect. Per commit, all three are gone and the four cuts above remain.
 - **Young, fast repositories.** A 60-day fixture of 25 commits (`tests/rejected-values.test.mjs`) certifies nucleation that the windowed detector, with one window, could never see. On Grain, 32 days and 601 commits old at this clone, the axis now exists, and nothing on it has moved.
 - The mutation harness is unchanged (above). `selftest --null` has no drift family: a change point claims an order, and the swap randomisation of commits keeps no birth order to destroy.
+- **`check` stands down on a fading convention**, tested through `checkFile` (issue 383, `tests/fading-check.test.mjs`): a fixture that fades without any value nucleating accuses no new code under the convention, and the same file is accused once the fading flag is cleared.
+- **Calibration still reads the calendar (issue 383, not done).** The change point moved to commits; calibration did not. It measures how often departures were later repaired, over departures between 365 and 30 days old (`calibHorizonDays`, `calibSettleDays`), and it does not run at all on a history shorter than 365 days. At these clones that rules it out on Grain (32 days) and Yggdrasil (219 days); the older corpus repositories can calibrate. Moving it to the commit axis needs a horizon and a settling time in commits, two new numbers nothing here measures, so it stays as it is and every `check` on a young repository accuses at the uncalibrated log₂ λ.
 
 ### Co-change partners, prospective
 
