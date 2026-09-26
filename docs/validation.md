@@ -707,6 +707,25 @@ Measured 2026-09-27 on Yggdrasil at `c5cdd8a`, read-only. Committed LLM verdicts
 
 Two things the research asked for are not here. Horde's retrospective (`retro.json`) records returns (a merge reverted, a ticket reopened) with a ticket, a text and a node, but no file set and no time of its own, and no mission store exists on the machine this was measured on, so there was nothing to read; the reader covers the Jarl format only. And a second, independent loop to test results out of sample does not exist yet.
 
+### A risk signal against size, on the house's own labels (issue 268)
+
+`tests/stress/labels.mjs risk <repo> --loop <.jarl>` takes the nodes of the repository's graph that own files at HEAD, and for each one features from before the loop opened (the first filing time): lines at the last commit before it, commits that touched the node, and declared fan-in in the graph as it stood then (read with the trajectory instrument above, so a relation added during the loop is not a feature). Two labels: the node owns a file a `bug` issue of the loop names, and the reviewer refused one of its files after the cut. AUC per feature, over all nodes and by node kind (a test node by its path), and fan-in's AUC again after the least-squares line on log lines and log commits is removed.
+
+Measured 2026-09-27 on Yggdrasil at `c5cdd8a`, the family's 6.1.0 release loop as labels: cut 2026-09-16 10:53 (`ddd4685`), 481 nodes owning files, 121 bug issues naming Yggdrasil.
+
+| nodes | label | positives | log lines | log commits | both | fan-in | fan-in, size removed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| all 481 | bug issue | 66 | 0.624 | 0.721 | 0.687 | 0.809 | 0.603 |
+| all 481 | refused after the cut | 36 | 0.598 | 0.661 | 0.652 | 0.800 | 0.620 |
+| production 164 | bug issue | 62 | 0.661 | 0.697 | 0.692 | 0.608 | 0.483 |
+| production 164 | refused after the cut | 29 | 0.677 | 0.669 | 0.691 | 0.604 | 0.455 |
+| test 317 | bug issue | 4 | 0.679 | 0.580 | 0.651 | 0.473 | 0.416 |
+| test 317 | refused after the cut | 7 | 0.297 | 0.358 | 0.336 | 0.619 | 0.793 |
+
+Over all nodes fan-in looks like the best signal on both labels (0.81 and 0.80 against 0.69 and 0.65 for size). It is the test/production split: 317 of the 481 nodes are tests, 95% of them with no fan-in, and they carry 4 of the 66 bug labels. Among production nodes fan-in loses to size on both labels (0.61 and 0.60 against 0.69), and once size is removed it is at chance or below (0.48 and 0.46). The test stratum has too few positives to read. This reproduces the research's reading from the reader (production lines 0.661, the same; commits 0.697 against its 0.690; fan-in 0.608 against 0.613, now with fan-in as declared at the cut and 62 positives where it had 59); its 0.626 for fan-in after size removed only lines, and removing commits too takes it to 0.483.
+
+**Nothing shipped; the guardrail stands.** Grain ships no risk or hotspot score. A candidate feature has to beat log lines plus log commits on size-adjusted AUC on both label sources, within production and test nodes separately, recorded here before it ships, and even then it is shown only as a residual ("draws more refusals than its size predicts"), never as a score.
+
 ## Known boundaries
 
 Stated, not hidden: a feature extending existing modules draws no placement note (name kin already live beside it);
