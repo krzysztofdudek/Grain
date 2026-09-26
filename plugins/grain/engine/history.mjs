@@ -437,6 +437,7 @@ export const freshState = () => ({
   prevState: Object.create(null),
   pairSup: Object.create(null),
   fileCommits: Object.create(null),
+  fileOthers: Object.create(null),
   nonMegaCommits: 0,
   fps: [],
   scopePairSup: Object.create(null),
@@ -464,6 +465,7 @@ const HIST_MAP_FIELDS = [
   'prevState',
   'pairSup',
   'fileCommits',
+  'fileOthers',
   'scopePairSup',
   'scopeCommits',
 ];
@@ -652,7 +654,13 @@ function replay(state, events, commits, cache) {
     // both read this SAME Set, never recomputed.
     const scopeKeys = [...(touched.get(c.sha) || [])].sort();
     if (fs2.length >= 1 && fs2.length <= CFG.megaCap) {
-      for (const f of fs2) state.fileCommits[f] = (state.fileCommits[f] || 0) + 1; // the denominator a reader can reproduce: every non-bulk commit touching the file, single-file ones included
+      for (const f of fs2) {
+        state.fileCommits[f] = (state.fileCommits[f] || 0) + 1; // the denominator a reader can reproduce: every non-bulk commit touching the file, single-file ones included
+        // how many OTHER files those commits touched beside it (issue 366): the room a partner had to appear in them,
+        // which the co-change cell's base rate needs — a file committed with twenty others meets any partner more
+        // often than one committed alone, by nothing but the size of its commits
+        (state.fileOthers ||= Object.create(null))[f] = (state.fileOthers[f] || 0) + fs2.length - 1;
+      }
       // …and the POPULATION that denominator is drawn from (§J2.4b): once per commit, never per file. `commits` counts
       // every commit including mass ones, so a rate built as fileCommits/commits is deflated by exactly the mass-commit
       // share — which reads as excess affinity for any token, out of nothing but the mismatched populations.
@@ -704,11 +712,13 @@ function toH(state, gitdir) {
     const commitsA = state.fileCommits[a] || 1,
       commitsB = state.fileCommits[b] || 1;
     const ca = Math.max(sup / commitsA, sup / commitsB);
+    const fo = state.fileOthers || {};
     // commitsA/commitsB are persisted so a consumer can gate DIRECTIONALLY (editing `a` names `b` iff b's rate over a's
     // commits beats b's own base rate, the co-change cell in facts.mjs); the store keeps every pair above the support
     // floor — the gate is a query-time decision, and a build-time cut threw away real partners (cli.py→tests/test_cli.py
     // at 0.38) before the directional gate ever saw them
-    cochange.push({ a, b, sup, conf: +ca.toFixed(2), commitsA, commitsB });
+    // othersA/othersB: the files each side's commits touched beside it, for the commit-size base rate
+    cochange.push({ a, b, sup, conf: +ca.toFixed(2), commitsA, commitsB, othersA: fo[a] || 0, othersB: fo[b] || 0 });
   }
   cochange.sort((p, q) => q.sup - p.sup || (p.a < q.a ? -1 : p.a > q.a ? 1 : p.b < q.b ? -1 : 1));
   // scope-level co-change (§J5.7b): the same finalization as `cochange` above, over `state.scopePairSup`/
@@ -737,6 +747,8 @@ function toH(state, gitdir) {
     msgTokCommits: state.msgTokCommits || {},
     fileCommits: state.fileCommits || {},
     nonMegaCommits: state.nonMegaCommits || 0,
+    // every file touch those commits made, the population the commit-size base rate is drawn from
+    fileTouches: Object.values(state.fileCommits || {}).reduce((a, b) => a + b, 0),
     scopeCommitsN: state.scopeCommitsN || 0,
     fps: state.fps || [],
     commitsN: state.commits,

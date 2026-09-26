@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2944 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2953 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -143,7 +143,7 @@ Measured 2026-09-26 on the same clones, 3 runs each with seeds 1 to 3, after the
 | value norms | 2 · 2 (2, 2, 2) | 1 · 0 (0, 0, 0) | 1 · 1 (1, 1, 1) | 1 · 0 (0, 0, 0) | not counted | 0 · 0 | not counted | 0 · 0 |
 | deviation fix rate | 0 · 0 | 0 · 0.33 (0, 1, 0) | 0 · 0 | 1 · 0 (0, 0, 0) | not counted | 0 · 0 | not counted | 3 · 0 (0, 0, 0) |
 
-- **Co-change.** A partner is now named for the edited file's direction only, when its rate over that file's commits beats its own rate over all commits by the obligation cell (mathematics.md, *Co-change partners*). The null drops to 0 on Grain, 3.67 on Yggdrasil and 0.33 on express. It does not on typeorm, 10.67 → 12: a repository that commits many files at once makes any two busy files co-occur above their base rates, because the base rate ignores commit size. The target of at most one false certification per repository is still not met for co-change: 3.67 a run on Yggdrasil and 12 on typeorm. The prospective measurement below is the one that decided the gate.
+- **Co-change.** A partner is now named for the edited file's direction only, when its rate over that file's commits beats its own rate over all commits by the obligation cell (mathematics.md, *Co-change partners*). The null drops to 0 on Grain, 3.67 on Yggdrasil and 0.33 on express. It does not on typeorm, 10.67 → 12: a repository that commits many files at once makes any two busy files co-occur above their base rates, because the base rate ignores commit size. The target of at most one false certification per repository is still not met for co-change: 3.67 a run on Yggdrasil and 12 on typeorm. The prospective measurement below is the one that decided the gate. The commit-size base rate (issue 366, below) takes both to 0.
 - **Value norms.** Under the flat coin, shuffling the members among the declaring files certified every norm the real data certified, 2 of 2 on Grain and 1 of 1 on Yggdrasil: they were schema keys every declaring file carries, complete whatever the joint structure. Against independence, the shuffle certifies nothing. Of the four schema-key norms the research counted, three stop certifying (`$.scope` `per`/`file` on both, and `$.relations` `target`/`uses` was already gone at this snapshot). `$` `description`/`name` on Grain survives at 4.5 bits instead of 145.4: 175 of 177 qualifying files complete against 0.889 under independence. Yggdrasil gains one: twelve keys of `$.node_types.leaf`, 8 of 8 complete against 0.061, all in copies of one test-fixture architecture file. The twelve corpus repositories measured certify no value norm before or after, so the survivors the research expected (enum and switch sets in code) could not be inspected here.
 - **Deviation fix rate.** The old per-scope label with its 7-of-8 bound certified no claim on any of the 14 repositories below. Per edit, 4 claims certify (1 on Yggdrasil, 3 on typeorm), and the fix-label shuffle certifies 0.33 a run on Grain and 0 elsewhere. Each surviving claim was checked against the popularity-matched control of result 153: every deviant paired with the non-deviant scope of the same fact with the nearest edit count. Deviant edits were fixes at 0.80, 0.39, 0.26 and 0.18; the matched controls at 0.27, 0.00, 0.06 and 0.05, and the whole populations at 0.32, 0.04, 0.07 and 0.05. The matched control shows no lift over the population, so none of the four is exposure. The deviants are not the hottest scopes either: their median edit count is 0, 7, 0 and 1 against 0, 6, 2 and 3 in the population.
 
@@ -211,7 +211,36 @@ The protocol of maintainer note *obligations-design* §2, rebuilt: train on the 
 | the contrast and the λ bound (7 of 8) | 0.025 | 0.009 | 0.965 | 0.026 | 0.7 |
 | null: the 3 hottest files | 0.364 | 0.000 | 0.282 | 1.000 | — |
 
-The contrast beats the 6.1.0 gate on every accuracy column, pooled and per repository in most (hit@3 higher on 10 of 14, lower on 2; precision@1 higher on 9, lower on 4), and certifies 61% fewer partners under the null. It is not better everywhere on the null: typeorm 22.7 → 93.7, Slim 20.7 → 37.7 and flask 2.7 → 5.3 per run under this harness (the shipped `selftest --null` counts fewer, 10.67 → 12 on typeorm, because it counts only live partners). The λ bound the research proposed names a partner in 2.6% of cases and was rejected. A floor on the edited file's own rate cuts the null to about one per repository but loses a third of the non-obvious hits, which are the half of the answer co-change is for: the hub-to-test partners that only the reverse direction used to reach. The hottest-files null still has the higher hit@3, as under 6.1.0.
+`grain selftest --cochange` now runs this protocol on one repository. The base rate in this table is per commit; the commit-size base rate that replaced it is measured below. The contrast beats the 6.1.0 gate on every accuracy column, pooled and per repository in most (hit@3 higher on 10 of 14, lower on 2; precision@1 higher on 9, lower on 4), and certifies 61% fewer partners under the null. It is not better everywhere on the null: typeorm 22.7 → 93.7, Slim 20.7 → 37.7 and flask 2.7 → 5.3 per run under this harness (the shipped `selftest --null` counts fewer, 10.67 → 12 on typeorm, because it counts only live partners). The λ bound the research proposed names a partner in 2.6% of cases and was rejected. A floor on the edited file's own rate cuts the null to about one per repository but loses a third of the non-obvious hits, which are the half of the answer co-change is for: the hub-to-test partners that only the reverse direction used to reach. The hottest-files null still has the higher hit@3, as under 6.1.0.
+
+### Co-change base rate by commit size (issue 366)
+
+The contrast above compared a partner's rate over the edited file's commits with its rate over all commits. A file committed with twenty others meets a busy partner in many of its commits by nothing but their size, so repositories that commit many files at once named partners the swap-randomised null named too. The base rate now accounts for commit size (mathematics.md, *Co-change partners*): the partner's share of the file touches the edited file leaves, over the edited file's mean number of other files per commit.
+
+Measured 2026-09-26 with `grain selftest --cochange`, which runs the protocol above on one repository, on the same 14 clones and the same 16 964 cases. Each cell reads *base rate per commit → base rate by commit size*; the null counts every partner the cell names on 3 swap-randomised copies of the whole history (seeds 1 to 3), dead ones included.
+
+| repository | cases | hit@3 | non-obvious hit@3 | precision@1 | partners named, real | null per run |
+| --- | --- | --- | --- | --- | --- | --- |
+| Grain | 418 | 0.246 → 0.246 | 0.013 → 0.013 | 0.912 → 0.912 | 49 → 42 | 0.67 → 0 |
+| Yggdrasil | 2468 | 0.118 → 0.088 | 0.033 → 0.039 | 0.431 → 0.472 | 230 → 146 | 4.67 → 0 |
+| express | 1942 | 0.404 → 0.402 | 0.053 → 0.046 | 0.685 → 0.682 | 310 → 305 | 0.67 → 0 |
+| gin | 718 | 0.493 → 0.444 | 0.200 → 0.145 | 0.697 → 0.751 | 109 → 64 | 0.67 → 0 |
+| flask | 1855 | 0.281 → 0.265 | 0.225 → 0.238 | 0.381 → 0.404 | 464 → 360 | 5.33 → 0 |
+| chi | 223 | 0.224 → 0.220 | 0.086 → 0.086 | 0.543 → 0.557 | 59 → 42 | 0.67 → 0 |
+| sinatra | 1181 | 0.233 → 0.237 | 0.204 → 0.204 | 0.476 → 0.468 | 296 → 293 | 12.67 → 5.33 |
+| Slim | 706 | 0.065 → 0.057 | 0.041 → 0.041 | 0.347 → 0.317 | 566 → 342 | 37.67 → 2.67 |
+| axum | 845 | 0.303 → 0.269 | 0.146 → 0.137 | 0.431 → 0.459 | 406 → 323 | 8 → 0 |
+| CleanArchitecture | 373 | 0.064 → 0.062 | 0.033 → 0.033 | 0.321 → 0.340 | 80 → 65 | 5.67 → 0 |
+| typeorm | 4103 | 0.175 → 0.169 | 0.096 → 0.093 | 0.447 → 0.462 | 1408 → 933 | 93.67 → 0 |
+| koa | 311 | 0.090 → 0.071 | 0.030 → 0.030 | 0.198 → 0.150 | 29 → 20 | 0 → 0 |
+| click | 808 | 0.345 → 0.333 | 0.150 → 0.186 | 0.470 → 0.464 | 285 → 187 | 4 → 0 |
+| requests | 1013 | 0.145 → 0.172 | 0.116 → 0.120 | 0.536 → 0.425 | 207 → 216 | 0.67 → 0.67 |
+| **pooled** | **16 964** | **0.228 → 0.217** | **0.108 → 0.108** | **0.503 → 0.512** | **4498 → 3338** | **175.0 → 8.7 (sum)** |
+
+- **The null.** Summed over the 14, 175 partners a run → 8.7; typeorm 93.67 → 0 and flask 5.33 → 0. Slim keeps 2.67 and sinatra 5.33. Those are not what commit size explains: they are files that shared the few large commits of histories whose commits are mostly one or two files (`Slim/Exception/Pass.php` and `Stop.php`, sinatra's README translations), and 5 trades per commit do not move a file out of a 20-file commit when almost every trade partner holds one file. With 50 trades per commit the new cell names 0 a run on Slim, sinatra, typeorm and flask, and the base rate per commit still names 19, 2.67, 55 and 8.67. `selftest --null` uses 5 trades per commit, so its other history families may carry the same under-mixing.
+- **`selftest --null`, live partners only, 3 runs:** Grain 0 → 0, Yggdrasil 3.67 → 0, typeorm 12 → 0 (real 37 → 33), Slim 0 (real 48), flask 0.67 (real 234; one run named 2).
+- **What the answer loses.** Pooled hit@3 falls from 0.228 to 0.217: 271 cases lose their hit and 81 gain one. In 201 of the 271, every partner that had hit was one of the 10 files the training window touched most. The non-obvious hit@3 is unchanged at 0.108, and precision@1 rises. The hits that go are the ones naming the busiest files, which the null that always names the 3 hottest files gets more of (0.364). Yggdrasil, whose commits carry 4.5 files on average, loses most (0.118 → 0.088) and gains in non-obvious hits and precision@1.
+- **Rejected on the way.** Each commit's own size in place of the mean (hit@3 0.221, non-obvious 0.106, null 9.0 summed): no better on the null, worse on the non-obvious hits, and it would store a size histogram per file. The partner's own rate among commits of each size (hit@3 0.199, non-obvious 0.088, null 0): it explains away real partners that both favour large commits.
 
 ### Every commit weighs the same (issue 369)
 

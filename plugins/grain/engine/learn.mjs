@@ -684,6 +684,7 @@ export async function learn({
   // that does not apply here: cochange's commitsA/commitsB are already historical-path-keyed, so this must stay
   // historical-path-keyed too, or the two counts would disagree about what a "file" is).
   model.nonMegaCommits = H ? H.nonMegaCommits : 0;
+  model.fileTouches = H ? H.fileTouches || 0 : 0; // every file touch of those commits: the co-change cell's commit-size base rate
   model.scopeCommitsN = H ? H.scopeCommitsN || 0 : 0; // the same, for `model.scopeCochange`'s commitsA/commitsB
   // scope-level co-change (§J5.7b): mirrors model.cochange above, but `a`/`b` are scope keys whose path half is a
   // HISTORICAL path (§J4.1) — remapped through currentPathOf ONCE here, at learn-time, because checkFile never

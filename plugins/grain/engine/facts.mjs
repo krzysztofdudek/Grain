@@ -142,14 +142,32 @@ export const clearsOwnRate = (k, n) => n > 0 && (k + 0.5) / (n + K2 / 2) >= 1 - 
 // in bits when it is positive and the partner is touched MORE often beside this file than anyway, else null. One
 // direction at a time: editing a hub names the partner only if the hub's own commits raise the partner's rate, and
 // a partner that changes with a third of all commits is not named for changing with a third of this file's.
+// The base rate accounts for commit size (issue 366) when the caller passes `others` (the files the edited file's
+// `n` commits touched beside it) and `touches` (every file touch of the `N` commits). A commit of s files leaves the
+// partner s − 1 places to appear in, so its base rate is its share of the touches not taken by the edited file,
+// π = gp / (touches − n), over the edited file's mean number of places, m = others / n: 1 − (1 − π)^m. That is
+// what the swap-randomised null (every commit keeps its size, every file its commit count) expects, and the mean
+// m, by the concavity of 1 − (1 − π)^m, never expects less than the per-commit sizes would. Without `others` the
+// rate is the partner's commits over all commits, as it is for scope pairs, which carry no commit sizes.
 export const cochangeIdxCost = pairs => Math.ceil(Math.log2(Math.max(2 * pairs, 2)));
-export function partnerBits(k, n, gp, N, idxCost) {
-  if (!(N > 0 && n > 0) || !(k * N > gp * n)) return null;
+export function partnerBits(k, n, gp, N, idxCost, others, touches) {
+  if (!(N > 0 && n > 0)) return null;
   const K = K2,
-    local = { t: k, u: n - k },
-    glob = { t: gp, u: Math.max(N - gp, 0) };
+    local = { t: k, u: n - k };
+  let base, rate; // the base rate as coded (KT) and as observed
+  if (others > 0 && touches > n) {
+    const m = others / n,
+      S = touches - n;
+    base = 1 - Math.pow(1 - kt({ t: gp }, K, 't', S), m);
+    rate = 1 - Math.pow(1 - gp / S, m);
+  } else {
+    base = kt({ t: gp }, K, 't', N);
+    rate = gp / N;
+  }
+  if (!(k > rate * n)) return null;
+  const q = { t: base, u: 1 - base };
   let data = 0;
-  for (const v of ['t', 'u']) if (local[v]) data += local[v] * Math.log2(kt(local, K, v, n) / kt(glob, K, v, N));
+  for (const v of ['t', 'u']) if (local[v]) data += local[v] * Math.log2(kt(local, K, v, n) / q[v]);
   const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(n, 2)) - idxCost;
   return bits > 0 ? +bits.toFixed(2) : null;
 }

@@ -686,12 +686,14 @@ export async function main(argv) {
           const f = x => (x == null ? 'n/a' : x.toFixed(3));
           const row = (label, a) =>
             `  ${label}: hit@3 ${f(a.hit3)} · non-obvious hit@3 ${f(a.nonObviousHit3)} · precision@1 ${f(a.precision1)} · named for ${f(a.named)} of cases`;
-          const c = res.arms.cell;
+          const named = a => `${a.real} named over the whole history · under the null, mean per run: ${a.nullMean} (${a.null.join(', ')})`;
           lines = [
             `selftest --cochange (${res.footprints} commits: learned from the oldest ${res.train}, scored on ${res.cases} files of the newer commits)`,
-            row('co-change partners', c),
+            row('co-change partners', res.arms.cell),
+            row('base rate per commit, not per commit size', res.arms.perCommit),
             row('the 3 hottest files', res.arms.hottest),
-            `  partners named over the whole history: ${c.real} · under the null, mean per run: ${c.nullMean} (${c.null.join(', ')})`,
+            `  co-change partners: ${named(res.arms.cell)}`,
+            `  base rate per commit: ${named(res.arms.perCommit)}`,
             stamp(),
           ];
         }

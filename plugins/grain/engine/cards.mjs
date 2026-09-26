@@ -295,9 +295,9 @@ export function cochangePartners(model, dirs, max = 3, file = null) {
   for (const p of model.cochange || []) {
     const aIn = file ? p.a === file : dirs.some(d => p.a.startsWith(d + '/')),
       bIn = file ? p.b === file : dirs.some(d => p.b.startsWith(d + '/'));
-    if (aIn && !bIn && partnerBits(p.sup, p.commitsA || p.sup, p.commitsB || 0, N, idx) != null)
+    if (aIn && !bIn && partnerBits(p.sup, p.commitsA || p.sup, p.commitsB || 0, N, idx, p.othersA, model.fileTouches) != null)
       out.push({ partner: p.b, sup: p.sup, commits: p.commitsA || p.sup, dead: !live.has(p.b) });
-    else if (bIn && !aIn && partnerBits(p.sup, p.commitsB || p.sup, p.commitsA || 0, N, idx) != null)
+    else if (bIn && !aIn && partnerBits(p.sup, p.commitsB || p.sup, p.commitsA || 0, N, idx, p.othersB, model.fileTouches) != null)
       out.push({ partner: p.a, sup: p.sup, commits: p.commitsB || p.sup, dead: !live.has(p.a) });
   }
   out.sort((x, y) => y.sup / y.commits - x.sup / x.commits || (x.partner < y.partner ? -1 : 1));

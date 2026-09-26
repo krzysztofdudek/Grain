@@ -1,7 +1,8 @@
 // `grain selftest --cochange` — the co-change partners measured the way they are used (issue 366): learned from the
 // oldest 80% of the retained footprints, scored on the newest 20%, and counted under the curveball null. These tests
 // pin the protocol on synthetic footprints (a real pair must be found, noise must not be named, the model must never
-// see the commits it is scored on) and the command's shape on a small real repository.
+// see the commits it is scored on) and the command's shape on a small real repository. Two cells are measured: the
+// shipped one, whose base rate accounts for commit size, and the base rate per commit it replaced.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -39,6 +40,7 @@ test('a pair that always changes together is named and hit on the newer commits;
   assert.equal(c.null.length, 2, 'one null count per run');
   assert.ok(c.nullMean <= 1, `the null names at most one partner a run: ${c.null}`);
   assert.ok(res.arms.hottest, 'the hottest-files null is reported beside the cell');
+  assert.ok(res.arms.perCommit.real >= 2, 'the per-commit comparison arm names the pair too');
 });
 
 test('the model is learned from the older commits only: a pair that appears only in the newest fifth is never named', () => {
@@ -79,16 +81,20 @@ test('`grain selftest --cochange --json` reports each arm and one null count per
   const j = JSON.parse(r.stdout.slice(r.stdout.indexOf('{')));
   assert.equal(j.runs, 2);
   assert.equal(j.footprints, 12);
-  for (const a of ['cell', 'hottest']) for (const k of ['hit3', 'nonObviousHit3', 'precision1', 'named']) assert.ok(k in j.arms[a], `${a}.${k}`);
-  assert.equal(j.arms.cell.null.length, 2);
-  assert.equal(typeof j.arms.cell.real, 'number');
+  for (const a of ['cell', 'perCommit', 'hottest']) for (const k of ['hit3', 'nonObviousHit3', 'precision1', 'named']) assert.ok(k in j.arms[a], `${a}.${k}`);
+  for (const a of ['cell', 'perCommit']) {
+    assert.equal(j.arms[a].null.length, 2, `${a}: one null count per run`);
+    assert.equal(typeof j.arms[a].real, 'number');
+  }
 });
 
-test('`grain selftest --cochange` text names the protocol, both arms and the null', () => {
+test('`grain selftest --cochange` text names the protocol, every arm and the null', () => {
   const r = spawnSync('node', [BIN, 'selftest', '--cochange', '--runs', '1'], { cwd: repo, encoding: 'utf8' });
   assert.equal(r.status, 0, r.stderr);
   assert.match(r.stdout, /^selftest --cochange \(12 commits: learned from the oldest 9, scored on \d+ files of the newer commits\)$/m);
   assert.match(r.stdout, /^ {2}co-change partners: hit@3 /m);
+  assert.match(r.stdout, /^ {2}base rate per commit, not per commit size: hit@3 /m);
   assert.match(r.stdout, /^ {2}the 3 hottest files: hit@3 /m);
-  assert.match(r.stdout, /^ {2}partners named over the whole history: \d+ · under the null, mean per run: /m);
+  assert.match(r.stdout, /^ {2}co-change partners: \d+ named over the whole history · under the null, mean per run: /m);
+  assert.match(r.stdout, /^ {2}base rate per commit: \d+ named over the whole history · under the null, mean per run: /m);
 });
