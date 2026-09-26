@@ -77,7 +77,7 @@ const jsonShards = dir => readdirSync(dir).filter(f => f.endsWith('.json'));
 // 20 handler files, 2 functions each: 40 method scopes + 20 file scopes clears groupPartitions' >= 30-scope floor
 // for keeping a small package as its own partition (below that, `status` reports "no source partition" and mines
 // nothing — verified empirically while building this fixture). Committed in two batches ~7 months apart so the
-// first batch is comfortably past CFG.survDays (established) by the second.
+// first batch is comfortably established by the second.
 const NAMES = ['Order', 'Payment', 'Shipment', 'Refund', 'Invoice', 'Cart', 'Customer', 'Product', 'Stock', 'Coupon',
   'Notification', 'Audit', 'Report', 'Ticket', 'Session', 'Voucher', 'Wallet', 'Ledger', 'Batch', 'Queue'];
 const handlerSrc = n => `export function handle${n}(id) {\n  const result = { id, kind: '${n}' };\n  return result;\n}\n\nexport function validate${n}(id) {\n  const result = { id, valid: true };\n  return result;\n}\n`;

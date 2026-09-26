@@ -168,7 +168,7 @@ by asking `grain how <query>` yourself before writing code.
 - **`report [--top N]`** / **`status`** — the model overview: size, freshness, signal verdict, top conventions with
   trends and ages, the measured architecture (modules, dependencies, cycles), the `check` feedback rate (notes
   acted on vs. ignored after warning), and a `== health ==` section flagging conventions worth a decision: deviations
-  whose edits were fixes more often, rejected alternatives, conventions carried mostly by agent-authored code, under-adopted shapes,
+  whose edits were fixes more often, rejected alternatives, under-adopted shapes,
   conventions with several waivers already, dead steers. Every health line ends with a suggested `grain decide …`
   — text, never an executed command.
 - **`rules [--out <file>]`** — the same data as `report`, rendered as a standalone Markdown document stamped with

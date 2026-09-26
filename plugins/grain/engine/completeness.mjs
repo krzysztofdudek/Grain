@@ -31,7 +31,9 @@ export function completeness(model, changed) {
 // partner that changes with a third of every commit was named for changing with a third of this file's. Measured
 // under the curveball null (validation.md, *False certifications under a null*): the old gate named 6.7 partners a
 // run on shuffled Grain history and 191 on Yggdrasil; the contrast names about one. The printed denominator is now
-// always the edited file's own commit count.
+// always the edited file's own commit count. The partner's base rate accounts for the size of the edited file's
+// commits (issue 366, `partnerBits`): a file committed with twenty others meets any busy partner more often than one
+// committed alone, and the flat rate named those meetings — 94 a run on shuffled typeorm history, 0 with the size.
 // `ambient` is structural, not a new tunable — a partner that does not pass the contrast, but whose OWN global
 // commit count clears the same λ bound `certifyObligationRules`' ambient gate uses (against `model.nonMegaCommits`,
 // the population those counts were drawn from), is reported as background, never merged with the specific list:
@@ -46,11 +48,11 @@ export function cochangeData(model, changed) {
   const idx = cochangeIdxCost((model.cochange || []).length);
   for (const c of model.cochange || [])
     for (const f of changed) {
-      let file, n, k;
-      if (c.a === f && !changed.includes(c.b)) [file, n, k] = [c.b, c.commitsA || c.sup, c.commitsB || 0];
-      else if (c.b === f && !changed.includes(c.a)) [file, n, k] = [c.a, c.commitsB || c.sup, c.commitsA || 0];
+      let file, n, k, others;
+      if (c.a === f && !changed.includes(c.b)) [file, n, k, others] = [c.b, c.commitsA || c.sup, c.commitsB || 0, c.othersA];
+      else if (c.b === f && !changed.includes(c.a)) [file, n, k, others] = [c.a, c.commitsB || c.sup, c.commitsA || 0, c.othersB];
       else continue;
-      const bits = partnerBits(c.sup, n, k, N, idx);
+      const bits = partnerBits(c.sup, n, k, N, idx, others, model.fileTouches);
       const hit =
         bits != null
           ? { file, sup: c.sup, commits: n, bits, dead: !live.has(file), ambient: false }

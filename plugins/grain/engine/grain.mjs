@@ -41,6 +41,7 @@ import {
 } from './core.mjs';
 import { loadHistory, headSha, headTree, readHistoryState } from './history.mjs';
 import { nullTest } from './selftest-null.mjs';
+import { cochangeEval } from './selftest-cochange.mjs';
 import { createHash } from 'node:crypto';
 import { partitionFor, DIRTY_TREE_NOTE } from './core.mjs';
 import { cmdAdvise } from './grain-advise.mjs';
@@ -628,7 +629,7 @@ export async function main(argv) {
     case 'selftest': {
       if (args.length)
         throw new Error(
-          'usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --obligation [--last N] [--json] | grain selftest --extract [--json] | grain selftest --null [--runs N] [--json] — takes no positional arguments'
+          'usage: grain selftest [--json] | grain selftest --how [--last N] [--json] | grain selftest --where [--last N] [--json] | grain selftest --obligation [--last N] [--json] | grain selftest --extract [--json] | grain selftest --null [--runs N] [--json] | grain selftest --cochange [--runs N] [--json] — takes no positional arguments'
         );
       if (opts.null) {
         // the false-certification counterpart of the mutation harness: each family on a label-destroying randomisation
@@ -660,6 +661,42 @@ export async function main(argv) {
             `  total false certifications, mean per run: ${res.nullTotalMean}`,
             stamp(),
           ];
+        break;
+      }
+      if (opts.cochange) {
+        // the co-change cell prospectively (train on the oldest footprints, score the newest) and under its null
+        let H = null;
+        if (isGit) {
+          try {
+            H = (await loadHistory({ gitdir: root, store, log })).H;
+          } catch (e) {
+            log('history unavailable for selftest --cochange: ' + e.message);
+          }
+        }
+        if (!H || !H.fps || !H.fps.length) {
+          const note = `selftest --cochange needs commit history to evaluate against (${!isGit ? 'this is not a git repository' : 'this repository has no readable commit history'})`;
+          lines = opts.json
+            ? [JSON.stringify({ note, footprints: 0, cases: 0, arms: null, asOf: stamp().replace(/^as of /, '') })]
+            : [note, stamp()];
+          break;
+        }
+        const res = cochangeEval({ H, runs: Math.max(1, +opts.runs || 3), seed: +opts.seed || 1 });
+        if (opts.json) lines = [JSON.stringify({ ...res, asOf: stamp().replace(/^as of /, '') }, null, 1)];
+        else {
+          const f = x => (x == null ? 'n/a' : x.toFixed(3));
+          const row = (label, a) =>
+            `  ${label}: hit@3 ${f(a.hit3)} · non-obvious hit@3 ${f(a.nonObviousHit3)} · precision@1 ${f(a.precision1)} · named for ${f(a.named)} of cases`;
+          const named = a => `${a.real} named over the whole history · under the null, mean per run: ${a.nullMean} (${a.null.join(', ')})`;
+          lines = [
+            `selftest --cochange (${res.footprints} commits: learned from the oldest ${res.train}, scored on ${res.cases} files of the newer commits)`,
+            row('co-change partners', res.arms.cell),
+            row('base rate per commit, not per commit size', res.arms.perCommit),
+            row('the 3 hottest files', res.arms.hottest),
+            `  co-change partners: ${named(res.arms.cell)}`,
+            `  base rate per commit: ${named(res.arms.perCommit)}`,
+            stamp(),
+          ];
+        }
         break;
       }
       if (opts.extract) {

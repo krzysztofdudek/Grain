@@ -61,3 +61,39 @@ test('the same gate for one changed file and for several — no second floor for
   const two = cochangeData({ ...model, pathsAll: [...model.pathsAll, 'src/z.ts'] }, ['src/hub.ts', 'src/z.ts']).map(h => h.file);
   assert.deepEqual(two, one);
 });
+
+// Issue 366: the base rate accounts for commit size. A file committed with twenty others per commit meets a busy
+// partner in about 1 − (1 − π)^20 of its commits by chance, π the partner's share of the touches the file leaves.
+test('the commit-size base rate by hand: the partner\'s share of the other touches, over the edited file\'s mean commit size', () => {
+  // 1000 commits, 10000 file touches; the edited file: 50 commits with 1000 other files beside it (m = 20);
+  // the partner: 100 commits, met in 15 of the 50
+  const S = 10000 - 50, m = 1000 / 50;
+  const base = 1 - Math.pow(1 - 100.5 / (S + 1), m);
+  const want = 15 * Math.log2((15.5 / 51) / base) + 35 * Math.log2((35.5 / 51) / (1 - base)) - 0.5 * Math.log2(50) - 1;
+  const got = partnerBits(15, 50, 100, 1000, 1, 1000, 10000);
+  assert.equal(got, want > 0 ? +want.toFixed(2) : null);
+  assert.equal(got, null, 'fifteen meetings in fifty twenty-file commits are what chance gives a partner touched this often');
+  assert.ok(partnerBits(15, 50, 100, 1000, 1) > 0, 'the rate per commit, blind to the size, names it');
+});
+
+test('the commit-size base rate still names a partner a small-commit file really travels with', () => {
+  // 8 of the hub's 38 commits, the partner's 8 of 200, 400 touches; the hub's commits carry one other file each
+  assert.ok(partnerBits(8, 38, 8, 200, 1, 38, 400) > 0);
+});
+
+test('without the commit sizes the rate is the partner\'s commits over all commits, as for scope pairs', () => {
+  assert.equal(partnerBits(8, 38, 8, 200, 1, undefined, 400), partnerBits(8, 38, 8, 200, 1));
+  assert.equal(partnerBits(8, 38, 8, 200, 1, 38, 0), partnerBits(8, 38, 8, 200, 1));
+});
+
+test('cochangeData reads each side\'s commit sizes from the pair and the touches from the model', () => {
+  const model = {
+    cochange: [{ a: 'src/big.ts', b: 'src/busy.ts', sup: 15, commitsA: 50, commitsB: 100, othersA: 1000, othersB: 400 }],
+    nonMegaCommits: 1000,
+    fileTouches: 10000,
+    pathsAll: ['src/big.ts', 'src/busy.ts'],
+    filesAll: [],
+  };
+  assert.deepEqual(cochangeData(model, ['src/big.ts']).filter(h => !h.ambient), [], 'editing the big-commit file: chance');
+  assert.equal(cochangeData({ ...model, fileTouches: 0 }, ['src/big.ts'])[0].file, 'src/busy.ts', 'the rate per commit names it');
+});

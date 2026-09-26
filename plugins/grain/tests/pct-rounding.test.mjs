@@ -24,7 +24,7 @@ function fact(overrides = {}) {
     held: null, trend: undefined, alphabet: undefined, counts: undefined,
     ...overrides }; }
 function modelOf(f) {
-  return { repo: 'fixture', partitions: [{ name: '_root', scopes: f.sraw, medoids: [], files: ['src/handlers/H0.ts'], facts: [f], templates: [] }], cochange: [], agentShare: null }; }
+  return { repo: 'fixture', partitions: [{ name: '_root', scopes: f.sraw, medoids: [], files: ['src/handlers/H0.ts'], facts: [f], templates: [] }], cochange: [] }; }
 
 test('(a) report(): a fact with share=0.997 and 2 deviants prints "99%", never "100%", in the same sentence as the deviant count', () => {
   const lines = report(modelOf(fact()), { top: 15 });
@@ -79,7 +79,7 @@ function companionModel(companionShare) {
     facts: [], templates: [], assignments, markers: {},
     groupImplied: { 0: { companion: { pattern: '*.service.ts', share: companionShare, n: 40, example: 'src/widgets/w.service.ts' } } },
     markerImplied: {} };
-  return { repo: 'fixture', partitions: [partition], cochange: [], agentShare: null, steers: [], boundaries: [], moduleGraph: null }; }
+  return { repo: 'fixture', partitions: [partition], cochange: [], steers: [], boundaries: [], moduleGraph: null }; }
 
 test('(d) whereCmd(): a group-card companion share of 0.995 renders "99%", not "100%"', () => {
   const { lines } = whereCmd({ model: companionModel(0.995), query: 'Widget', top: 10 });

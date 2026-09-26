@@ -25,7 +25,7 @@ Everything the tool prints is a special case:
 | an architecture norm | a (source, target module) cell whose reach rate, contrasted with the reach rate outside both, has a positive codelength gain |
 | a commit archetype | a recurring cluster of past commit footprints; a cell of it is certified when, over every commit carrying the shape's other cells, its rate in the remaining files has a positive codelength gain against as many random files |
 | a value concordance | a set of values whose joint presence across files compresses better than treating them independently |
-| a co-change partner | a file whose touched rate over the edited file's commits, contrasted with its own rate over all commits, has a positive codelength gain |
+| a co-change partner | a file whose touched rate over the edited file's commits, contrasted with the rate the size of those commits gives it by chance, has a positive codelength gain |
 | a deviation's fix rate | the share of edits to a convention's deviants made by fix commits, contrasted with the share over edits to its whole population |
 | a structural twin | two role groups whose anti-unified templates share a core exceeding both sides combined |
 
@@ -40,6 +40,8 @@ Six tuned thresholds used to guard speech: a bits margin on every fact, four fam
 3. **Accusing an instance.** A deviation fires only when the deviant's pointwise excess costs at least log₂ λ bits,
    computed on the same population the accusation cites. Three cells in the validation corpus sit at 7.0 to 7.8 : 1
    odds, just under 8 : 1, and grain stays silent there by contract; the misses are the frontier made visible.
+
+Evidence weights come from a scope's own history and nothing else: code younger than `freshDays` counts half, code rewritten within two weeks of its birth counts a quarter, and no weight falls below `floor`. Who wrote the code does not enter. Every commit counts the same, whether a person or an agent made it, because a commit does not reliably say which: agent-assisted work is committed under a person's name as often as under the agent's.
 
 Vacuity is not a threshold problem and is handled by the null model instead: structural facts (node type presence,
 statement shapes, first statement, return shape, arity, variable shape) speak only as a *contrast*, in a group or
@@ -196,9 +198,11 @@ distinct status, and only a genuine add counts.
 
 ## Co-change partners
 
-A partner is named for one direction at a time, the edited file's own, by the obligation cell. Of the n commits that touched the edited file, k also touched the partner, whose own commits are g of the N commits the counts were drawn from. Coding the partner's touched/untouched outcome at the edited file's KT rate instead of at g/N must pay the BIC half log and one index cost over every directed pair the model holds, and the rate must be the higher one. A partner that changes with a third of every commit is not named for changing with a third of this file's; a hub names a test file only when the hub's own commits raise that file's rate, and it prints the hub's count ("8 of 392"), not the test's. Nothing else gates the answer: the old 75% floor for a multi-file change and the one-third floor for a single file are gone, and `cochangeMinSup` only decides which pairs are stored. A partner that fails the contrast but whose own rate clears the λ display bound is reported apart, as ambient. Scope-level co-change uses the same cell over the commits that touched between one and `scopePairCap` scopes, the population its scope counts are drawn from.
+A partner is named for one direction at a time, the edited file's own, by the obligation cell. Of the n commits that touched the edited file, k also touched the partner, whose own commits are g of the N commits the counts were drawn from. Coding the partner's touched/untouched outcome at the edited file's KT rate instead of at its base rate must pay the BIC half log and one index cost over every directed pair the model holds, and the rate must be the higher one. A partner that changes with a third of every commit is not named for changing with a third of this file's; a hub names a test file only when the hub's own commits raise that file's rate, and it prints the hub's count ("8 of 392"), not the test's. Nothing else gates the answer: the old 75% floor for a multi-file change and the one-third floor for a single file are gone, and `cochangeMinSup` only decides which pairs are stored. A partner that fails the contrast but whose own rate clears the λ display bound is reported apart, as ambient. Scope-level co-change uses the same cell over the commits that touched between one and `scopePairCap` scopes, the population its scope counts are drawn from, with the base rate g/N.
 
-The λ bound itself was measured as the display gate and rejected. Over 14 repositories (validation.md, *Co-change partners, prospective*), a partner whose rate over the edited file's commits must reach 7 of 8 is named in 2.6% of cases, and recovers a companion in 2.5% of them against 21.5% for the old gate. The contrast alone recovers 22.8%, names a true companion first more often (0.50 against 0.44 of fired cases), and certifies far fewer partners on a swap-randomised history: 175 against 454 per run summed over the 14. It is not uniformly better on that null: on typeorm, Slim and flask, which commit many files at once, it certifies more than the old gate (94 against 23 on typeorm), because a base rate over all commits ignores commit size. That is the limit of the cell.
+The base rate of a file pair accounts for commit size. A commit of s files leaves a partner s − 1 places to appear in, so a file committed with twenty others meets a busy partner in many of its commits by nothing but their size, and g/N, the partner's share of all commits, cannot see that. The file touches of the N commits number T; the edited file takes n of them and leaves S = T − n, of which the partner holds g, so its share of a place is π = (g + ½)/(S + 1), the KT estimate. The edited file's commits carried o other files in all, m = o/n per commit, and the base rate is 1 − (1 − π)^m: the chance that m places drawn at the partner's share include it. This is what the swap-randomised null keeps (every commit its size, every file its commit count), and taking the mean m instead of each commit's own size never expects less than the sizes would, because 1 − (1 − π)^m is concave in m. The rate is observed, as g/S, for the requirement that the partner be touched more often than it. No constant is added.
+
+The λ bound itself was measured as the display gate and rejected. Over 14 repositories (validation.md, *Co-change partners, prospective*), a partner whose rate over the edited file's commits must reach 7 of 8 is named in 2.6% of cases, and recovers a companion in 2.5% of them against 21.5% for the old gate. The contrast alone recovers 22.8%, names a true companion first more often (0.50 against 0.44 of fired cases), and certifies far fewer partners on a swap-randomised history: 175 against 454 per run summed over the 14. With the base rate g/N it was not uniformly better on that null: on typeorm, Slim and flask, which commit many files at once, it certified more than the old gate (94 against 23 on typeorm), because a base rate over all commits ignores commit size. With the commit-size base rate the same null names 8.7 partners a run summed over the 14, none on typeorm or flask; hit@3 moves from 0.228 to 0.217, the non-obvious hit@3 stays at 0.108 and precision@1 rises from 0.50 to 0.51 (validation.md, *Co-change base rate by commit size*). `grain selftest --cochange` runs this measurement on one repository.
 
 ## Deviation fix rate
 
@@ -298,7 +302,7 @@ What remains that mathematics does not decide, on the record:
 
 ## The numeric register
 
-Every non-integer numeric literal and every literal ratio (`2 / 3`, `(n * 2) / 3`) in the top-level engine files (`plugins/grain/engine/*.mjs`; the vendored runtime and the grammars are not scanned), and every literal day window (`N * 86400`, `/ 86400 <= N`), is on this list with its role. Each row quotes enough of its line to pin that one site, so a new use of the same number elsewhere in the file needs a row of its own. A few integer floors that decide speech are listed too, but integers are not audited: `n >= 4` and its kin can still enter unlisted. The test `numeric-register.test.mjs` fails when a literal of the audited kinds appears in those files without a row here, when a row's code no longer appears in its file, and when a row's value is not the number in its code, so a changed value cannot keep an old row. Two blind spots: a literal inside a template string's `${…}` is not scanned (the report's alarm row below is listed by hand), and a multi-line string is not stripped.
+Every non-integer numeric literal and every literal ratio (`2 / 3`, `(n * 2) / 3`) in the top-level engine files (`plugins/grain/engine/*.mjs`; the vendored runtime and the grammars are not scanned), and every literal day window (`N * 86400`, `/ 86400 <= N`), is on this list with its role. Each row quotes enough of its line to pin that one site, so a new use of the same number elsewhere in the file needs a row of its own. A few integer floors that decide speech are listed too, but integers are not audited: `n >= 4` and its kin can still enter unlisted. The test `numeric-register.test.mjs` fails when a literal of the audited kinds appears in those files without a row here, when a row's code no longer appears in its file, and when a row's value is not the number in its code, so a changed value cannot keep an old row. Two blind spots: a literal inside a template string's `${…}` is not scanned, and a multi-line string is not stripped.
 
 Roles:
 
@@ -323,10 +327,7 @@ The named constants in `config.mjs` come first. The test compares every value he
 | `valueDfMaxShare` | 0.2 | value-index population gate |
 | `ambGap` | 0.15 | clustering ambiguity |
 | `minMemb` | 0.35 | clustering ambiguity |
-| `survDays` | 120 | the window of "recent" code the agent share is measured over |
 | `freshDays` | 14 | code younger than this weighs half |
-| `agentBase` | 0.15 | agent-written code's starting weight |
-| `promoteDays` | 180 | days over which agent-written code is promoted to full weight |
 | `floor` | 0.05 | the lowest weight a scope can have |
 | `calibHorizonDays` | 365 | calibration's temporal split; a history shorter than this is not calibrated |
 | `calibSettleDays` | 30 | departures younger than this are not yet judged repaired or kept |
@@ -374,7 +375,6 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 1.96 | weights.mjs | `const z = 1.96,` | derived — 95% Wilson interval | — |
 | ½ | mine.mjs | `ri.amb.has(i) ? 0.5` | derived — the ambiguous member's half vote | — |
 | 2/3 | propose-base.mjs | `SUPERMAJORITY = 2 / 3` | declared — the two-thirds supermajority | none |
-| 2/3 | learn.mjs | `den >= CFG.minRaw && num / den >= 2 / 3)` | declared — a fact is "held mostly by agent-authored code" | none |
 | 2/3 | learn.mjs | `top2[1] >= Math.ceil((n * 2) / 3)` | declared — a marker's own established value | none |
 | 2/3 | learn.mjs | `k >= Math.ceil((n * 2) / 3)) obs.push` | declared — a marker's own established value (per-carrier observations) | none |
 | 2/3 | learn.mjs | `Math.ceil((declaring * 2) / 3);` | declared — a value container's sibling key set | none |
@@ -395,11 +395,10 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 0.8 | config.mjs | `targetPrec: 0.8,` | gate — calibrated repair precision under which the accusation margin applies | none |
 | 1.5 | weights.mjs | `Math.log2(CFG.lambda) + 1.5` | gate — accusation margin in bits for a convention history calibrates below `targetPrec` | none |
 | 0.9 | weights.mjs | `denyEligible: lb >= 0.9 && n >= CFG.denyMinEv` | gate — Wilson lower bound for `denyEligible` (report only; nothing blocks) | none |
-| 0.15 | config.mjs | `agentBase: 0.15,` | weight — agent-written code's starting weight, promoted over `promoteDays` | none |
 | 0.05 | config.mjs | `floor: 0.05,` | weight — the lowest weight a scope can have | none |
 | 0.3 | weights.mjs | `if (!L) return 0.3;` | weight — a scope with no history row | none |
 | ½ | weights.mjs | `CFG.freshDays ? 0.5` | weight — code younger than `freshDays` | none |
-| ¼ | weights.mjs | `* wp * (L.churn ? 0.25 : 1));` | weight — code rewritten right after birth | none |
+| ¼ | weights.mjs | `ws * (L.churn ? 0.25 : 1));` | weight — code rewritten right after birth | none |
 | 14 days | history.mjs | `e.c.ts - L.first <= 14 * 86400` | weight — "rewritten right after birth" window (equal to `freshDays` today, not tied to it) | none |
 | ½ | mine.mjs | `Math.min(sd.weight, 0.5 * neffReal)` | weight — a maintainer seed counts at most half the cell | none |
 | 0.1 | mine.mjs | `partitionTrueShare(f.kind, f.pid) >= 0.1` | gate — a partition-wide absence needs 10% use of the thing | none |
@@ -436,8 +435,8 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | ¾, ½ | cards.mjs | `fact: 0.75, imp: 0.5, doc: 0.5` | retrieval — card vocabulary weights | none |
 | 0.6 | cards.mjs | `suffix: share < 0.6 ?` | display — "(mixed)" module label | none |
 | 0.1 | mine.mjs | `0) + f.bpi * 0.1 + 0.1;` | display — role lift order | none |
-| 0.85 | report.mjs | `model.agentShare >= 0.85` | display — the agent-share alarm | none |
 | 0.6 | report-facts.mjs | `if (!(c.share >= 0.6)` | display — an uncertified "usually" row | none |
 | 180 days | learn.mjs | `(H.NOW - f) / 86400 <= 180` | display — the "fresh" count in a rule's history line | none |
 | ½ | oracle.mjs | `const HIT = 0.5;` | instrument — oracle hit at Jaccard 0.5 | results.md |
+| 0.8 | selftest-cochange.mjs | `const TRAIN_SHARE = 0.8;` | instrument — `selftest --cochange` learns from the oldest 80% of the footprints and scores the rest | validation.md |
 | 0.8 | oracle.mjs | `hit8: rows.filter(r => r.best >= 0.8)` | instrument — oracle strong-hit count | results.md |

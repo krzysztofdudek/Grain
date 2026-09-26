@@ -1,6 +1,6 @@
 ---
 description: Plant synthetic deviations into conforming exemplars and report how many this repo's own model catches (or evaluate `how`, `where` or extraction itself against a naive baseline/oracle)
-argument-hint: [--json] | --how [--last N] [--json] | --where [--last N] [--json] | --extract [--json] | --null [--runs N] [--json]
+argument-hint: [--json] | --how [--last N] [--json] | --where [--last N] [--json] | --extract [--json] | --null [--runs N] [--json] | --cochange [--runs N] [--json]
 allowed-tools: Bash(node:*)
 ---
 ## grain selftest: $ARGUMENTS
@@ -30,5 +30,10 @@ repository's own evidence with the link it claims destroyed and its marginals ke
 import sets dealt out among files, the commit × file matrix swap-randomised, commit messages dealt out among
 commits, value-set members dealt out among the files declaring the set, fix commits dealt out among all edits), and it reports, per family, how many claims survive that (mean and maximum over the runs) beside the real
 count. Anything certified under the null is false by construction. Each run costs two full learn passes.
+`selftest --cochange [--runs N]` measures co-change partners the way they are used: learned from the oldest 80% of
+the commits, scored on the newest 20% (hit@3, the non-obvious hit@3 outside the 10 hottest files, precision@1, how
+often a partner is named), beside the null that always names the 3 hottest files and the same rule with a base
+rate per commit instead of per commit size, and then how many partners each rule names on swap-randomised copies of
+the history.
 Relay the numbers as reported; do not round them further or editorialize about whether they are "good enough" —
 that is a maintainer judgment, not something to assert on grain's behalf.

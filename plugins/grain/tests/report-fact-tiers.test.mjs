@@ -34,7 +34,7 @@ function tieredModel() {
     deviantsN: Math.max(0, Math.round(f.sraw * (1 - f.srawShare))),
     exemplars: f.conform.slice(0, 3).map(gi => ({ rel: ps[gi].rel, line: ps[gi].line, name: ps[gi].name })),
     held: null, trend: undefined, alphabet: f.alphabet, counts: f.counts }));
-  return { partitions: [{ name: '_root', scopes: ps.length, medoids: [], files: [...new Set(ps.map(s => s.rel))], facts: exportFacts, templates: [] }], cochange: [], agentShare: null };
+  return { partitions: [{ name: '_root', scopes: ps.length, medoids: [], files: [...new Set(ps.map(s => s.rel))], facts: exportFacts, templates: [] }], cochange: [] };
 }
 
 test('the bpi ordering bug is real: an unfixed sort would rank the 10-member structural contrast above the 30-member semantic convention', () => {

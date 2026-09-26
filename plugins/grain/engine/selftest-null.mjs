@@ -96,11 +96,15 @@ export function curveball(fps, rnd, trades = 5 * fps.length) {
 // the aggregates history.mjs keeps beside the footprints, rebuilt from the footprints alone, with the same caps
 export function aggregatesOf(fps) {
   const fileCommits = {},
+    fileOthers = {},
     msgAff = {},
     msgTokCommits = {},
     pairSup = new Map();
   for (const fp of fps) {
-    for (const f of fp.files) fileCommits[f] = (fileCommits[f] || 0) + 1;
+    for (const f of fp.files) {
+      fileCommits[f] = (fileCommits[f] || 0) + 1;
+      fileOthers[f] = (fileOthers[f] || 0) + fp.files.length - 1;
+    }
     for (const t of fp.toks || []) {
       const m = (msgAff[t] ||= {});
       for (const f of fp.files) m[f] = (m[f] || 0) + 1;
@@ -117,9 +121,10 @@ export function aggregatesOf(fps) {
   for (const [k, sup] of pairSup) {
     if (sup < CFG.cochangeMinSup) continue;
     const [a, b] = k.split(PAIR);
-    cochange.push({ a, b, sup, commitsA: fileCommits[a], commitsB: fileCommits[b] });
+    cochange.push({ a, b, sup, commitsA: fileCommits[a], commitsB: fileCommits[b], othersA: fileOthers[a], othersB: fileOthers[b] });
   }
-  return { fps, fileCommits, msgAff, msgTokCommits, msgAffEx: {}, nonMegaCommits: fps.length, cochange };
+  const fileTouches = fps.reduce((a, fp) => a + fp.files.length, 0);
+  return { fps, fileCommits, msgAff, msgTokCommits, msgAffEx: {}, nonMegaCommits: fps.length, fileTouches, cochange };
 }
 // what each history family certifies over one set of footprints
 function historyCounts(model, Hx) {
@@ -133,7 +138,7 @@ function historyCounts(model, Hx) {
   applyMsgAffinity(tmpB, Hx, model.filesAll || []);
   const bridge = tmpB.msgAffinity.reduce((a, r) => a + r.files.length, 0);
   // co-change: every (edited file, partner) pair a single-file `completeness` would name as specific, not ambient
-  const tmpC = { ...model, cochange: Hx.cochange, nonMegaCommits: Hx.nonMegaCommits };
+  const tmpC = { ...model, cochange: Hx.cochange, nonMegaCommits: Hx.nonMegaCommits, fileTouches: Hx.fileTouches };
   const inPairs = new Set();
   for (const c of Hx.cochange) inPairs.add(c.a).add(c.b);
   let cochange = 0;

@@ -147,7 +147,7 @@ test('(g) export: group members and marker carriers carry endLine alongside line
 test('(h) rulesMarkdown()\'s own "Templates (unclustered residue)" section prints file:from–to too', () => {
   const template = { kind: 'method', n: 4, coverage: 0.8, skel: 'return $EXPR;', perInstance: [], slots: [],
     held: null, exemplars: [{ rel: 'src/x.ts', line: 10, endLine: 17, name: 'run' }] };
-  const model = { repo: 'fixture', partitions: [{ name: '_root', scopes: 4, medoids: [], files: ['src/x.ts'], facts: [], templates: [template] }], cochange: [], agentShare: null };
+  const model = { repo: 'fixture', partitions: [{ name: '_root', scopes: 4, medoids: [], files: ['src/x.ts'], facts: [], templates: [template] }], cochange: [] };
   const text = rulesMarkdown(model, { top: 15 }).join('\n');
   assert.match(text, /— e\.g\. `src\/x\.ts:10–17`/, `expected a range pointer, got:\n${text}`); // RED today: `src/x.ts:10` only
 });

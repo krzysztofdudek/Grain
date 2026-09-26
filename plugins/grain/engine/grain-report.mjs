@@ -44,7 +44,6 @@ export async function cmdStatus({ model, meta, head, isGit, stamp, args, opts, s
           conventions: p.facts.length,
         })),
         signal: sig,
-        agentShare: model.agentShare,
         cochangePairs: model.cochange.length,
         history: model.historyStats,
         freshness: {

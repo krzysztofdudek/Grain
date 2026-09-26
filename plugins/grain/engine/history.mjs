@@ -21,7 +21,7 @@ import {
 import { createInterface } from 'node:readline';
 import { extname, join } from 'node:path';
 import { parseFile, bindingFor, extractScopes, hashStr, CODE_RE, normalizeCR } from './core.mjs';
-import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, AGENT_AUTHOR_RE, AGENT_COAUTHOR_RE, FIX_RE } from './config.mjs';
+import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, FIX_RE } from './config.mjs';
 import { tokenize, normTok, QSTOP, DOC_STOP } from './core.mjs';
 import { langExt, SFC_RE } from './base.mjs';
 
@@ -248,20 +248,9 @@ export class BlobCache {
 }
 
 // ----- the walk: one streaming `git log --raw` over a commit range -----
-// One header line per commit: sha, commit time, author, subject, then every `Co-authored-by:` trailer value (git
-// matches the key case-insensitively, `unfold` keeps a folded trailer on this one line), joined by \x1f.
-export const LOG_FORMAT =
-  '%x01%H%x00%ct%x00%an <%ae>%x00%s%x00%(trailers:key=Co-authored-by,valueonly,unfold,separator=%x1f)';
-// A commit is agent-written when its author names an agent (AGENT_AUTHOR_RE, unchanged) OR any co-author names an
-// AI coding agent (AGENT_COAUTHOR_RE — agent names only, no generic bot terms, so a squash-merge crediting
-// dependabot[bot] stays human). A human author with an agent co-author (the pair case: the agent typed, the human
-// approved) counts as agent-written, so its code gets the agent provenance weight. git reads trailers from the
-// message's closing trailer block only, so a `Co-authored-by:` line in the middle of the body is not a trailer.
-export function isAgentCommit(author, coAuthors) {
-  if (AGENT_AUTHOR_RE.test(author || '')) return true;
-  for (const v of (coAuthors || '').split('\x1f')) if (v && AGENT_COAUTHOR_RE.test(v)) return true;
-  return false;
-}
+// One header line per commit: sha, commit time, author, subject. The author is kept only as an identity (hashed, for
+// the author-concentration note); Grain never asks what kind of author it is — every commit weighs the same.
+export const LOG_FORMAT = '%x01%H%x00%ct%x00%an <%ae>%x00%s';
 async function walk(gitdir, range) {
   // streamed: the raw log of a large repository is hundreds of MB; only the parsed records are kept
   const { spawn } = await import('node:child_process');
@@ -294,7 +283,6 @@ async function walk(gitdir, range) {
       cur = {
         sha: p[0],
         ts: +p[1],
-        agent: isAgentCommit(p[2], p[4]),
         author: hashStr(p[2]),
         fix: FIX_RE.test(p[3] || ''),
         msg: (p[3] || '').slice(0, 120),
@@ -449,6 +437,7 @@ export const freshState = () => ({
   prevState: Object.create(null),
   pairSup: Object.create(null),
   fileCommits: Object.create(null),
+  fileOthers: Object.create(null),
   nonMegaCommits: 0,
   fps: [],
   scopePairSup: Object.create(null),
@@ -476,6 +465,7 @@ const HIST_MAP_FIELDS = [
   'prevState',
   'pairSup',
   'fileCommits',
+  'fileOthers',
   'scopePairSup',
   'scopeCommits',
 ];
@@ -593,12 +583,11 @@ function replay(state, events, commits, cache) {
           mods: 0,
           churn: false,
           fix: 0,
-          agentLast: e.c.agent,
           newFile: e.st === 'A',
         };
         state.lc[key] = L;
         if (state.firstTs == null || e.c.ts < state.firstTs) state.firstTs = e.c.ts;
-        (state.vev[key] ||= []).push({ ts: e.c.ts, author: e.c.author, agent: e.c.agent, val: s.val });
+        (state.vev[key] ||= []).push({ ts: e.c.ts, author: e.c.author, val: s.val });
       }
       const pv = prev[k];
       if (!pv || pv.bh !== s.bh) {
@@ -614,9 +603,8 @@ function replay(state, events, commits, cache) {
         if (e.c.fix) L.fix++;
         if (e.c.ts - L.first <= 14 * 86400) L.churn = true;
         L.last = e.c.ts;
-        L.agentLast = e.c.agent;
         if (JSON.stringify(pv.val) !== JSON.stringify(s.val))
-          state.vev[key].push({ ts: e.c.ts, author: e.c.author, agent: e.c.agent, val: s.val });
+          state.vev[key].push({ ts: e.c.ts, author: e.c.author, val: s.val });
       }
     }
     state.prevState[e.path] = curM;
@@ -666,7 +654,13 @@ function replay(state, events, commits, cache) {
     // both read this SAME Set, never recomputed.
     const scopeKeys = [...(touched.get(c.sha) || [])].sort();
     if (fs2.length >= 1 && fs2.length <= CFG.megaCap) {
-      for (const f of fs2) state.fileCommits[f] = (state.fileCommits[f] || 0) + 1; // the denominator a reader can reproduce: every non-bulk commit touching the file, single-file ones included
+      for (const f of fs2) {
+        state.fileCommits[f] = (state.fileCommits[f] || 0) + 1; // the denominator a reader can reproduce: every non-bulk commit touching the file, single-file ones included
+        // how many OTHER files those commits touched beside it (issue 366): the room a partner had to appear in them,
+        // which the co-change cell's base rate needs — a file committed with twenty others meets any partner more
+        // often than one committed alone, by nothing but the size of its commits
+        (state.fileOthers ||= Object.create(null))[f] = (state.fileOthers[f] || 0) + fs2.length - 1;
+      }
       // …and the POPULATION that denominator is drawn from (§J2.4b): once per commit, never per file. `commits` counts
       // every commit including mass ones, so a rate built as fileCommits/commits is deflated by exactly the mass-commit
       // share — which reads as excess affinity for any token, out of nothing but the mismatched populations.
@@ -675,7 +669,6 @@ function replay(state, events, commits, cache) {
         sha: c.sha,
         ts: c.ts,
         author: c.author,
-        agent: c.agent,
         fix: c.fix,
         toks,
         symToks,
@@ -719,11 +712,13 @@ function toH(state, gitdir) {
     const commitsA = state.fileCommits[a] || 1,
       commitsB = state.fileCommits[b] || 1;
     const ca = Math.max(sup / commitsA, sup / commitsB);
+    const fo = state.fileOthers || {};
     // commitsA/commitsB are persisted so a consumer can gate DIRECTIONALLY (editing `a` names `b` iff b's rate over a's
     // commits beats b's own base rate, the co-change cell in facts.mjs); the store keeps every pair above the support
     // floor — the gate is a query-time decision, and a build-time cut threw away real partners (cli.py→tests/test_cli.py
     // at 0.38) before the directional gate ever saw them
-    cochange.push({ a, b, sup, conf: +ca.toFixed(2), commitsA, commitsB });
+    // othersA/othersB: the files each side's commits touched beside it, for the commit-size base rate
+    cochange.push({ a, b, sup, conf: +ca.toFixed(2), commitsA, commitsB, othersA: fo[a] || 0, othersB: fo[b] || 0 });
   }
   cochange.sort((p, q) => q.sup - p.sup || (p.a < q.a ? -1 : p.a > q.a ? 1 : p.b < q.b ? -1 : 1));
   // scope-level co-change (§J5.7b): the same finalization as `cochange` above, over `state.scopePairSup`/
@@ -752,6 +747,8 @@ function toH(state, gitdir) {
     msgTokCommits: state.msgTokCommits || {},
     fileCommits: state.fileCommits || {},
     nonMegaCommits: state.nonMegaCommits || 0,
+    // every file touch those commits made, the population the commit-size base rate is drawn from
+    fileTouches: Object.values(state.fileCommits || {}).reduce((a, b) => a + b, 0),
     scopeCommitsN: state.scopeCommitsN || 0,
     fps: state.fps || [],
     commitsN: state.commits,

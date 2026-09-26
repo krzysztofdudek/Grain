@@ -201,7 +201,7 @@ test('report() states a ctorshape convention for a package mid-migration (50 pri
   const exportFacts = facts.map(x => ({ cid: x.cid, kind: x.kind, pid: x.pid, exp: x.exp, share: +x.srawShare.toFixed(3), sraw: x.sraw, bpi: +x.bpi.toFixed(2),
     deviantsN: Math.max(0, Math.round(x.sraw * (1 - x.srawShare))), exemplars: x.conform.slice(0, 3).map(gi => ({ rel: ps[gi].rel, line: ps[gi].line, name: ps[gi].name })),
     held: null, trend: undefined, alphabet: x.alphabet, counts: x.counts }));
-  const model = { partitions: [{ name: 'src/migration', scopes: ps.length, medoids: [], files: [...new Set(ps.map(s => s.rel))], facts: exportFacts, templates: [] }], cochange: [], agentShare: null };
+  const model = { partitions: [{ name: 'src/migration', scopes: ps.length, medoids: [], files: [...new Set(ps.map(s => s.rel))], facts: exportFacts, templates: [] }], cochange: [] };
   const lines = report(model, { top: 15 });
   const text = lines.join('\n');
   assert.match(text, /declare their constructor as a classic body constructor/, text);

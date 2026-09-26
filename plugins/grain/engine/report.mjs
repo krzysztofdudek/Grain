@@ -1,6 +1,5 @@
 // grain engine · report, rules, status and the structural map
 // Split out of core.mjs: the statements below are the ones that stood there, unchanged.
-import { CFG } from './config.mjs';
 import { baselineClause, practicedBy } from './cards.mjs';
 import { archCellLabel, factLabel, pct, ptr, scopeLabel } from './facts.mjs';
 import { authorConcClause, fadingNote, skipLineNote, voice } from './mine.mjs';
@@ -188,7 +187,7 @@ export function report(model, { top = 15, outcomes } = {}) {
     }
   }
   lines.push(
-    `agent-authored share of code younger than ${CFG.survDays} days: ${model.agentShare == null ? 'n/a' : Math.round(model.agentShare * 100) + '%'} · co-change pairs: ${model.cochange.length} (bulk commits touching >30 files excluded from pairing)`
+    `co-change pairs: ${model.cochange.length} (bulk commits touching >30 files excluded from pairing)`
   );
   return lines;
 }
@@ -440,7 +439,6 @@ export function statusLines(model) {
   const covNote = relCoverageNote(model);
   return [
     `model: ${model.repo} · ${model.partitions.length} partition(s) · ${ng} groups · ${nf} conventions · ${model.files} files${!model.historyStats ? ' — no git history: nothing counts as established, so no convention is spoken (groups and placement still answer `where`)' : ''}`,
-    `agent-authored share of code younger than ${CFG.survDays} days: ${model.agentShare == null ? 'n/a (no history)' : Math.round(model.agentShare * 100) + '%'}${model.agentShare >= 0.85 ? ' ⚠ ALARM — the norm is being written by agents faster than humans review it' : ''}`,
     `nucleating stand-downs: ${model.partitions.reduce((a, p) => a + p.facts.filter(f => f.suppressedValue).length, 0)}`,
     // "non-merge": walk() (history.mjs) runs `git log --no-merges` — a merge introduces no blob of its own,
     // so it never enters this count. Left unqualified, this number reads as `git log --oneline | wc -l` and looks

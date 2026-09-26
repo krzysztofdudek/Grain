@@ -224,8 +224,6 @@ export async function learn({
     }
   }
   model.heritageKind = heritageKind;
-  let agentShareNum = 0,
-    agentShareDen = 0;
   // pass 1: vocabularies, roles and the repo-wide candidate count; pass 2: mining with one shared index cost
   const prepared = [];
   let Crepo = 0;
@@ -280,15 +278,6 @@ export async function learn({
     const { facts, C } = mine(ps, ri, baseW, seeds, ageFn, process.env.GRAIN_DBG, {
       idxCostOverride: idxCost,
     });
-    if (H)
-      for (const s of ps) {
-        const L = lcGet(s);
-        if (!L || s.kind === 'file' || s.kind === 'module') continue;
-        if ((H.NOW - L.first) / 86400 <= CFG.survDays) {
-          agentShareDen += baseW(s);
-          if (L.agentLast) agentShareNum += baseW(s);
-        }
-      }
     const lifts = roleLift(ps, ri, facts);
     const assignments = {};
     [...ri.assign]
@@ -309,8 +298,8 @@ export async function learn({
       .map(f => {
         const unamb = f.conform.filter(gi => !ri.amb.has(gi));
         const pool = unamb.length ? unamb : f.conform;
-        // rank the exemplar pool by (1) never a deviant elsewhere, (2) never rewritten right after birth, (3) a
-        // human's last touch, (4) firstborn, (5) freshest touch (tiebreak only) — DIRECT `H.lc` lookup, never
+        // rank the exemplar pool by (1) never a deviant elsewhere, (2) never rewritten right after birth, (3)
+        // firstborn, (4) freshest touch (tiebreak only) — DIRECT `H.lc` lookup, never
         // `mkWeightFn`'s file-level fallback (a sibling's history is not this scope's, the same trap J5.1 avoided).
         // A scope with no row of its own sorts worst on every key — the accepted, honest residual: with no history
         // of its own, "was it firstborn" has no answer here, so it never outranks a scope that does.
@@ -325,7 +314,6 @@ export async function learn({
                 L,
                 dev: deviantOnOther.get(gi) || 0,
                 churnR: L ? (L.churn === false ? 0 : 1) : 1,
-                agentR: L ? (L.agentLast ? 1 : 0) : 1,
                 firstR: L ? L.first : Infinity,
                 lastR: L ? -L.last : Infinity,
               };
@@ -334,31 +322,15 @@ export async function learn({
               (a, b) =>
                 a.dev - b.dev ||
                 a.churnR - b.churnR ||
-                a.agentR - b.agentR ||
                 a.firstR - b.firstR ||
                 a.lastR - b.lastR
             );
           exs = ranked.slice(0, 3).map(r => r.gi);
           const top = ranked[0];
           // only when the winner clears every criterion CLEANLY — never merely because it happened to sort first
-          if (top && top.L && top.dev === 0 && top.churnR === 0 && top.agentR === 0)
-            why = `started this pattern (${ym2(top.L.first)}), was never rewritten right after it landed, human-authored`;
+          if (top && top.L && top.dev === 0 && top.churnR === 0)
+            why = `started this pattern (${ym2(top.L.first)}), was never rewritten right after it landed`;
         } else exs = pool.slice(0, 3);
-        // per-fact share of established conformers held by agent-authored code (H9): direct `H.lc` lookup, same
-        // discipline as the exemplar ranking above — a scope with no row contributes to neither side
-        let agentShare;
-        if (H) {
-          let num = 0,
-            den = 0;
-          for (const gi of f.conform) {
-            const s = ps[gi];
-            const L = H.lc.get(skeyR(s.rel, s));
-            if (!L) continue;
-            den++;
-            if (L.agentLast && (H.NOW - L.first) / 86400 <= CFG.survDays) num++;
-          }
-          if (den >= CFG.minRaw && num / den >= 2 / 3) agentShare = +(num / den).toFixed(2);
-        }
         const cp = H ? changePointFor(f, ps, H) : null;
         const calib = H ? calibrate(f, ps, H) : { available: false, reason: 'no history' };
         const rejected = H ? rejectedValues(f, ps, H) : undefined;
@@ -405,7 +377,6 @@ export async function learn({
           held: H ? heldSummary(f, ps, H) : null,
           altMarker: altMarkerFor(f, ps),
           authorConc: H ? authorConcentration(f, ps, H) : null,
-          agentShare,
           C,
         };
         // the deviation cell's own floors, over the RAW deviants (`f.deviants`, never the exported top-5 slice): the
@@ -701,7 +672,6 @@ export async function learn({
   applyStructuralTwins(model, log);
   applyWaivers(model, prepared, waivers);
   applyBoundaries(model, boundaries, files);
-  model.agentShare = agentShareDen ? +(agentShareNum / agentShareDen).toFixed(2) : null;
   model.cochange = H
     ? [...H.cochange]
         .sort((a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1))
@@ -714,6 +684,7 @@ export async function learn({
   // that does not apply here: cochange's commitsA/commitsB are already historical-path-keyed, so this must stay
   // historical-path-keyed too, or the two counts would disagree about what a "file" is).
   model.nonMegaCommits = H ? H.nonMegaCommits : 0;
+  model.fileTouches = H ? H.fileTouches || 0 : 0; // every file touch of those commits: the co-change cell's commit-size base rate
   model.scopeCommitsN = H ? H.scopeCommitsN || 0 : 0; // the same, for `model.scopeCochange`'s commitsA/commitsB
   // scope-level co-change (§J5.7b): mirrors model.cochange above, but `a`/`b` are scope keys whose path half is a
   // HISTORICAL path (§J4.1) — remapped through currentPathOf ONCE here, at learn-time, because checkFile never

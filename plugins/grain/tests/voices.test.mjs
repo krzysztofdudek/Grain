@@ -71,7 +71,7 @@ const NON_CLAIM = [
   /^selftest$/,                                                                        // status readout, like statusLines' own lines (J0.4)
   /^(?:a new carrier comes with|a new member comes with|its carriers share \(observed, not certified\))$/,
   /^(?:architecture|freshness|index|weak match|note)$/,                               // topic labels and stamps
-  /^agent-authored share of code younger than \d+ days$/,
+  /^co-change pairs$/,                                                                 // report's closing count of co-change pairs, a readout
   /^template \(/, /^pre-existing \(/,
   /^(?:package |group «|local \(|repo-wide)/,                                         // factLabel: where it holds
   /^[0-9a-f]{8}$/,                                                                    // report's seed catalogue row key
