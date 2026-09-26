@@ -123,6 +123,8 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
     const K = bl ? 2 : Vv.length + 1;
     const allC = cells.get('_all:' + kind + S + pid);
     const pl = /^r\d/.test(cid) ? pool.get(kind + S + pid) : null;
+    // a kind with one group here keeps the partition: mine() contrasts such a group with the assigned scopes of the
+    // other partitions (issue 390), which spectrum, reading one partition, does not have; the NORM mark is the model's
     const refC = pl && pl.groups.size > 1 ? pl.counts : allC;
     const refN = refC ? Object.values(refC).reduce((a, b) => a + b, 0) : n;
     let data = 0;

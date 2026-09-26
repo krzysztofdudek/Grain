@@ -6,7 +6,9 @@
 //
 //   conventions,  the role labels, and the directory each scope is read in, are dealt out again within (partition,
 //   directories   scope kind) — group and directory sizes survive, the scope-to-group and scope-to-directory links do
-//                 not; a certified role or directory cell is then false by construction
+//                 not; and the predicates of the assigned scopes of each kind are dealt out again across partitions,
+//                 which a lone group (contrasted with the other partitions' assigned scopes) needs, since relabelling
+//                 inside its partition cannot move it; a certified role or directory cell is then false by construction
 //   architecture  the out-edge SETS are dealt out again among the files that have one — each file keeps a real
 //                 set of imports and each module keeps its number of importing files, but not its own imports
 //   obligations,  the commit × file incidence is swap-randomised (curveball trades between two commits), so every
