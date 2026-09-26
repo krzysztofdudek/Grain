@@ -310,6 +310,54 @@ The 9 cells above had one thing in common. Role induction assigns only scopes wi
 - **The sub-gate band** codes a role row against the same population. Over one model, the band goes from 37 to 36 rows on Grain, 60 to 52 on Yggdrasil and 67 to 48 on typeorm.
 - **No single-group case moved.** No repository measured certifies a role cell of a kind with one group (the null would reproduce every such cell, and it reproduced none before this change beyond Grain's 9, all in kinds with several groups). The fixture repository does: its 30 command handlers are the only group of methods in their partition, and "handlers call `validate`" is stated against the partition's constructors, as before.
 
+### A lone group against the other partitions (issue 390)
+
+The change above left one case on the partition: a kind with a single role group, which is the assigned scopes of that kind in its partition. Against the partition it still wins by being assigned, and the label null deals labels among the assigned scopes, which leaves a lone group exactly as it was. So the null could not test it, and a lone group that restated "has content of its own" would have passed both. A lone group is now contrasted with the scopes of its kind assigned in every other partition, a boolean predicate those partitions' vocabularies lack counting as `false`, and a placement predicate not contrasted at all (mathematics.md, *Groups*). The label null also deals the assigned scopes' predicates out again across partitions, which a lone group needs. Measured 2026-09-26 on the same 14 clones as above, before (the build of issue 385) and after.
+
+- **What changes.** Role conventions 520 → 523. Three appear, each a lone group in its partition: on Grain, methods of the C# name-resolution test matrix are `async` (54 of 54) and its test cases call `runCase` (19 of 19); on CleanArchitecture, methods of `src/Application` return `Task` (23 of 23), which is the handlers' contract in that layer. None disappears on the 14.
+- **The null.** `selftest --null`, 3 runs, seed 1: role conventions 0 in every run on all 14. With the cross-partition deal switched off and everything else the same, Grain's `runCase` cell certifies in every run (1, 1, 1), because relabelling inside its partition cannot move it; with the deal, 0. Other families' residues move only because the deal draws from the same random source first: Grain's deviation fix rate 0 → 0.33 and its archetypes 0.67 → 0 a run, Yggdrasil's archetypes 0 → 0.33, sinatra's deviation fix rate 0 → 0.33.
+- **The fixture.** Its 30 command handlers are the only group of methods in their partition. "Handlers call `validate`" (29 of 30) stays: no assigned method elsewhere calls `validate` often enough to put it in its partition's vocabulary, and those methods count as not calling it. Contrasted with the other partitions without that rule, the cell had no reference and disappeared, and three fixture tests failed. The placement rule keeps out "handlers live under `handlers/`", which the other partitions made certain.
+- **The sub-gate band** uses the same reference and does not move: Grain 36, Yggdrasil 52, typeorm 48, CleanArchitecture 7, express 3 rows.
+- **Mutation harness.** Yggdrasil 35 of 35 caught, 0 false fires; CleanArchitecture 6 of 6, 0; Grain 20 of 20 with 1 false fire, `r2:method` "calls `filePath.split`" accusing its own exemplar `nodeOf` in the Go name-resolution matrix. The build before this change gives the same false fire on this clone (19 of 19, 1), so it is not this change's; issue 385 recorded 0 on its clone.
+- `spectrum`, which reads one partition, still codes a lone group against the partition; its rows are display only, and the NORM mark comes from the model.
+
+### Repair as a tiering signal: measured, not shipped (issue 255)
+
+The research behind 6.1.0 (GM-3) proposed that a convention a team enforces shows it in history: a departure from it is later repaired. Grain measures that in one place, calibration, which never runs on the family's repositories (it needs 365 days) and decodes values for five kinds of predicate only (name shape, first statement, return shape, decorators, supertypes). The proposal: decode every kind, contrast the repair rate of departures with a base rate, certify it with the KT code, the BIC penalty, one index cost and λ, and use it when choosing a rule's tier. Measured 2026-09-26 on scratch builds, before building it.
+
+The cell measured: for each accepted convention, every in-place change of a scope's value away from the expected one is a departure, repaired when the scope later carries the expected value again; the base rate is the same outcome for every other change of that value (a change toward the expected value, or between two others), returning to the value it left. Departures coded at their own KT rate against that rate, the BIC half log, one index cost over the conventions with a departure, and the λ bound on the repair rate. The history cut is by commit order: the first 70% of commits train, departures after the cut test. The wider decoding stored each scope's calls, node types, statement shapes and declared return types in every value event.
+
+| repository | conventions | with a decoded event | departures, repaired | other changes, returned | certified "repaired in practice", whole history | history size with the wider decoding |
+|---|---|---|---|---|---|---|
+| Grain | 240 | 121 | 0 | 0 | 0 | +33% |
+| Yggdrasil | 156 | 115 | 31, 0 | 9, 0 | 0 | +17% |
+| express | 29 | 24 | 0 | 0 | 0 | +32% |
+| flask | 42 | 39 | 29, 27 | 67, 23 | 2 (`@setupmethod` on source methods, `@app.route` on test functions) | +33% |
+| click | 72 | 64 | 171, 149 | 281, 97 | 7 (return types in three source groups, `@click.group`, `@click.option`, `@click.command` in test groups) | +27% |
+| typeorm | 185 | 125 | 154, 62 | 1405, 26 | 3 | +24% |
+
+- **On the family's own repositories there is nothing to measure.** A name change is a new scope, so a name never departs in place, and on Grain and Yggdrasil almost nothing else does: 31 departures on Yggdrasil, none repaired, 0 on Grain. The four hand-written oracles (express, Grain, spring-petclinic, Yggdrasil) are where a tier could be scored against hand rules; on the three measured here nothing is repaired (none of Yggdrasil's 31 departures, and no departure at all on express and Grain), so the AUC against hand deterministic rules the research asked for cannot be computed.
+- **On older repositories written by people it exists,** 12 conventions over three repositories. With the old five decodings alone it is 10 of them (click 7, flask 2, typeorm 1).
+- **It does not predict.** Learned on the first 70% of commits, the cell certifies 0 conventions on click and flask and 2 on typeorm, and none of those has a departure after the cut, so there is nothing to test it on. The departures after the cut are repaired at 0.76 on click and 0.92 on flask whatever the cell said.
+- **The cost.** The wider decoding grows the history store by 17% to 33%, and changes the extractor version, so every existing store re-extracts every historical blob.
+
+Not shipped: the tier would rest on a cell that certifies nothing on the family's repositories, has no prospective test, and cannot be scored against a hand rule, at the price of a full re-extraction for every adopter. Calibration stays as it was. Kept for a later release: the base-rate contrast above, which on the old decodings alone already reads click, flask and typeorm.
+
+### The imports that hold a cycle together (issue 266)
+
+`report`, `report --json` and the proposal's refactor backlog now name, for each module cycle, the smallest set of module edges that breaks it and the file references behind each (mathematics.md, *Cycle cuts*). On Yggdrasil (`65bfb39`) the two cycles 093 found are the same two, and each is held by a handful of references: `portal → cli` (3 of the cycle's 19, both in `portal/engine-api.ts`), and `relations → core` plus `structure → core` (4 of 55, in `relations/allowed-types.ts`, `relations/type-gate.ts`, `structure/allowed-reads.ts` and `structure/observations.ts`). typeorm's 26-module component is above the exact bound: the local search names 60 module edges carrying 217 of its 1740 references, marked as not proven smallest.
+
+Does the cut point at what maintainers actually remove? Measured 2026-09-26 on the history of the six corpus repositories that ever had a module cycle (Slim, axum, express, sinatra, typeorm and Yggdrasil): the module graph and its cuts at 120 commits evenly spaced along each first-parent history (fewer where the history is shorter), and for every cycle a later snapshot no longer holds, the module edges inside it that had disappeared by then. A random edge of the same component is the baseline, and so is naming the component's lightest edges, as many as the cut has.
+
+| | removed edges in the cut | broken cycles with a removed edge in the cut | removed references in the cut |
+|---|---|---|---|
+| the cut | 13 of 19 (0.68) | 10 of 14 | 0.66 |
+| a random edge of the component | 0.36 expected (P of 13 or more = 0.001) | 6.5 expected (P of 10 or more = 0.044) | 0.17 |
+| the lightest edges, as many as the cut | 14 of 19 | 10 of 14 | |
+
+- **Better than a random edge, no better than the lightest edges.** When a cycle breaks, the edges that went are in the cut more often than chance puts them there, but naming the lightest edges does as well: maintainers remove light dependencies, and the smallest cut is made of light ones. What the cut adds over that list is that removing it provably breaks the cycle.
+- **A small sample.** 14 broken cycles, in four of the six repositories (Slim, express, sinatra and Yggdrasil; none in axum or typeorm); 459 snapshot pairs kept their cycle and 13 lost it because a member module disappeared. A snapshot pair spans many commits, so an edge that went may have gone for reasons that had nothing to do with the cycle.
+
 ## Match-by-example (`how`) vs. a grep baseline
 
 `grain selftest --how [--last N]` runs a leave-one-out evaluation of `how`: for each of the last N real commits
@@ -578,6 +626,26 @@ measure lands where the established instrument lands: the maintainer note *oracl
 comparison at 21/36 type recall (23/36 with alternatives) and 30/393 node recall on an older commit and an older
 engine, against 23/36, 25/36 and 43/402 here. The obligation stated above — that the type-level policy be
 re-measured when a fifth repository arrives — is not discharged by it.
+
+### The same record read as two partitions (issue 263)
+
+The node row and the relation row above are one fact seen twice: the accepted graph is cut about four times finer than the proposal, so a best-match Jaccard misses an accepted node that sits entirely inside a proposed one exactly as it misses a node drawn across the grain. `grain oracle score` now also reads both graphs as partitions of the files they own (a file belongs to the deepest node that maps it) and projects every accepted relation onto the proposed nodes by file majority, so no relation leaves the denominator (reference.md, *The oracle contract*). Measured 2026-09-26 on the committed record and on a fresh record made the same day: a clone of Yggdrasil at `65bfb39`, its own graph, and a proposal by this build.
+
+| | the committed record (`3a351e1`, grain 0.4.0) | a fresh record (`65bfb39`, this build) |
+|---|---|---|
+| files both graphs own | 1416 | 1806 |
+| H(P\|A): how much finer grain cuts | 0.102 bits | 0.161 bits |
+| H(A\|P): how much finer the accepted graph cuts | 2.038 bits | 2.017 bits |
+| NMI · ARI, leaves | 0.844 · 0.479 | 0.839 · 0.498 |
+| closest depth of the accepted tree | 4 (VI 1.517, NMI 0.878, ARI 0.662) | 4 (VI 1.603, NMI 0.871, ARI 0.643) |
+| relations, projected: recall | 205/230 = 0.891 | 236/261 = 0.904 |
+| relations, projected: precision | 205/216 = 0.949 | 236/244 = 0.967 |
+| accepted relations inside one proposed node · unmappable | 194 · 0 of 1298 | 261 · 0 of 1775 |
+| (for comparison) node recall · relations scored by Jaccard | 43/402 · 39 of 1298 | 46/471 · 44 of 1775 |
+
+- **What it says.** H(P|A) is near zero: almost every accepted node sits inside one proposed node. The accepted graph needs about two more bits per file, a factor of about four, which is its finer granularity. The proposal cuts where the accepted tree cuts at its fourth level, and the finer nodes below that are the maintainer's to add. The projected relations agree with 093's file-pair numbers (recall 0.894, precision 0.998), which the node-matched score could not see.
+- **A synthetic check** (`tests/oracle-partition.test.mjs`): splitting every proposed node in two across the accepted seams raises H(P|A) from 0 to 1 bit and leaves H(A|P) at 1 bit; merging them raises H(A|P) from 1 to 2 bits and leaves H(P|A) at 0; a proposal equal to the accepted tree cut at depth 1 is found there at VI 0.
+- **What it does not cover.** Only the Yggdrasil oracle is a recorded proposal beside an accepted graph. The express, Grain and spring-petclinic oracles are hand-written graphs scored by `tests/stress/propose.mjs`, which does not read this block. The fresh record is not committed: it is the same repository as the committed one and adds no fifth repository.
 
 The record is at `plugins/grain/tests/stress/oracles/yggdrasil/`, the memo is
 the maintainer note *oracle-5-yggdrasil*, and

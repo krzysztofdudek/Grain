@@ -182,7 +182,7 @@ export function assignAll(ps, medoids) {
 export function countCandidates(ps, ri) {
   return mine(ps, ri, () => 1, [], null, null, { countOnly: true }).C;
 }
-export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCostOverride = null, repoAll = null } = {}) {
+export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCostOverride = null, repoAll = null, repoRole = null } = {}) {
   const cells = new Map();
   const alph = new Map();
   const add = (cid, pid, v, w, rw, gi, surv) => {
@@ -226,12 +226,20 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   const kindTotal = new Map();
   for (const s of ps) kindTotal.set(s.kind, (kindTotal.get(s.kind) || 0) + 1);
   const dirEligible = k => dirCount.get(k) >= CFG.dirMin && dirCount.get(k) < kindTotal.get(k.split(S)[1]);
+  const ownRole = new Map(); // kind\x01pid → this partition's assigned scopes' weighted outcomes, seeds left out
   ps.forEach((s, i) => {
     const w = wfn(s);
     const surv = ageFn ? ageFn(s) >= CFG.freshDays : true;
+    const firstPid = Object.keys(s.preds)[0];
     for (const [pid, v] of Object.entries(s.preds)) {
       add('_all:' + s.kind, pid, v, w, 1, i, surv);
       const r = ri.assign.get(i);
+      if (r !== undefined) {
+        if (pid === firstPid) ownRole.set(s.kind, (ownRole.get(s.kind) || 0) + w * (ri.amb.has(i) ? 0.5 : 1));
+        const ok = s.kind + S + pid,
+          t = ownRole.get(ok) || ownRole.set(ok, Object.create(null)).get(ok);
+        t[v] = (t[v] || 0) + w * (ri.amb.has(i) ? 0.5 : 1);
+      }
       if (r !== undefined)
         add(
           'r' + r + ':' + s.kind,
@@ -326,6 +334,11 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   // labels were shuffled among the assigned scopes). Where the kind has ONE group, that group is the assigned
   // population itself and is contrasted with the partition, as before: its claim is about the assigned scopes, and
   // there is no second group to restate it (the label null cannot move such a cell, so it says nothing about it).
+  // Issue 390: a kind with ONE group has no second group to contrast with, and against the partition the group still
+  // wins by being assigned, the confound above. Its reference is the scopes of the same kind that role induction
+  // assigned in every OTHER partition (`repoRole`, which learn() sums over the whole repository, less this
+  // partition's own): assigned against assigned, as with several groups, and an outside population, as for a
+  // partition-wide absence. With no such scope elsewhere the cell has nothing to be contrasted with and says nothing.
   const rolePool = new Map(); // kind\x01pid → { counts, groups }
   for (const [key, c] of cells) {
     if (!/^r\d/.test(key)) continue;
@@ -335,10 +348,36 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     t.groups++;
     for (const [v, n] of Object.entries(c.counts)) t.counts[v] = (t.counts[v] || 0) + n;
   }
+  // { counts, outside }: the pooled groups (a parent tally holding the cell), or the other partitions' assigned scopes
+  // (an outside population, the cell not in it); null where a one-group kind has no scope of its kind elsewhere
   const roleRef = (kind, pid) => {
     const t = rolePool.get(kind + S + pid);
-    return t && t.groups > 1 ? t.counts : null;
+    if (t && t.groups > 1) return { counts: t.counts, outside: false };
+    // a placement predicate names the directory, and partitions are cut on directories: against the other
+    // partitions it would win by construction, the confound this reference exists to remove
+    if (!repoRole || /^auto\.dir\d/.test(pid)) return null;
+    const all = repoRole.get(kind + S + pid),
+      own = ownRole.get(kind + S + pid) || {};
+    const counts = Object.create(null);
+    let n = 0;
+    for (const [v, m] of Object.entries(all || {})) {
+      const x = Math.max(0, m - (own[v] || 0));
+      if (x > 0) {
+        counts[v] = x;
+        n += x;
+      }
+    }
+    // a boolean predicate absent from another partition's vocabulary is not done there: those scopes count as `false`
+    if (isBool(pid)) {
+      const rest = Math.max(0, (repoRole.get(kind) || 0) - (ownRole.get(kind) || 0) - n);
+      if (rest > 0) {
+        counts.false = (counts.false || 0) + rest;
+        n += rest;
+      }
+    }
+    return n > 0 ? { counts, outside: true } : null;
   };
+  const isRole = cid => /^r\d/.test(cid);
   // index cost = log2(C₂) over the candidate count of the WHOLE repository (§9.4a) — counted once across partitions, never per partition
   const idxCost = idxCostOverride ?? Math.ceil(Math.log2(Math.max(C, 2)));
   let out = [];
@@ -353,7 +392,11 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     const Vv = bl ? ['true', 'false'] : [...alph.get(pid)].sort();
     const K = bl ? 2 : Vv.length + 1;
     const allCell = isAll ? cell : cells.get('_all:' + kind + S + pid);
-    const refCounts = (/^r\d/.test(cid) && roleRef(kind, pid)) || (allCell && allCell.counts);
+    // a role cell of a one-group kind with no outside reference (repoRole given, nothing of its kind elsewhere) is
+    // not coded against the partition it would win against by being assigned: it is not a candidate at all
+    const rr = isRole(cid) ? roleRef(kind, pid) : null;
+    if (isRole(cid) && !rr && repoRole) continue;
+    const refCounts = (rr && rr.counts) || (allCell && allCell.counts);
     const refN = refCounts ? Object.values(refCounts).reduce((a, b) => a + b, 0) : neff;
     let data = 0;
     if (isAll) {
@@ -447,13 +490,17 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   // half log and the index cost AND the cell uses the thing LESS than the rest of the partition does.
   const localAbsenceHolds = f => {
     const cell = cells.get(f.cid + S + f.pid),
-      allC = (/^r\d/.test(f.cid) && roleRef(f.kind, f.pid)) || cells.get('_all:' + f.kind + S + f.pid)?.counts;
+      rr = /^r\d/.test(f.cid) ? roleRef(f.kind, f.pid) : null,
+      allC = (rr && rr.counts) || cells.get('_all:' + f.kind + S + f.pid)?.counts;
     if (!cell || !allC) return false;
     const n = (cell.counts.true || 0) + (cell.counts.false || 0);
-    const outside = {
-      true: Math.max(0, (allC.true || 0) - (cell.counts.true || 0)),
-      false: Math.max(0, (allC.false || 0) - (cell.counts.false || 0)),
-    };
+    // an outside reference (a one-group kind: the other partitions' assigned scopes) already leaves the cell out
+    const outside = rr && rr.outside
+      ? { true: allC.true || 0, false: allC.false || 0 }
+      : {
+          true: Math.max(0, (allC.true || 0) - (cell.counts.true || 0)),
+          false: Math.max(0, (allC.false || 0) - (cell.counts.false || 0)),
+        };
     const nO = outside.true + outside.false;
     if (!(n > 0 && nO > 0) || !((cell.counts.true || 0) * nO < outside.true * n)) return false;
     const K = 2;

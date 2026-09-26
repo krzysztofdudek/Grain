@@ -131,6 +131,8 @@ export async function cmdReport({ model, meta, head, isGit, args, opts, stamp, s
         edges: (model.moduleGraph?.edges || []).map(e => ({ from: e.from, to: e.to, n: e.n })),
         layers: moduleLayers(model),
         cycles: model.moduleGraph?.cycles || [],
+        // the smallest set of module edges holding each cycle together, index-aligned with `cycles` (issue 266)
+        cycleCuts: model.moduleGraph?.cycleCuts || [],
         relCoverage: relCoverageData(model),
         asOf: stamp().replace(/^as of /, ''),
       }),

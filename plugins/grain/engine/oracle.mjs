@@ -36,6 +36,7 @@ import { basename, dirname, isAbsolute, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { ENGINE_VERSION } from './config.mjs';
 import { headSha, originUrl, trackedFiles as gitTrackedFiles } from './history.mjs';
+import { partitionScore, projectedRelations } from './oracle-partition.mjs';
 import {
   aspectLiterals,
   expandMapping,
@@ -416,6 +417,10 @@ export function scoreRecord(record) {
       precision: direction(pNodes, aNodes, 'proposed node -> accepted node (precision)'),
     },
     relations: rel,
+    // the two graphs as partitions of the files both own, and every accepted relation carried onto the proposed
+    // partition (oracle-partition.mjs): additive blocks, the Jaccard measures above are unchanged
+    partition: partitionScore(P, A),
+    relationsProjected: projectedRelations(P, A),
     rules,
     alternatives: alts.length,
   };
@@ -658,7 +663,8 @@ function scoreCmd({ args, opts }) {
   const record = loadRecord(dir);
   const score = scoreRecord(record);
   if (opts.json) return [JSON.stringify({ ...score, correction: record.correction }, null, 1)];
-  const t = score.types, n = score.nodes, r = score.relations, ru = score.rules;
+  const t = score.types, n = score.nodes, r = score.relations, ru = score.rules, pa = score.partition, rp = score.relationsProjected;
+  const lv = pa.leaves, lo = pa.lowestVI;
   const cc = record.correction.nodes.counts;
   return [
     `oracle ${record.name} — what grain proposed, against the graph its adopter accepted`,
@@ -668,6 +674,10 @@ function scoreCmd({ args, opts }) {
     `               (over the ${n.recall.n} accepted node(s) that map a file of their own, and the ${n.precision.n} proposed ones that do)`,
     `  relations    recall ${pct(r.matched, r.acceptedPairs)} · precision ${pct(r.matched, r.proposedPairs)}`,
     `               (only between the ${r.matchedNodes} node(s) both graphs agree on: ${r.acceptedRelationsWithAnUnmappedEnd} of the ${r.acceptedDeclared} accepted relations, and ${r.proposedRelationsWithAnUnmappedEnd} of the ${r.proposedDeclared} proposed ones, have an end outside that set and are scored neither way)`,
+    `  partition    over the ${lv.files} files both graphs own: H(P|A) ${lv.hPgivenA} bits (how much finer grain cuts) · H(A|P) ${lv.hAgivenP} bits (how much finer the accepted graph cuts) · NMI ${lv.nmi} · ARI ${lv.ari}`,
+    ...(lo ? [`               read against the accepted tree cut at each depth, the closest match is depth ${lo.depth} (VI ${lo.vi} bits, NMI ${lo.nmi}, ARI ${lo.ari})`] : []),
+    `  projected    every accepted relation carried onto grain's nodes by file majority: recall ${pct(rp.overlap, rp.acceptedPairs)} · precision ${pct(rp.overlap, rp.proposedPairs)}`,
+    `               (${rp.acceptedCollapsed} of the ${rp.acceptedDeclared} accepted relations fall inside one proposed node, ${rp.acceptedUnmappable} have an end that maps no file)`,
     `  rules        ${ru.namedCount}/${ru.acceptedWithLiterals} of the accepted mechanical rules are named by some draft · of ${ru.proposedDrafts} drafts, ${ru.kept.length} kept, ${ru.promoted.length} promoted, ${ru.dropped.length} dropped · ${ru.added.length} rules the adopter wrote themselves`,
     ...(ru.proposedDrafts && !ru.kept.length && !ru.promoted.length && !ru.demoted.length && !ru.edited.length
       ? ['               no draft rule appears in the accepted graph under its own name at all: this graph was not grown from this proposal, so read the rule row as a comparison of two independent sets, never as a review of the drafts']

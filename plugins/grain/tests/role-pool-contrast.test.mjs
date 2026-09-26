@@ -4,7 +4,9 @@
 // partition merely by being assigned. On Grain's own tests partition every group's methods were camelCase while the
 // unassigned ones were the one-word `it` callbacks, and shuffling the role labels among the assigned scopes certified
 // the same 9 cells every seed. The label null keeps the assigned pool, so only a contrast inside it is a role claim.
-// A kind with a single group is the assigned pool itself and keeps the partition as its reference.
+// A kind with a single group is the assigned pool itself: here, with no repository-wide pool passed, it keeps the
+// partition as its reference; learn() passes that pool, and issue 390 contrasts it with the other partitions
+// (tests/one-group-role-reference.test.mjs).
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mine } from '../engine/core.mjs';
@@ -51,7 +53,7 @@ test('385: a group absence is contrasted with the rest of the assigned scopes, n
   assert.ok(one.some(f => f.cid === 'r0:method' && f.exp === 'false'), JSON.stringify(one.map(f => [f.cid, f.exp])));
 });
 
-test('385: a kind with one group is contrasted with the partition, so the group is still stated', () => {
+test('385: without a repository-wide pool, a kind with one group is contrasted with the partition', () => {
   const pid = 'auto.call:validate';
   // 30 handler methods (the only group) validate, the 30 unassigned constructors do not
   const facts = roleFacts(fixture(pid, [{ true: 30 }], { false: 30 }));

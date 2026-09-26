@@ -22,6 +22,8 @@ export async function partitionLattice(repo) {
   // and a partition-wide cell can be contrasted with the same (kind, predicate) everywhere else
   const parts = [];
   const repoAll = new Map(); // "kind\x01pid" -> value tally over every partition
+  const repoKindN = new Map(); // kind -> every partition's assigned scopes of it, issue 390
+  const repoPool = new Map(); // "kind\x01pid" -> the tally of every partition's assigned scopes (role cells summed), issue 390
   let universe = 0;
   for (const part of model.partitions || []) {
     const ps = [];
@@ -41,8 +43,10 @@ export async function partitionLattice(repo) {
       // convention's own sites.
       (sites.get(k) || sites.set(k, []).get(k)).push({ rel: s.rel, kind: s.kind, name: s.name, line: s.line, v, tparams: s.tparams || [], own: s.own || null });
     };
+    const kindN = new Map(); // kind -> this partition's assigned scopes (issue 390)
     for (const s of ps) {
       const r = roleOf(s);
+      if (r !== undefined) kindN.set(s.kind, (kindN.get(s.kind) || 0) + 1);
       for (const [pid, v] of Object.entries(s.preds)) {
         add2('_all:' + s.kind, pid, v, s);
         if (r !== undefined) add2('r' + r + ':' + s.kind, pid, v, s);
@@ -68,7 +72,12 @@ export async function partitionLattice(repo) {
       const t = repoAll.get(rk) || repoAll.set(rk, Object.create(null)).get(rk);
       for (const [v, n] of Object.entries(c)) t[v] = (t[v] || 0) + n;
     }
-    parts.push({ part, cells, sites, pool });
+    for (const [k, n] of kindN) repoKindN.set(k, (repoKindN.get(k) || 0) + n);
+    for (const [pk, t] of pool) {
+      const r = repoPool.get(pk) || repoPool.set(pk, Object.create(null)).get(pk);
+      for (const [v, n] of Object.entries(t.counts)) r[v] = (r[v] || 0) + n;
+    }
+    parts.push({ part, cells, sites, pool, kindN });
   }
   // one index cost over the whole repository's lattice: every cell it built, which is about one bit more than the
   // certification's own count (learn()'s cells with the raw floor). Paying the certification's count instead was
@@ -77,7 +86,7 @@ export async function partitionLattice(repo) {
   const idxCost = Math.ceil(Math.log2(Math.max(universe, 2)));
   const sum = c => Object.values(c).reduce((a, b) => a + b, 0);
   const rows = [];
-  for (const { part, cells, sites, pool } of parts) {
+  for (const { part, cells, sites, pool, kindN } of parts) {
     const factKey = new Set((part.facts || []).map(f => f.cid + CELL_SEP + f.pid + CELL_SEP + f.exp));
     for (const [key, c] of cells) {
       const [cid, pid] = key.split(CELL_SEP);
@@ -105,7 +114,18 @@ export async function partitionLattice(repo) {
         if (!refN) continue; // one partition only: nothing outside it to contrast an absence with
       } else if (!isAll) {
         const t = pool.get(kind + CELL_SEP + pid);
-        ref = t && t.groups > 1 ? t.counts : allC;
+        if (t && t.groups > 1) ref = t.counts;
+        else if (/^r\d/.test(cid)) {
+          if (/^auto\.dir\d/.test(pid)) continue; // a placement predicate against other partitions restates the cut
+          // one group of its kind here: the assigned scopes of its kind in every other partition, as in mine() (issue 390)
+          const all = repoPool.get(kind + CELL_SEP + pid) || {};
+          ref = Object.create(null);
+          for (const [v, m] of Object.entries(all)) if (m - ((t && t.counts[v]) || 0) > 0) ref[v] = m - ((t && t.counts[v]) || 0);
+          // assigned scopes elsewhere whose partition's vocabulary lacks this boolean predicate do not do it
+          const rest = bl ? (repoKindN.get(kind) || 0) - (kindN.get(kind) || 0) - sum(ref) : 0;
+          if (rest > 0) ref.false = (ref.false || 0) + rest;
+          if (!sum(ref)) continue; // nothing of its kind assigned elsewhere — nothing to contrast against
+        } else ref = allC;
         if (!ref) continue; // no reference for this cell — nothing to contrast against
         refN = sum(ref);
       }
