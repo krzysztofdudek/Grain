@@ -436,4 +436,5 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 0.6 | report-facts.mjs | `if (!(c.share >= 0.6)` | display — an uncertified "usually" row | none |
 | 180 days | learn.mjs | `(H.NOW - f) / 86400 <= 180` | display — the "fresh" count in a rule's history line | none |
 | ½ | oracle.mjs | `const HIT = 0.5;` | instrument — oracle hit at Jaccard 0.5 | results.md |
+| 0.8 | selftest-cochange.mjs | `const TRAIN_SHARE = 0.8;` | instrument — `selftest --cochange` learns from the oldest 80% of the footprints and scores the rest | validation.md |
 | 0.8 | oracle.mjs | `hit8: rows.filter(r => r.best >= 0.8)` | instrument — oracle strong-hit count | results.md |
