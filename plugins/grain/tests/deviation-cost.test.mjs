@@ -123,7 +123,7 @@ after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
 test('(a) edits to deviants that were fixes more often are named, with edit counts and the ratio', () => {
   const f = validateFact(modelIn(repoA));
   assert.equal(f.exp, 'true'); assert.equal(f.sraw, TOTAL, 'the printed population is the established one');
-  assert.deepEqual(f.cost, { k: 11, n: 23, baseK: 13, baseN: 73, scopes: 12, bits: 4.26 },
+  assert.deepEqual(f.cost, { k: 11, n: 23, baseK: 13, baseN: 73, scopes: 12, fixScopes: 11, bits: 4.26 },
     `11 fix edits of the deviants' 23 against 13 of the population's 73, worth 4.26 bits — got ${JSON.stringify(f.cost)}`);
   // baseN 73 = 60 plain + 13 fix edits: the six conformers born three days before HEAD are inside the fact and outside the cell
   assert.equal(f.raw, TOTAL + 6, 'the raw population does include the six young conformers');
@@ -133,19 +133,19 @@ test('(a) edits to deviants that were fixes more often are named, with edit coun
 // alpha` here ranks file cards first.
 test('(a) factNotes and `check` render the clause as an association', () => {
   const f = validateFact(modelIn(repoA));
-  assert.match(factNotes(f), / · edits to deviants were fixes 2\.7× as often \(11 of 23 edits vs 13 of 73\)$/);
+  assert.match(factNotes(f), / · edits to deviants were fixes 2\.7× as often \(11 of 23 edits vs 13 of 73; fixes in 11 of 12 deviants\)$/);
   const check = grainOut(repoA, ['check', '--all', 'alpha/T0.ts']);
-  assert.match(check, /\n {2}\(held since [\d-]+, last reinforced [\d-]+ · edits to deviants were fixes 2\.7× as often \(11 of 23 edits vs 13 of 73\)\)/,
+  assert.match(check, /\n {2}\(held since [\d-]+, last reinforced [\d-]+ · edits to deviants were fixes 2\.7× as often \(11 of 23 edits vs 13 of 73; fixes in 11 of 12 deviants\)\)/,
     `\`check\` must carry the clause under the deviation, got:\n${check}`);
   assert.doesNotMatch(factNotes(f) + check, /cost/, 'never worded as a cost');
 });
 
 test('(e) `where` renders the clause on the directory card that owns the fact', () => {
   const f = validateFact(modelIn(repoE));
-  assert.deepEqual({ ...f.cost, bits: undefined }, { k: 11, n: 35, baseK: 13, baseN: 133, scopes: 12, bits: undefined },
+  assert.deepEqual({ ...f.cost, bits: undefined }, { k: 11, n: 35, baseK: 13, baseN: 133, scopes: 12, fixScopes: 11, bits: undefined },
     `11 fix edits of the deviants' 35 (two plain each, eleven fixes) against 13 of 133 — got ${JSON.stringify(f.cost)}`);
   const where = grainOut(repoE, ['where', 'alpha']);
-  assert.match(where, /methods here call `validate` — 90% of 120 · held since [\d-]+, last reinforced [\d-]+ · edits to deviants were fixes 3\.2× as often \(11 of 35 edits vs 13 of 133\)/,
+  assert.match(where, /methods here call `validate` — 90% of 120 · held since [\d-]+, last reinforced [\d-]+ · edits to deviants were fixes 3\.2× as often \(11 of 35 edits vs 13 of 133; fixes in 11 of 12 deviants\)/,
     `\`where\` must carry the clause on the fact's bullet, got:\n${where}`);
 });
 

@@ -28,6 +28,7 @@ import { applyChangeArchetypes, applyMsgAffinity } from './commit-log.mjs';
 import { cochangeData } from './completeness.mjs';
 import { learn } from './learn.mjs';
 import { buildObligationTable } from './obligations.mjs';
+import { capCochange } from './facts.mjs';
 import { refineModOf } from './relations.mjs';
 
 const PAIR = '\u0000';
@@ -125,7 +126,9 @@ export function aggregatesOf(fps) {
     cochange.push({ a, b, sup, commitsA: fileCommits[a], commitsB: fileCommits[b], othersA: fileOthers[a], othersB: fileOthers[b] });
   }
   const fileTouches = fps.reduce((a, fp) => a + fp.files.length, 0);
-  return { fps, fileCommits, msgAff, msgTokCommits, msgAffEx: {}, nonMegaCommits: fps.length, fileTouches, cochange };
+  // the pairs a model keeps (learn() caps them the same way), so the null pays the co-change index cost over the
+  // same number of pairs as the shipped cell
+  return { fps, fileCommits, msgAff, msgTokCommits, msgAffEx: {}, nonMegaCommits: fps.length, fileTouches, cochange: capCochange(cochange) };
 }
 // what each history family certifies over one set of footprints
 function historyCounts(model, Hx) {

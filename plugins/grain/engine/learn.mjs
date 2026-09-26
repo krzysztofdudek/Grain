@@ -8,7 +8,7 @@ import { applyRelationLayer } from './arch.mjs';
 import { applyChangeArchetypes, applyConcepts, applyMsgAffinity } from './commit-log.mjs';
 import { applyBoundaries, applySteers, applyWaivers } from './decisions.mjs';
 import { VALUE_INDEX_CAP, VALUE_NORM_PLACES } from './extract.mjs';
-import { applyVocab, currentPathOf, decoLabel, kt, skeyR } from './facts.mjs';
+import { applyVocab, capCochange, currentPathOf, decoLabel, kt, skeyR } from './facts.mjs';
 import {
   altMarkerFor,
   authorConcentration,
@@ -658,7 +658,17 @@ export async function learn({
       // 1/λ of its mass at or below the population's rate — "edits to deviants were fixes more often" is wrong at
       // most one time in λ. The old bound asked 7 of 8 deviants to carry a fix at all, which exposure alone meets.
       if (!(betaCdf(q, local.fix + 0.5, local.plain + 0.5) <= 1 / CFG.lambda)) continue;
-      ef.cost = { k: local.fix, n: nMods, baseK: glob.fix, baseN: N, scopes: dv.length, bits: +bits.toFixed(2) };
+      // `fixScopes`: how many of the deviants the fix edits fell on. Edits cluster within scopes, so the per-edit bound
+      // above treats one scope's run of fixes as independent evidence; the count shows how many scopes carry the rate
+      ef.cost = {
+        k: local.fix,
+        n: nMods,
+        baseK: glob.fix,
+        baseN: N,
+        scopes: dv.length,
+        fixScopes: dv.filter(v => v.fix > 0).length,
+        bits: +bits.toFixed(2),
+      };
     }
   }
   settleChangePoints(cpCand);
@@ -687,11 +697,7 @@ export async function learn({
   applyStructuralTwins(model, log);
   applyWaivers(model, prepared, waivers);
   applyBoundaries(model, boundaries, files);
-  model.cochange = H
-    ? [...H.cochange]
-        .sort((a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1))
-        .slice(0, 5000)
-    : []; // cap by descending support
+  model.cochange = H ? capCochange(H.cochange) : []; // cap by descending support
   // the exact population `model.cochange`'s own `commitsA`/`commitsB` were drawn from (state.fileCommits,
   // history.mjs) — carried onto the model so `cochangeData` can test a co-change partner's OWN global rate
   // (commitsX / nonMegaCommits) against the same λ bound `certifyObligationRules`' ambient gate uses, without

@@ -2,7 +2,7 @@
 // Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { CFG, NCAP } from './config.mjs';
 import { S, UNSEEN } from './base.mjs';
-import { STRUCT_PID, isBool, jac, jacW, kt, part, pct, ptr, skeyR } from './facts.mjs';
+import { STRUCT_PID, fixScopesNote, isBool, jac, jacW, kt, part, pct, ptr, skeyR } from './facts.mjs';
 import { deviationPhrase, scopeBacktick } from './verbalize.mjs';
 import { valOf } from './weights.mjs';
 
@@ -773,7 +773,7 @@ export function factNotes(f) {
   // whenever the cell speaks at all); the branch keeps a narrower base population later from dividing by zero.
   if (f.cost)
     out.push(
-      `edits to deviants were fixes ${f.cost.baseK ? `${(f.cost.k / f.cost.n / (f.cost.baseK / f.cost.baseN)).toFixed(1)}× as often ` : ''}(${f.cost.k} of ${f.cost.n} edits vs ${f.cost.baseK} of ${f.cost.baseN})`
+      `edits to deviants were fixes ${f.cost.baseK ? `${(f.cost.k / f.cost.n / (f.cost.baseK / f.cost.baseN)).toFixed(1)}× as often ` : ''}(${f.cost.k} of ${f.cost.n} edits vs ${f.cost.baseK} of ${f.cost.baseN}${fixScopesNote(f.cost)})`
     );
   // a value tried on enough scopes and then reverted — the structural opposite of `suppressedValue`'s nucleation
   if (f.rejected)

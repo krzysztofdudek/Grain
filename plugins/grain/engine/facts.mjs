@@ -70,6 +70,14 @@ export function applyVocab(s, vb) {
     }
   }
 }
+// the file co-change pairs a model keeps: the 5000 with the most support. One function, so `learn()` and the null
+// harness (selftest-null.mjs `aggregatesOf`) count the same pairs, and the co-change index cost is paid over the same
+// number in both (issue 368)
+export const capCochange = pairs =>
+  [...pairs].sort((a, b) => b.sup - a.sup || (a.a < b.a ? -1 : a.a > b.a ? 1 : a.b < b.b ? -1 : 1)).slice(0, 5000);
+// how many of a convention's deviants its fix edits fell on (issue 368): edits cluster within scopes, so a fix rate
+// counted per edit can rest on one or two scopes, and the note says so
+export const fixScopesNote = c => (Number.isFinite(c.fixScopes) ? `; fixes in ${c.fixScopes} of ${c.scopes} deviants` : '');
 export const isBool = pid => /^auto\.(has|call|deco|extends|imp|stshape|returns|ptype):/.test(pid);
 // structural-shape facts (node-type presence, statement shapes, first statement, return shape, arity, local-variable
 // shape): the null-model family that speaks only as a local contrast, never repo-wide — shared by mine() (the contrast

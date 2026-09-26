@@ -28,6 +28,10 @@
 //        It is the gate here, at a 1/3 floor. The single-file consumers (`cochangePartners`, `completenessDirectional`)
 //        dropped that floor for the base-rate contrast (issue 259); a node pair has no base rate to contrast with,
 //        because nothing in the model counts the commits that touched a whole node (see below), so the floor stays.
+//        Gating the witness PAIR with the scope co-change cell instead (`partnerBits` over `scopeCommitsN`, both
+//        directions) was measured and not shipped (issue 368): a scope's base rate over every commit is close to
+//        zero, so nearly every stored pair passes both ways. On express it emitted the `res.send` hub pair this floor
+//        exists to reject; on Yggdrasil it took the pairs from 2 to 6, three of them undeclared and unchecked.
 //
 // WHAT THE EVIDENCE IS AND IS NOT. `model.scopeCochange` pairs SCOPES (a declaration, keyed `<path>#<kind>#
 // <name>` at its current path), not files and not directories, so the pair that reaches a node here is a pair
