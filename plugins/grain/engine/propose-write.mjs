@@ -256,7 +256,7 @@ export async function propose(repo, outDir, opts = {}) {
   const rels = buildRelations(exp, typeOfFile, active);
   const nestedRoots = nestedProjectRoots(files);
   const { nodes, cycles: nodeCycles } = buildNodes(active, exp, nestedRoots);
-  say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycles in the proposed node graph (declared, not hidden — the proposal is red until they are broken)`);
+  say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycle(s) in the code, each broken in the proposed node graph at its weakest edge (left undeclared and named in REFACTOR-BACKLOG.md)`);
 
   const lat = await partitionLattice(repo);
   const sub = subGate(lat.rows);

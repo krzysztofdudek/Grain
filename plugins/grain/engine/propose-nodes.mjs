@@ -121,10 +121,17 @@ export function buildNodes(active, exp, nestedRoots = []) {
   nodes.sort((a, b) => (a.id < b.id ? -1 : 1));
   const nodeOfFile = new Map();
   for (const n of [...nodes].sort((a, b) => (a.dir || '').split('/').length - (b.dir || '').split('/').length)) for (const f of n.files) nodeOfFile.set(f, n.id);
+  // A node never declares a relation to its own ancestor or descendant. Yggdrasil exempts that pair from the
+  // undeclared-dependency check outright (a child's import of its parent's files, or the reverse, is never
+  // refused), so the declaration buys nothing — and it costs the graph: a parent whose files import its child
+  // while the child's import the parent declares a loop between the two, which Yggdrasil refuses as a blocking
+  // `structural-cycle` and `yg adopt` refuses to take in (issue 394: `source/cli/src/portal` ⇄ `…/portal/api` on
+  // Yggdrasil itself).
+  const nested = (a, b) => a.startsWith(b + '/') || b.startsWith(a + '/');
   const rel = new Map();
   for (const e of exp.edges || []) {
     const a = nodeOfFile.get(e.from), b = nodeOfFile.get(e.to);
-    if (!a || !b || a === b) continue;
+    if (!a || !b || a === b || nested(a, b)) continue;
     const m = rel.get(a) || rel.set(a, new Map()).get(a);
     m.set(b, (m.get(b) || 0) + (e.n || 1));
   }
@@ -137,16 +144,17 @@ export function buildNodes(active, exp, nestedRoots = []) {
     n.ownFiles = new Set([...n.files].filter(f => !kids.some(k => k.files.has(f))));
   }
 
-  // A CYCLE IN THE CODE IS NOT EXPRESSIBLE IN THE GRAPH, AND THE PROPOSAL SAYS SO RATHER THAN HIDING IT.
+  // A CYCLE IN THE CODE IS NOT EXPRESSIBLE IN THE GRAPH, SO ONE EDGE OF EACH LOOP IS LEFT UNDECLARED AND NAMED.
   //
-  // Yggdrasil refuses a graph whose node relations form a loop (`structural-cycle`, blocking). Grain measures
-  // real loops in the pattern repo's imports — the same two `yg advise` nominates independently. An earlier
-  // version of this renderer broke each loop at its weakest edge to make the proposal green. MEASURED, that
-  // trade was bad: dropping 8 edges turned one `structural-cycle` error, which names the real defect and the
-  // real fix, into 4 `relation-undeclared-dependency` errors whose suggested fix is to put the edges back. So
-  // every resolved edge is declared, the loops are found and reported here and at the top of the refactor
-  // backlog, and the proposal is honestly RED on a repository whose imports form a cycle. That is not a
-  // renderer defect; it is the finding.
+  // Yggdrasil refuses a graph whose node relations form a loop (`structural-cycle`), and `yg adopt` refuses to
+  // take such a graph in at all: a proposal that declares every loop cannot be accepted, whatever else it gets
+  // right (issue 394). An undeclared edge is a different kind of finding: `relation-undeclared-dependency` is
+  // drift between the code and the graph, which progressive mode carries as inherited debt until a change
+  // reaches it, and it points at the exact imports that close the loop. So each loop is broken at its weakest
+  // edge (fewest resolved imports), that edge is left out of the node's relations, and every one of them is
+  // reported — in the run's summary, in PROPOSAL.md and at the top of REFACTOR-BACKLOG.md — as the place the
+  // code's own cycle has to be cut. (An earlier renderer declared every loop and shipped the proposal red; that
+  // was measured when a `structural-cycle` blocked no harder than an undeclared import, which is no longer so.)
   const dropped = [];
   const outgoing = () => new Map(nodes.map(n => [n.id, n.relations.filter(r => !r._masked).map(r => r.target)]));
   for (let guard = 0; guard < 500; guard++) {
@@ -172,11 +180,11 @@ export function buildNodes(active, exp, nestedRoots = []) {
       if (edge && (!weakest || edge.n < weakest.edge.n)) weakest = { from, edge };
     }
     if (!weakest) break;
-    // recorded, NOT removed — but the edge is masked for this scan so the next loop can be found
+    // masked for this scan so the next loop can be found, then left out of the graph below
     weakest.from.relations = weakest.from.relations.map(r => (r === weakest.edge ? { ...r, _masked: true } : r));
     dropped.push({ from: weakest.from.id, to: weakest.edge.target, n: weakest.edge.n, cycle: loop });
   }
-  for (const n of nodes) n.relations = n.relations.map(r => { const { _masked, ...rest } = r; void _masked; return rest; });
+  for (const n of nodes) n.relations = n.relations.filter(r => !r._masked);
   return { nodes, cycles: dropped, nodeOfFile };
 }
 
