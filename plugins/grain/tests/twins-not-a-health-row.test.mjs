@@ -46,7 +46,7 @@ function modelWithTwins() {
     exemplars: [{ rel: 'src/pkgA/Bar0.ts', name: 'Bar0', line: 1, endLine: 2 }] };
   const pkgA = { name: 'pkgA', scopes: 200, medoids: [{ label: 'Foo group', feats: [] }, { label: 'Bar group', feats: [] }],
     files: ['alpha/T0.ts'], templates: [], facts: [costFact, role0Fact, role1Fact] };
-  return { repo: 'test-repo', partitions: [pkgA], cochange: [], agentShare: null, steers: [], waivers: [], changeArchetypes: [],
+  return { repo: 'test-repo', partitions: [pkgA], cochange: [], steers: [], waivers: [], changeArchetypes: [],
     twins: [{ a: { part: 'pkgA', role: 0, label: 'Foo group' }, b: { part: 'pkgA', role: 1, label: 'Bar group' },
       sim: 0.91, namedDifferently: ['Foo', 'Bar'] }] };
 }

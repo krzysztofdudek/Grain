@@ -41,6 +41,8 @@ Six tuned thresholds used to guard speech: a bits margin on every fact, four fam
    computed on the same population the accusation cites. Three cells in the validation corpus sit at 7.0 to 7.8 : 1
    odds, just under 8 : 1, and grain stays silent there by contract; the misses are the frontier made visible.
 
+Evidence weights come from a scope's own history and nothing else: code younger than `freshDays` counts half, code rewritten within two weeks of its birth counts a quarter, and no weight falls below `floor`. Who wrote the code does not enter. Every commit counts the same, whether a person or an agent made it, because a commit does not reliably say which: agent-assisted work is committed under a person's name as often as under the agent's.
+
 Vacuity is not a threshold problem and is handled by the null model instead: structural facts (node type presence,
 statement shapes, first statement, return shape, arity, variable shape) speak only as a *contrast*, in a group or
 directory whose default differs from the partition's. "Methods here always contain a member_expression" describes the
@@ -298,7 +300,7 @@ What remains that mathematics does not decide, on the record:
 
 ## The numeric register
 
-Every non-integer numeric literal and every literal ratio (`2 / 3`, `(n * 2) / 3`) in the top-level engine files (`plugins/grain/engine/*.mjs`; the vendored runtime and the grammars are not scanned), and every literal day window (`N * 86400`, `/ 86400 <= N`), is on this list with its role. Each row quotes enough of its line to pin that one site, so a new use of the same number elsewhere in the file needs a row of its own. A few integer floors that decide speech are listed too, but integers are not audited: `n >= 4` and its kin can still enter unlisted. The test `numeric-register.test.mjs` fails when a literal of the audited kinds appears in those files without a row here, when a row's code no longer appears in its file, and when a row's value is not the number in its code, so a changed value cannot keep an old row. Two blind spots: a literal inside a template string's `${…}` is not scanned (the report's alarm row below is listed by hand), and a multi-line string is not stripped.
+Every non-integer numeric literal and every literal ratio (`2 / 3`, `(n * 2) / 3`) in the top-level engine files (`plugins/grain/engine/*.mjs`; the vendored runtime and the grammars are not scanned), and every literal day window (`N * 86400`, `/ 86400 <= N`), is on this list with its role. Each row quotes enough of its line to pin that one site, so a new use of the same number elsewhere in the file needs a row of its own. A few integer floors that decide speech are listed too, but integers are not audited: `n >= 4` and its kin can still enter unlisted. The test `numeric-register.test.mjs` fails when a literal of the audited kinds appears in those files without a row here, when a row's code no longer appears in its file, and when a row's value is not the number in its code, so a changed value cannot keep an old row. Two blind spots: a literal inside a template string's `${…}` is not scanned, and a multi-line string is not stripped.
 
 Roles:
 
@@ -323,10 +325,7 @@ The named constants in `config.mjs` come first. The test compares every value he
 | `valueDfMaxShare` | 0.2 | value-index population gate |
 | `ambGap` | 0.15 | clustering ambiguity |
 | `minMemb` | 0.35 | clustering ambiguity |
-| `survDays` | 120 | the window of "recent" code the agent share is measured over |
 | `freshDays` | 14 | code younger than this weighs half |
-| `agentBase` | 0.15 | agent-written code's starting weight |
-| `promoteDays` | 180 | days over which agent-written code is promoted to full weight |
 | `floor` | 0.05 | the lowest weight a scope can have |
 | `calibHorizonDays` | 365 | calibration's temporal split; a history shorter than this is not calibrated |
 | `calibSettleDays` | 30 | departures younger than this are not yet judged repaired or kept |
@@ -374,7 +373,6 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 1.96 | weights.mjs | `const z = 1.96,` | derived — 95% Wilson interval | — |
 | ½ | mine.mjs | `ri.amb.has(i) ? 0.5` | derived — the ambiguous member's half vote | — |
 | 2/3 | propose-base.mjs | `SUPERMAJORITY = 2 / 3` | declared — the two-thirds supermajority | none |
-| 2/3 | learn.mjs | `den >= CFG.minRaw && num / den >= 2 / 3)` | declared — a fact is "held mostly by agent-authored code" | none |
 | 2/3 | learn.mjs | `top2[1] >= Math.ceil((n * 2) / 3)` | declared — a marker's own established value | none |
 | 2/3 | learn.mjs | `k >= Math.ceil((n * 2) / 3)) obs.push` | declared — a marker's own established value (per-carrier observations) | none |
 | 2/3 | learn.mjs | `Math.ceil((declaring * 2) / 3);` | declared — a value container's sibling key set | none |
@@ -395,11 +393,10 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | 0.8 | config.mjs | `targetPrec: 0.8,` | gate — calibrated repair precision under which the accusation margin applies | none |
 | 1.5 | weights.mjs | `Math.log2(CFG.lambda) + 1.5` | gate — accusation margin in bits for a convention history calibrates below `targetPrec` | none |
 | 0.9 | weights.mjs | `denyEligible: lb >= 0.9 && n >= CFG.denyMinEv` | gate — Wilson lower bound for `denyEligible` (report only; nothing blocks) | none |
-| 0.15 | config.mjs | `agentBase: 0.15,` | weight — agent-written code's starting weight, promoted over `promoteDays` | none |
 | 0.05 | config.mjs | `floor: 0.05,` | weight — the lowest weight a scope can have | none |
 | 0.3 | weights.mjs | `if (!L) return 0.3;` | weight — a scope with no history row | none |
 | ½ | weights.mjs | `CFG.freshDays ? 0.5` | weight — code younger than `freshDays` | none |
-| ¼ | weights.mjs | `* wp * (L.churn ? 0.25 : 1));` | weight — code rewritten right after birth | none |
+| ¼ | weights.mjs | `ws * (L.churn ? 0.25 : 1));` | weight — code rewritten right after birth | none |
 | 14 days | history.mjs | `e.c.ts - L.first <= 14 * 86400` | weight — "rewritten right after birth" window (equal to `freshDays` today, not tied to it) | none |
 | ½ | mine.mjs | `Math.min(sd.weight, 0.5 * neffReal)` | weight — a maintainer seed counts at most half the cell | none |
 | 0.1 | mine.mjs | `partitionTrueShare(f.kind, f.pid) >= 0.1` | gate — a partition-wide absence needs 10% use of the thing | none |
@@ -436,7 +433,6 @@ The literals in the code follow. "Cited" names the measurement a value rests on 
 | ¾, ½ | cards.mjs | `fact: 0.75, imp: 0.5, doc: 0.5` | retrieval — card vocabulary weights | none |
 | 0.6 | cards.mjs | `suffix: share < 0.6 ?` | display — "(mixed)" module label | none |
 | 0.1 | mine.mjs | `0) + f.bpi * 0.1 + 0.1;` | display — role lift order | none |
-| 0.85 | report.mjs | `model.agentShare >= 0.85` | display — the agent-share alarm | none |
 | 0.6 | report-facts.mjs | `if (!(c.share >= 0.6)` | display — an uncertified "usually" row | none |
 | 180 days | learn.mjs | `(H.NOW - f) / 86400 <= 180` | display — the "fresh" count in a rule's history line | none |
 | ½ | oracle.mjs | `const HIT = 0.5;` | instrument — oracle hit at Jaccard 0.5 | results.md |

@@ -79,7 +79,7 @@ export {
   skipLineNote,
   roleLift,
 } from './mine.mjs';
-// history weighting (survival x provenance x churn), value trends and calibration
+// history weighting (freshness x churn), value trends and calibration
 export { mkWeightFn, valOf, changePointFor, settleChangePoints, rejectedValues, calibrate, heritageKindOf } from './weights.mjs';
 // the verbalizer: units, shapes, and the English a convention or a deviation is said in
 export {

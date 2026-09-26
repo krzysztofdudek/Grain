@@ -244,7 +244,7 @@ export function exportModel({
     },
     indexedAt: meta?.builtAt || null,
     history: model.historyStats
-      ? { ...model.historyStats, mode: meta?.historyMode || null, agentShare: model.agentShare }
+      ? { ...model.historyStats, mode: meta?.historyMode || null }
       : null,
     summary: {
       files: model.files,
@@ -317,7 +317,6 @@ export function exportModel({
             modifications: L.mods,
             fixes: L.fix,
             churn: !!L.churn,
-            lastByAgent: !!L.agentLast,
           }
         : null;
     };

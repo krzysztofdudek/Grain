@@ -1,11 +1,11 @@
 // J5.5 — `== health ==`: report()/rulesMarkdown() render individual conventions and drift, but nothing pulls
-// together the repo-wide signals that suggest a maintainer should make a decision. This composes seven fields
-// already built by earlier tickets (never reimplemented here): f.cost (J5.1), f.rejected (J5.2), f.agentShare
-// (J5.3), check-outcomes.json (J5.4, passed in as `outcomes` since report()/rulesMarkdown() are pure functions of
+// together the repo-wide signals that suggest a maintainer should make a decision. This composes six fields
+// already built by earlier tickets (never reimplemented here): f.cost (J5.1), f.rejected (J5.2), check-outcomes.json (J5.4, passed in as `outcomes` since report()/rulesMarkdown() are pure functions of
 // `model` and cannot read files), model.changeArchetypes (J4.1), model.waivers (J1.3), and baselineClause's own
-// "no movement" case (E4).
+// "no movement" case (E4). The seventh, f.agentShare (J5.3, "held mostly by agent-authored code"), is gone with issue
+// 369: Grain no longer tells agent-written code from a person's, so no fact carries it and no row names it.
 //
-// model.twins (J3.4) was the EIGHTH such input and is deliberately no longer one — see the twin-rows ruling: the twin health row
+// model.twins (J3.4) was the other input and is deliberately no longer one — see the twin-rows ruling: the twin health row
 // measured 0.24 precision over 75 hand-adjudicated rows on three languages (0.04 on Go), so it was removed while
 // model.twins, the export schema and `where`'s group card kept it. The absence is pinned below and, in full,
 // in tests/twins-not-a-health-row.test.mjs.
@@ -17,7 +17,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { report, rulesMarkdown } from '../engine/core.mjs';
 
-// pkgA carries every anchor a health row needs: a partition-wide fact (cid '_all') for the cost/rejected/agentShare
+// pkgA carries every anchor a health row needs: a partition-wide fact (cid '_all') for the cost/rejected
 // rows, and a role-defining fact (cid 'r0:'/'r1:') for the archetype row to resolve a real <path>#<name>. The
 // `twins` field below is still built — it is what proves the row's absence is a rendering decision and not
 // a missing input, and the r0:/r1: facts stay for the same reason: the anchor machinery is untouched.
@@ -29,16 +29,15 @@ function baseModel() {
   const rejectedFact = { cid: '_all', kind: 'type', pid: 'auto.deco:@Handler', exp: 'true', share: 0.95, sraw: 20, deviantsN: 0,
     exemplars: [{ rel: 'src/handlers/H0.ts', name: 'H0', line: 1, endLine: 3 }],
     rejected: [{ v: 'false', tried: 5, reverted: 5 }] };
-  const agentFact = { cid: '_all', kind: 'method', pid: 'auto.first1', exp: 'V', share: 0.8, sraw: 30, deviantsN: 2,
-    exemplars: [{ rel: 'src/agent/A0.ts', name: 'run', line: 1, endLine: 2 }],
-    agentShare: 0.72 };
+  const plainFact = { cid: '_all', kind: 'method', pid: 'auto.first1', exp: 'V', share: 0.8, sraw: 30, deviantsN: 2,
+    exemplars: [{ rel: 'src/other/A0.ts', name: 'run', line: 1, endLine: 2 }] };
   const role0Fact = { cid: 'r0:method', kind: 'method', pid: 'auto.deco:@Foo', exp: 'true', share: 1, sraw: 12, deviantsN: 0,
     exemplars: [{ rel: 'src/pkgA/Foo0.ts', name: 'Foo0', line: 1, endLine: 2 }] };
   const role1Fact = { cid: 'r1:method', kind: 'method', pid: 'auto.deco:@Bar', exp: 'true', share: 1, sraw: 9, deviantsN: 0,
     exemplars: [{ rel: 'src/pkgA/Bar0.ts', name: 'Bar0', line: 1, endLine: 2 }] };
 
   const pkgA = { name: 'pkgA', scopes: 200, medoids: [{ label: 'Foo group', feats: [] }, { label: 'Bar group', feats: [] }],
-    files: ['alpha/T0.ts'], templates: [], facts: [costFact, rejectedFact, agentFact, role0Fact, role1Fact] };
+    files: ['alpha/T0.ts'], templates: [], facts: [costFact, rejectedFact, plainFact, role0Fact, role1Fact] };
 
   const twins = [{ a: { part: 'pkgA', role: 0, label: 'Foo group' }, b: { part: 'pkgA', role: 1, label: 'Bar group' },
     sim: 0.91, namedDifferently: ['Foo', 'Bar'] }];
@@ -63,11 +62,11 @@ function baseModel() {
     surfaces: [{ pid: 'auto.deco:@Foo', value: 'true', retires: false, share: 0.5, n: 10, context: 'package pkgA',
       baseline: { share: 0.5, n: 10, context: 'package pkgA', at: '2026-01-01' } }] };
 
-  return { repo: 'test-repo', partitions: [pkgA], cochange: [], agentShare: null,
+  return { repo: 'test-repo', partitions: [pkgA], cochange: [],
     twins, changeArchetypes: [archetype], waivers, steers: [deadSteer] };
 }
 
-test('(a) red -> green: a fixture with cost + rejected + agentShare + outcomes signals produces a health section with rows and decide suggestions', () => {
+test('(a) red -> green: a fixture with cost + rejected + outcomes signals produces a health section with rows and decide suggestions', () => {
   const model = baseModel();
   const outcomes = { acted: 1, ignored: 3, byFact: { 'pkgA::auto.call:validate': 3 } };
   const lines = report(model, { outcomes });
@@ -81,18 +80,18 @@ test('(a) red -> green: a fixture with cost + rejected + agentShare + outcomes s
   assert.match(text, /is not annotated with `@Handler` tried 5×, reverted 5× — a rejection, not an alternative/, text);
   assert.match(text, /→ grain decide steer src\/handlers\/H0\.ts#H0 --surfaces auto\.deco:@Handler/, text);
 
-  assert.match(text, /held mostly by agent-authored code \(72% of recent conformers\)/, text);
-  assert.match(text, /→ grain decide steer src\/agent\/A0\.ts#run --surfaces auto\.first1/, text);
+  assert.doesNotMatch(text, /agent-authored/, 'no health row speaks about who wrote the code');
+  assert.doesNotMatch(text, /src\/other\/A0\.ts#run --surfaces auto\.first1/, 'a plain fact is not a health signal');
 
   assert.match(text, /keeps ignoring the `auto\.call:validate` warning at alpha\/T1\.ts:2 \(flagged and ignored 3×\)/, text);
   assert.match(text, /→ grain decide waive alpha\/T1\.ts#run --on auto\.call:validate/, text);
 });
 
-test('(b) a model with none of the eight signals present renders no health section at all', () => {
+test('(b) a model with none of the signals present renders no health section at all', () => {
   const plain = { cid: '_all', kind: 'method', pid: 'auto.arity', exp: '1', share: 1, sraw: 5, deviantsN: 0,
     exemplars: [{ rel: 'x.ts', name: 'f', line: 1, endLine: 1 }] };
   const model = { repo: 'r', partitions: [{ name: '_root', scopes: 5, medoids: [], files: ['x.ts'], templates: [], facts: [plain] }],
-    cochange: [], agentShare: null };
+    cochange: [] };
   const lines = report(model);
   assert.doesNotMatch(lines.join('\n'), /== health/, 'no signals must mean no header at all, not an empty one');
 });

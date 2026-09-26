@@ -19,7 +19,7 @@ const edges = [
   { from: 'mod-d/index.ts', to: 'mod-b/index.ts', kind: 'import', line: 1, n: 1 },
   { from: 'mod-b/index.ts', to: 'mod-a/index.ts', kind: 'import', line: 1, n: 1 },
 ];
-const baseModel = mg => ({ partitions: [], moduleGraph: mg, archNorms: [], cochange: [], boundaries: [], steers: [], agentShare: null, repo: 'fixture' });
+const baseModel = mg => ({ partitions: [], moduleGraph: mg, archNorms: [], cochange: [], boundaries: [], steers: [], repo: 'fixture' });
 
 test('the fixture graph is a genuine 4-member SCC with a sorted-adjacent pair that has no real edge', () => {
   const mg = moduleGraph(edges, files, []);

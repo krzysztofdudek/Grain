@@ -2,7 +2,7 @@
 
 Grain's own claims are held to grain's standard: every number below comes from a run that can be repeated, negatives
 are reported beside wins, and anything unverified says so. The harnesses live in `tests/stress/`; the engine's test
-suite (2954 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
+suite (2944 tests under engine 6.1.0 — `node --test` over `tests/*.test.mjs` plus the relations sub-suites,
 one file per ported case) runs in CI on node 22 and 24 on every push; `grain selftest` and `grain selftest --how`
 (below) are the two of those checks any user can also run, unmodified, against their own repository.
 
@@ -212,6 +212,20 @@ The protocol of maintainer note *obligations-design* §2, rebuilt: train on the 
 | null: the 3 hottest files | 0.364 | 0.000 | 0.282 | 1.000 | — |
 
 The contrast beats the 6.1.0 gate on every accuracy column, pooled and per repository in most (hit@3 higher on 10 of 14, lower on 2; precision@1 higher on 9, lower on 4), and certifies 61% fewer partners under the null. It is not better everywhere on the null: typeorm 22.7 → 93.7, Slim 20.7 → 37.7 and flask 2.7 → 5.3 per run under this harness (the shipped `selftest --null` counts fewer, 10.67 → 12 on typeorm, because it counts only live partners). The λ bound the research proposed names a partner in 2.6% of cases and was rejected. A floor on the edited file's own rate cuts the null to about one per repository but loses a third of the non-obvious hits, which are the half of the answer co-change is for: the hub-to-test partners that only the reverse direction used to reach. The hottest-files null still has the higher hit@3, as under 6.1.0.
+
+### Every commit weighs the same (issue 369)
+
+Grain no longer reads who wrote a commit. Code last touched by an agent used to enter a convention's evidence at 0.15 of a person's weight, rising to full weight over 180 days, and a commit counted as an agent's when its author or a `Co-authored-by:` trailer named one. On a repository built mostly with an agent that discounted nearly all young code. Measured 2026-09-26 on the Yggdrasil clone above (`65bfb39`), same history, before and after this change alone:
+
+| measure | before | after |
+| --- | --- | --- |
+| conventions certified | 90 | 163 |
+| role conventions (`selftest --null` real column) | 39 | 84 |
+| directory conventions | 13 | 23 |
+| mutation harness | 25 of 25 caught, 0 false fires, 65 unsupported | 35 of 35 caught, 0 false fires, 124 unsupported |
+| `selftest --null`, false certifications per run | 3.67 (all co-change) | 3.67 (all co-change) |
+
+The role and directory nulls stay at 0 in every run, so the conventions the discount used to hide are not ones a shuffled repository would also yield.
 
 ## Match-by-example (`how`) vs. a grep baseline
 

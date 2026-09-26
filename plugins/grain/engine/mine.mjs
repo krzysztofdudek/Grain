@@ -742,8 +742,6 @@ export function factNotes(f) {
       out.push(
         `${deviationPhrase(f, r.v)} tried ${r.tried}×, reverted ${r.reverted}× — a rejection, not an alternative`
       );
-  if (f.agentShare != null)
-    out.push(`held mostly by agent-authored code (${pct(f.agentShare)}% of recent conformers)`);
   return out.length ? ' · ' + out.join(' · ') : '';
 }
 export const deviantLine = (f, max = 2) =>

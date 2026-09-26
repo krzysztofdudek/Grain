@@ -12,7 +12,7 @@ import assert from 'node:assert/strict';
 import { moduleGraph } from '../engine/relations.mjs';
 import { report, rulesMarkdown, CYCLE_GRANULARITY_NOTE } from '../engine/core.mjs';
 
-const baseModel = mg => ({ partitions: [], moduleGraph: mg, archNorms: [], cochange: [], boundaries: [], steers: [], agentShare: null, repo: 'fixture' });
+const baseModel = mg => ({ partitions: [], moduleGraph: mg, archNorms: [], cochange: [], boundaries: [], steers: [], repo: 'fixture' });
 
 // a genuine 4-module cycle (same shape as cycle-set-not-chain.test.mjs's fixture) — standing in for a real
 // production-code SCC, unrelated to any test/production split.

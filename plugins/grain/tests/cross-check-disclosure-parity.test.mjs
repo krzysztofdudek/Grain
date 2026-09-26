@@ -26,7 +26,7 @@
 // third table row (it needs certified established-layering norms from replayed history, out of proportion to what
 // this file needs to prove) but its GREEN-by-inspection status is recorded in this header for whoever extends this
 // table next. `skipLineNote` (per-exemplar "(skip line N — its own deviation: ...)") and `factNotes`'s
-// contested/rejected/cost/agentShare clauses are excluded on purpose: neither is a coverage/aggregation disclosure
+// contested/rejected/cost clauses are excluded on purpose: neither is a coverage/aggregation disclosure
 // about the MODEL as a whole (the class 004/007 are about) — they are per-fact/per-exemplar calibration notes, and
 // `report()`'s own inline `printFact` never calls `factNotes` either (it hand-rolls the same trend/held/authorConc
 // subset `rulesMarkdown`'s `row()` does), so there is no report-vs-rules drift to check there in the first place.

@@ -1,9 +1,9 @@
-// grain engine · history weighting (survival x provenance x churn), value trends and calibration
+// grain engine · history weighting (freshness x churn), value trends and calibration
 // Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { CFG } from './config.mjs';
 import { isBool, skeyR } from './facts.mjs';
 
-// ===== WEIGHTS FROM HISTORY (survival × provenance × churn, floor) =====
+// ===== WEIGHTS FROM HISTORY (freshness × churn, floor) =====
 export function mkWeightFn(H) {
   if (!H) return { wfn: () => 1, ageFn: null, get: () => null };
   const filelvl = new Map();
@@ -15,10 +15,7 @@ export function mkWeightFn(H) {
       filelvl.set(p, F);
     } else {
       F.first = Math.min(F.first, L.first);
-      if (L.last > F.last) {
-        F.last = L.last;
-        F.agentLast = L.agentLast;
-      }
+      if (L.last > F.last) F.last = L.last;
     }
   }
   const get = s => H.lc.get(skeyR(s.rel, s)) || filelvl.get(s.rel) || null;
@@ -30,18 +27,14 @@ export function mkWeightFn(H) {
     wfn: s => {
       const L = get(s);
       if (!L) return 0.3;
-      const stable = Math.max(0, (H.NOW - L.last) / 86400),
-        age = Math.max(0, (H.NOW - L.first) / 86400);
+      const age = Math.max(0, (H.NOW - L.first) / 86400);
       // no continuous survival ramp: "old" is not extra evidence, and the absolute 120-day scale priced a young repo's
       // real conventions at ~20% of their size (measured on a private repo: 19 certified where spectrum saw the field full).
-      // What still discounts: brand-new code (< freshDays ⇒ ×0.5), code rewritten right after birth (churn ⇒ ×0.25),
-      // and agent-authored code promotes over promoteDays as before. "n of N established" remains age-gated separately.
+      // What still discounts: brand-new code (< freshDays ⇒ ×0.5) and code rewritten right after birth (churn ⇒ ×0.25).
+      // Who wrote it never does: every commit weighs the same, a person's or an agent's. "n of N established" remains
+      // age-gated separately.
       const ws = age < CFG.freshDays ? 0.5 : 1;
-      const wp = L.agentLast
-        ? CFG.agentBase + (1 - CFG.agentBase) * Math.min(1, stable / CFG.promoteDays)
-        : 1;
-      let w = Math.max(CFG.floor, ws * wp * (L.churn ? 0.25 : 1));
-      return w;
+      return Math.max(CFG.floor, ws * (L.churn ? 0.25 : 1));
     },
     get,
   };

@@ -197,7 +197,7 @@ export function roleExemplar(model, part, role) {
   return f ? { f, ex: f.exemplars[0] } : null;
 }
 // == health == (§J5.5): repo-wide signals that suggest a maintainer decision, composed from fields ALREADY on the
-// model (J5.1 f.cost, J5.2 f.rejected, J5.3 f.agentShare, J3.4 model.twins, J4.1 model.changeArchetypes, J1.3
+// model (J5.1 f.cost, J5.2 f.rejected, J3.4 model.twins, J4.1 model.changeArchetypes, J1.3
 // model.waivers, E4 baselineClause) plus, when the caller supplies it, `check-outcomes.json` (J5.4) — report()/
 // rulesMarkdown() are pure functions of `model` and cannot read files themselves, so `outcomes` travels in as a
 // parameter from cmdReport/cmdRules, which do the reading. Every row here is later wrapped in `voice('practiced',
@@ -229,17 +229,6 @@ export function healthRows(model, outcomes) {
           `${factLabel(p, f)} — ${deviationPhrase(f, r.v)} tried ${r.tried}×, reverted ${r.reverted}× — a rejection, not an alternative` +
             ` → grain decide steer ${ex.rel}#${ex.name} --surfaces ${f.pid} --note "value already rejected ${r.tried}× — document it so it is not re-litigated"`
         );
-    }
-  for (const p of model.partitions || [])
-    for (const f of p.facts) {
-      // 3: echo chambers (J5.3)
-      if (f.agentShare == null) continue;
-      const ex = f.exemplars[0];
-      if (!ex) continue;
-      rows.push(
-        `${factLabel(p, f)} is held mostly by agent-authored code (${pct(f.agentShare)}% of recent conformers)` +
-          ` → grain decide steer ${ex.rel}#${ex.name} --surfaces ${f.pid} --note "ratify — currently held mostly by agent-authored code"`
-      );
     }
   if (outcomes && outcomes.byFact) {
     // 4: ignored after warning (J5.4) — silent whenever the caller has no outcomes file
