@@ -97,7 +97,10 @@ export async function spectrum({ model, root, rel, minBits = 0, top = 0, scopesA
       const r = roleOf(s, i);
       if (r !== undefined && myRoles.has('r' + r + ':' + s.kind)) add2('r' + r + ':' + s.kind, pid, v);
       // every assigned scope of the kind: the population a role row is contrasted with where the kind has more than
-      // one group, as in mine() (issue 385)
+      // one group, as in mine() (issue 385). The same population, not the same counts: spectrum's cells count each
+      // scope once and leave ambiguous scopes out (roleOf), where mine() weighs scopes by their history and counts an
+      // ambiguous one at half weight, so a row's display bits here can differ from the bits that certified the fact
+      // (the NORM mark comes from the model, never from these bits)
       if (r !== undefined) {
         const t =
           pool.get(s.kind + S + pid) || pool.set(s.kind + S + pid, { counts: Object.create(null), groups: new Set() }).get(s.kind + S + pid);
