@@ -672,6 +672,27 @@ the maintainer note *oracle-5-yggdrasil*, and
 `tests/reconstruct.test.mjs` scores it on every run — with no checkout of Yggdrasil anywhere, because the file
 sets were expanded once, when it was recorded.
 
+## The house's own records as data (research B3 to B8)
+
+A repository under Yggdrasil keeps records Grain did not make: the declared graph at every commit, the reviewer's verdict on every (rule, file) pair, and, where the work runs as a Jarl loop, the issues it filed and the files each one names. They are labels no miner derived, which results.md 155 and 157 say a delivery or risk claim needs. The instruments below read them; none of them is a command, and each subsection says whether anything shipped.
+
+### Architecture trajectory from the declared graph (issue 267)
+
+`tests/stress/trajectory.mjs` reads `.yggdrasil/model/**/yg-node.yaml` (and the older `node.yaml`) at every first-parent commit that touched the model, from git objects alone: one `ls-tree` and one `cat-file --batch` per commit, no source parsed. Per commit it reports nodes, relations between nodes that exist, relations per node, cycles, the longest chain through the condensation, fan-in Gini and the top-5 fan-in share, and the relations new since the previous commit, with those that run from a node to one at a higher layer of the previous commit's layering (layer = longest chain below a node) listed as "upward". Measured 2026-09-27 on Yggdrasil at `c5cdd8a`: 673 commits touched the model, read in 35 s.
+
+| date | commit | nodes | relations | per node | longest chain | cycles | top-5 fan-in share |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-02-22 | `251690a` | 19 | 38 | 2.00 | 4 | 0 | 0.658 |
+| 2026-05-12 | `94fe13e` | 64 | 63 | 0.98 | 5 | 0 | 0.508 |
+| 2026-06-13 | `703eef8` | 271 | 151 | 0.56 | 7 | 0 | 0.444 |
+| 2026-07-05 | `dfbf46e` | 345 | 799 | 2.32 | 16 | 0 | 0.249 |
+| 2026-08-03 | `d95f621` | 410 | 1170 | 2.85 | 18 | 0 | 0.226 |
+| 2026-09-26 | `c5cdd8a` | 514 | 1826 | 3.55 | 19 | 0 | 0.254 |
+
+The five largest changes in relations, with the commit's own subject: +462 on 2026-06-14 (`86135c1`, "relation conformance", the release that started checking relations), +195 on 2026-09-25 (`90d7d5c`, "a type-only import is a dependency like any other"), +109 on 2026-09-12 (`f9a922b`, a family sync), +82 on 2026-09-07 (`27d1415`, release 5.9.0), +47 on 2026-09-01 (`66e755b`, progressive mode). Two of the five are the checker learning to see more dependencies, not the code gaining them, which is the conflation the research warned about; the commit subject tells them apart here, and on another repository only its maintainer can. No commit in the history declares a cycle. Upward relations: 210 of the 2024 new relations, on 25 commits, 158 of them on the 06-14 commit; on an acyclic graph every one of them is legal, so on this repository they add nothing to the change in relations.
+
+**Not shipped as a command.** The series is cheap and reads correctly, but it exists only where a graph has been committed for a while, it cannot tell enforcement from growth on its own, and the research's own test (the maintainer confirms or rejects the top five turning points) has not been run. It stays an instrument; the comparison with Grain's module graph on a repository without a graph was not run either.
+
 ## Known boundaries
 
 Stated, not hidden: a feature extending existing modules draws no placement note (name kin already live beside it);
