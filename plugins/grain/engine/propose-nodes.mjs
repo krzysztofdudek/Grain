@@ -157,8 +157,7 @@ export function buildNodes(active, exp, nestedRoots = []) {
   // was measured when a `structural-cycle` blocked no harder than an undeclared import, which is no longer so.)
   const dropped = [];
   const outgoing = () => new Map(nodes.map(n => [n.id, n.relations.filter(r => !r._masked).map(r => r.target)]));
-  for (let guard = 0; guard < 500; guard++) {
-    const adj = outgoing();
+  const findLoop = adj => {
     const colour = new Map(), stack = [];
     let loop = null;
     const dfs = id => {
@@ -172,11 +171,19 @@ export function buildNodes(active, exp, nestedRoots = []) {
       colour.set(id, 2); stack.pop();
     };
     for (const n of nodes) if (!colour.has(n.id) && !loop) dfs(n.id);
+    return loop;
+  };
+  // Each pass masks exactly one declared relation, so the number of relations bounds the passes: the loop ends
+  // with no cycle left however many the code has. (It used to stop at a fixed 500 cuts, and a graph needing
+  // more would have been written with its remaining loops still declared, silently — issue 396.)
+  const bound = nodes.reduce((a, n) => a + n.relations.length, 0);
+  for (let pass = 0; pass < bound; pass++) {
+    const loop = findLoop(outgoing());
     if (!loop) break;
     let weakest = null;
     for (let i = 0; i < loop.length - 1; i++) {
       const from = nodes.find(n => n.id === loop[i]);
-      const edge = from.relations.find(r => r.target === loop[i + 1]);
+      const edge = from.relations.find(r => r.target === loop[i + 1] && !r._masked);
       if (edge && (!weakest || edge.n < weakest.edge.n)) weakest = { from, edge };
     }
     if (!weakest) break;
@@ -184,8 +191,11 @@ export function buildNodes(active, exp, nestedRoots = []) {
     weakest.from.relations = weakest.from.relations.map(r => (r === weakest.edge ? { ...r, _masked: true } : r));
     dropped.push({ from: weakest.from.id, to: weakest.edge.target, n: weakest.edge.n, cycle: loop });
   }
+  // what the caller warns about if it is ever non-null: a loop the cut above could not break is a graph `yg adopt`
+  // refuses, and that must be said, not written quietly
+  const unbroken = findLoop(outgoing());
   for (const n of nodes) n.relations = n.relations.filter(r => !r._masked);
-  return { nodes, cycles: dropped, nodeOfFile };
+  return { nodes, cycles: dropped, nodeOfFile, unbroken };
 }
 
 // ==================================================================================================

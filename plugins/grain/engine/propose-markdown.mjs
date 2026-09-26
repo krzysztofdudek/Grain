@@ -28,6 +28,7 @@ export function renderProposalMd({ repo, exp, files, active, alternatives, nodes
     counts.nodeCycles
       ? `**The code has ${counts.nodeCycles} dependency cycle(s) between proposed nodes.** Yggdrasil cannot express a loop, so each one is broken at its weakest edge: that dependency is left out of the node's relations, and \`yg check\` reports the imports behind it as undeclared dependencies (inherited debt under progressive mode until a change reaches them). See \`REFACTOR-BACKLOG.md\` §4 for every edge left out and the loop it closes — that is the first thing to fix, and it is a finding about the repository, not about the proposal.`
       : 'The code has no dependency cycle between proposed nodes.', '',
+    ...(counts.nodeCyclesUnbroken ? ['**WARNING: a dependency loop in the proposed node graph could not be broken.** `yg adopt` will refuse this proposal on `structural-cycle` until it is.', ''] : []),
     counts.drillHoldout
       ? `Drills are cut with a TIME HOLD-OUT at ${counts.drillHoldout} (${counts.drillDropped} pre-cut sites dropped), by the export's per-site first-appearance date rather than by a cut sha.`
       : '**Drills carry NO hold-out.** Every case is cut from the sites the rule was mined on, so a passing drill shows only that the rendered check reproduces grain\'s own count. Re-cut with `--holdout <YYYY-MM-DD>`.', '');

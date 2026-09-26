@@ -176,8 +176,11 @@ export function nodeDescription(n) {
     ? `Organizational node — it owns no file of its own. Every file under \`model/${n.id}/\` belongs to one of its children; attach a rule to the child that owns the file, never here.`
     : `${n.dir ? `Everything under \`${n.dir}/\`` : 'Every file that sits at the repository root itself'} is this node's: ${n.files.size} tracked file${n.files.size === 1 ? '' : 's'}${n.ownFiles.size === n.files.size ? ', all of them owned here' : `, ${n.ownFiles.size} owned here and ${n.files.size - n.ownFiles.size} by a nested node below it`}. A rule attached to this node applies to every file it owns.`;
 }
-function writeNodeFiles(ygg, nodes, ev) {
+export function writeNodeFiles(ygg, nodes, ev, nodeCycles = []) {
   for (const n of nodes) {
+    // a relation left out to break a loop is said on the node that would have declared it, where a maintainer
+    // reading this file looks for it — not only in the backlog (issue 396)
+    const cut = nodeCycles.filter(d => d.from === n.id).map(d => `\`uses\` → \`${d.to}\` is left undeclared: it is the weakest edge (${d.n} resolved import${d.n === 1 ? '' : 's'}) of the dependency loop ${d.cycle.join(' → ')}, which Yggdrasil cannot express. \`yg check\` reports those imports as undeclared dependencies; see REFACTOR-BACKLOG.md §4.`);
     const relEntries = n.relations.map(r => ({ target: r.target, type: 'uses' }));
     const line = n.organizational ? n.why : `${n.why}; maps ${n.files.size} tracked files; ${n.relations.length} outgoing dependencies from ${n.relations.reduce((a, r) => a + r.n, 0)} resolved imports`;
     ev('node', n.id, line, { files: n.files.size, relations: n.relations.length, organizational: !!n.organizational });
@@ -192,6 +195,7 @@ function writeNodeFiles(ygg, nodes, ev) {
       // list gets NO child precedence, so every descendant node's files are subtracted here by hand. Measured:
       // without that subtraction the pattern repo produced 591 `file-duplicate-mapping` errors from two nodes.
       ...(n.organizational ? {} : { mapping: n.useDir ? [`${n.dir}/`] : [...n.ownFiles].sort() }),
+      ...(cut.length ? { '#c': cut.join('\n') } : {}),
       relations: relEntries,
     }));
   }
@@ -255,8 +259,9 @@ export async function propose(repo, outDir, opts = {}) {
   for (const a of byDepth) for (const f of a.files) typeOfFile.set(f, a.id);
   const rels = buildRelations(exp, typeOfFile, active);
   const nestedRoots = nestedProjectRoots(files);
-  const { nodes, cycles: nodeCycles } = buildNodes(active, exp, nestedRoots);
+  const { nodes, cycles: nodeCycles, unbroken } = buildNodes(active, exp, nestedRoots);
   say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycle(s) in the code, each broken in the proposed node graph at its weakest edge (left undeclared and named in REFACTOR-BACKLOG.md)`);
+  if (unbroken) say(opts, `WARNING: a dependency loop in the proposed node graph was not broken (${unbroken.join(' → ')}); yg adopt will refuse this proposal on structural-cycle`);
 
   const lat = await partitionLattice(repo);
   const sub = subGate(lat.rows);
@@ -294,7 +299,7 @@ export async function propose(repo, outDir, opts = {}) {
       { level: alt.level, form: alt.form, of: alt.of, selects: alt.selected, fidelity: alt.fidelity, viable: alt.viable, intrinsic: alt.evidence || null });
   }
 
-  writeNodeFiles(ygg, nodes, ev);
+  writeNodeFiles(ygg, nodes, ev, nodeCycles);
 
   const { drillCases, drillDropped } = writeAspectFiles(ygg, repo, aspects, opts, ev);
   say(opts, `drills: ${drillCases} cases${opts.holdout ? ` (hold-out ${opts.holdout}; ${drillDropped} sites dropped as pre-cut)` : ' (NO hold-out — labelled as such in every CORPUS.md)'}`);
@@ -355,7 +360,7 @@ export async function propose(repo, outDir, opts = {}) {
     // a check would enforce, for which no exact scope (an explicit file list or a shared `content:` predicate)
     // could be derived — these stay `draft`, `draftReason: cluster-narrower-than-scope`, forever unpromotable.
     aspectsClusterNarrowerThanScope: skipped.clusterNarrowerThanScope,
-    drillCases, drillHoldout: opts.holdout || null, drillDropped, nodeCycles: nodeCycles.length,
+    drillCases, drillHoldout: opts.holdout || null, drillDropped, nodeCycles: nodeCycles.length, nodeCyclesUnbroken: unbroken ? 1 : 0,
     latticeRows: lat.rows.length, subGate: sub.length, denies: rels.denies.length, denyBacklog: rels.backlog.length,
     sizingHandNodes: sizing.handNodes ? sizing.handNodes.length : null,
     // class 4, additive: a proposed node type with no aspect attached AND on neither side of any

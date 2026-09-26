@@ -132,10 +132,12 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         // a sibling surface is spoken for by the fact that governs its OWN pid when that fact is more specific:
         // `_all` saying "methods never call X" as a sibling of another surface must not accuse a member of a role
         // group whose own cell says "methods here call X" — the specificity rule above already decided that
-        // pid for this scope, and a sibling does not get to overrule it (issue 393)
+        // pid for this scope, and a sibling does not get to overrule it (issue 393). A tie in that order goes to the
+        // governing fact too: its own lead surface already speaks for the pid, so a tied sibling could only add a
+        // second, possibly opposite verdict on the same call (issue 396)
         if (sf !== f) {
           const g = gov.get(sf.pid);
-          if (g && g !== f && (g.sraw < f.sraw || (g.sraw === f.sraw && ctxRank(g) < ctxRank(f)))) continue;
+          if (g && g !== f && (g.sraw < f.sraw || (g.sraw === f.sraw && ctxRank(g) <= ctxRank(f)))) continue;
         }
         const v = s.preds[sf.pid];
         if (v === undefined || v === sf.exp) continue;

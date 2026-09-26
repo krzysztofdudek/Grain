@@ -376,6 +376,8 @@ On Yggdrasil the relations drop from 251 to 236, and the two loops left are real
 
 The one false fire the mutation harness reported on Grain (issue 390's row above) was real `check` output. On `plugins/grain/tests/relations/unit/go-name-resolution-matrix/01-go-single-import-edge.test.mjs`, `check` told `nodeOf` both that it deviates from "methods never call `filePath.split`" and that it conforms to "methods here call `filePath.split`" (29 of 29). The first came from the root partition's `_all:method` fact whose lead surface is "never calls `byPath.get`" and which carries `filePath.split` as a sibling surface with the same conform set; the second from the role cell `r2:method`, which is the fact that governs `filePath.split` for that scope. A sibling surface was checked without asking which fact governs its own pid. It is now silent where a more specific fact governs that pid, by the same specificity order that picks the governing fact (smaller evidence class first, then role before directory before partition). Measured 2026-09-26 with `grain selftest` on this repository at `a04b7c2`: before, 20 caught, 0 missed, 82 silent, 1 false fire, 212 unsupported; after, 20, 0, 83, 0, 213. The fact that used to false-fire now counts as unsupported, because the harness has no mutation for a "does call" fact.
 
+Three minors from the review of 393 and 394 (issue 396). A tie in that specificity order (the governing fact and the sibling's own fact of the same evidence class and the same kind of context) used to let the sibling speak beside the governing fact, so the contradictory pair could still appear; the tie now goes to the governing fact, whose own lead surface already speaks for the pid. The loop cut in the node graph stopped after a fixed 500 cuts, and a graph that needed more would have been written with its remaining loops declared and nothing said; the number of declared relations now bounds the cut (each pass removes one), so it always finishes, and a loop left over for any other reason is printed as a warning in the run and in `PROPOSAL.md`. On the corpus the most cuts any proposal needed is 62 (typeorm), so no measured proposal changes. And the node that would have declared a left-out edge now carries a comment in its own `yg-node.yaml` naming the edge, its import count and the loop, with a pointer to `REFACTOR-BACKLOG.md` §4.
+
 ## Match-by-example (`how`) vs. a grep baseline
 
 `grain selftest --how [--last N]` runs a leave-one-out evaluation of `how`: for each of the last N real commits
@@ -610,6 +612,24 @@ of them ticket directories), `Examples` on express (80 files, nine independent p
 already the size of one thing. That last row is what makes the other four worth reading, and both answers are
 pinned by tests against the real oracles.
 
+### Commit-level node co-change against its base rate, by channel (issue 265)
+
+The measurement above paired named declarations. `tests/stress/coupling.mjs` pairs nodes by the commits that touch them: every non-merge commit of at most `megaCap` files that touches a file a node owns at HEAD becomes the set of nodes it touched, and a pair is certified when either direction passes the co-change cell the engine uses for file partners (`partnerBits`: the pair's co-change against the partner's base rate, commit size included, one index cost over every pair seen, both directions paid). For a certified pair nothing in the graph joins, it names a channel: `test-of` (one node is a test node whose name contains the other's last segment), `docs` (most of one node's files are documentation), `vocabulary` (the two nodes' identifiers overlap, IDF-weighted, more than all but 1/λ of the repository's node pairs), or `none`. It gates nothing.
+
+Measured 2026-09-27 on Yggdrasil at `c5cdd8a` with its own graph: 1231 commits, 515 nodes, 5353 node pairs that ever changed together, **141 certified**: 79 declared as a relation, 2 at a coarser level, 2 nested, **58 undeclared** (18 between code nodes, 24 between code and tests, 16 between tests). Channels of the 58: vocabulary 32, test-of 13, docs 3, none 10. The one-third mutual floor `advise` uses, applied to the same node commits, names 21 pairs, 2 of them undeclared. On 3 curveball-shuffled copies of the same commits (seeds 1 to 3; each commit keeps its size and each node its commit count) the cell certifies 0, 0 and 0.
+
+Time split: certified on the oldest 80% of those commits (984), scored on the newest 247. For each certified pair and direction, the share of later commits touching one node that also touched the other, against a popularity-matched control, the node whose earlier commit count is nearest the partner's (the control of results.md 153):
+
+| pairs certified before the split | pairs | later commits scored | partner touched | control touched | directions won / lost / tied |
+| --- | --- | --- | --- | --- | --- |
+| all certified | 93 | 1444 | 0.299 | 0.123 | 96 / 10 / 36 |
+| certified and undeclared | 38 | 757 | 0.254 | 0.184 | 32 / 4 / 15 |
+| advise's floor, for comparison | 15 | 194 | 0.423 | 0.072 | 21 / 1 / 6 |
+
+At node level, unlike the file partners of row 153, a certified partner predicts later co-change better than a node as busy as it, undeclared pairs included, though by less (0.254 against 0.184). The strongest undeclared pairs, by bits: `cli/knowledge` ↔ `docs/guides` (67 co-commits, docs), `cli/config/build` ↔ `root/project-config` (72, none), `cli/knowledge` ↔ `cli/knowledge-authoring` (26, vocabulary), `docs/site` ↔ `tools` (7, none), `cli/commands/aspects` ↔ `cli/tests/e2e/aspects-health` (7, test-of), `cli/portal/contract` ↔ `cli/portal/frontend/views` (6, vocabulary: the contract that crosses from TypeScript into browser JavaScript, which no import resolver sees). `node tests/stress/coupling.mjs <repo> --top 20` prints the list.
+
+**Not shipped into `advise`.** The time split holds, but the research's other bar, a maintainer labelling the top 20 undeclared pairs real or noise with at least 60% real, has not been run, and only one repository with a committed graph and a long history was available. The advice contract's "data, not advice" for change-together stands until that label exists.
+
 ## A fifth kind of oracle: the correction an adopter made
 
 The four graphs above were each written by hand, by a session forbidden to look at grain's output, which is why
@@ -669,6 +689,60 @@ The record is at `plugins/grain/tests/stress/oracles/yggdrasil/`, the memo is
 the maintainer note *oracle-5-yggdrasil*, and
 `tests/reconstruct.test.mjs` scores it on every run — with no checkout of Yggdrasil anywhere, because the file
 sets were expanded once, when it was recorded.
+
+## The house's own records as data (research B3 to B8)
+
+A repository under Yggdrasil keeps records Grain did not make: the declared graph at every commit, the reviewer's verdict on every (rule, file) pair, and, where the work runs as a Jarl loop, the issues it filed and the files each one names. They are labels no miner derived, which results.md 155 and 157 say a delivery or risk claim needs. The instruments below read them; none of them is a command, and each subsection says whether anything shipped.
+
+### Architecture trajectory from the declared graph (issue 267)
+
+`tests/stress/trajectory.mjs` reads `.yggdrasil/model/**/yg-node.yaml` (and the older `node.yaml`) at every first-parent commit that touched the model, from git objects alone: one `ls-tree` and one `cat-file --batch` per commit, no source parsed. Per commit it reports nodes, relations between nodes that exist, relations per node, cycles, the longest chain through the condensation, fan-in Gini and the top-5 fan-in share, and the relations new since the previous commit, with those that run from a node to one at a higher layer of the previous commit's layering (layer = longest chain below a node) listed as "upward". Measured 2026-09-27 on Yggdrasil at `c5cdd8a`: 673 commits touched the model, read in 35 s.
+
+| date | commit | nodes | relations | per node | longest chain | cycles | top-5 fan-in share |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 2026-02-22 | `251690a` | 19 | 38 | 2.00 | 4 | 0 | 0.658 |
+| 2026-05-12 | `94fe13e` | 64 | 63 | 0.98 | 5 | 0 | 0.508 |
+| 2026-06-13 | `703eef8` | 271 | 151 | 0.56 | 7 | 0 | 0.444 |
+| 2026-07-05 | `dfbf46e` | 345 | 799 | 2.32 | 16 | 0 | 0.249 |
+| 2026-08-03 | `d95f621` | 410 | 1170 | 2.85 | 18 | 0 | 0.226 |
+| 2026-09-26 | `c5cdd8a` | 514 | 1826 | 3.55 | 19 | 0 | 0.254 |
+
+The five largest changes in relations, with the commit's own subject: +462 on 2026-06-14 (`86135c1`, "relation conformance", the release that started checking relations), +195 on 2026-09-25 (`90d7d5c`, "a type-only import is a dependency like any other"), +109 on 2026-09-12 (`f9a922b`, a family sync), +82 on 2026-09-07 (`27d1415`, release 5.9.0), +47 on 2026-09-01 (`66e755b`, progressive mode). Two of the five are the checker learning to see more dependencies, not the code gaining them, which is the conflation the research warned about; the commit subject tells them apart here, and on another repository only its maintainer can. No commit in the history declares a cycle. Upward relations: 210 of the 2024 new relations, on 25 commits, 158 of them on the 06-14 commit; on an acyclic graph every one of them is legal, so on this repository they add nothing to the change in relations.
+
+**Not shipped as a command.** The series is cheap and reads correctly, but it exists only where a graph has been committed for a while, it cannot tell enforcement from growth on its own, and the research's own test (the maintainer confirms or rejects the top five turning points) has not been run. It stays an instrument; the comparison with Grain's module graph on a repository without a graph was not run either.
+
+### Refusal-to-fix pairs in the verdict history (issue 264)
+
+`tests/stress/labels.mjs verdicts <repo> [--git]` reads Yggdrasil's verdict events, committed (`.yggdrasil/yg-events.llm.jsonl`, LLM verdicts, no reason) and local (`.yggdrasil/.yg-events.jsonl*`, gitignored and rotated, with the reviewer's reason), once each. For every (rule, unit) it pairs each refused content hash with the next approval of that unit on a different hash; the same content approved later is not a fix, and a refusal never approved stays open. With `--git` it asks what moved between the commit each verdict was judged at: the file, the rule's directory, both, neither, or nothing because both verdicts were judged on one HEAD.
+
+Measured 2026-09-27 on Yggdrasil at `c5cdd8a`, read-only. Committed LLM verdicts from 2026-07-13 to 2026-09-26: 11 193 approved, 163 refused, 114 infra. 158 refusal-to-fix pairs and 5 open refusals; the fix took a median of 5.4 minutes (p90 18 minutes). By rule (pairs, of refusals and approvals): `what-why-next` 60 (61 refused, 2274 approved), `posix-paths-output` 36 (37, 1079), `test-deterministic` 27 (27, 3138), `diagnostic-logging` 15 (18, 998), `cli-command-contract` 10 (10, 654), `deterministic` 8 (8, 1958), two more with 1 each. The reviewer is stable: 26 113 (rule, unit, content) triples were judged more than once and none got two different verdicts. What git can give back: 47 pairs predate the `sha` field; 108 had both verdicts judged on one HEAD, so the fix was a working-tree edit (in 104 of them a later commit carries a new version of the file, which is the approved side at best); 3 had the file change between the two commits; none had the rule change. So git can hold the approved side of most pairs, and the refused side of none that can be shown: the refused content is a working-tree state no store keeps. The local log is the only place the reviewer's reason lives, and it rotates. Earlier the same night it held 147 refusals (90 LLM, 57 deterministic), 59 of them with a reason; after one more Yggdrasil run the rotation had dropped all of them, and 0 of the 158 pairs now carry a reason.
+
+**Reader shipped as an instrument; nothing else.** The research's pre-registered bar (a derived check, left one out, catches at least half the held-out refusals of `posix-paths-output` and `what-why-next` with no false alarm on their approved contents) cannot be run: there is no refused content to diff, anti-unify or turn into a failing drill case. That needs Yggdrasil to keep each refused unit's content (a gitignored, content-addressed store) and the reason beside it, a change in Yggdrasil, not here. Once it exists, the pairs this reader emits are the input the research describes.
+
+### A loop's issues as labels (issue 269)
+
+`tests/stress/labels.mjs loop <.jarl>` reads a Jarl issue loop: each issue's **Kind:**, **Status:**, **Repo:** (its last path segment names the repository) and **Files:** (each entry prefixed with that repository's directory name, which the reader strips, with a trailing line range), and the time it was filed from the log's `filed <id>` line. A `bug` issue names the files its defect was fixed in, found by research and review rather than by matching commit messages, which is the kind of label results.md 155 says history cannot give. Measured 2026-09-27 on the family's 6.1.0 release loop (a loop kept outside this repository): 396 issues filed from 2026-09-16, 215 of them bugs, 274 naming files; bugs that name files, by repository: Yggdrasil 80, Horde 35, Grain 15, JarlSkill 15, RatatoskrSkill 2, and 4 that name no repository. The research counted 231 issues ten days earlier; the loop is still being written, so a count is a snapshot and every analysis that uses it states its cutoff.
+
+Two things the research asked for are not here. Horde's retrospective (`retro.json`) records returns (a merge reverted, a ticket reopened) with a ticket, a text and a node, but no file set and no time of its own, and no mission store exists on the machine this was measured on, so there was nothing to read; the reader covers the Jarl format only. And a second, independent loop to test results out of sample does not exist yet.
+
+### A risk signal against size, on the house's own labels (issue 268)
+
+`tests/stress/labels.mjs risk <repo> --loop <.jarl>` takes the nodes of the repository's graph that own files at HEAD, and for each one features from before the loop opened (the first filing time): lines at the last commit before it, commits that touched the node, and declared fan-in in the graph as it stood then (read with the trajectory instrument above, so a relation added during the loop is not a feature). Two labels: the node owns a file a `bug` issue of the loop names, and the reviewer refused one of its files after the cut. AUC per feature, over all nodes and by node kind (a test node by its path), and fan-in's AUC again after the least-squares line on log lines and log commits is removed.
+
+Measured 2026-09-27 on Yggdrasil at `c5cdd8a`, the family's 6.1.0 release loop as labels: cut 2026-09-16 10:53 (`ddd4685`), 481 nodes owning files, 121 bug issues naming Yggdrasil.
+
+| nodes | label | positives | log lines | log commits | both | fan-in | fan-in, size removed |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| all 481 | bug issue | 66 | 0.624 | 0.721 | 0.687 | 0.809 | 0.603 |
+| all 481 | refused after the cut | 36 | 0.598 | 0.661 | 0.652 | 0.800 | 0.620 |
+| production 164 | bug issue | 62 | 0.661 | 0.697 | 0.692 | 0.608 | 0.483 |
+| production 164 | refused after the cut | 29 | 0.677 | 0.669 | 0.691 | 0.604 | 0.455 |
+| test 317 | bug issue | 4 | 0.679 | 0.580 | 0.651 | 0.473 | 0.416 |
+| test 317 | refused after the cut | 7 | 0.297 | 0.358 | 0.336 | 0.619 | 0.793 |
+
+Over all nodes fan-in looks like the best signal on both labels (0.81 and 0.80 against 0.69 and 0.65 for size). It is the test/production split: 317 of the 481 nodes are tests, 95% of them with no fan-in, and they carry 4 of the 66 bug labels. Among production nodes fan-in loses to size on both labels (0.61 and 0.60 against 0.69), and once size is removed it is at chance or below (0.48 and 0.46). The test stratum has too few positives to read. This reproduces the research's reading from the reader (production lines 0.661, the same; commits 0.697 against its 0.690; fan-in 0.608 against 0.613, now with fan-in as declared at the cut and 62 positives where it had 59); its 0.626 for fan-in after size removed only lines, and removing commits too takes it to 0.483.
+
+**Nothing shipped; the guardrail stands.** Grain ships no risk or hotspot score. A candidate feature has to beat log lines plus log commits on size-adjusted AUC on both label sources, within production and test nodes separately, recorded here before it ships, and even then it is shown only as a residual ("draws more refusals than its size predicts"), never as a score.
 
 ## Known boundaries
 

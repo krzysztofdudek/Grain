@@ -48,3 +48,16 @@ test('where no more specific fact governs the pid, the sibling surface still spe
   assert.equal(m.pid, 'auto.call:filePath.split');
   assert.equal(m.factKey, '_all:method|auto.call:byPath.get');
 });
+
+test('a tie in specificity goes to the fact that governs the pid, so no contradictory pair is printed (issue 396)', async () => {
+  // two partition-wide facts of the same evidence class: one carries `filePath.split` as a sibling ("never"), the
+  // other governs it as its lead ("here call"). Before, the tie let the sibling speak beside the governing fact.
+  const wideTied = { ...wide, sraw: 29, raw: 29, counts: { false: 29 }, srawCounts: { false: 29 } };
+  const lead = fact('_all:method#2', 'auto.call:filePath.split', 'true', 29);
+  for (const facts of [[wideTied, lead], [lead, wideTied]]) {
+    const r = await run(facts, 'elsewhere/case.test.mjs');
+    assert.deepEqual(r.msgs.filter(m => m.scope === 'nodeOf').map(m => m.pid), []);
+    const g = r.governed.find(x => x.scope === 'nodeOf' && x.pid === 'auto.call:filePath.split');
+    assert.ok(g && g.conforms && g.fact === lead);
+  }
+});
