@@ -317,6 +317,28 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
   let C = 0;
   for (const [, c] of cells) if (Object.values(c.raw).reduce((a, b) => a + b, 0) >= CFG.minRaw) C++;
   if (countOnly) return { facts: [], C, idxCost: 0 };
+  // the population a role cell is contrasted with: every scope of its kind that role induction ASSIGNED to a group
+  // (the sum of the kind's role cells, so ambiguous members and seed pseudo-counts enter as they enter the cells), not
+  // the whole partition. Induction assigns only scopes with some content of their own and clusters them on their
+  // predicates, so they differ from the scopes it left out by construction; against the whole partition, every group
+  // of a kind "beats" the partition merely by being assigned (measured on Grain: camelCase method names in each group
+  // of the tests partition, whose unassigned methods are the one-word `it` callbacks, certified identically when the
+  // labels were shuffled among the assigned scopes). Where the kind has ONE group, that group is the assigned
+  // population itself and is contrasted with the partition, as before: its claim is about the assigned scopes, and
+  // there is no second group to restate it (the label null cannot move such a cell, so it says nothing about it).
+  const rolePool = new Map(); // kind\x01pid → { counts, groups }
+  for (const [key, c] of cells) {
+    if (!/^r\d/.test(key)) continue;
+    const [cid, pid] = key.split(S);
+    const pk = cid.split(':')[1] + S + pid;
+    const t = rolePool.get(pk) || rolePool.set(pk, { counts: Object.create(null), groups: 0 }).get(pk);
+    t.groups++;
+    for (const [v, n] of Object.entries(c.counts)) t.counts[v] = (t.counts[v] || 0) + n;
+  }
+  const roleRef = (kind, pid) => {
+    const t = rolePool.get(kind + S + pid);
+    return t && t.groups > 1 ? t.counts : null;
+  };
   // index cost = log2(C₂) over the candidate count of the WHOLE repository (§9.4a) — counted once across partitions, never per partition
   const idxCost = idxCostOverride ?? Math.ceil(Math.log2(Math.max(C, 2)));
   let out = [];
@@ -331,7 +353,8 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     const Vv = bl ? ['true', 'false'] : [...alph.get(pid)].sort();
     const K = bl ? 2 : Vv.length + 1;
     const allCell = isAll ? cell : cells.get('_all:' + kind + S + pid);
-    const allN = allCell ? Object.values(allCell.counts).reduce((a, b) => a + b, 0) : neff;
+    const refCounts = (/^r\d/.test(cid) && roleRef(kind, pid)) || (allCell && allCell.counts);
+    const refN = refCounts ? Object.values(refCounts).reduce((a, b) => a + b, 0) : neff;
     let data = 0;
     if (isAll) {
       const B = Math.max(bl ? 2 : Vv.length, 2);
@@ -342,7 +365,7 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     } else
       for (const v of Vv) {
         const nv = cell.counts[v] || 0;
-        if (nv) data += nv * Math.log2(kt(cell.counts, K, v, neff) / kt(allCell.counts, K, v, allN));
+        if (nv) data += nv * Math.log2(kt(cell.counts, K, v, neff) / kt(refCounts, K, v, refN));
       }
     const bits = data - 0.5 * (K - 1) * Math.log2(Math.max(neff, 2)) - idxCost;
     if (dbg && pid.includes(dbg))
@@ -425,18 +448,19 @@ export function mine(ps, ri, wfn, seeds, ageFn, dbg, { countOnly = false, idxCos
     const tot = Object.values(c.raw).reduce((a, b) => a + b, 0);
     return tot ? (c.raw['true'] || 0) / tot : 0;
   };
-  // A local (group/directory) absence is contrasted with the rest of its OWN partition, the same two-population cell
+  // A local (group/directory) absence is contrasted with the rest of its OWN partition (a group's, with the rest of
+  // the scopes role induction assigned, the population its role cell is coded against above), the same two-population cell
   // an architecture norm uses: the cell's outcomes are coded at its own KT rate instead of at the rate of the
   // partition's scopes of that kind outside the cell, and the absence stands only where that gain survives the BIC
   // half log and the index cost AND the cell uses the thing LESS than the rest of the partition does.
   const localAbsenceHolds = f => {
     const cell = cells.get(f.cid + S + f.pid),
-      allC = cells.get('_all:' + f.kind + S + f.pid);
+      allC = (/^r\d/.test(f.cid) && roleRef(f.kind, f.pid)) || cells.get('_all:' + f.kind + S + f.pid)?.counts;
     if (!cell || !allC) return false;
     const n = (cell.counts.true || 0) + (cell.counts.false || 0);
     const outside = {
-      true: Math.max(0, (allC.counts.true || 0) - (cell.counts.true || 0)),
-      false: Math.max(0, (allC.counts.false || 0) - (cell.counts.false || 0)),
+      true: Math.max(0, (allC.true || 0) - (cell.counts.true || 0)),
+      false: Math.max(0, (allC.false || 0) - (cell.counts.false || 0)),
     };
     const nO = outside.true + outside.false;
     if (!(n > 0 && nO > 0) || !((cell.counts.true || 0) * nO < outside.true * n)) return false;

@@ -109,6 +109,8 @@ established majority 91.4% of the time by weight against 95.8% for unambiguous m
 established side is unanimous they agree 95.9%. Nor are they a fringe: they are 48.7% of every role eligible scope
 in the corpus and 29.2% of a role cell's weight.
 
+A group cell is contrasted with the scopes its label is dealt among. Role induction assigns only scopes with some content of their own and clusters them on their predicates, so the scopes it assigns differ from the ones it leaves out by construction. In Grain's own tests every group of methods is named in camelCase, and the methods left unassigned are one-word `it` callbacks. Coded against the whole partition, each such group restated that difference, and with the role labels shuffled among the assigned scopes the same 9 cells certified in every run. So where a kind has more than one group, a group cell is coded against every scope of that kind assigned to any group, and a group absence against the rest of those scopes. Where a kind has one group, that group is the assigned population itself and keeps the partition as its reference; shuffling the labels cannot move such a cell, so the null says nothing about it either way.
+
 ## Superposition
 
 Every scope carries a skeleton of its syntax tree: nested scopes fold to opaque leaves so a class does not drown in
@@ -151,7 +153,7 @@ Measured under an edge-permutation null (validation.md, *False certifications un
 
 ## The sub-gate band
 
-`propose` also reads the lattice below certification: rows practised by a supermajority that did not clear the λ bound. They can become `advisory` rules, so a row enters the band only where the objective holds for it. Its contrast bits must be positive: a role row against its partition, a partition-wide absence against the same predicate in every other partition, a partition-wide presence under the flat code, and one index cost over the whole repository's lattice. A structural predicate enters only as a contrast, as in `mine()`. The KT posterior Beta(k + ½, n − k + ½) may put at most 1/λ of its mass below the two-thirds supermajority, which is λ applied to the band's lower edge instead of a raw share. The posterior predictive must still sit below 1 − 1/λ, or the row would be certified. The per-partition reading cap keeps the rows with the most bits, not the highest share.
+`propose` also reads the lattice below certification: rows practised by a supermajority that did not clear the λ bound. They can become `advisory` rules, so a row enters the band only where the objective holds for it. Its contrast bits must be positive: a role row against the assigned scopes of its kind (the partition, where the kind has one group), a partition-wide absence against the same predicate in every other partition, a partition-wide presence under the flat code, and one index cost over the whole repository's lattice. A structural predicate enters only as a contrast, as in `mine()`. The KT posterior Beta(k + ½, n − k + ½) may put at most 1/λ of its mass below the two-thirds supermajority, which is λ applied to the band's lower edge instead of a raw share. The posterior predictive must still sit below 1 − 1/λ, or the row would be certified. The per-partition reading cap keeps the rows with the most bits, not the highest share.
 
 ## Commit archetypes
 
@@ -160,7 +162,7 @@ changed, each touched file's suffix — and the same greedy MDL agglomeration th
 (generalised to take any feature bag, not only a scope's own) clusters footprints into recurring shapes. A cell of a
 shape is certified only when coding its rate WITHIN the shape's own members costs fewer bits than coding it at the
 rate of every footprint the history holds — a likelihood-ratio contrast against the whole population, the same
-branch `mine()` uses to test a role cell against its partition, never the uniform coin-flip null a package-wide
+branch `mine()` uses to test a role cell against its reference population, never the uniform coin-flip null a package-wide
 predicate is judged by. A cell every commit in the repository touches carries no shape, however unanimous it is
 inside one archetype; the contrast is what tells the two apart, where a flat evidence-only test cannot. That contrast only makes a cell a
 *candidate*. It is paid on the footprints the clustering chose because they share the cell, so on its own it

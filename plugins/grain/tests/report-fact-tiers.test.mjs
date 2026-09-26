@@ -24,8 +24,9 @@ function tieredModel() {
   const ps = []; const assign = new Map(); const amb = new Set(); let i = 0;
   // group 0: 30 handler methods — a real, maintainer-chosen convention (@Handler on all of them)
   for (let k = 0; k < 30; k++) { ps.push({ kind: 'method', rel: `src/handlers/h${k}.ts`, name: `h${k}`, line: 1, preds: { 'auto.deco:@Handler': 'true', 'auto.arity': '1' } }); assign.set(i, 0); i++; }
-  // filler population elsewhere: the parent (`_all`) baseline the group facts above and below are contrasted against
-  for (let k = 0; k < 270; k++) { ps.push({ kind: 'method', rel: `src/other/o${k}.ts`, name: `o${k}`, line: 1, preds: { 'auto.deco:@Handler': 'false', 'auto.arity': '1' } }); i++; }
+  // group 2: the rest of the population, the baseline the group facts above and below are contrasted against (a role
+  // cell is coded against every scope assigned to a group, issue 385)
+  for (let k = 0; k < 270; k++) { ps.push({ kind: 'method', rel: `src/other/o${k}.ts`, name: `o${k}`, line: 1, preds: { 'auto.deco:@Handler': 'false', 'auto.arity': '1' } }); assign.set(i, 2); i++; }
   // group 1: 10 legacy methods — a small, crisp STRUCT contrast (arity 0 vs the partition-wide default of 1)
   for (let k = 0; k < 10; k++) { ps.push({ kind: 'method', rel: `src/legacy/l${k}.ts`, name: `l${k}`, line: 1, preds: { 'auto.arity': '0', 'auto.deco:@Handler': 'false' } }); assign.set(i, 1); i++; }
   const { facts } = mine(ps, { assign, amb }, () => 1, [], null, null, {});
@@ -41,10 +42,10 @@ test('the bpi ordering bug is real: an unfixed sort would rank the 10-member str
   // this documents WHY the fix is needed — it does not exercise report() (which already carries the fix)
   const ps = []; const assign = new Map(); let i = 0;
   for (let k = 0; k < 30; k++) { ps.push({ kind: 'method', rel: `h${k}`, name: `h${k}`, preds: { 'auto.deco:@Handler': 'true', 'auto.arity': '1' } }); assign.set(i, 0); i++; }
-  for (let k = 0; k < 270; k++) { ps.push({ kind: 'method', rel: `o${k}`, name: `o${k}`, preds: { 'auto.deco:@Handler': 'false', 'auto.arity': '1' } }); i++; }
+  for (let k = 0; k < 270; k++) { ps.push({ kind: 'method', rel: `o${k}`, name: `o${k}`, preds: { 'auto.deco:@Handler': 'false', 'auto.arity': '1' } }); assign.set(i, 2); i++; }
   for (let k = 0; k < 10; k++) { ps.push({ kind: 'method', rel: `l${k}`, name: `l${k}`, preds: { 'auto.arity': '0', 'auto.deco:@Handler': 'false' } }); assign.set(i, 1); i++; }
   const { facts } = mine(ps, { assign, amb: new Set() }, () => 1, [], null, null, {});
-  const struct = facts.find(f => f.pid === 'auto.arity'); const semantic = facts.find(f => f.pid === 'auto.deco:@Handler' && f.cid.startsWith('r'));
+  const struct = facts.find(f => f.pid === 'auto.arity'); const semantic = facts.find(f => f.pid === 'auto.deco:@Handler' && f.cid === 'r0:method');
   assert.ok(struct && semantic, 'both facts must be mined');
   assert.ok(struct.bpi > semantic.bpi, `expected the small structural contrast to out-score the large semantic one on raw bpi: struct=${struct.bpi} semantic=${semantic.bpi}`);
 });
@@ -68,9 +69,10 @@ test('each tier caps and reports overflow independently under --top', () => {
   const lines = report(model, { top: 0 });
   const text = lines.join('\n');
   // top:0 hides every fact in every tier, but each tier must still say honestly how many it left out (no silent caps)
-  // three domain facts: the handler group's decorator, the handlers directory's decorator, and src/other's absence of it
-  // (0 of 270 against 30 of 40 in the rest of the partition — a directory absence the contrast certifies)
-  assert.match(text, /… and 3 more — run with --top 3 for all/, `domain tier must report its own overflow: ${text}`);
+  // four domain facts: the handler group's decorator, the handlers directory's decorator, and the absence of it in
+  // group 2 and in src/other (0 of 270 against 30 of 40 in the rest of the assigned scopes and of the partition — a
+  // group and a directory absence the contrast certifies)
+  assert.match(text, /… and 4 more — run with --top 4 for all/, `domain tier must report its own overflow: ${text}`);
   const structHeadingIdx = lines.findIndex(l => l.includes('syntax-shape facts'));
   assert.notEqual(structHeadingIdx, -1, `structural heading must still show even with --top 0: ${text}`);
   assert.match(lines[structHeadingIdx + 1] || '', /… and 1 more — run with --top 1 for all/, `structural tier must report its own overflow right after its heading: ${text}`);

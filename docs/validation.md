@@ -254,7 +254,33 @@ Grain no longer reads who wrote a commit. Code last touched by an agent used to 
 | mutation harness | 25 of 25 caught, 0 false fires, 65 unsupported | 35 of 35, 0, 124 | 7 of 7, 0, 64 | 23 of 23, 0, 239 |
 | `selftest --null`, total per run | 3.67 (all co-change) | 3.67 (all co-change) | 1 | 9.67 |
 
-On Yggdrasil the role and directory nulls stay at 0, so the conventions the discount used to hide are not ones a shuffled repository also yields. On Grain they are, in part: with the role labels dealt out again, 9 role cells certify in every run, the same 9 whatever the seed. They restate a partition's own majority at the level of one of its groups, in small partitions where almost every method has the value anyway: camelCase method names in `plugins/grain/tests` (85 of 87 members), in the Ruby relation unit tests (19 of 19, with three structural facts of the same 19) and in three groups of the root partition, and "does not call `runExtractor`" (28 of 28). The agent weight of 0.15 kept their evidence under the index cost; at full weight it clears it. That is a weakness of role cells that restate their partition, not of the weight, and it is not fixed here.
+On Yggdrasil the role and directory nulls stay at 0, so the conventions the discount used to hide are not ones a shuffled repository also yields. On Grain they are, in part: with the role labels dealt out again, 9 role cells certify in every run, the same 9 whatever the seed. They restate a partition's own majority at the level of one of its groups, in small partitions where almost every method has the value anyway: camelCase method names in `plugins/grain/tests` (85 of 87 members), in the Ruby relation unit tests (19 of 19, with three structural facts of the same 19) and in three groups of the root partition, and "does not call `runExtractor`" (28 of 28). The agent weight of 0.15 kept their evidence under the index cost; at full weight it clears it. That is a weakness of role cells that restate their partition, not of the weight; the next section fixes it.
+
+### Role cells against the assigned scopes (issue 385)
+
+The 9 cells above had one thing in common. Role induction assigns only scopes with some content of their own, and every scope it assigned in those partitions had the value: camelCase method names, where the methods left unassigned are one-word `it` callbacks. Each group beat the partition only by being assigned, and the label null deals labels among the assigned scopes, so it certified the same cells whatever the seed. A role cell is now coded against every scope of its kind assigned to any group, and a group absence against the rest of those scopes (mathematics.md, *Groups*). Where a kind has one group, the group is that population and keeps the partition as its reference. Measured 2026-09-26 on the same clones, `selftest --null` with 3 runs and seeds 1 to 3, before (the build of issues 366 and 369) and after this change alone. Each cell reads *real · null per run*.
+
+| repository | role conventions before | role conventions after |
+| --- | --- | --- |
+| Grain | 125 · 9 (9, 9, 9) | 96 · 0 |
+| Yggdrasil | 84 · 0 | 77 · 0 |
+| typeorm | 57 · 0 | 52 · 0 |
+| express | 27 · 0 | 24 · 0 |
+| flask | 41 · 0 | 38 · 0 |
+| requests | 20 · 0 | 17 · 0 |
+| click | 68 · 0 | 67 · 0 |
+| koa | 11 · 0 | 10 · 0 |
+| CleanArchitecture | 8 · 0 | 7 · 0 |
+| gin | 59 · 0 | 60 · 0 |
+| chi | 3 · 0 | 4 · 0 |
+| axum, Slim, sinatra | 59, 7, 2 · 0 | unchanged |
+
+- **The null.** Grain's 9 role cells a run go to 0; every other family and every other repository is unchanged, so Grain's total falls from 9.67 to 0.67 a run (the commit-archetype residue).
+- **What is lost.** 571 role conventions across the 14 become 520. On Grain the 29 that go restate the assigned scopes: camelCase names in six groups, and small unit-test partitions whose groups hold nearly every non-trivial method (the Ruby and Rust name-resolution tests, a stress-test oracle). A few that go were the lead of a set of facts with one conform set, and a sibling now leads. On Yggdrasil 7 go, of the same kind: camelCase in three test groups, a return type (`void`, `Promise`, `ValidationIssue`) or a statement shape in groups where the other assigned methods have it too, and with them one partition-wide absence that needed a group presence beside it. gin and chi each gain one, a group that differs from the other groups more than from the partition.
+- **Conventions certified.** Grain 267 → 238, Yggdrasil 163 → 155.
+- **Mutation harness.** Grain 19 of 19 caught, 0 false fires, 217 unsupported (was 23 of 23, 239); Yggdrasil 35 of 35, 0, 116 (was 35, 0, 124).
+- **The sub-gate band** codes a role row against the same population. Over one model, the band goes from 37 to 36 rows on Grain, 60 to 52 on Yggdrasil and 67 to 48 on typeorm.
+- **No single-group case moved.** No repository measured certifies a role cell of a kind with one group (the null would reproduce every such cell, and it reproduced none before this change beyond Grain's 9, all in kinds with several groups). The fixture repository does: its 30 command handlers are the only group of methods in their partition, and "handlers call `validate`" is stated against the partition's constructors, as before.
 
 ## Match-by-example (`how`) vs. a grep baseline
 
