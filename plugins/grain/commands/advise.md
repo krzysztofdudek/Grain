@@ -1,5 +1,5 @@
 ---
-description: What this repository's own history and imports say about the architecture graph it ALREADY has — places a finer cut beats, and (as data, not advice) places that change together with nothing connecting them
+description: What this repository's own history and imports say about the architecture graph it ALREADY has — places a finer cut beats, rules the graph could take on, and (as data, not advice) places that change together with nothing connecting them
 argument-hint: [--json] [--graph <dir>]
 allowed-tools: Bash(node:*)
 ---
@@ -11,7 +11,7 @@ The run above read the `.yggdrasil/` graph this repository **already has** — i
 writes anything, and never touches the graph. (`grain propose` is the command for a repository that has no
 graph yet; they are not the same thing and must not be offered as if they were.)
 
-Two kinds of finding, and they carry very different weight. Relay them at the weight they have:
+Three kinds of finding, and they carry very different weight. Relay them at the weight they have:
 
 - **A place a finer cut beats, on its own evidence — this IS advice.** It means one node owns a pile of files
   that is not one thing: either a directory inside it keeps more of its imports to itself than the node as a
@@ -19,6 +19,7 @@ Two kinds of finding, and they carry very different weight. Relay them at the we
   did read. Both are the same comparison the proposal writer's own type cut is made from, so a candidate here
   is the same kind of claim as a proposed type — and the user may act on it by splitting the node in their
   graph. Say which node, how many files, and which directories are on offer.
+- **Rules the graph could take on — drafts, and advice.** Two origins. A boundary decision a maintainer recorded (`grain decide boundary`) that the architecture does not make law yet: the item says which type would have to stop reaching which, which declared relation contradicts the decision, and how many imports cross it today. And a convention grain certified, which a check can hold, every site of it inside one node, and which no aspect of the graph states: the item carries the aspect grain would write, attached to that node. Relay each as a draft for the user to accept or not; never write one into the graph. A boundary the architecture already forbids is counted as promoted, and grain no longer flags it at edit time, because `yg check` refuses it.
 - **Places that change together — this is NOT advice, and must not be relayed as a recommendation.** It was
   measured on four hand-written graphs before it shipped: it names almost nothing, and what it does name the
   graph usually already connects; every looser reading of the same evidence concentrates on whichever place
@@ -30,7 +31,7 @@ Two kinds of finding, and they carry very different weight. Relay them at the we
 
 `--json` emits the whole `grain-advice/1` document — every pair with both directional confidences, the two
 declarations it was read from, the commit counts behind the rates, whether the graph declares the pair and how,
-and the split candidates with their evidence. That document is the machine surface another tool reads; the
+the split candidates with their evidence, and the rule drafts with theirs. That document is the machine surface another tool reads; the
 text above is what a person reads.
 
 `--graph <dir>` reads a hand-written graph held beside the repository instead of inside it — the shape a

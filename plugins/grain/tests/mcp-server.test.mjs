@@ -74,7 +74,7 @@ test('parity: the subcommands in the table are the ones decide and oracle accept
 });
 
 test('parity: the value flags the CLI parses are exactly the ones it parsed before the table existed', () => {
-  assert.deepEqual([...VALUE_FLAGS].sort(), ['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'never-imports', 'weight', 'topic', 'note', 'author', 'range', 'on', 'last', 'runs', 'seed', 'holdout', 'family-candidates', 'graph', 'proposal', 'name'].sort());
+  assert.deepEqual([...VALUE_FLAGS].sort(), ['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'never-imports', 'weight', 'topic', 'note', 'author', 'range', 'on', 'last', 'runs', 'seed', 'holdout', 'family-candidates', 'graph', 'proposal', 'name', 'files', 'nodes', 'level', 'partition', 'from', 'to', 'scope'].sort());
   assert.deepEqual(parseArgv(['propose', '--json', 'out.json']).opts, { json: 'out.json' });
   assert.deepEqual(parseArgv(['check', '--json', 'src/a.ts']), { cmd: 'check', args: ['src/a.ts'], opts: { json: true } });
 });
@@ -115,8 +115,8 @@ test('parity: every flag the engine reads off the command line is in the table',
 
 test('parity: the tool set is the one this release documents — adding or removing a tool is a deliberate edit here', () => {
   assert.deepEqual(TOOLS.map(t => t.name).sort(), [
-    'advise', 'check', 'completeness', 'decide_boundary', 'decide_list', 'decide_rm', 'decide_steer', 'decide_waive',
-    'explain', 'export', 'help', 'how', 'map', 'obligation', 'oracle_record', 'oracle_score', 'propose', 'refresh',
+    'advise', 'check', 'cochange', 'completeness', 'decide_boundary', 'decide_list', 'decide_rm', 'decide_steer', 'decide_waive',
+    'explain', 'export', 'help', 'how', 'map', 'measure', 'obligation', 'oracle_record', 'oracle_score', 'propose', 'refresh',
     'report', 'rules', 'selftest', 'status', 'version', 'what', 'where',
   ].map(n => 'grain_' + n).sort());
   assert.deepEqual(TOOLS.map(t => t.name).sort(), [...Object.keys(COMMANDS).map(mcp.toolName), 'grain_help'].sort(), 'one tool per command, and help');
@@ -619,6 +619,8 @@ test('every command not declared stdoutJson prints text, not JSON, when no json 
     rules: { top: 3 },
     propose: { 'out-dir': prop },
     advise: {},
+    cochange: { files: 'src/handlers', level: 'dir', runs: 1 },
+    measure: { from: 'HEAD', to: 'HEAD', scope: 'src/handlers' },
     'oracle record': { proposal: prop, graph: join(prop, '.yggdrasil'), name: 'stdout-json', out: join(tmp, 'stdout-json-oracles'), yes: true },
     'oracle score': { 'name-or-dir': join(tmp, 'stdout-json-oracles', 'stdout-json') },
     'decide steer': { target: `${file}#handle`, surfaces: 'auto.call:validate', note: 'handlers validate first', author: 'mcp-test' },

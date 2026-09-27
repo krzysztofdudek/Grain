@@ -8,7 +8,8 @@
 // FOUR THINGS ARE GUARDED, each with a silent failure mode of its own:
 //
 //   1. THE DOCUMENT. `--json` is a published contract another layer reads (`grain-advice/1`, mission §3): the
-//      schema string, the item kinds, and the promise that `rule` and `port` are reserved and never fabricated.
+//      schema string, the item kinds, and the promise that `port` is reserved and never fabricated, and that a
+//      `rule` appears only with the evidence behind it (tests/architect-commands.test.mjs holds the rule side).
 //      A drifted key here breaks a consumer with no error anywhere.
 //   2. THE MUTUAL GATE. The whole reason this instrument is not the file-level lever that was measured and
 //      rejected (maintainer note *where-cochange-promotion*) is that both directions must clear the floor.
@@ -153,7 +154,7 @@ test('`advise --json` is a grain-advice/1 document: schema, subject, commit, ite
   assert.match(doc.at, /^[0-9a-f]{40}$/);
   assert.ok(Array.isArray(doc.items));
   for (const it of doc.items) {
-    assert.ok(['relation', 'split'].includes(it.kind), `unexpected item kind ${it.kind}`);
+    assert.ok(['relation', 'split', 'rule'].includes(it.kind), `unexpected item kind ${it.kind}`);
     assert.ok(Array.isArray(it.nodes) && it.nodes.length >= 1);
     assert.equal(typeof it.text, 'string');
     assert.ok(it.text.length > 0);
@@ -161,9 +162,11 @@ test('`advise --json` is a grain-advice/1 document: schema, subject, commit, ite
   }
 });
 
-test('`rule` and `port` are reserved kinds and are never fabricated', () => {
+test('`port` is reserved and never fabricated; a `rule` needs evidence this fixture does not hold (no boundary decision, no convention inside one node)', () => {
   const doc = adviseJson(repo, ['--graph', graphUndeclared]);
   assert.deepEqual([...new Set(doc.items.map(i => i.kind))].sort(), ['relation', 'split']);
+  assert.deepEqual(doc.survey.rules.boundaries, { decisions: 0, promoted: 0, emitted: 0, unattached: 0 });
+  assert.equal(doc.survey.rules.conventions.emitted, 0);
 });
 
 test('the one pair that clears both directions is emitted, with the declarations it was read from', () => {
