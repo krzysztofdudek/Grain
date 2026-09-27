@@ -61,3 +61,43 @@ test('a tie in specificity goes to the fact that governs the pid, so no contradi
     assert.ok(g && g.conforms && g.fact === lead);
   }
 });
+
+// Issue 399, the other direction: the sibling surface belongs to the MORE specific fact, and the pid it carries is the
+// lead surface of a LESS specific one that governs that pid for the scope. Before, both spoke: the directory cell's
+// sibling said "methods here never call `filePath.split`" while the partition-wide fact counted the same call as
+// conforming to "methods call `filePath.split`" — or, where both said the same, the scope was accused twice. The
+// specificity rule gives the pid to the more specific fact, so its sibling speaks and the wider fact stands down.
+test('a more specific fact\'s sibling surface speaks for its pid; the less specific fact governing that pid stands down (issue 399)', async () => {
+  // the directory the file sits in: methods here never call `byPath.get` — and, a sibling surface, never `filePath.split`
+  const localWithSibling = fact('d[matrix]:method', 'auto.call:byPath.get', 'false', 29, {
+    nSurfaces: 2,
+    siblings: [{ pid: 'auto.call:filePath.split', exp: 'false', counts: { false: 29 }, srawCounts: { false: 29 }, alphabet: ['false'] }],
+  });
+  // partition-wide: methods call `filePath.split`
+  const wideLead = fact('_all:method', 'auto.call:filePath.split', 'true', 100);
+  for (const facts of [[localWithSibling, wideLead], [wideLead, localWithSibling]]) {
+    const r = await run(facts, 'matrix/case.test.mjs');
+    const onSplit = r.msgs.filter(m => m.scope === 'nodeOf' && m.pid === 'auto.call:filePath.split');
+    assert.equal(onSplit.length, 1, JSON.stringify(r.msgs));
+    assert.equal(onSplit[0].factKey, 'd[matrix]:method|auto.call:byPath.get', 'the directory cell speaks, through its sibling');
+    const opposite = r.governed.filter(x => x.scope === 'nodeOf' && x.pid === 'auto.call:filePath.split');
+    assert.deepEqual(opposite.map(x => x.fact.cid), [], 'no "conforms to" from the wider fact on the pid the specific cell already decided');
+  }
+  // outside `matrix/` the directory cell does not apply, so the partition-wide fact governs and speaks as before
+  const r = await run([localWithSibling, wideLead], 'elsewhere/case.test.mjs');
+  assert.deepEqual(r.msgs.filter(m => m.scope === 'nodeOf').map(m => m.pid), []);
+  const g = r.governed.find(x => x.scope === 'nodeOf' && x.pid === 'auto.call:filePath.split');
+  assert.ok(g && g.conforms && g.fact === wideLead);
+});
+
+test('where the more specific sibling and the wider lead agree, the scope is accused once, not twice (issue 399)', async () => {
+  const localWithSibling = fact('d[matrix]:method', 'auto.call:byPath.get', 'false', 29, {
+    nSurfaces: 2,
+    siblings: [{ pid: 'auto.call:filePath.split', exp: 'false', counts: { false: 29 }, srawCounts: { false: 29 }, alphabet: ['false'] }],
+  });
+  const wideNever = fact('_all:method', 'auto.call:filePath.split', 'false', 100);
+  const r = await run([localWithSibling, wideNever], 'matrix/case.test.mjs');
+  const onSplit = r.msgs.filter(m => m.scope === 'nodeOf' && m.pid === 'auto.call:filePath.split');
+  assert.equal(onSplit.length, 1, JSON.stringify(r.msgs));
+  assert.equal(onSplit[0].factKey, 'd[matrix]:method|auto.call:byPath.get');
+});

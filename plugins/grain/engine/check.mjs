@@ -94,6 +94,18 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       const g = gov.get(f.pid);
       if (!g || f.sraw < g.sraw || (f.sraw === g.sraw && ctxRank(f) < ctxRank(g))) gov.set(f.pid, f);
     }
+    // the other half of that rule (issue 399): where a MORE specific governing fact carries a pid as a sibling
+    // surface, that sibling speaks for the pid on this scope, and the less specific fact whose lead surface the pid is
+    // stands down — otherwise the two print opposite verdicts on the same call ("never calls X" from the specific
+    // cell's sibling, "conforms to: calls X" from the wider fact), or the same accusation twice. A tie stays with the
+    // lead, as below (issue 396), so between the two directions exactly one surface speaks for each pid.
+    const moreSpecific = (a, b) => a.sraw < b.sraw || (a.sraw === b.sraw && ctxRank(a) < ctxRank(b));
+    const outranked = new Set();
+    for (const f of gov.values())
+      for (const sf of f.siblings || []) {
+        const g = gov.get(sf.pid);
+        if (g && g !== f && moreSpecific(f, g)) outranked.add(g);
+      }
     for (const f of [...gov.values()].sort((a, b) =>
       a.cid < b.cid ? -1 : a.cid > b.cid ? 1 : a.pid < b.pid ? -1 : 1
     )) {
@@ -109,7 +121,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
       // `defining`: this fact's pid is the very feature (3× weighted) that formed the role group it governs — a
       // marker tautology (the marker-tautology resolution). Not suppressed here (report/rulesMarkdown's factTiers does that for
       // their own listing) — spoken instead, via a clause where this entry renders (cmdCheck's `conforms to:`).
-      if (lead !== undefined)
+      if (lead !== undefined && !outranked.has(f))
         governed.push({
           scope: s.name,
           kind: s.kind,
@@ -135,6 +147,7 @@ export async function checkFile({ model, root, rel, content, asPath, exemplarOk 
         // pid for this scope, and a sibling does not get to overrule it (issue 393). A tie in that order goes to the
         // governing fact too: its own lead surface already speaks for the pid, so a tied sibling could only add a
         // second, possibly opposite verdict on the same call (issue 396)
+        if (sf === f && outranked.has(f)) continue; // a more specific fact's sibling speaks for this pid here (issue 399)
         if (sf !== f) {
           const g = gov.get(sf.pid);
           if (g && g !== f && (g.sraw < f.sraw || (g.sraw === f.sraw && ctxRank(g) <= ctxRank(f)))) continue;
