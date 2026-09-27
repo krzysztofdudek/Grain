@@ -192,8 +192,10 @@ whole CLI over stdio, for any MCP client — not only Claude Code. Claude Code s
 via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it by hand:
 `node "${CLAUDE_PLUGIN_ROOT}/bin/grain-mcp.mjs"` (or any absolute path to it).
 
-- **Tools**: one per command, generated from the same command table the CLI parses its flags from, so the two cannot
-  drift apart (a test fails when a command, a subcommand or a flag is in one and not the other). A command becomes
+- **Tools**: one per command, generated from the same command table the CLI parses its flags from. A test fails when
+  the dispatcher runs a command, or `decide`/`oracle` a subcommand, that the table lacks (or the reverse); when the
+  usage text shows a flag the table lacks (or the reverse); and when the engine reads a flag off the command line
+  that the table lacks. A command becomes
   `grain_<command>`, a subcommand joins with `_`: `grain_where`, `grain_how`, `grain_what`, `grain_map`,
   `grain_obligation`, `grain_check`, `grain_completeness`, `grain_explain`, `grain_status`, `grain_report`,
   `grain_rules`, `grain_export`, `grain_propose`, `grain_advise`, `grain_oracle_record`, `grain_oracle_score`,
@@ -202,9 +204,13 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
   `spectrum`, `seed`) and the hooks have no tool; `grain_check` without `file` is `review`.
 - **Fields**: each argument under its name (`query`, `file`, `path`, `files`, `out-dir`, `target`, `from`, `id`,
   `name-or-dir`) and each flag under its own name without the dashes (`top`, `map-rows`, `instead-of`,
-  `never-imports`, `no-refresh`, …), plus `repo`, `no-refresh` and `no-history` on every tool. A bare flag is a
-  boolean, a flag with a value a string (a number is taken as its text). `json: true` returns what `--json` prints;
+  `never-imports`, …), plus `repo`, `no-refresh` and `no-history` on every tool. A bare flag is a boolean, a
+  numeric flag (`top`, `last`, `runs`, …) a number or its text, any other flag with a value a string. `json: true` returns what `--json` prints;
   without it the answer is the CLI's text, as it prints it. On `grain_propose`, `json` is the path `--json` writes to.
+  `completeness --json` prints the `grain-completeness/1` document: `files` (each input file with its own `partners`
+  and `ambient`), the merged `partners` and `ambient` the text prints, `asOf`, and `dirtyTree` when the worktree has
+  uncommitted changes. A partner is `{ file, sup, commits, bits, dead }`, an ambient entry `{ file, k, n, share,
+  dead }`; every list holds at most 5, as the text does.
 - **Writes**: every description opens with what the tool writes. `grain_propose` writes the proposal directory;
   `grain_decide_steer`, `grain_decide_boundary`, `grain_decide_waive` and `grain_decide_rm` write
   `.grain/seeds.jsonl` and `.grain/decisions.jsonl`; `grain_oracle_record` writes only with `yes: true`;
@@ -213,20 +219,31 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
 - **Paths**: a field the CLI resolves against its working directory (`repo`, `out`, `content`, `graph`,
   `proposal`, `family-candidates`, propose's `out-dir` and `json`) must be absolute, because the server does not run
   in the caller's directory; a relative one is refused. `oracle score`'s `name-or-dir` is a bare name or an absolute
-  path. A path inside the repository (`check`'s `file`, `obligation`'s `path`, `completeness`'s `files`,
-  `explain`'s `file`) may be absolute or relative to the repository root. A `repo`, or an absolute path inside it,
+  path, and a bare name resolves in the repository. A path inside the repository (`check`'s `file`, `obligation`'s
+  `path`, `completeness`'s `files`, `explain`'s `file`, the `<path>` of a `decide steer`/`waive` target) may be
+  absolute or relative to the repository root. `check`'s `as` and `decide boundary`'s `from` and `never-imports` are
+  taken as written, relative to the repository root; an absolute one is refused. A `repo`, or an absolute path inside it,
   that does not exist where the server runs — a path from inside a dev container, handed to a server VS Code started
   on the host — is translated through the running containers' mounts (`docker ps`, `docker inspect`: the longest mount
-  containing the normalised path); a path two containers mount from different host directories, or that no container
-  mounts, is refused with a message saying so, never swapped for another repository.
+  containing the normalised path, remembered for a minute; a path that does not exist yet goes through the nearest
+  directory above it); a `repo` two containers mount from different host directories, or that no container mounts,
+  is refused with a message saying so, never swapped for another repository.
 - **How a call runs**: the server turns the fields back into the argv the CLI would get and runs `bin/grain.mjs` with
-  it, one call at a time. Each call therefore gets exactly the CLI's answer, and each query runs in the CLI's
-  low-memory `--liftoff-only` mode instead of the server holding the optimising compiler's memory for the whole
-  session; the cost is one Node start per call. What the CLI prints on stdout is the first text block; what it says
-  on stderr (its refusal, its diagnostics, the last 40 lines of a build's progress) is a second one, or the only one
-  when stdout is empty.
-- **Errors**: an unknown tool, an unknown field, a field of the wrong type, a missing argument or a relative path is
-  a JSON-RPC protocol error (code `-32602`) and the CLI never runs. A CLI run that exits non-zero (a bad `repo`, a
+  it, in the repository it answers for, one call at a time. Each call therefore gets exactly the CLI's answer, and
+  each query runs in the CLI's low-memory `--liftoff-only` mode instead of the server holding the optimising
+  compiler's memory for the whole session; the cost is starting the CLI on every call, which runs Node twice (the CLI
+  starts itself again in that mode). With `json: true` and a run that succeeds, the answer is one text block holding
+  only the JSON; what the CLI said on stderr goes to the result's `_meta` as `grain/stderr`. Otherwise stdout is the
+  first text block and stderr (its refusal, its diagnostics, the last 40 lines of a build's progress) a second one, or
+  the only one when stdout is empty. A call that names no `repo` also says which repository it reached, found from
+  the server's working directory: a last text block, or `grain/repo` in `_meta` for a JSON answer.
+- **Stopping a run**: each CLI run has a time limit, 10 minutes, and 60 minutes for `propose` and `selftest`, set in
+  the server's environment with `GRAIN_MCP_TIMEOUT_MS` and `GRAIN_MCP_LONG_TIMEOUT_MS`. A run past it is stopped and
+  answered with `isError: true`. `notifications/cancelled` stops the run it names, and that request gets no answer.
+  When the client closes stdin, the server stops the running CLI and exits. Stopping kills the CLI's whole process
+  group, since the CLI starts itself again.
+- **Errors**: an unknown tool, an unknown field, a field of the wrong type, a missing argument or a path given the
+  wrong way (relative where it must be absolute, or the reverse) is a JSON-RPC protocol error (code `-32602`) and the CLI never runs. A CLI run that exits non-zero (a bad `repo`, a
   file that does not exist, a refused decision) comes back as a normal result with `isError: true`, so the calling
   model can see it and react. Neither kind ever stops the server.
 - **Transport**: stdio, newline-delimited JSON-RPC 2.0 — one message per line (MCP's stdio framing; not the
