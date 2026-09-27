@@ -1,5 +1,5 @@
 // Seam tests — the family's contracts, driven through the NEIGHBOUR PROJECTS' OWN real binaries,
-// never a re-implementation of either. Five seams:
+// never a re-implementation of either. Six seams:
 //
 //   1. YGGDRASIL LOADS THE PROPOSAL, DRILLS IT CLEAN, AND ADVISES THE FAMILY. A real Yggdrasil checkout is
 //      staged into a disposable temp copy (git-tracked files only, never the shared checkout itself — see
@@ -24,6 +24,9 @@
 //      every machine document the family exchanges. This seam is the only CI with all three checkouts at once,
 //      so it is the only place that can hold the page to all three: every schema id Horde's scripts name, and
 //      every one Grain's engine writes, must have a row. Pure file reads — no binary is run.
+//   6. ONE RUNES UNDER BOTH. The Runes tag in Grain's pin equals the `@chrisdudek/runes` version Yggdrasil depends
+//      on: a warning on a working branch, a failure on `release/*`, a skip while Yggdrasil has no Runes dependency
+//      (on `release/*` a loud one, since it should fail there once Yggdrasil moves onto Runes).
 //
 // Every seam skips itself, with a stated reason, when its neighbour binary/checkout is not present — never a
 // silent pass and never a hard failure of the whole suite. Point `YG_BIN` at Yggdrasil's built `bin.js` (its
@@ -44,6 +47,7 @@ import { readGraph } from './stress/reconstruct.mjs';
 import { parseYaml } from '../engine/yggdrasil-graph.mjs';
 import { probeRootParent, resolveYg } from '../engine/propose.mjs';
 import { TOP_LEVEL_TYPES, writeTopLevelRepo } from './fixture-top-level-repo.mjs';
+import { readRunesSeam, runesSeamVerdict, isReleaseRef } from './runes-seam.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const GRAIN_BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -549,4 +553,33 @@ test('every schema id Horde reads and Grain writes has a row on Yggdrasil\'s fam
   // history, and a consumer on an older version still reads it. It is worth saying out loud, though.
   if (notes.length) console.log(`[seams] family-contracts: ${notes.length} row(s) no Horde or Grain source names — ${notes.join(', ')}`);
   console.log(`[seams] family-contracts: ${rowById.size} row(s); ${horde.where.size} id(s) across ${horde.opened.length} Horde script(s), ${grain.where.size} written by Grain — all present`);
+});
+
+// ============================================================================================================
+// Seam 6 — one Runes release under both relation consumers. Grain vendors Runes at the tag its pin names; Yggdrasil
+// installs `@chrisdudek/runes` at an exact version. At a family release they must be the same Runes, or an edge in
+// Grain's proposal is not the edge `yg check` sees. On a working branch a mismatch is a warning (the two repositories
+// bump their pins in separate commits); on `release/*` it fails. While Yggdrasil does not depend on Runes at all,
+// there is nothing to compare, and the seam skips with that note. The verdict is tests/runes-seam.mjs, whose every
+// branch tests/runes-seam.test.mjs holds.
+// ============================================================================================================
+const RUNES_PIN = join(here, '..', 'engine', 'vendor', 'runes.pin.json');
+test('Grain\'s Runes pin and Yggdrasil\'s Runes dependency name the same release', { skip: HAVE_YGG_CHECKOUT ? false : YGG_CHECKOUT_SKIP }, t => {
+  const { grain, yggdrasil, havePackage, pkgPath } = readRunesSeam(RUNES_PIN, YGG_DIR);
+  assert.ok(havePackage, `Yggdrasil's CLI package.json not found at ${pkgPath}`);
+  const verdict = runesSeamVerdict({ grain, yggdrasil, release: isReleaseRef() });
+  console.log(`[seams] runes: ${verdict.text}`);
+  if (verdict.kind === 'skip') {
+    if (verdict.loud) {
+      console.warn(`\n[seams] !!! RUNES SEAM NOT ENFORCED ON A RELEASE BRANCH !!!\n[seams] ${verdict.text}\n`);
+      if (process.env.GITHUB_ACTIONS) console.log(`::warning title=Runes seam not enforced::${verdict.text}`);
+    }
+    return t.skip(verdict.text);
+  }
+  if (verdict.kind === 'warn') {
+    t.diagnostic(`WARNING: ${verdict.text} (blocks on release/*)`);
+    if (process.env.GITHUB_ACTIONS) console.log(`::warning title=Runes seam::${verdict.text}`);
+    return;
+  }
+  assert.notEqual(verdict.kind, 'fail', verdict.text);
 });

@@ -1,5 +1,5 @@
 # The gate: the full conformance suite (engine + relations + CLI e2e + hooks) on every push and PR.
-# Tests need no npm install — the tree-sitter runtime and grammars are vendored; the suite drives the real CLI.
+# Tests need no npm install — the tree-sitter runtime, the grammars and Runes are vendored; the suite drives the real CLI.
 name: ci
 on:
   push:
@@ -25,6 +25,10 @@ jobs:
           git config --global user.name ci
           git config --global user.email ci@invalid
           git config --global init.defaultBranch main
+      # The vendored Runes copy, byte for byte against a fresh clone of its pinned tag (npm test runs the offline half).
+      - name: runes gate
+        working-directory: plugins/grain
+        run: node scripts/runes.mjs check --ci --pin engine/vendor/runes.pin.json
       - name: run suite
         working-directory: plugins/grain
         run: npm test
@@ -46,15 +50,24 @@ jobs:
       # Yggdrasil and Horde default to their own main below. When this workflow run is itself on a
       # branch that also exists in each sibling — the three repos moving together for a joint
       # release — the seam should compare that branch against itself in all three, not silently
-      # fall back to main in the two it does not own.
+      # fall back to main in the two it does not own. A pull request tries its head branch first, then the branch it
+      # targets (a PR from a worker branch into release/* compares against the siblings' release/* when they have no
+      # branch of that worker's name), and only then main.
       - name: resolve sibling branches
         id: sibling-branches
         run: |
-          branch="${{ github.head_ref || github.ref_name }}"
           for repo in Yggdrasil Horde; do
             slug=$(echo "$repo" | tr '[:upper:]' '[:lower:]')
-            if git ls-remote --exit-code --heads "https://github.com/krzysztofdudek/${repo}.git" "$branch" >/dev/null 2>&1; then
-              echo "${slug}-ref=${branch}" >> "$GITHUB_OUTPUT"
+            found=""
+            for branch in "${{ github.head_ref || github.ref_name }}" "${{ github.base_ref }}"; do
+              [ -n "$branch" ] || continue
+              if git ls-remote --exit-code --heads "https://github.com/krzysztofdudek/${repo}.git" "$branch" >/dev/null 2>&1; then
+                found="$branch"
+                break
+              fi
+            done
+            if [ -n "$found" ]; then
+              echo "${slug}-ref=${found}" >> "$GITHUB_OUTPUT"
             else
               echo "${slug}-ref=main" >> "$GITHUB_OUTPUT"
             fi
@@ -116,6 +129,7 @@ jobs:
           YG_BIN: ${{ github.workspace }}/yggdrasil/source/cli/dist/bin.js
           YGG_DIR: ${{ github.workspace }}/yggdrasil
           HORDE_DIR: ${{ github.workspace }}/horde
+        # GITHUB_REF_NAME / GITHUB_BASE_REF tell seam 6 whether a Runes mismatch warns (a working branch) or fails (release/*)
         run: node --import ./tests/git-env.mjs --test tests/seams.test.mjs
       - name: run the reconstruction and advice guards against the hand oracles
         working-directory: grain/plugins/grain

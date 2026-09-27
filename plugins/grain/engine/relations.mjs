@@ -1,4 +1,5 @@
-// grain's relation pass — the thin orchestration over the vendored Yggdrasil machinery (engine/vendor/relations/):
+// grain's relation pass — the thin orchestration over the relation machinery vendored from Runes (engine/vendor/runes/,
+// pinned by engine/vendor/runes.pin.json; the same code Yggdrasil installs from npm):
 // per-language extractors turn each parsed tree into declared symbols + ordered candidate groups; a language-partitioned
 // symbol table and the tri-state resolver (resolved / ambiguous / absent — silence instead of a false edge) bind them to
 // files; the result is file→file edges (import | call | extends | implements | type-ref | construct) and their
@@ -7,28 +8,31 @@
 // unindexed file is a coverage matter, never an edge), and a symbol declared across several files of ONE directory binds
 // to the first of them (dirOwner, below).
 import { cycleCuts } from './cycle-cut.mjs';
-import { extractorForLanguage } from './vendor/relations/extractors/registry.mjs';
-import { extractCsharpRefs, assembleCsharpCandidates } from './vendor/relations/extractors/csharp.mjs';
-import { buildCsharpProjectScopes } from './vendor/relations/extractors/csharp-project.mjs';
-import { includeUses } from './vendor/relations/extractors/c-cpp-shared.mjs';
-import { SymbolTable } from './vendor/relations/symbol-table.mjs';
-import { makeResolver } from './vendor/relations/resolver.mjs';
-import { makeResolvePathToFile } from './vendor/relations/resolve-path.mjs';
-import { parsePsr4 } from './vendor/relations/extractors/php-resolve.mjs';
-import { sfcScriptView } from './vendor/relations/extractors/typescript.mjs';
+import {
+  extractorForLanguage,
+  extractCsharpRefs,
+  assembleCsharpCandidates,
+  buildCsharpProjectScopes,
+  includeUses,
+  SymbolTable,
+  makeResolver,
+  makeResolvePathToFile,
+  parsePsr4,
+  sfcScriptView,
+} from './vendor/runes/dist/relations/index.mjs';
 import { HARD_EXCL, EXCL } from './config.mjs';
 import { CODE_RE, SFC_RE, toPosix } from './base.mjs';
-import { parseFile } from './parse.mjs';
+import { parseFile, newParser } from './parse.mjs';
 import { readFileSync, readdirSync } from 'node:fs';
 import { join, relative } from 'node:path';
 import { extname } from 'node:path/posix';
 
 const SEP = '\u0001'; // a control byte, never inside a path; kept as an ESCAPE - literal control bytes in source are exactly what died in the prototype's vendoring
-const LANG = { c_sharp: 'csharp' }; // grain grammar name → extractor language id (identity otherwise)
+const LANG = { c_sharp: 'csharp' }; // grain grammar name (the wasm's own name) → Runes language id (identity otherwise)
 export const relLanguage = g => (g ? LANG[g] || g : null);
 export const relSupported = g => !!extractorForLanguage(relLanguage(g));
 // issue 041: `relSupported` alone answers "is ANY extractor registered", which is true for c/cpp — but c.mjs/cpp.mjs
-// (both vendored from Yggdrasil) are the only REL_LANGS extractors whose entire `uses` IS the shared `includeUses`
+// (both vendored from Runes) are the only REL_LANGS extractors whose entire `uses` IS the shared `includeUses`
 // walker (c-cpp-shared.mjs): the `#include` lines of the live preprocessor branches, nothing else. Every other
 // language's `uses` also resolves call/type-ref/extends/implements/construct references through the symbol table.
 // Since issue 223 an include resolves next to the includer, then under the repository's include roots (a
@@ -147,7 +151,10 @@ export function relFactsFor(rel, content, tree, grammar) {
   const language = relLanguage(grammar);
   const ex = extractorForLanguage(language);
   if (!ex) return null;
-  const pf = { path: rel, content, tree, language };
+  // newParser: the Kotlin extractor re-parses spans of a file with syntax errors, with a parser of the SAME runtime that
+  // built `tree` (grain's vendored web-tree-sitter); without it a damaged Kotlin file throws, and the catch below would
+  // turn that into a file with no facts at all
+  const pf = { path: rel, content, tree, language, newParser };
   try {
     if (language === 'csharp')
       return { l: language, d: ex.declarations(pf), c: serCs(extractCsharpRefs(pf)) };

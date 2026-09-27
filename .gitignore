@@ -13,3 +13,6 @@ plugins/grain/tests/stress/results/*
 
 # agent worktrees created by the harness during isolated subagent work — live state, never committed
 .claude/worktrees/
+
+# the Runes vendoring tool's fresh clones (scripts/runes.mjs check --ci and update) — disposable
+.runes/
