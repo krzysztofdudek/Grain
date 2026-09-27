@@ -1,7 +1,8 @@
 // grain engine · proposal writer · what `grain propose` prints, and what --json writes
 // Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { existsSync } from 'node:fs';
-import { join } from 'node:path';
+import { isAbsolute, join, relative } from 'node:path';
+import { toPosix } from './base.mjs';
 import { pct } from './propose-base.mjs';
 import { TYPE_LEVELS } from './propose-levels.mjs';
 
@@ -38,7 +39,12 @@ import { TYPE_LEVELS } from './propose-levels.mjs';
 // rule — is written to disk exactly as before and summarised here in ONE counted line naming the file that
 // holds it. `--full` prints it all.
 export function proposeReport(r, { outDir, root, full = false, familyCandidates = null } = {}) {
-  const rel = p => (root && p.startsWith(root + '/') ? p.slice(root.length + 1) : p);
+  // repository-relative, with forward slashes on every OS; a path outside the repository stays as it is
+  const rel = p => {
+    if (!root) return p;
+    const r = relative(root, p);
+    return r && !r.startsWith('..') && !isAbsolute(r) ? toPosix(r) : p;
+  };
   const out = rel(outDir);
   const ygg = `${out}/.yggdrasil`;
   const c = r.counts;
