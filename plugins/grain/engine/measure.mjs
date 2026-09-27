@@ -29,12 +29,12 @@ import { currentPathOf } from './facts.mjs';
 import { resolveScope, splitList } from './cochange.mjs';
 
 export const MEASURE_SCHEMA = 'grain-measure/1';
-const SNAPSHOT_V = 1;
+const SNAPSHOT_V = 2;
 
 // ==================================================================================================
 // 1. One end: the files, the resolved imports and the parsed files a commit's own model holds.
 // ==================================================================================================
-export async function snapshotAt({ root, sha, store, stamps, learn, headTree, readJson, log }) {
+export async function snapshotAt({ root, sha, store, stamps, learn, headTree, readJson, log, readNodeGraph, declaredVia }) {
   const dir = join(store.dir, 'measure');
   const path = join(dir, `${sha}.json`);
   const cached = existsSync(path) ? readJson(path) : null;
@@ -56,13 +56,29 @@ export async function snapshotAt({ root, sha, store, stamps, learn, headTree, re
     const tree = headTree(root, { rev: sha, skip: (rel, blob) => !!(treeCache && treeCache[blob + '|' + rel]) });
     log(`measure: building the model ${sha.slice(0, 7)} had (${tree.files.length} code files)`);
     const { model } = await learn({ root: work, H: null, log, tree, treeCache });
+    const files = tree.allPaths.filter(p => !HARD_EXCL.test(p));
+    const edges = (model.edges || []).map(e => ({ from: e.from, to: e.to, n: e.n || 1 }));
+    // the graph that commit had, when it had one: who owned each file then, and which node pairs with an import
+    // between them it did not declare — so the undeclared dependencies at each end are read against that end's law
+    let graph = null;
+    const g = readNodeGraph(work, files);
+    if (g) {
+      const undeclared = new Set();
+      for (const e of edges) {
+        const a = g.ownerOf.get(e.from),
+          b = g.ownerOf.get(e.to);
+        if (a && b && a !== b && !declaredVia(g, a, b)) undeclared.add(a + '\x00' + b);
+      }
+      graph = { ownerOf: Object.fromEntries(g.ownerOf), undeclared: [...undeclared].sort() };
+    }
     const snap = {
       v: SNAPSHOT_V,
       stamps,
       sha,
-      files: tree.allPaths.filter(p => !HARD_EXCL.test(p)),
-      edges: (model.edges || []).map(e => ({ from: e.from, to: e.to, n: e.n || 1 })),
+      files,
+      edges,
       mined: [...new Set((model.partitions || []).flatMap(p => p.files || []))].sort(),
+      graph,
     };
     writeFileSync(path, JSON.stringify(snap));
     return snap;
@@ -74,7 +90,12 @@ export async function snapshotAt({ root, sha, store, stamps, learn, headTree, re
 // ==================================================================================================
 // 2. What one end says about the scope.
 // ==================================================================================================
+// `g` is the graph the scope was read from; the node dependencies are read against the graph the commit itself had
+// when it had one (`snap.graph`), and against `g` otherwise (a graph held beside the repository, or none then).
 export function scopeMetrics(snap, scopeFiles, g, declaredVia) {
+  const own = snap.graph;
+  const ownerOf = own ? f => own.ownerOf[f] : g ? f => g.ownerOf.get(f) : null;
+  const ownUndeclared = own ? new Set(own.undeclared) : null;
   const files = new Set(snap.files);
   const S = new Set([...scopeFiles].filter(f => files.has(f)));
   let inside = 0,
@@ -89,9 +110,9 @@ export function scopeMetrics(snap, scopeFiles, g, declaredVia) {
     if (a && b) inside += e.n;
     else if (a) out += e.n;
     else if (b) inn += e.n;
-    if (!g || !(a || b)) continue;
-    const na = g.ownerOf.get(e.from),
-      nb = g.ownerOf.get(e.to);
+    if (!ownerOf || !(a || b)) continue;
+    const na = ownerOf(e.from),
+      nb = ownerOf(e.to);
     if (!na || !nb || na === nb) continue;
     const k = na + '\x00' + nb;
     nodePairs.set(k, (nodePairs.get(k) || 0) + e.n);
@@ -107,12 +128,13 @@ export function scopeMetrics(snap, scopeFiles, g, declaredVia) {
     purity: touching ? +(inside / touching).toFixed(4) : null,
     repo: { files: snap.files.length, imports: total },
   };
-  if (g) {
+  if (ownerOf) {
     const undeclared = [];
     for (const [k, n] of nodePairs) {
       const [a, b] = k.split('\x00');
-      if (!declaredVia(g, a, b)) undeclared.push({ from: a, to: b, imports: n });
+      if (ownUndeclared ? ownUndeclared.has(k) : !declaredVia(g, a, b)) undeclared.push({ from: a, to: b, imports: n });
     }
+    res.graphAtCommit = !!own;
     undeclared.sort((p, q) => q.imports - p.imports || (p.from < q.from ? -1 : p.from > q.from ? 1 : p.to < q.to ? -1 : 1));
     res.nodeDependencies = nodePairs.size;
     res.undeclaredNodeDependencies = undeclared.length;
@@ -184,7 +206,7 @@ export async function cmdMeasure({ model, head, root, args, opts, stamp, store, 
     to = rev(String(opts.to));
   const snaps = {};
   for (const [k, sha] of [['from', from], ['to', to]])
-    snaps[k] = await snapshotAt({ root, sha, store, stamps, learn, headTree, readJson, log });
+    snaps[k] = await snapshotAt({ root, sha, store, stamps, learn, headTree, readJson, log, readNodeGraph, declaredVia });
   const graphRoot = graphRootOf(root, opts);
   const entries = splitList(opts.scope);
   const sides = {};
@@ -199,7 +221,8 @@ export async function cmdMeasure({ model, head, root, args, opts, stamp, store, 
       scopeFiles = r.files;
       sides[k] = { unknown: r.unknown };
     } else scopeFiles = new Set(files);
-    sides[k] = { ...sides[k], scopeFiles, metrics: scopeMetrics(snaps[k], scopeFiles, g, declaredVia) };
+    const snap = graphRoot === root ? snaps[k] : { ...snaps[k], graph: null };
+    sides[k] = { ...sides[k], scopeFiles, metrics: scopeMetrics(snap, scopeFiles, g, declaredVia) };
   }
   // an entry that selects nothing at EITHER end is a misspelling, not a territory that came or went
   const nowhere = entries.filter(e => sides.from.unknown?.includes(e) && sides.to.unknown?.includes(e));
@@ -229,7 +252,7 @@ export async function cmdMeasure({ model, head, root, args, opts, stamp, store, 
     if (range.commitsCounted < revList.length)
       notes.push(`${revList.length - range.commitsCounted} of the ${revList.length} commits in the range are not counted: merges, commits touching more than the bulk cap of files, or commits older than the retained history`);
   } else notes.push('no history: the range was not read (--no-history, a shallow clone or a partial one)');
-  if (!head || (to !== head && from !== head)) notes.push(`neither end is HEAD (${(head || '').slice(0, 7)}); the scope's nodes are read from the graph as it is now`);
+  if (entries.length && g0HasNodes(entries, graphRoot, readNodeGraph, snaps.to.files)) notes.push('the scope\'s node ids are read from the graph as it is now, at both ends');
   const doc = {
     schema: MEASURE_SCHEMA,
     repo: '.',
@@ -245,6 +268,10 @@ export async function cmdMeasure({ model, head, root, args, opts, stamp, store, 
   if (opts.json) return [JSON.stringify(doc, null, 1)];
   return [...measureText(doc), stamp()];
 }
+const g0HasNodes = (entries, graphRoot, readNodeGraph, files) => {
+  const g = readNodeGraph(graphRoot, files);
+  return !!g && entries.some(e => g.byId.has(e));
+};
 export function measureText(doc) {
   const f = doc.from,
     t = doc.to;

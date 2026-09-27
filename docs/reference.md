@@ -881,7 +881,7 @@ Without history (`--no-history`, a shallow or partial clone) `pairs`, `control` 
   "schema": "grain-measure/1", "repo": ".", "at": "<HEAD sha>",
   "scope": { "entries": ["src/report", "billing"] }, "graph": ".yggdrasil",
   "from": { "sha": "<sha>", "files": 6, "mined": 6, "importsInside": 0, "importsOut": 10, "importsIn": 0, "purity": 0,
-            "repo": { "files": 14, "imports": 20 }, "nodeDependencies": 1, "undeclaredNodeDependencies": 1, "undeclared": [ { "from": "billing", "to": "util", "imports": 10 } ] },
+            "repo": { "files": 14, "imports": 20 }, "nodeDependencies": 1, "undeclaredNodeDependencies": 1, "undeclared": [ { "from": "billing", "to": "util", "imports": 10 } ], "graphAtCommit": false },
   "to": { "sha": "<sha>", "files": 9, "mined": 9, "importsInside": 3, "importsOut": 13, "importsIn": 0, "purity": 0.1875, "…": "the same fields" },
   "delta": { "files": 3, "mined": 3, "importsInside": 3, "importsOut": 3, "importsIn": 0, "nodeDependencies": 0, "undeclaredNodeDependencies": 0, "purity": 0.1875 },
   "range": { "commitsInRange": 3, "commitsCounted": 3, "scopeCommits": 3, "inside": 3, "crossing": 0, "crossingShare": 0,
@@ -890,7 +890,7 @@ Without history (`--no-history`, a shallow or partial clone) `pairs`, `control` 
 }
 ```
 
-At each end: `files` in the territory, `mined` of them parsed, resolved imports with both ends inside (`importsInside`), from inside to outside (`importsOut`) and from outside in (`importsIn`), `purity` the inside share of all three (null when none touch it), the repository's own totals, and with a graph the number of node pairs with an import between them where one end is in the territory (`nodeDependencies`) and how many of those the graph does not declare (`undeclaredNodeDependencies`, the first 20 in `undeclared`). `delta` is `to` minus `from`.
+At each end: `files` in the territory, `mined` of them parsed, resolved imports with both ends inside (`importsInside`), from inside to outside (`importsOut`) and from outside in (`importsIn`), `purity` the inside share of all three (null when none touch it), the repository's own totals, and with a graph the number of node pairs with an import between them where one end is in the territory (`nodeDependencies`) and how many of those the graph does not declare (`undeclaredNodeDependencies`, the first 20 in `undeclared`). Those are read against the graph the commit itself had (`graphAtCommit: true`), so a relation the work declared counts at `--to` and not at `--from`; with `--graph`, or at a commit that had no graph, against the one graph the scope was read from. `delta` is `to` minus `from`.
 
 **The range** is the commits reachable from `--to` and not from `--from` (`commitsInRange`), of which those among the retained footprints are counted (`commitsCounted`; merges and bulk commits are never footprints, and `notes` says how many were left out). Of the counted commits, `scopeCommits` touched the territory — a path counts when it is in the territory at either end, or lives today at a path in it at `--to` — and `crossing` of those also touched a file outside it. `baseline` is the control: the same count over as many of the territory's own commits just before the range. Without history `range` is `null` and `notes` says so.
 

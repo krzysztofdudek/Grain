@@ -237,6 +237,25 @@ test('measure reuses each end once built, answers text with a stamp, and refuses
   assert.match(r3.stderr, /usage: grain measure --from/);
 });
 
+test('measure reads each end\'s undeclared dependencies against the graph that commit had', () => {
+  const own = join(tmp, 'measure-own-graph');
+  execFileSync('cp', ['-R', repo, own]);
+  execFileSync('cp', ['-R', join(graphAllow, '.yggdrasil'), join(own, '.yggdrasil')]);
+  gitIn(own, 'add', '-A');
+  gitIn(own, 'commit', '-q', '-m', 'graph');
+  const before = gitIn(own, 'rev-parse', 'HEAD');
+  // the work: billing's dependency on util becomes a declared relation
+  const node = join(own, '.yggdrasil/model/billing/yg-node.yaml');
+  writeFileSync(node, readFileSync(node, 'utf8').replace('relations: []', 'relations:\n  - target: util\n    type: uses'));
+  gitIn(own, 'add', '-A');
+  gitIn(own, 'commit', '-q', '-m', 'declare billing uses util');
+  const doc = json(own, ['measure', '--from', before, '--to', 'HEAD', '--scope', 'billing']);
+  assert.equal(doc.from.graphAtCommit, true);
+  assert.deepEqual(doc.from.undeclared.map(u => `${u.from}>${u.to}`), ['billing>util']);
+  assert.equal(doc.to.undeclaredNodeDependencies, 0, 'the relation the work declared counts at --to');
+  assert.equal(doc.delta.undeclaredNodeDependencies, -1);
+});
+
 // ------------------------------------------------------------------ advise: kind rule
 
 test('a boundary decision the architecture does not make law is a `kind: rule` item with its draft and its crossings', () => {

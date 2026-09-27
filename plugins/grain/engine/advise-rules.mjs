@@ -17,8 +17,9 @@
 //    existing graph, and which no aspect of the graph already states, is drafted as the aspect `grain propose`
 //    would write for it (the same renderer, `buildAspects`), attached to the deepest node that holds all its sites.
 //    Only certified conventions — never the sub-gate lattice — so a draft here is a rule Grain would certify; only
-//    those a mechanical check can hold, and not those that state an absence; at most `RULE_CAP` are listed per
-//    run, the most widely followed first, the rest counted.
+//    those a mechanical check can hold, not those that state an absence, and not formatting (indentation, quotes);
+//    one convention certified in several nodes is one item naming all of them; at most `RULE_CAP` items are listed
+//    per run, the most widely followed first, the rest counted.
 import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { aspectLiterals, readGraph } from './yggdrasil-graph.mjs';
@@ -226,7 +227,8 @@ export function conventionRuleItems({ exp, model, g, raw, buildAspects, aspectYa
   let stated = 0,
     spanning = 0,
     prose = 0,
-    absence = 0;
+    absence = 0,
+    formatting = 0;
   const cands = [];
   for (const a of certified) {
     // only a rule a check can hold: a prose rule never leaves draft in a proposal either, and a rule that says
@@ -237,6 +239,12 @@ export function conventionRuleItems({ exp, model, g, raw, buildAspects, aspectYa
     }
     if (a.direction === 'absence') {
       absence++;
+      continue;
+    }
+    // indentation and quoting belong to the repository's formatter, not to its architecture: a graph rule about them
+    // duplicates tooling the repository already runs, or should
+    if (a.enumerator === 'lex') {
+      formatting++;
       continue;
     }
     if (existingIds.has(a.id) || (a.argument && literals.has(String(a.argument)))) {
@@ -250,29 +258,55 @@ export function conventionRuleItems({ exp, model, g, raw, buildAspects, aspectYa
     }
     cands.push({ a, host });
   }
-  cands.sort((p, q) => q.a.n - p.a.n || p.a.deviating - q.a.deviating || (p.a.id < q.a.id ? -1 : 1));
-  const items = cands.slice(0, cap).map(({ a, host }) => ({
-    kind: 'rule',
-    nodes: [host],
-    confidence: +(a.n / Math.max(1, a.n + a.deviating)).toFixed(3),
-    evidence: {
-      origin: 'convention',
-      aspect: a.id,
-      name: a.name,
-      conforming: a.n,
-      deviating: a.deviating,
-      share: a.share,
-      partition: a.partition,
-      enumerator: a.enumerator,
-      argument: a.argument ?? null,
-      expected: a.expected ?? null,
-      exemplars: a.exemplars,
-      draft: { form: 'aspect', attachTo: host, yaml: aspectYamlDoc(a, 'draft'), check: a.check },
-    },
-    text: `${a.name} It already ${a.holds}, every one of them inside ${g.byId.get(host)?.name || host}, and nothing in the graph states it.`,
-  }));
+  // ONE RULE, ONE ITEM. The same convention (the same enumerator, argument and expected value over the same kind of
+  // scope) certified in several partitions is one rule a maintainer decides once, not one per node: a list of the
+  // same "types are PascalCase" eight times reads as eight findings and is one. The item names every node it holds
+  // in, strongest first; `draft` is the strongest one's and `alsoIn` carries the others'.
+  const groups = new Map();
+  for (const c of cands) {
+    const k = [c.a.enumerator, c.a.argument ?? '', String(c.a.expected ?? ''), c.a.kind ?? ''].join('\x00');
+    if (!groups.has(k)) groups.set(k, []);
+    groups.get(k).push(c);
+  }
+  const byStrength = (p, q) => q.a.n - p.a.n || p.a.deviating - q.a.deviating || (p.a.id < q.a.id ? -1 : 1);
+  const ranked = [...groups.values()].map(g => g.sort(byStrength));
+  const total = g => g.reduce((x, c) => x + c.a.n, 0);
+  ranked.sort((g, h) => total(h) - total(g) || byStrength(g[0], h[0]));
+  const g0name = id => g.byId.get(id)?.name || id;
+  const draftOf = ({ a, host }) => ({ form: 'aspect', attachTo: host, aspect: a.id, conforming: a.n, deviating: a.deviating, yaml: aspectYamlDoc(a, 'draft'), check: a.check });
+  const items = ranked.slice(0, cap).map(g => {
+    const { a, host } = g[0];
+    const nodes = [...new Set(g.map(c => c.host))];
+    const n = g.reduce((x, c) => x + c.a.n, 0),
+      dev = g.reduce((x, c) => x + c.a.deviating, 0);
+    const where = nodes.length === 1 ? `every one of them inside ${g0name(host)}` : `in ${nodes.length} nodes (${nodes.join(', ')})`;
+    return {
+      kind: 'rule',
+      nodes,
+      confidence: +(n / Math.max(1, n + dev)).toFixed(3),
+      evidence: {
+        origin: 'convention',
+        aspect: a.id,
+        name: a.name,
+        conforming: n,
+        deviating: dev,
+        share: a.share,
+        partition: a.partition,
+        enumerator: a.enumerator,
+        argument: a.argument ?? null,
+        expected: a.expected ?? null,
+        exemplars: a.exemplars,
+        draft: draftOf(g[0]),
+        alsoIn: g.slice(1).map(draftOf),
+      },
+      text:
+        nodes.length === 1
+          ? `${a.name} It already ${a.holds}, ${where}, and nothing in the graph states it.`
+          : `${a.name} The same rule, each time over that node's own files, holds ${where}: ${n} of ${n + dev} sites follow it, and nothing in the graph states it in any of them.`,
+    };
+  });
   return {
     items,
-    survey: { certified: certified.length, prose, absence, alreadyStated: stated, spanningNodes: spanning, labelPartitions: labels, drafts: cands.length, emitted: items.length },
+    survey: { certified: certified.length, prose, absence, formatting, alreadyStated: stated, spanningNodes: spanning, labelPartitions: labels, drafts: cands.length, rules: ranked.length, emitted: items.length },
   };
 }
