@@ -247,7 +247,9 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
   waiting its turn, and that request gets no answer; a cancel for a request already answered, or never sent, is
   ignored, so a later request that reuses its id is answered. When the client closes stdin, or the server gets
   `SIGTERM`, `SIGINT` or `SIGHUP`, the server stops the running CLI and exits. Stopping kills the CLI's whole process
-  group, since the CLI starts itself again.
+  group, since the CLI starts itself again. On Windows, which has no process groups, it kills the CLI's process tree
+  (`taskkill /T`) instead. Windows also has no signals a process can catch: a host that ends the server there ends it
+  at once, and a CLI run it had started finishes on its own and exits, with nobody left to answer.
 - **Errors**: an unknown tool, an unknown field, a field of the wrong type, a missing argument or a path given the
   wrong way (relative where it must be absolute, or the reverse) is a JSON-RPC protocol error (code `-32602`) and the CLI never runs. A CLI run that exits non-zero (a bad `repo`, a
   file that does not exist, a refused decision) comes back as a normal result with `isError: true`, so the calling

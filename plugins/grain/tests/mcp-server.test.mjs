@@ -7,7 +7,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync, readFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync, readFileSync, readdirSync, cpSync, mkdirSync } from 'node:fs';
 import { tmpdir, constants as osConstants } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -21,6 +21,7 @@ import * as mcp from '../bin/grain-mcp.mjs';
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN_MCP = join(here, '..', 'bin', 'grain-mcp.mjs');
 const BUILDER = join(here, '..', '..', '..', 'tests', 'fixtures', 'build-fixture.mjs');
+const WIN = process.platform === 'win32';
 let tmp, repo, server;
 
 // a minimal MCP client: newline-delimited JSON-RPC request/response correlation by id, over the child's real stdio
@@ -191,13 +192,14 @@ before(() => {
   repo = join(tmp, 'fixture');
   execFileSync('node', [BUILDER, repo], { stdio: 'pipe' });
   // copies taken before anything indexes the fixture: a call on one of them has to build the index first
-  for (const name of ['fresh-json', 'fresh-timeout', 'fresh-cancel', 'fresh-close', 'fresh-SIGTERM', 'fresh-SIGINT', 'fresh-SIGHUP', 'fresh-ping']) execFileSync('cp', ['-R', repo, join(tmp, name)]);
+  for (const name of ['fresh-json', 'fresh-timeout', 'fresh-cancel', 'fresh-close', 'fresh-SIGTERM', 'fresh-SIGINT', 'fresh-SIGHUP', 'fresh-ping']) cpSync(repo, join(tmp, name), { recursive: true });
   server = startServer(repo);
 });
 after(() => {
   try { server.child.stdin.end(); } catch { /* already closed */ }
   try { server.child.kill(); } catch { /* already dead */ }
-  rmSync(tmp, { recursive: true, force: true });
+  // Windows keeps a directory busy while a process that just died still has it open: retry for a while
+  rmSync(tmp, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
 });
 
 test('initialize handshake: a valid protocol version, the tools capability, and server info', async () => {
@@ -415,7 +417,13 @@ test('a bare oracle name resolves in the repository, not where the server was st
 
 // the CLI processes still running for one repository (its --repo=<dir> is on their command line, parent and the
 // --liftoff-only grandchild alike)
-const cliFor = dir => execFileSync('ps', ['-Ao', 'command'], { encoding: 'utf8' }).split('\n').filter(l => l.includes('grain.mjs') && l.includes(`--repo=${dir}`));
+// (every process as `pid ppid command`: ps, or on Windows the process table through PowerShell)
+const processes = () => (WIN
+  ? execFileSync('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', 'Get-CimInstance Win32_Process | ForEach-Object { "$($_.ProcessId) $($_.ParentProcessId) $($_.CommandLine)" }'], { encoding: 'utf8', windowsHide: true })
+  : execFileSync('ps', ['-Ao', 'pid=,ppid=,command='], { encoding: 'utf8' }))
+  .split(/\r?\n/).filter(l => l.trim())
+  .map(l => { const [pid, ppid, ...cmd] = l.trim().split(/\s+/); return { pid: +pid, ppid: +ppid, cmd: cmd.join(' ') }; });
+const cliFor = dir => processes().map(p => p.cmd).filter(l => l.includes('grain.mjs') && l.includes(`--repo=${dir}`));
 const until = async (cond, ms = 5000) => { const end = Date.now() + ms; while (Date.now() < end) { if (cond()) return true; await new Promise(r => setTimeout(r, 50)); } return cond(); };
 const stopServer = srv => { try { srv.child.stdin.end(); } catch { /* closed */ } try { srv.child.kill(); } catch { /* dead */ } };
 
@@ -470,7 +478,7 @@ test('when the client closes stdin, the running CLI is stopped and the server ex
 function hangingGitPath() {
   const bin = join(tmp, 'hanging-git');
   if (!existsSync(join(bin, 'git'))) {
-    execFileSync('mkdir', ['-p', bin]);
+    mkdirSync(bin, { recursive: true });
     writeFileSync(join(bin, 'git'), '#!/bin/sh\nexec sleep 86400\n');
     chmodSync(join(bin, 'git'), 0o755);
   }
@@ -479,15 +487,16 @@ function hangingGitPath() {
 // what a failing run leaves behind: the CLI, its --liftoff-only child and the sleeping git under them — found by
 // ancestry, since a server that never detached the CLI left no process group to kill
 const killLeftovers = dir => {
-  const procs = execFileSync('ps', ['-Ao', 'pid=,ppid=,command='], { encoding: 'utf8' }).split('\n').filter(Boolean)
-    .map(l => { const [pid, ppid, ...cmd] = l.trim().split(/\s+/); return { pid: +pid, ppid: +ppid, cmd: cmd.join(' ') }; });
+  const procs = processes();
   const doomed = new Set(procs.filter(p => p.cmd.includes('grain.mjs') && p.cmd.includes(`--repo=${dir}`)).map(p => p.pid));
   for (let grew = true; grew; ) { grew = false; for (const p of procs) if (doomed.has(p.ppid) && !doomed.has(p.pid)) { doomed.add(p.pid); grew = true; } }
   for (const pid of doomed) try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ }
 };
 
+// Windows delivers none of the three to a child: `kill` there is TerminateProcess, which no handler sees (the server's
+// signal handlers are POSIX-only, as documented in docs/reference.md), and a sh script cannot stand in for git.
 for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'])
-  test(`${sig} to the server stops the running CLI with its process group, and the server exits`, async () => {
+  test(`${sig} to the server stops the running CLI with its process group, and the server exits`, { skip: WIN && 'POSIX signals: Windows terminates a process without running its handlers' }, async () => {
     const dir = join(tmp, `fresh-${sig}`);
     const srv = startServer(tmp, { ...process.env, PATH: hangingGitPath() });
     try {
@@ -651,9 +660,9 @@ test('every command not declared stdoutJson prints text, not JSON, when no json 
 // The repository open in a dev container: the agent names the repo AND the file by their container
 // paths. Both are translated through the running container's mounts, so grain_check answers for the
 // file rather than refusing a path that only exists inside the container.
-test('grain_check with a container repo path and a container file path answers for the file', async () => {
+test('grain_check with a container repo path and a container file path answers for the file', { skip: WIN && 'the stand-in docker is a shebang script; Windows runs only an .exe from PATH' }, async () => {
   const bin = join(tmp, 'docker-bin');
-  execFileSync('mkdir', ['-p', bin]);
+  mkdirSync(bin, { recursive: true });
   writeFileSync(join(bin, 'docker'), `#!/usr/bin/env node
 const a = process.argv.slice(2);
 if (a[0] === 'ps') { console.log('abc123'); process.exit(0); }
