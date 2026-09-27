@@ -12,3 +12,8 @@
 plugins/grain/engine/vendor/** linguist-vendored
 plugins/grain/engine/grammars/** linguist-generated
 package-lock.json linguist-generated
+
+# The vendored Runes copy and the vendoring tool are checked byte for byte against their pin
+# (plugins/grain/engine/vendor/runes.pin.json), so no checkout may touch their line endings.
+plugins/grain/engine/vendor/runes/** -text
+plugins/grain/scripts/runes.mjs -text
