@@ -314,7 +314,7 @@ test('every `kind: rule` item a consumer reads has what `yg advise import` requi
     assert.ok(Array.isArray(it.nodes) && it.nodes.length >= 1 && it.nodes.every(n => typeof n === 'string'));
     assert.ok(typeof it.text === 'string' && it.text.trim());
     if (it.kind === 'rule' && it.evidence.origin === 'convention') {
-      assert.equal(it.nodes.length, 1);
+      assert.equal(it.evidence.alsoIn.length, it.nodes.length - 1, 'one draft per node the rule holds in');
       assert.equal(typeof it.evidence.draft.check, 'string');
       assert.equal(it.evidence.draft.attachTo, it.nodes[0]);
     }
@@ -366,7 +366,18 @@ test('a certified convention inside one node, which no aspect states, is drafted
   assert.match(imp.evidence.draft.check, /export/);
   assert.ok(imp.evidence.conforming >= 20);
   assert.equal(imp.confidence, 1);
-  for (const d of drafts) assert.ok(d.evidence.draft.check, 'only a rule a check can hold is drafted');
+  for (const d of drafts) {
+    assert.ok(d.evidence.draft.check, 'only a rule a check can hold is drafted');
+    assert.notEqual(d.evidence.enumerator, 'lex', 'formatting is the formatter\'s');
+  }
+  // one rule certified in several nodes is one item naming all of them (the fixture's handlers and services both
+  // name their methods one lowercase word and their files dotted lowercase)
+  const keys = drafts.map(d => [d.evidence.enumerator, d.evidence.argument, d.evidence.expected].join('|'));
+  assert.equal(new Set(keys).size, keys.length, 'no rule is listed twice');
+  const multi = drafts.find(d => d.nodes.length > 1);
+  assert.ok(multi, drafts.map(d => `${d.nodes} ${d.text}`).join('\n'));
+  assert.deepEqual([multi.evidence.draft.attachTo, ...multi.evidence.alsoIn.map(x => x.attachTo)], multi.nodes);
+  assert.match(multi.text, /The same rule, each time over that node's own files, holds in \d+ nodes/);
   // the graph states it: an aspect of the same id is in the graph, and the draft goes
   w(graph, `.yggdrasil/aspects/${imp.evidence.aspect}/yg-aspect.yaml`, 'name: x\ndescription: x\nstatus: draft\n');
   const again = json(fx, ['advise', '--graph', graph]);
