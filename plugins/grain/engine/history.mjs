@@ -124,10 +124,11 @@ export function partialCloneFilter(gitdir) {
 export const isAncestor = (gitdir, a, b) => gitOk(gitdir, ['merge-base', '--is-ancestor', a, b]);
 
 /** The mining input: every code file tracked at HEAD (built-in exclusions and the mining-only test exclusion applied) and a
- *  reader that returns its HEAD content — so the model is a pure function of the commit, never of the worktree. */
-export function headTree(gitdir, { skip = () => false } = {}) {
+ *  reader that returns its HEAD content — so the model is a pure function of the commit, never of the worktree.
+ *  `rev` reads another commit's tree the same way (`grain measure` builds the model a past commit had). */
+export function headTree(gitdir, { skip = () => false, rev = 'HEAD' } = {}) {
   const shas = new Map();
-  for (const line of git(gitdir, ['ls-tree', '-r', '-z', 'HEAD']).split('\0')) {
+  for (const line of git(gitdir, ['ls-tree', '-r', '-z', rev]).split('\0')) {
     const m = line.match(/^\d+ blob ([0-9a-f]+)\t(.+)$/);
     if (m) shas.set(m[2], m[1]);
   }
@@ -143,7 +144,7 @@ export function headTree(gitdir, { skip = () => false } = {}) {
   for (let i = 0; i < need.length; i += 400) {
     const chunk = need.slice(i, i + 400);
     const out = spawnSync('git', ['-C', gitdir, 'cat-file', '--batch'], {
-      input: chunk.map(f => 'HEAD:' + f).join('\n') + '\n',
+      input: chunk.map(f => rev + ':' + f).join('\n') + '\n',
       maxBuffer: 1 << 30,
     }).stdout;
     let off = 0,

@@ -57,7 +57,7 @@ export async function cmdExport({ model, meta, head, root, isGit, args, opts, st
 // function's header for what is in it and why.
 export async function cmdPropose({ root, args, opts, stamp }) {
   if (args.length > 1)
-    throw new Error('usage: grain propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--family-candidates <path> | --no-family-candidates] — at most one out-dir');
+    throw new Error('usage: grain propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--scope <id|path,…>] [--family-candidates <path> | --no-family-candidates] — at most one out-dir');
   if (opts.json === true)
     throw new Error('usage: grain propose --json <path> — `--json` names the file to write the report to; the text report always goes to stdout');
   if (opts.holdout !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(opts.holdout)))
@@ -82,7 +82,17 @@ export async function cmdPropose({ root, args, opts, stamp }) {
         `Run \`grain propose\` with no argument (it writes ${join(root, '.yggdrasil-proposal')}), or name a directory outside .yggdrasil/.`
     );
   const { propose, proposeReport, resolveYg, buildFamilyCandidates } = await import('./propose.mjs');
-  const r = await propose(root, outDir, { noHistory: !!opts['no-history'], holdout: opts.holdout });
+  // `--scope <id|path,…>`: node ids of the repository's own graph (each with the nodes under it) and paths
+  let scopeFiles = null;
+  if (opts.scope !== undefined) {
+    if (opts.scope === true) throw new Error('usage: grain propose --scope <id|path,…> — the node ids and paths to propose a graph for');
+    const [{ resolveScope, splitList }, { readNodeGraph }, { gitFiles }] = await Promise.all([import('./cochange.mjs'), import('./grain-advise.mjs'), import('./propose-base.mjs')]);
+    const tracked = gitFiles(root).files;
+    const r = resolveScope(splitList(opts.scope), { files: tracked, g: readNodeGraph(root, tracked) });
+    if (r.unknown.length) throw new Error(`--scope: nothing tracked matches ${r.unknown.map(e => `\`${e}\``).join(', ')}`);
+    scopeFiles = r.files;
+  }
+  const r = await propose(root, outDir, { noHistory: !!opts['no-history'], holdout: opts.holdout, scopeFiles });
   // The family-without-law signal `yg advise` reads (`.yggdrasil/.family-candidates.grain.json`). It goes INTO the
   // proposal, beside the graph, so `yg adopt` installs both in one move and an adopter never copies a file by
   // hand; `--family-candidates <path>` writes it somewhere else instead (a repository that adopted earlier

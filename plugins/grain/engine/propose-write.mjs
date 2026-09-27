@@ -258,8 +258,14 @@ function writeAspectFiles(ygg, repo, aspects, opts, ev) {
 }
 export async function propose(repo, outDir, opts = {}) {
   validateSeedsFile(repo);
-  const { files, exp, cache, ctx, degraded } = loadInputs(repo, opts);
+  const loaded = loadInputs(repo, opts);
+  const { exp, cache, ctx, degraded } = loaded;
   if (degraded) say(opts, `WARNING: ${degraded}`);
+  // `--scope` (issue 446): a proposal for one territory only. The model and the export stay whole-repository — the
+  // evidence behind a type is measured against everything around it — but only the scope's files are cut into
+  // types, nodes and rules, so the graph written covers the territory and nothing else.
+  const files = opts.scopeFiles ? loaded.files.filter(f => opts.scopeFiles.has(f)) : loaded.files;
+  if (opts.scopeFiles) say(opts, `scope: ${files.length} of ${loaded.files.length} tracked files`);
 
   say(opts, `${repo}: ${files.length} tracked files · ${(exp.partitions || []).length} partitions · ${(exp.conventions || []).length} conventions`);
   const loc = localities(exp, cache, files);
@@ -279,7 +285,20 @@ export async function propose(repo, outDir, opts = {}) {
   const sub = subGate(lat.rows);
   say(opts, `lattice: ${lat.rows.length} rows${lat.reason ? ` (${lat.reason})` : ''} · ${sub.length} in the sub-gate band`);
 
-  const { aspects, skipped } = buildAspects(exp, active, sub, opts);
+  const built = buildAspects(exp, active, sub, opts);
+  const { skipped } = built;
+  // a scoped proposal keeps only the rules measured inside the scope: a type in scope can still be the nearest host
+  // of a partition that reaches outside it, and a rule over files outside the territory is not the territory's rule
+  const inScope = a => {
+    const rels = [...(a.drills?.satisfies || []), ...(a.drills?.violates || [])].map(x => (typeof x === 'string' ? x.split('#')[0] : x?.rel)).filter(Boolean);
+    return rels.length > 0 && rels.every(f => opts.scopeFiles.has(f));
+  };
+  const aspects = opts.scopeFiles ? built.aspects.filter(inScope) : built.aspects;
+  if (opts.scopeFiles) {
+    const kept = new Set(aspects.map(a => a.id));
+    for (const a of active) a.aspectIds = (a.aspectIds || []).filter(id => kept.has(id));
+    say(opts, `scope: ${aspects.length} of ${built.aspects.length} rule drafts were measured inside it`);
+  }
   say(opts, `aspect drafts: ${aspects.length} (${aspects.filter(a => a.check).length} rendered as check.mjs, ${aspects.filter(a => !a.check).length} prose) · skipped: ${skipped.unrenderableGroupScoped} unrenderable group-scoped, ${skipped.notARule} not a rule`);
 
   // ---------------- write ----------------

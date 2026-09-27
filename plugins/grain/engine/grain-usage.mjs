@@ -19,18 +19,29 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
                                           reader with no terminal or no grain plugin; \`grain rules > CONVENTIONS.md\` also works
   export [--out <file>] [--max-sites N] [--compact] [--no-anchors]  the whole model as JSON: every convention with all its sites, anchors, trends,
                                           groups, markers, directories, co-change (for training pipelines and audits)
-  propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--family-candidates <path> | --no-family-candidates]   a PROPOSED Yggdrasil \`.yggdrasil/\` architecture graph for this repository —
+  propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--scope <id|path,…>] [--family-candidates <path> | --no-family-candidates]   a PROPOSED Yggdrasil \`.yggdrasil/\` architecture graph for this repository —
                                           nodes, relations and mined rules with evidence attached — written to <out-dir> (default
                                           .yggdrasil-proposal/, never over your own .yggdrasil/) for you to read and move in. The report
                                           names the architecture, the rules a real \`yg drill\` proved, and the candidates; \`--full\` adds
                                           every draft it kept back. It also writes the family-without-law signal \`yg advise\` reads,
                                           \`<out-dir>/.yggdrasil/.family-candidates.grain.json\` (\`--family-candidates <path>\` writes it
-                                          elsewhere, \`--no-family-candidates\` not at all), so \`yg adopt\` installs it with the graph
+                                          elsewhere, \`--no-family-candidates\` not at all), so \`yg adopt\` installs it with the graph.
+                                          \`--scope\` proposes for one territory only: node ids of this repository's graph and paths
   advise [--json] [--graph <dir>]         read the architecture graph this repository ALREADY has (never a proposed one) and report
                                           what its own history and imports say about it: places a finer cut of their own files beats,
                                           which is advice — and, as data rather than advice, places that change together with nothing
                                           in the graph connecting them, counted and disclosed here, listed only under \`--json\`.
                                           \`--graph\` reads a graph held beside the repository instead of inside it
+  cochange [--files <path,…>] [--nodes <id,…>] [--level file|dir|node] [--partition <json|file>] [--graph <dir>] [--runs N] [--seed N] [--json]
+                                          which parts of a set change together more often than chance, counted per file, directory
+                                          or graph node, beside how many the same count names on shuffled history; \`--partition\`
+                                          scores a proposed cut of the set into parts ({"part": ["path", "node/id"], …}): how many
+                                          commits and imports stayed inside one part, against random cuts along the directory tree
+  measure --from <sha> --to <sha> [--scope <id|path,…>] [--graph <dir>] [--json]
+                                          what the work between two commits did to a territory (nodes and paths; the whole repository
+                                          by default): its files, the imports inside it and across its edge, the dependencies between
+                                          nodes the graph does not declare, at each end — and how often the range's commits crossed its
+                                          edge, against the territory's own commits just before
   oracle record [--proposal <dir>] [--graph <dir>] [--name <n>] [--out <dir>] [--yes]
                                           keep the difference between a proposal and the graph you actually accepted: what it would
                                           store and where is printed first and nothing is written without \`--yes\`

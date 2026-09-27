@@ -27,12 +27,14 @@ worktree.
 | `report` | `--top N`, `--json` | top conventions with trends and ages, templates of the unclustered residue, drift, the module graph with cycles and, for each, the smallest set of module dependencies that breaks it (with the file references behind them; `cycleCuts` in `--json`), boundaries, and a `== health ==` section of conventions worth a decision |
 | `rules` | `--out <file>`, `--top N` | a generated Markdown document of established conventions over the same data `report` prints, stamped with the commit; no `--out` prints it to stdout (so `grain rules > CONVENTIONS.md` works) — for a reader with no terminal and no grain plugin |
 | `export` | `--out <file>`, `--max-sites N`, `--compact`, `--no-anchors` | the whole model as data; see the schema contract below |
-| `propose [<out-dir>]` | `--full`, `--json <path>`, `--holdout <YYYY-MM-DD>` | a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository, written to `<out-dir>` (default `.yggdrasil-proposal/`); the report names the architecture, the rules a real `yg drill` proved, and the candidates, with `--full` for every draft it kept back; see the proposal contract below |
-| `advise` | `--json`, `--graph <dir>` | what this repository's own history and imports say about the architecture graph it ALREADY has (never a proposed one): places that change together with nothing in the graph connecting them, and places a finer cut of their own files beats on their own evidence. The change-together side is not advice and is not listed on the text surface — see the measurement below; the split side is. `--graph` reads a hand-written graph held beside the repository instead of inside it. Emits `grain-advice/1` |
+| `propose [<out-dir>]` | `--full`, `--json <path>`, `--holdout <YYYY-MM-DD>`, `--scope <id\|path,…>`, `--family-candidates <path>`, `--no-family-candidates` | a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository, written to `<out-dir>` (default `.yggdrasil-proposal/`); the report names the architecture, the rules a real `yg drill` proved, and the candidates, with `--full` for every draft it kept back; see the proposal contract below. `--scope` proposes for one territory only (node ids of the repository's own graph, each with the nodes under it, and paths): the model and the evidence stay whole-repository, only the scope's files are cut into types and nodes, and only rules measured inside the scope are drafted |
+| `advise` | `--json`, `--graph <dir>` | what this repository's own history and imports say about the architecture graph it ALREADY has (never a proposed one): places that change together with nothing in the graph connecting them, places a finer cut of their own files beats on their own evidence, and rules the graph could take on. The change-together side is not advice and is not listed on the text surface — see the measurement below; the split side and the rule drafts are. `--graph` reads a hand-written graph held beside the repository instead of inside it. Emits `grain-advice/1` |
+| `cochange` | `--files <path,…>`, `--nodes <id,…>`, `--level file\|dir\|node`, `--partition <json\|file>`, `--graph <dir>`, `--runs N`, `--seed N`, `--json` | which of the given files or graph nodes change together more often than chance, with each other and with the rest of the repository, counted per file, directory or node, beside how many pairs the same count names on shuffled history; `--partition` scores a proposed cut of the set into parts against random cuts along the directory tree. Emits `grain-cochange/1`; see the co-change contract below |
+| `measure` | `--from <sha>`, `--to <sha>`, `--scope <id\|path,…>`, `--graph <dir>`, `--json` | what the work between two commits did to a territory: the model each commit had, built from its own tree, read for the territory's files, its imports inside, out and in, and the undeclared dependencies between nodes, plus how often the range's commits crossed the territory's edge against its own commits just before. Emits `grain-measure/1`; see the measurement contract below |
 | `oracle record` | `--proposal <dir>`, `--graph <dir>`, `--name <n>`, `--out <dir>`, `--yes` | keep the difference between the graph `propose` wrote and the graph a maintainer accepted, as a scoreable record: both graphs' structure, the tracked paths each element selects, and the correction between them. Prints what it would store and where and writes NOTHING without `--yes`; outside this repository's own fixtures there is no default destination and `--out` is the adopter's choice. Emits `grain-oracle/1` |
 | `oracle score <name-or-dir>` | `--json` | precision and recall of that proposal against that accepted graph — both directions, at type, node and relation granularity, a match at Jaccard >= 0.5 over file sets, which is the same measure `tests/stress/propose.mjs` scores grain with against the hand-written oracles — plus the two graphs read as partitions of the files both own (H(P\|A), H(A\|P), NMI, ARI, and the depth of the accepted tree the proposal cuts at) and every accepted relation projected onto the proposed nodes by file majority. Emits `grain-oracle-score/1` |
 | `decide steer <path>#<name>` | `--surfaces <pid,…>`, `--instead-of <pid,…>`, `--note`, `--topic`, `--weight`, `--author` | record a maintainer decision; without `--surfaces` it refuses and lists the exemplar's properties (alias `seed add`) |
-| `decide boundary <from>` | `--never-imports <to>`, `--note`, `--author` | an architecture decision; new imports crossing it are flagged at edit time (alias `seed add-boundary`) |
+| `decide boundary <from>` | `--never-imports <to>`, `--note`, `--author` | an architecture decision; new imports crossing it are flagged at edit time, until the architecture graph makes it law (then `decide list` marks it promoted and the flag stops, because `yg check` refuses it; see the advice contract) (alias `seed add-boundary`) |
 | `decide waive <path>#<name>` | `--on <pid>`, `--note`, `--author` | excuse one named scope from one convention; `check` reports the departure as deliberate, the counts still count it non-conforming |
 | `decide list`, `decide rm <id>` | | the decisions in force; withdraw one (aliases `seed list`, `seed rm <id>`) |
 | `selftest` | `--json` | plant synthetic deviations into conforming exemplars and report how many this repo's own model catches |
@@ -201,7 +203,7 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
   that the table lacks. A command becomes
   `grain_<command>`, a subcommand joins with `_`: `grain_where`, `grain_how`, `grain_what`, `grain_map`,
   `grain_obligation`, `grain_check`, `grain_completeness`, `grain_explain`, `grain_status`, `grain_report`,
-  `grain_rules`, `grain_export`, `grain_propose`, `grain_advise`, `grain_oracle_record`, `grain_oracle_score`,
+  `grain_rules`, `grain_export`, `grain_propose`, `grain_advise`, `grain_cochange`, `grain_measure`, `grain_oracle_record`, `grain_oracle_score`,
   `grain_decide_steer`, `grain_decide_boundary`, `grain_decide_waive`, `grain_decide_list`, `grain_decide_rm`,
   `grain_selftest`, `grain_refresh`, `grain_version`, and `grain_help` (the usage text). The aliases (`review`,
   `spectrum`, `seed`) and the hooks have no tool; `grain_check` without `file` is `review`.
@@ -224,8 +226,8 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
   in the caller's directory; a relative one is refused. `oracle score`'s `name-or-dir` is a bare name or an absolute
   path, and a bare name resolves in the repository. A path inside the repository (`check`'s `file`, `obligation`'s
   `path`, `completeness`'s `files`, `explain`'s `file`, the `<path>` of a `decide steer`/`waive` target) may be
-  absolute or relative to the repository root. `check`'s `as` and `decide boundary`'s `from` and `never-imports` are
-  taken as written, relative to the repository root; an absolute one is refused. A `repo`, or an absolute path inside it,
+  absolute or relative to the repository root. `check`'s `as`, `decide boundary`'s `from` and `never-imports`, and
+  `cochange`'s `files` (a comma-separated list) are taken as written, relative to the repository root; an absolute one is refused. `cochange`'s `partition` is inline JSON, or a file path resolved against the working directory, which for the server is the repository root. A `repo`, or an absolute path inside it,
   that does not exist where the server runs — a path from inside a dev container, handed to a server VS Code started
   on the host — is translated through the running containers' mounts (`docker ps`, `docker inspect`: the longest mount
   containing the normalised path, remembered for a minute; a path that does not exist yet goes through the nearest
@@ -797,9 +799,7 @@ are fixed. A producer may add fields; a consumer reads only these.
 }
 ```
 
-`kind` is one of `relation | port | split | rule`. **`port` and `rule` are reserved and never emitted** — grain
-does not fabricate an item kind it has no evidence for, and a test asserts that only `relation` and `split` ever
-appear.
+`kind` is one of `relation | port | split | rule`. **`port` is reserved and never emitted** — grain reads no contract a port could be named from, and does not fabricate an item kind it has no evidence for. `rule` is emitted since 6.1.0 (issue 446), from the two origins below, and only with the evidence each names.
 
 **`kind: relation`** — two nodes whose code changes together. `nodes` are graph node paths, sorted.
 `confidence` is the MUTUAL confidence, `min(ofA, ofB)`, and both directions must reach 1/3 — the same
@@ -817,9 +817,15 @@ proposed type (see *The level a type was cut at* above), so a candidate is offer
 the imports touching it stay inside than the parent's do, or grain could read none of its files while it could
 read the parent's. `evidence.candidates[].reason` is `tighter` or `unread` accordingly.
 
-A non-contract `survey` block carries the counts a measurement reads — pairs, declared/undeclared, the share of
-pairs touching the hottest node, the declared rate over every pair of nodes that owns a file, and the split
-count. It is not part of the contract and a consumer must not read it.
+**`kind: rule`** — law the graph could take on, as a draft; Grain never writes the graph. `evidence.origin` says which of two sources it came from, and `evidence.draft` carries the draft itself.
+
+- `origin: boundary` — a maintainer's `grain decide boundary <from> --never-imports <to>` that the architecture does not make law yet. `nodes` are the nodes owning files under `<from>`. The evidence names the decision (`decision`, `from`, `neverImports`, `decidedBy`, `decidedAt`, `note`), the nodes and types on each side (`fromNodes`, `toNodes`, `fromTypes`, `toTypes`), the resolved imports that cross it today (`violations`, and up to ten `violationSites`), the relations the graph declares that the decision forbids (`declaredConflicts`), the node pairs across it where one node sits inside the other (`nestedNodes` — Yggdrasil needs no relation along the hierarchy, so no type table refuses those imports), and how many files on the two sides no node owns (`unownedFiles`). `draft` is `{ form: "architecture-relations", deny: [{ type, mustNotReach }], removeRelations, nestedNodes, sharedNodes, sameType, untypedNodes }`: the type tables that would have to stop allowing the other side, the relations to remove, and what no type table can express (a node inside the other side's node, a node on both sides, both sides of one type, a node with no type).
+
+  **Promoted.** A decision is law when every node owning a file under `<from>` has a type whose `relations:` table has `default: deny` and lists neither the type of any node owning a file under `<to>` nor `*`, no such node declares a relation to the other side, no node sits on both sides or inside a node of the other side (or holds one), and every file on both sides has an owning node. Then `yg check` refuses the import and no relation can be declared to allow it. Such a decision emits no item, is counted in `survey.rules.boundaries.promoted`, is marked `[promoted: the architecture forbids it]` by `grain decide list`, and is no longer flagged at edit time. The status is derived from the graph on every read (the graph in the working tree, for the edit-time flag), never stored in `.grain/seeds.jsonl`, so it cannot drift from the law.
+
+- `origin: convention` — a convention grain certified that a mechanical check can hold, that does not state an absence, that is not formatting (indentation and quoting belong to the repository's formatter), every site of which lies inside one node, and that no aspect of the graph states (no aspect of the same id, which is how an adopted proposal keeps its rules, and no aspect whose `check.mjs` names the same identifier). The same rule certified in several nodes is one item: `nodes` lists every node it holds in, each the deepest node that holds all of that rule's sites there, strongest first. The evidence carries the aspect id grain would give the strongest (`aspect`), its `name`, the counts summed over the nodes (`conforming`, `deviating`) and the strongest one's `share`, `partition`, rule (`enumerator`, `argument`, `expected`) and `exemplars`; `draft` is the strongest node's `{ form: "aspect", attachTo, aspect, conforming, deviating, yaml, check }` — the `yg-aspect.yaml` document (`status: draft`, its `scope`) and the `check.mjs` source `grain propose` would write for it — and `alsoIn` the same for each other node. `confidence` is the share of all its sites that follow it. At most 20 items are listed per run, the most widely followed first; `survey.rules.conventions` counts the rest.
+
+A non-contract `survey` block carries the counts a measurement reads — pairs, declared/undeclared, the share of pairs touching the hottest node, the declared rate over every pair of nodes that owns a file, the split count, and under `rules` what happened to each boundary decision (`decisions`, `promoted`, `emitted`, `unattached` — no node owns a file under `<from>`) and to each certified convention (`certified`, `prose`, `absence`, `formatting`, `alreadyStated`, `spanningNodes`, `labelPartitions`, `drafts`, `rules`, `emitted`). It is not part of the contract and a consumer must not read it.
 
 **What the text surface says, and why it is not the same.** The maintainer note *node-cochange-measurement*
 measured this on four hand-written graphs: the change-together side named two node pairs in total, both of them
@@ -829,7 +835,64 @@ So the pairs are **data, not advice**: the text surface prints their count, how 
 concentration and the declared rates, and leaves the pairs themselves to `--json`. Those numbers are recomputed
 on every run, so a repository where the finding does not hold says so in its own output. The split side was
 measured on the same four graphs, named a place holding a pile the evidence separates on three of them and
-nothing on the fourth, and **is** printed as advice.
+nothing on the fourth, and **is** printed as advice. The rule drafts are printed as advice too, each with its evidence sentence.
 
 With no `.yggdrasil/` to read, the command says so and points at `grain propose`; the document is still a
 `grain-advice/1` with an empty `items` and a `note`.
+
+## The co-change contract
+
+`grain cochange [--files <path,…>] [--nodes <id,…>] [--level file|dir|node] [--partition <json|file>] [--graph <dir>] [--runs N] [--seed N] [--json]` answers the question a plan is cut by: which parts of a set of files change together more often than chance, and how well a proposed cut of them into parts follows the seams the history shows. `--json` emits `grain-cochange/1`.
+
+**The set.** `--files` takes paths relative to the repository root (a file, or every file under a directory), `--nodes` node ids of the architecture graph (a node and every node under it); both are comma-separated and may be combined, and a `--partition` adds its parts' files. An entry that selects nothing is refused.
+
+**The unit.** `--level file` counts files, `dir` the directory each file sits in, `node` the node that owns each file (the deepest whose mapping selects it, as `advise` reads ownership). `--nodes` defaults to `node`, everything else to `file`. A touched path is carried to the path it lives at today; a file that no longer exists, or that no node owns at node level, counts toward no unit (`window.touchesOutsideAnyUnit`).
+
+**The pairs.** Counted over the retained commit footprints (the non-bulk commits of the history, newest 20 000), recounted per unit. A pair is named when, for at least one of its ends, the other end was touched in that end's commits more often than its own base rate predicts — the co-change cell `completeness` applies, with the base rate corrected for the size of the commits — and the pair met at least 8 times. Every pair has at least one end in the set; `inside` says whether both are.
+
+```json
+{
+  "schema": "grain-cochange/1", "repo": ".", "at": "<sha>", "level": "node",
+  "set": { "entries": [ { "entry": "orders", "kind": "node", "files": 6 } ], "files": 6, "units": 1 },
+  "units": [ { "unit": "orders", "commits": 12, "evidence": { "files": 6, "importsInside": 0, "importsCrossing": 10, "purity": 0, "mined": 6 } } ],
+  "pairs": [ { "a": "billing", "b": "orders", "sup": 12, "commitsA": 12, "commitsB": 12, "bitsAB": 15.1, "bitsBA": 15.1, "inside": false } ],
+  "control": { "null": { "runs": 3, "seed": 1, "certifiedMean": 0, "certifiedMax": 0 }, "real": 1 },
+  "partition": null,
+  "window": { "commits": 40, "first": "<sha>", "last": "<sha>", "touchesOutsideAnyUnit": 3 }
+}
+```
+
+`bitsAB` is the cell's reading of `b` as a partner of `a` (null when that direction does not clear it), `bitsBA` the reverse. `units[].evidence` is the unit's import boundary (`typeEvidence`, the numbers a proposed type carries).
+
+**The control.** `control.null` is the same count on `--runs` (default 3) swap-randomised copies of the unit-by-commit matrix, starting from `--seed` (default 1): every commit keeps its size and every unit its commit count, nothing else survives, so every pair counted there is false. `--runs 0` skips it.
+
+**The cut.** `--partition` is a JSON object of part name to a list of node ids and paths, inline or in a file; a file may belong to one part only. `partition.parts[]` carries each part's import boundary; `partition.score` says how many retained commits that touched any part touched exactly one (`commitsInside`) or more (`commitsCrossing`, `commitShare` the inside share), how many resolved imports between the parts' files stay inside one part (`importsInside`, `importsCrossing`, `importShare`), and how many of the pairs above sit inside one part or cross (`pairsInside`, `pairsCrossing`). `partition.control` scores ten times `--runs` (at least 10) random cuts of the same files into parts of about the same sizes, dealt out a directory at a time (each part takes one directory first, then every further directory goes to the part furthest below its size, so a random cut has as many parts as the proposed one), and reports the mean shares, how many random cuts did at least as well as the proposed one (`atLeastAsGoodCommitShare`, `atLeastAsGoodImportShare`), and how many directories the parts' files span (`directories`): when that is fewer than the parts, no random cut can fill every part, the comparison favours the random cuts, and the text answer says so. With 30 cuts, "none did as well" is the strongest verdict the control can give, about one chance in 31 under a directory-respecting cut.
+
+Without history (`--no-history`, a shallow or partial clone) `pairs`, `control` and `window` are `null`, the commit side of the score is `null`, and a `note` says so; the import side is still reported.
+
+## The measurement contract
+
+`grain measure --from <sha> --to <sha> [--scope <id|path,…>] [--graph <dir>] [--json]` reports what the work between two commits did to a territory. `--json` emits `grain-measure/1`.
+
+**Each end is the model that commit had.** The commit's tree is written out under `.grain/cache/measure/` for the files the resolvers read from disk, its code files are read from git, and the model is built with no history, the way `refresh` builds HEAD; files already extracted for HEAD are reused by blob. What the command keeps of it (the tracked files, the resolved imports, the parsed files) is cached by commit under `.grain/cache/measure/<sha>.json` and rebuilt when the engine, extractor, model, grammars or Runes pin change.
+
+**The scope** is a comma-separated list of node ids and paths, the whole repository without it. Node ids are read from one graph — the repository's own `.yggdrasil/` as it is now, or `--graph` — and expanded against each end's own files, so a node the work added holds no files at `--from`. An entry that matches nothing at either end is refused.
+
+```json
+{
+  "schema": "grain-measure/1", "repo": ".", "at": "<HEAD sha>",
+  "scope": { "entries": ["src/report", "billing"] }, "graph": ".yggdrasil",
+  "from": { "sha": "<sha>", "files": 6, "mined": 6, "importsInside": 0, "importsOut": 10, "importsIn": 0, "purity": 0,
+            "repo": { "files": 14, "imports": 20 }, "nodeDependencies": 1, "undeclaredNodeDependencies": 1, "undeclared": [ { "from": "billing", "to": "util", "imports": 10 } ], "graphAtCommit": false },
+  "to": { "sha": "<sha>", "files": 9, "mined": 9, "importsInside": 3, "importsOut": 13, "importsIn": 0, "purity": 0.1875, "…": "the same fields" },
+  "delta": { "files": 3, "mined": 3, "importsInside": 3, "importsOut": 3, "importsIn": 0, "nodeDependencies": 0, "undeclaredNodeDependencies": 0, "purity": 0.1875 },
+  "range": { "commitsInRange": 3, "commitsCounted": 3, "scopeCommits": 3, "inside": 3, "crossing": 0, "crossingShare": 0,
+             "baseline": { "scopeCommits": 3, "inside": 0, "crossing": 3, "crossingShare": 1 } },
+  "notes": []
+}
+```
+
+At each end: `files` in the territory, `mined` of them parsed, resolved imports with both ends inside (`importsInside`), from inside to outside (`importsOut`) and from outside in (`importsIn`), `purity` the inside share of all three (null when none touch it), the repository's own totals, and with a graph the number of node pairs with an import between them where one end is in the territory (`nodeDependencies`) and how many of those the graph does not declare (`undeclaredNodeDependencies`, the first 20 in `undeclared`). Those are read against the graph the commit itself had (`graphAtCommit: true`), so a relation the work declared counts at `--to` and not at `--from`; with `--graph`, or at a commit that had no graph, against the one graph the scope was read from. `delta` is `to` minus `from`.
+
+**The range** is the commits reachable from `--to` and not from `--from` (`commitsInRange`), of which those among the retained footprints are counted (`commitsCounted`; merges and bulk commits are never footprints, and `notes` says how many were left out). Of the counted commits, `scopeCommits` touched the territory — a path counts when it is in the territory at either end, or lives today at a path in it at `--to` — and `crossing` of those also touched a file outside it. `baseline` is the control: the same count over as many of the territory's own commits just before the range. Without history `range` is `null` and `notes` says so.
+

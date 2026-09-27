@@ -42,12 +42,22 @@ export const COMMANDS = {
       full: 'bool',
       json: 'path',
       holdout: 'value',
+      scope: 'value',
       'family-candidates': 'path',
       'no-family-candidates': 'bool',
     },
     writes: 'always',
   },
   advise: { args: [], flags: { json: 'bool', graph: 'path' } },
+  cochange: {
+    args: [],
+    repoRelative: ['files'],
+    flags: { files: 'value', nodes: 'value', level: 'value', partition: 'value', graph: 'path', runs: 'number', seed: 'number', json: 'bool' },
+  },
+  measure: {
+    args: [],
+    flags: { from: 'value', to: 'value', scope: 'value', graph: 'path', json: 'bool' },
+  },
   'oracle record': {
     args: [],
     flags: { proposal: 'path', graph: 'path', name: 'value', out: 'path', yes: 'bool' },

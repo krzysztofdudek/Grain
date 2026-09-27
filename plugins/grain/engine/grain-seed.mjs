@@ -13,6 +13,8 @@ import {
   heritageKindOf,
 } from './core.mjs';
 import { atomicWrite, fileDirty, loadScopes, log, readJson, readSeeds, relPath } from './grain-context.mjs';
+import { declaredVia, readNodeGraph } from './grain-advise.mjs';
+import { promotedBoundaryIds } from './advise-rules.mjs';
 
 export async function cmdSpectrum({ model, root, isGit, args, opts, stamp, store }) {
   if (!args[0]) throw new Error('usage: grain spectrum <file> [--minbits N] [--top N]');
@@ -85,6 +87,8 @@ async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
         'no seeds — `grain seed add <path>#<name> --surfaces <pid,…> --note "…"` (pattern) or `grain seed add-boundary <from> --never-imports <to> --note "…"` (architecture) records a maintainer decision in .grain/seeds.jsonl',
         stamp(),
       ];
+    // a boundary the architecture graph already makes law is marked as such (derived from the graph, never stored)
+    const promoted = boundaries.length ? promotedBoundaryIds(root, { ...model, boundaries, _promotedBoundaries: undefined }, declaredVia, readNodeGraph) : new Set();
     return [
       ...seeds.map(
         sd =>
@@ -92,7 +96,7 @@ async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
       ),
       ...boundaries.map(
         bd =>
-          `${bd.id}  boundary: ${bd.boundary.from}/ never imports ${bd.boundary.to}/${bd.note ? `  — ${bd.note}` : ''}  (${[bd.author, bd.createdAt].filter(Boolean).join(' ')})`
+          `${bd.id}  boundary: ${bd.boundary.from}/ never imports ${bd.boundary.to}/${promoted.has(bd.id) ? '  [promoted: the architecture forbids it]' : ''}${bd.note ? `  — ${bd.note}` : ''}  (${[bd.author, bd.createdAt].filter(Boolean).join(' ')})`
       ),
       ...waivers.map(
         wv =>

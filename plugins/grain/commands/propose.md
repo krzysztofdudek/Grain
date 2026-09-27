@@ -1,6 +1,6 @@
 ---
 description: Mine a PROPOSED Yggdrasil `.yggdrasil/` architecture graph for this repository — nodes, relations and rules with evidence — into a staging directory for a human to accept with `yg adopt`
-argument-hint: [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--family-candidates <path> | --no-family-candidates]
+argument-hint: [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--scope <id|path,…>] [--family-candidates <path> | --no-family-candidates]
 allowed-tools: Bash(node:*)
 ---
 ## grain propose: $ARGUMENTS
@@ -55,6 +55,8 @@ structurally uniform files no rule covers, in the shape `yg advise` reads. `yg a
 and from then on `yg advise` names each group as a rule to draft. The line that starts `family candidates:` says how
 many there are and where the file went. For a repository that adopted earlier, `--family-candidates <path>` writes the
 file to its own `.yggdrasil/` (or any path) instead; `--no-family-candidates` writes none.
+
+`--scope <id|path,…>` proposes for one territory only: node ids of the repository's own graph (each with the nodes under it) and paths. The model and the evidence stay whole-repository; only the scope's files are cut into types and nodes, and only rules measured inside the scope are drafted. For a repository that already has a graph, that proposal is something to read beside it, never something to adopt over it.
 
 Do not edit any file, do not run `yg adopt` (dry-run or real) or `yg check --approve` yourself, unless the user
 asks — the run above may already have shown a real `yg adopt --dry-run` preview, which is read-only and writes
