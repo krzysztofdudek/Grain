@@ -91,7 +91,7 @@ function checkout(dir, repo, commit) {
 function treeSitterCli(wanted) {
   let bin;
   try {
-    bin = path.join(path.dirname(requireFromRoot.resolve('tree-sitter-cli/package.json')), 'tree-sitter');
+    bin = path.join(path.dirname(requireFromRoot.resolve('tree-sitter-cli/package.json')), process.platform === 'win32' ? 'tree-sitter.exe' : 'tree-sitter');
   } catch {
     throw new Error('building a grammar from source needs the tree-sitter-cli devDependency: run `npm ci` in plugins/grain.');
   }
