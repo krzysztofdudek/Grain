@@ -11,7 +11,9 @@
 // relative one is fine everywhere; a `<path>#<name>` target counts by its path); `repoRelative` the ones the command
 // takes as written, relative to the repository root (a module directory, a virtual path), where an absolute path is wrong; `paths` the arguments resolved against the working directory, like a 'path' flag; `pathOrName`
 // an argument that is either a bare name or such a path. `writes` says what a command writes beyond Grain's disposable
-// index: 'always', or the flag whose presence makes it write.
+// index: 'always', or the flag whose presence makes it write. `stdoutJson` marks a command that prints a JSON document
+// with no --json asked for (unless it writes it to the file its `writes` flag names), so the MCP server answers it as
+// one block, as it does any --json answer.
 
 export const GLOBAL_FLAGS = { repo: 'path', 'no-refresh': 'bool', 'no-history': 'bool' };
 
@@ -32,7 +34,7 @@ export const COMMANDS = {
   status: { args: [], flags: { json: 'bool' } },
   report: { args: [], flags: { top: 'number', json: 'bool' } },
   rules: { args: [], flags: { out: 'path', top: 'number' }, writes: 'out' },
-  export: { args: [], flags: { out: 'path', 'max-sites': 'number', compact: 'bool', 'no-anchors': 'bool' }, writes: 'out' },
+  export: { args: [], flags: { out: 'path', 'max-sites': 'number', compact: 'bool', 'no-anchors': 'bool' }, writes: 'out', stdoutJson: true },
   propose: {
     args: ['out-dir?'],
     paths: ['out-dir'],

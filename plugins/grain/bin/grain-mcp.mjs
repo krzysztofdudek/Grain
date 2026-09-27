@@ -21,6 +21,7 @@ import { existsSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, resolve, dirname, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
+import { constants as osConstants } from 'node:os';
 import { COMMANDS, GLOBAL_FLAGS } from '../engine/grain-commands.mjs';
 import { USAGE } from '../engine/grain-usage.mjs';
 import { hostPathFor, findRoot } from '../engine/grain-context.mjs';
@@ -323,6 +324,15 @@ function runCli(argv, { cwd = process.cwd(), timeoutMs, signal } = {}) {
   });
 }
 
+// Whether a call's stdout is a JSON document: the ones asked for with json: true, and a command the table marks as
+// printing JSON on its own (export), unless it was told to write it to a file instead.
+export function answersJson(cmd, input = {}) {
+  const spec = COMMANDS[cmd];
+  if (!spec) return false;
+  if (spec.flags.json === 'bool' && input.json === true) return true;
+  return !!spec.stdoutJson && !(spec.writes && input[spec.writes] != null);
+}
+
 // One tool call: { content, isError } as MCP returns it. Invalid fields throw a ProtocolError (a JSON-RPC error);
 // everything the CLI prints — its answer, its diagnostics, its refusal — comes back as the result.
 export async function callTool(name, input = {}, { signal, env = process.env } = {}) {
@@ -356,7 +366,7 @@ export async function callTool(name, input = {}, { signal, env = process.env } =
     : null;
   // A JSON answer is one block a client can parse as it comes: what the CLI said on stderr and which repository was
   // meant go to _meta, never into a second text block.
-  if (input.json === true && r.code === 0) {
+  if (answersJson(cmd, input) && r.code === 0) {
     const meta = { ...(err ? { 'grain/stderr': err } : {}), ...(note ? { 'grain/repo': note } : {}) };
     return { content: [{ type: 'text', text: out }], isError: false, ...(Object.keys(meta).length ? { _meta: meta } : {}) };
   }
@@ -400,8 +410,11 @@ function serve() {
   const tools = buildTools();
   const send = m => process.stdout.write(JSON.stringify(m) + '\n'); // one compact line: JSON.stringify never emits a raw newline
   // Requests the client cancelled (notifications/cancelled), and the running call's way to stop its CLI. A cancel is
-  // read the moment it arrives, not in turn behind the call it cancels; a cancelled request is never answered.
-  const cancelled = new Set();
+  // read the moment it arrives, not in turn behind the call it cancels; a cancelled request is never answered. Only a
+  // call that is running or waiting its turn can be cancelled: a cancel for any other id (one already answered, one
+  // never sent) is ignored, so a later request that reuses the id is answered as usual.
+  const cancelled = new Set(); // ids of queued calls to drop when their turn comes
+  const queued = new Map(); // request id → how many calls with it wait their turn
   const running = new Map(); // request id → AbortController
   const key = id => JSON.stringify(id);
   function parse(line) {
@@ -426,25 +439,37 @@ function serve() {
       return;
     }
     if (!hasId) return; // a notification (initialized, cancelled): nothing to answer
-    if (cancelled.delete(key(msg.id))) return; // cancelled while it waited its turn
+    // only a tool call runs long enough to be cancelled; a ping sharing its id must not take its place here
+    const call = msg.method === 'tools/call';
     const ctrl = new AbortController();
-    running.set(key(msg.id), ctrl);
+    if (call) running.set(key(msg.id), ctrl);
     let reply;
     try {
       reply = await handle(msg, tools, ctrl.signal);
     } catch (e) {
       reply = { jsonrpc: '2.0', id: msg.id, error: { code: -32603, message: e?.message || String(e) } };
     } finally {
-      running.delete(key(msg.id));
+      if (call) running.delete(key(msg.id));
     }
-    if (ctrl.signal.aborted) {
-      cancelled.delete(key(msg.id));
-      return;
-    }
+    if (ctrl.signal.aborted) return;
     send(reply);
   }
-  // one call at a time, in order: two calls rebuilding the same index at once is not a risk worth taking
+  // Tool calls run one at a time, in order: two calls rebuilding the same index at once is not a risk worth taking.
+  // Everything else (initialize, ping, tools/list, a malformed line) is answered at once, never behind a running call.
   let queue = Promise.resolve();
+  function enqueue(p) {
+    const k = key(p.msg.id);
+    queued.set(k, (queued.get(k) || 0) + 1);
+    queue = queue
+      .then(() => {
+        const n = queued.get(k) - 1;
+        if (n) queued.set(k, n);
+        else queued.delete(k);
+        if (cancelled.delete(k)) return; // cancelled while it waited its turn
+        return onMessage(p);
+      })
+      .catch(e => console.error('[grain-mcp]', e?.stack || e));
+  }
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
   rl.on('line', line => {
     const p = parse(line);
@@ -454,16 +479,28 @@ function serve() {
       if (id === undefined) return;
       const ctrl = running.get(key(id));
       if (ctrl) ctrl.abort();
-      else cancelled.add(key(id));
+      else if (queued.has(key(id))) cancelled.add(key(id));
       return;
     }
-    queue = queue.then(() => onMessage(p)).catch(e => console.error('[grain-mcp]', e?.stack || e));
+    if (p.msg?.method === 'tools/call' && Object.hasOwn(p.msg, 'id')) enqueue(p);
+    else onMessage(p).catch(e => console.error('[grain-mcp]', e?.stack || e));
   });
+  // Leaving, for whatever reason: stop every running CLI with its process group first. The CLI runs detached (so a
+  // timeout can kill the whole group), which also means nothing else stops it when this server goes.
+  const stopAll = () => {
+    for (const ctrl of running.values()) ctrl.abort();
+  };
   // the client is gone: stop whatever is running and leave, answering nothing more
   rl.on('close', () => {
-    for (const ctrl of running.values()) ctrl.abort();
+    stopAll();
     process.stdout.write('', () => process.exit(0));
   });
+  // told to stop (the host shutting down, a terminal's Ctrl-C, a closed terminal): the same, then exit as the signal would
+  for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'])
+    process.on(sig, () => {
+      stopAll();
+      process.exit(128 + osConstants.signals[sig]);
+    });
   process.on('uncaughtException', e => console.error('[grain-mcp] uncaught:', e?.stack || e));
   process.on('unhandledRejection', e => console.error('[grain-mcp] unhandled rejection:', e?.stack || e));
 }
