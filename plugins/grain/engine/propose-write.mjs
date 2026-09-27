@@ -305,6 +305,8 @@ export async function propose(repo, outDir, opts = {}) {
   const ygForSchema = resolveYg(opts.ygBin);
   const rootProbe = probeRootParent(ygForSchema);
   const rootParent = rootProbe.root;
+  // a `root` written without asking is said as such, never passed off as the CLI's answer (the review of issue 455)
+  if (!rootProbe.probed) say(opts, `\`${ROOT_PARENT}\` is written in \`parents:\` of top-level types without a probe (${rootProbe.why}): the proposal assumes the Yggdrasil this Grain ships with, which knows it`);
   if (!rootParent) say(opts, `the Yggdrasil at ${ygForSchema.label} does not know \`${ROOT_PARENT}\` in \`parents:\` (${rootProbe.why}); top-level types are written without it, which only a Yggdrasil that checks parents below the top alone accepts`);
   writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive, rootParent });
 
