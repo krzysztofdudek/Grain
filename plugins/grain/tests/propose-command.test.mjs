@@ -268,7 +268,7 @@ test('the SessionStart text names `grain_propose` exactly where the trigger mome
 });
 
 // ---------- Yggdrasil must be able to load what the command wrote ----------
-const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-reviewer-missing|description-missing|type-undefined|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
+const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-rule-source-missing|aspect-reviewer-missing|description-missing|type-undefined|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
 
 test('yg check loads the graph the command wrote, from a staged copy of the repository', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
   const stage = join(tmp, 'stage');
