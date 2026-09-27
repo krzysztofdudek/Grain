@@ -7,7 +7,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync, readFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync, readFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -100,6 +100,19 @@ test('parity: each command\'s usage shows exactly the flags the table gives it, 
   }
 });
 
+test('parity: every flag the engine reads off the command line is in the table', () => {
+  const known = new Set([...Object.values(COMMANDS).flatMap(c => Object.keys(c.flags)), ...Object.keys(GLOBAL_FLAGS), ...Object.values(INTERNAL).flatMap(c => Object.keys(c.flags)), 'help']);
+  // option bags that are not the command line: camelCase names, and propose's own `quiet` (set by its callers, never a flag)
+  const NOT_FLAGS = new Set(['quiet']);
+  const dir = join(here, '..', 'engine');
+  const read = new Set();
+  for (const f of readdirSync(dir).filter(f => f.endsWith('.mjs')))
+    for (const m of readFileSync(join(dir, f), 'utf8').matchAll(/\bopts(?:\.([a-z]+(?:-[a-z]+)*)\b(?![A-Z(])|\[['"]([a-z]+(?:-[a-z]+)*)['"]\])/g)) read.add(m[1] || m[2]);
+  assert.ok(read.size >= 40, `read ${read.size} flag names from the engine`);
+  const missing = [...read].filter(n => !known.has(n) && !NOT_FLAGS.has(n));
+  assert.deepEqual(missing, [], `the engine reads these flags, the command table does not have them: ${missing.join(', ')}`);
+});
+
 test('parity: the tool set is the one this release documents — adding or removing a tool is a deliberate edit here', () => {
   assert.deepEqual(TOOLS.map(t => t.name).sort(), [
     'advise', 'check', 'completeness', 'decide_boundary', 'decide_list', 'decide_rm', 'decide_steer', 'decide_waive',
@@ -116,13 +129,16 @@ test('parity: each tool has one field per argument and per flag, under the CLI n
     const args = spec.args.map(mcp.argName);
     for (const a of args) assert.ok(!spec.flags[a] && !GLOBAL_FLAGS[a], `${cmd}: argument "${a}" clashes with a flag`);
     assert.deepEqual(Object.keys(props).sort(), [...args, ...Object.keys(spec.flags), ...Object.keys(GLOBAL_FLAGS)].sort(), `${cmd}: fields`);
-    for (const [f, kind] of Object.entries({ ...spec.flags, ...GLOBAL_FLAGS })) assert.equal(props[f].type, kind === 'bool' ? 'boolean' : 'string', `${cmd} --${f}`);
+    for (const [f, kind] of Object.entries({ ...spec.flags, ...GLOBAL_FLAGS }))
+      assert.deepEqual(props[f].type, kind === 'bool' ? 'boolean' : kind === 'number' ? ['number', 'string'] : 'string', `${cmd} --${f}`);
+    assert.equal(t.annotations.destructiveHint, mcp.DESTRUCTIVE.has(cmd), `${cmd}: destructiveHint`);
     assert.equal(t.inputSchema.additionalProperties, false);
     const writes = !!spec.writes || cmd === 'refresh';
     assert.equal(t.annotations.readOnlyHint, !writes, cmd);
     assert.match(t.description, writes ? /^WRITES / : /^Read-only/, `${cmd}: the description says whether it writes`);
     assert.ok(t.description.includes(`CLI: grain ${cmd}`), `${cmd}: the description carries its usage`);
   }
+  for (const d of ['grain_propose', 'grain_rules', 'grain_export', 'grain_decide_rm']) assert.equal(byName[d].annotations.destructiveHint, true, d);
   for (const w of ['grain_propose', 'grain_decide_steer', 'grain_decide_boundary', 'grain_decide_waive', 'grain_decide_rm', 'grain_oracle_record'])
     assert.match(byName[w].description, /^WRITES /, w);
 });
@@ -163,6 +179,11 @@ test('invalid input is refused before the CLI runs: unknown field, wrong type, m
   assert.deepEqual(mcp.argvFor('oracle score', { 'name-or-dir': 'mine' }), ['oracle', 'score', '--', 'mine']);
   assert.deepEqual(mcp.argvFor('check', { file: 'src/a.ts' }), ['check', '--', 'src/a.ts'], 'a path inside the repository may be relative to its root');
   assert.deepEqual(mcp.argvFor('report', { top: 5 }), ['report', '--top=5'], 'a number is taken as its text');
+  assert.deepEqual(mcp.argvFor('report', { top: '5' }), ['report', '--top=5'], 'and so is its text');
+  refuses('decide boundary', { from: '/abs/src/a', 'never-imports': 'src/b' }, /"from" is relative to the repository root/);
+  refuses('decide boundary', { from: 'src/a', 'never-imports': '/abs/src/b' }, /"never-imports" is relative to the repository root/);
+  refuses('check', { file: 'src/a.ts', as: '/abs/src/b.ts' }, /"as" is relative to the repository root/);
+  assert.deepEqual(mcp.argvFor('decide waive', { target: 'src/a.ts#run', on: 'p' }), ['decide', 'waive', '--on=p', '--', 'src/a.ts#run'], 'a target keeps its #name');
 });
 
 before(() => {

@@ -18,7 +18,7 @@
 // Wire format: newline-delimited JSON-RPC 2.0 on stdin/stdout (MCP stdio transport); stderr is for diagnostics.
 import { createInterface } from 'node:readline';
 import { existsSync, realpathSync, statSync } from 'node:fs';
-import { isAbsolute, resolve } from 'node:path';
+import { isAbsolute, resolve, dirname, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { COMMANDS, GLOBAL_FLAGS } from '../engine/grain-commands.mjs';
@@ -98,6 +98,7 @@ const ABS_NOTE = " An absolute path: the server does not run in your working dir
 function flagSchema(name, kind) {
   if (kind === 'bool') return { type: 'boolean', description: `--${name} on the CLI.` };
   if (kind === 'path') return { type: 'string', description: `--${name} <path> on the CLI.${ABS_NOTE}` };
+  if (kind === 'number') return { type: ['number', 'string'], description: `--${name} N on the CLI: a number, or its text.` };
   return { type: 'string', description: `--${name} <value> on the CLI (a number is taken as its text).` };
 }
 function effectOf(cmd, spec) {
@@ -110,6 +111,10 @@ function effectOf(cmd, spec) {
   if (cmd === 'refresh') return "WRITES only Grain's own disposable index (.grain/cache/), rebuilt now; every other tool refreshes it as needed.";
   return "Read-only: writes nothing beyond Grain's own disposable index (.grain/cache/).";
 }
+
+// The tools that can replace what is there: propose rewrites its output directory, rules and export overwrite the
+// file named by "out", decide rm withdraws a decision.
+export const DESTRUCTIVE = new Set(['propose', 'rules', 'export', 'decide rm']);
 
 // One tool per command, generated from the table.
 export function buildTools() {
@@ -124,7 +129,9 @@ export function buildTools() {
     const pathOrName = new Set(spec.pathOrName || []);
     spec.args.forEach((a, i) => {
       const n = argName(a);
-      const where = repoPaths.has(n)
+      const where = (spec.repoRelative || []).includes(n)
+        ? ' Relative to the repository root, as written (an absolute path is refused).'
+        : repoPaths.has(n)
         ? ' A path inside the repository: absolute, or relative to the repository root.'
         : paths.has(n)
           ? ABS_NOTE
@@ -136,7 +143,11 @@ export function buildTools() {
         : { type: 'string', description: `Argument ${i + 1} of the CLI synopsis${optional(a) ? ' (may be left out)' : ''}.${where}` };
       if (!optional(a)) required.push(n);
     });
-    for (const [f, kind] of Object.entries(spec.flags)) properties[f] = flagSchema(f, kind);
+    for (const [f, kind] of Object.entries(spec.flags)) {
+      properties[f] = flagSchema(f, kind);
+      if ((spec.repoRelative || []).includes(f)) properties[f].description += ' Relative to the repository root (an absolute path is refused).';
+      if (repoPaths.has(f)) properties[f].description += ' A path inside the repository: absolute, or relative to the repository root.';
+    }
     if (spec.flags.json === 'bool') properties.json.description = 'Answer with the JSON --json prints instead of the text.';
     for (const [f, kind] of Object.entries(GLOBAL_FLAGS)) properties[f] = flagSchema(f, kind);
     properties.repo.description =
@@ -148,7 +159,7 @@ export function buildTools() {
       inputSchema: { type: 'object', properties, ...(required.length ? { required } : {}), additionalProperties: false },
       annotations: {
         readOnlyHint: !writes,
-        destructiveHint: cmd === 'decide rm',
+        destructiveHint: DESTRUCTIVE.has(cmd),
         idempotentHint: !writes,
         openWorldHint: false,
       },
@@ -175,13 +186,42 @@ function need(cond, msg) {
 }
 const scalar = v => (typeof v === 'string' && v !== '') || (typeof v === 'number' && Number.isFinite(v));
 // a path inside the repository, from inside a dev container: the host path a running container mounts there
-const hostSide = p => (isAbsolute(p) && !existsSync(p) ? (hostPathFor(p) ?? p) : p);
+// Each answer is kept a minute, so a path asked about again does not ask docker again; a path that does not exist yet
+// (obligation's is asked BEFORE the file is written) is translated through the nearest directory above it that does
+// not exist here either, the one docker can place.
+const HOST_TTL = 60_000;
+const hostCache = new Map();
+function hostPathCached(p) {
+  const hit = hostCache.get(p);
+  if (hit && Date.now() - hit.at < HOST_TTL) return hit.host;
+  const host = hostPathFor(p);
+  hostCache.set(p, { host, at: Date.now() });
+  return host;
+}
+export function hostSide(p) {
+  if (!isAbsolute(p) || existsSync(p)) return p;
+  const tail = [];
+  for (let d = p; ; ) {
+    const host = hostPathCached(d);
+    if (host) return tail.length ? join(host, ...tail) : host;
+    const up = dirname(d);
+    if (up === d || existsSync(up)) return p; // reached a directory that is here: the path is this machine's, just absent
+    tail.unshift(basename(d));
+    d = up;
+  }
+}
 const isDir = p => {
   try {
     return statSync(p).isDirectory();
   } catch {
     return false;
   }
+};
+
+// a path inside the repository, possibly `<path>#<scope name>`: the path part through the container translation
+const inRepo = x => {
+  const i = x.indexOf('#');
+  return i < 0 ? hostSide(x) : hostSide(x.slice(0, i)) + x.slice(i);
 };
 
 // A tool call back into the argv the CLI would be given: the command words, every flag inline (--name=value, so a
@@ -206,7 +246,8 @@ export function argvFor(cmd, input = {}) {
       argv.push(`--${f}=${v}`);
     } else {
       need(scalar(v), `${tool}: "${f}" must be a non-empty string or a number`);
-      argv.push(`--${f}=${v}`);
+      need(!(spec.repoRelative || []).includes(f) || !isAbsolute(String(v)), `${tool}: "${f}" is relative to the repository root (got ${JSON.stringify(v)})`);
+      argv.push(`--${f}=${(spec.repoPaths || []).includes(f) ? inRepo(String(v)) : v}`);
     }
   }
   const words = [];
@@ -227,7 +268,9 @@ export function argvFor(cmd, input = {}) {
         need(isAbsolute(x), `${tool}: "${n}" must be an absolute path (got ${JSON.stringify(x)}) — the server does not run in your working directory`);
       if ((spec.pathOrName || []).includes(n))
         need(isAbsolute(x) || !/[/\\]/.test(x), `${tool}: "${n}" must be a bare name or an absolute path (got ${JSON.stringify(x)}) — the server does not run in your working directory`);
-      words.push((spec.repoPaths || []).includes(n) ? hostSide(x) : x);
+      if ((spec.repoRelative || []).includes(n))
+        need(!isAbsolute(x), `${tool}: "${n}" is relative to the repository root (got ${JSON.stringify(x)})`);
+      words.push((spec.repoPaths || []).includes(n) ? inRepo(x) : x);
     }
   }
   if (words.length) argv.push('--', ...words);
