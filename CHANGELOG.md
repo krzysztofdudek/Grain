@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- Each MCP tool now describes itself in one sentence: what it writes, what it answers and, for the questions you ask mid-task, when to ask. The tool list costs an agent's context about 7,600 tokens instead of 10,500. The full usage, with what each JSON answer holds, is what `grain_help` returns. Every tool keeps its name and its fields. A number field now refuses a value that is not a number instead of passing it on, and a time limit under a second is reported in milliseconds.
 - A boundary recorded with `grain decide boundary` is no longer flagged when you edit, once the architecture graph forbids it: `yg check` refuses that import from then on. `grain decide list` marks such a boundary as promoted.
 - The skill's passage on calling Grain through its MCP tools first, with the command line as the fallback, is now the wording the family's skills share word for word, and a check keeps it identical. What is Grain's own (its tools, fields, paths and time limits) is written around it.
 - The Grain skill now tells the agent to use the MCP tools (`grain_where`, `grain_check`, `grain_how` and the rest), naming each tool and the fields it takes. The command line stays as the fallback for a session without the tools, in one closing section.

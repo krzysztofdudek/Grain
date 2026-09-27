@@ -197,7 +197,7 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
 - **The skill**: `SKILL.md` sends the agent to these tools, naming each one and the fields it passes, and keeps the
   CLI to its closing section for a session with no `grain_*` tools. A test fails when the skill names a tool or a
   field the server does not have, leaves a tool out, or shows the CLI before that section.
-- **Tools**: one per command, generated from the same command table the CLI parses its flags from. A test fails when
+- **Tools**: one per command, generated from the same command table the CLI parses its flags from, by the family's shared MCP adapter (Runes, vendored with the plugin and checked byte for byte against its pinned release). A test fails when
   the dispatcher runs a command, or `decide`/`oracle` a subcommand, that the table lacks (or the reverse); when the
   usage text shows a flag the table lacks (or the reverse); and when the engine reads a flag off the command line
   that the table lacks. A command becomes
@@ -205,12 +205,12 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
   `grain_obligation`, `grain_check`, `grain_completeness`, `grain_explain`, `grain_status`, `grain_report`,
   `grain_rules`, `grain_export`, `grain_propose`, `grain_advise`, `grain_cochange`, `grain_measure`, `grain_oracle_record`, `grain_oracle_score`,
   `grain_decide_steer`, `grain_decide_boundary`, `grain_decide_waive`, `grain_decide_list`, `grain_decide_rm`,
-  `grain_selftest`, `grain_refresh`, `grain_version`, and `grain_help` (the usage text). The aliases (`review`,
+  `grain_selftest`, `grain_refresh`, `grain_version`, and `grain_help` (the usage text, with notes on what each JSON answer holds and what `grain_propose` writes). A tool's description is one sentence: what it writes, what it answers (and, for the questions an agent asks mid-task, when to ask), and its CLI command; the details are `grain_help`'s. The size of the tool list is measured by a test against the family's budget of 8,500 tokens per server, as a warning. The aliases (`review`,
   `spectrum`, `seed`) and the hooks have no tool; `grain_check` without `file` is `review`.
 - **Fields**: each argument under its name (`query`, `file`, `path`, `files`, `out-dir`, `target`, `from`, `id`,
   `name-or-dir`) and each flag under its own name without the dashes (`top`, `map-rows`, `instead-of`,
   `never-imports`, …), plus `repo`, `no-refresh` and `no-history` on every tool but `grain_help`. A bare flag is a boolean, a
-  numeric flag (`top`, `last`, `runs`, …) a number or its text, any other flag with a value a string. `json: true` returns what `--json` prints;
+  numeric flag (`top`, `last`, `runs`, …) a number or its text (anything else is refused), any other flag with a value a string. `json: true` returns what `--json` prints;
   without it the answer is the CLI's text, as it prints it. On `grain_propose`, `json` is the path `--json` writes to.
   `completeness --json` prints the `grain-completeness/1` document: `files` (each input file with its own `partners`
   and `ambient`), the merged `partners` and `ambient` the text prints, `asOf`, and `dirtyTree` when the worktree has
@@ -239,13 +239,13 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
   each query runs in the CLI's low-memory `--liftoff-only` mode instead of the server holding the optimising
   compiler's memory for the whole session; the cost is starting the CLI on every call, which runs Node twice (the CLI
   starts itself again in that mode). With `json: true`, or `grain_export` without `out` (which prints its JSON with
-  no `--json`), and a run that succeeds, the answer is one text block holding only the JSON; what the CLI said on stderr goes to the result's `_meta` as `grain/stderr`. Otherwise stdout is the
+  no `--json`), and a run that succeeds or prints one JSON document, the answer is one text block holding only the JSON; what the CLI said on stderr goes to the result's `_meta` as `grain/stderr`. Otherwise stdout is the
   first text block and stderr (its refusal, its diagnostics, the last 40 lines of a build's progress) a second one, or
   the only one when stdout is empty. A call that names no `repo` also says which repository it reached, found from
   the server's working directory: a last text block, or `grain/repo` in `_meta` for a JSON answer.
 - **Stopping a run**: each CLI run has a time limit, 10 minutes, and 60 minutes for `propose` and `selftest`, set in
   the server's environment with `GRAIN_MCP_TIMEOUT_MS` and `GRAIN_MCP_LONG_TIMEOUT_MS`. A run past it is stopped and
-  answered with `isError: true`. `notifications/cancelled` stops the run it names, or drops the call if it is still
+  answered with `isError: true`, naming the limit (in milliseconds under a second) and the variable that raises it. `notifications/cancelled` stops the run it names, or drops the call if it is still
   waiting its turn, and that request gets no answer; a cancel for a request already answered, or never sent, is
   ignored, so a later request that reuses its id is answered. When the client closes stdin, or the server gets
   `SIGTERM`, `SIGINT` or `SIGHUP`, the server stops the running CLI and exits. Stopping kills the CLI's whole process

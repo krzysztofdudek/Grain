@@ -157,7 +157,8 @@ test('parity: every field reaches the CLI parser as the flag or argument it name
     }
     const wantOpts = {};
     for (const [f, kind] of Object.entries({ ...spec.flags, ...GLOBAL_FLAGS })) {
-      input[f] = kind === 'bool' ? true : kind === 'path' ? '/abs/--' + f + '=x' : '--v=1';
+      // a number field takes a number or its text (the shared adapter refuses anything else before the CLI runs)
+      input[f] = kind === 'bool' ? true : kind === 'path' ? '/abs/--' + f + '=x' : kind === 'number' ? '5' : '--v=1';
       wantOpts[f] = input[f];
     }
     const { cmd: c, args, opts } = parseArgv(mcp.argvFor(cmd, input));
@@ -441,7 +442,7 @@ test('a CLI run past its timeout is stopped with its whole process group, answer
     await srv.send('initialize', {});
     const r = await srv.send('tools/call', { name: 'grain_status', arguments: { repo: dir } });
     assert.equal(r.result.isError, true, JSON.stringify(r));
-    assert.match(r.result.content[0].text, /did not finish within 0 s and was stopped.*GRAIN_MCP_TIMEOUT_MS/);
+    assert.match(r.result.content[0].text, /did not finish within 400 ms and was stopped.*GRAIN_MCP_TIMEOUT_MS/);
     assert.ok(await until(() => cliFor(dir).length === 0), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
     assert.deepEqual((await srv.send('ping', {})).result, {});
   } finally { stopServer(srv); }

@@ -22,13 +22,13 @@ grain has mined this repository's syntax trees and whole git history into a mode
 **The CLI is the fallback.** When a session has no such tools (a host without MCP, a subagent given none, a server that is not installed or not running), run the same command through the CLI, with the same effect; its help prints the usage.
 <!-- RUNES:mcp-first:END -->
 
-**grain's server.** Installed as a plugin, grain starts an MCP server named `grain` by itself, and every command of the CLI is a tool; a description opens with `WRITES …` or `Read-only`.
+**grain's server.** Installed as a plugin, grain starts an MCP server named `grain` by itself, and every command of the CLI is a tool; a description opens with `WRITES …` or `Read-only` and says in one sentence what the tool answers; `grain_help` has the full usage and what each JSON answer holds.
 
 - Questions mid-task: `grain_where`, `grain_obligation`, `grain_how`, `grain_what`, `grain_check`, `grain_completeness`.
 - The model and the conventions: `grain_status`, `grain_report`, `grain_rules`, `grain_map`, `grain_export`, `grain_explain`.
 - The architecture graph: `grain_propose`, `grain_advise`, `grain_cochange`, `grain_measure`, `grain_oracle_record`, `grain_oracle_score`.
 - Maintainer decisions: `grain_decide_steer`, `grain_decide_boundary`, `grain_decide_waive`, `grain_decide_list`, `grain_decide_rm`.
-- Upkeep and measurement: `grain_refresh`, `grain_selftest`, `grain_version`, and `grain_help`, which returns the CLI's usage text every tool is generated from.
+- Upkeep and measurement: `grain_refresh`, `grain_selftest`, `grain_version`, and `grain_help`, which returns the CLI's usage text every tool is generated from, with notes on what each JSON answer holds.
 
 The fields grain's tools take, beyond the rules above:
 
