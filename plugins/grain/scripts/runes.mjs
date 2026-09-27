@@ -13,8 +13,8 @@
 // The pin (JSON), with every consumer-side path relative to the pin file's directory and required to stay inside the consumer's repository:
 //   source     git URL of Runes
 //   tag, commit the vendored release and the commit its tag pointed at when vendored (written by update)
-//   dest       directory that holds the copy; files keep their Runes-relative paths under it
-//   paths      Runes-relative files or directories to vendor, e.g. "dist/fs", "dist/version.mjs"
+//   dest       directory that holds the copy; files keep their Runes-relative paths under it (not needed when paths is empty)
+//   paths      Runes-relative files or directories to vendor, e.g. "dist/fs", "dist/version.mjs"; empty or left out for a pin that carries only fragments
 //   fragments  [{ name, target, sha256 }]: skills/<name>.md lives in target between <!-- RUNES:<name>:START --> and <!-- RUNES:<name>:END -->
 //   tool       { path, sha256 }: where this file itself is vendored
 //   files      { <Runes-relative path>: <sha256> } (written by update)
@@ -37,6 +37,8 @@ class UsageError extends Error {}
 
 const sha256 = (data) => createHash('sha256').update(data).digest('hex');
 const toPosix = (p) => p.split(sep).join('/');
+// rmSync retries: on Windows a just-exited git or a virus scanner can still hold a handle in the clone (EBUSY, EPERM).
+const RM = { recursive: true, force: true, maxRetries: 5, retryDelay: 200 };
 const out = (s = '') => process.stdout.write(`${s}\n`);
 const err = (s) => process.stderr.write(`${s}\n`);
 const isLink = (p) => lstatSync(p, { throwIfNoEntry: false })?.isSymbolicLink() === true;
@@ -105,11 +107,15 @@ function loadPin(pinArg) {
   const root = repositoryRoot(base);
   if (typeof pin.source !== 'string' || !pin.source) throw new UsageError('pin: source is required');
   if (pin.source.startsWith('-')) throw new UsageError('pin: source must not start with -');
-  const destDir = consumerPath(pin.dest, 'pin.dest', base, root);
-  if (!Array.isArray(pin.paths) || pin.paths.length === 0) throw new UsageError('pin: paths must list at least one Runes path');
+  pin.paths = pin.paths ?? [];
+  if (!Array.isArray(pin.paths)) throw new UsageError('pin.paths: expected an array');
   pin.paths = pin.paths.map((p) => safeRelative(p, 'pin.paths'));
   pin.fragments = pin.fragments ?? [];
   if (!Array.isArray(pin.fragments)) throw new UsageError('pin.fragments: expected an array');
+  if (pin.paths.length === 0 && pin.fragments.length === 0) throw new UsageError('pin: paths or fragments must name at least one thing to vendor');
+  // A fragments-only pin vendors no file, so it needs no copy directory; one that still lists vendored files needs it to check or remove them.
+  const needsDest = pin.paths.length > 0 || pin.dest !== undefined || Object.keys(pin.files ?? {}).length > 0;
+  const destDir = needsDest ? consumerPath(pin.dest, 'pin.dest', base, root) : undefined;
   const targets = new Map();
   for (const f of pin.fragments) {
     if (!f || typeof f.name !== 'string' || !/^[A-Za-z0-9_-]+$/.test(f.name)) throw new UsageError('pin.fragments: each needs a name of letters, digits, - or _');
@@ -150,21 +156,37 @@ function listTree(dir) {
   return { files: rel(files), links: rel(links) };
 }
 
-// Every file of the given Runes-relative paths inside a tree (a clone or RUNES_DIR). An absent path or a symbolic link anywhere on the way is an error: a link would vendor whatever it points at.
+// The paths git records as symbolic links (mode 120000) in a checkout's index; empty when tree is not a checkout. Git for Windows checks a link out as a plain file holding the target path unless core.symlinks is on, so the file system alone would not show it.
+function indexedLinks(tree) {
+  if (!exists(join(tree, '.git'))) return new Set();
+  let listing;
+  try {
+    listing = git(['ls-files', '--stage', '-z'], tree);
+  } catch {
+    return new Set();
+  }
+  return new Set(listing.split('\0').filter((e) => e.startsWith('120000 ')).map((e) => e.slice(e.indexOf('\t') + 1)));
+}
+
+// Every file of the given Runes-relative paths inside a tree (a clone or RUNES_DIR). An absent path or a symbolic link anywhere on the way is an error, whether the file system shows it or only git's index does: a link would vendor whatever it points at.
 function filesUnder(tree, paths) {
   const files = [];
+  const gitLinks = indexedLinks(tree);
+  const refuse = (link) => { throw new Error(`'${link}' is a symbolic link in ${tree}; Runes paths must be real files`); };
   for (const p of paths) {
     const segments = p.split('/');
     for (let i = 1; i <= segments.length; i++) {
       const partial = segments.slice(0, i).join('/');
-      if (isLink(join(tree, partial))) throw new Error(`'${partial}' is a symbolic link in ${tree}; Runes paths must be real files`);
+      if (isLink(join(tree, partial)) || gitLinks.has(partial)) refuse(partial);
     }
     const full = join(tree, p);
     const st = lstatSync(full, { throwIfNoEntry: false });
     if (!st) throw new Error(`'${p}' does not exist in ${tree}`);
     if (st.isDirectory()) {
       const { files: found, links } = listTree(full);
-      if (links.length > 0) throw new Error(`'${p}/${links[0]}' is a symbolic link in ${tree}; Runes paths must be real files`);
+      if (links.length > 0) refuse(`${p}/${links[0]}`);
+      const hidden = [...gitLinks].sort().find((l) => l.startsWith(`${p}/`));
+      if (hidden !== undefined) refuse(hidden);
       files.push(...found.map((f) => `${p}/${f}`));
     } else files.push(p);
   }
@@ -321,7 +343,7 @@ function offlineProblems(ctx) {
       : `modified: ${pin.dest}/${f} (hand edits are not allowed; change Runes and run update)`);
   }
   const pinnedSet = new Set(pinned);
-  const tree = listTree(destDir);
+  const tree = destDir ? listTree(destDir) : { files: [], links: [] };
   for (const f of tree.files) if (!pinnedSet.has(f)) problems.push(`extra: ${pin.dest}/${f} is not in the pin`);
   for (const l of tree.links) if (!pinnedSet.has(l)) problems.push(`symlink: ${pin.dest}/${l} is not allowed in the copy`);
   problems.push(...danglingImports(destDir, present));
@@ -344,7 +366,7 @@ function workDir(ctx, flag) {
 }
 
 function freshClone(source, tag, dir) {
-  rmSync(dir, { recursive: true, force: true });
+  rmSync(dir, RM);
   mkdirSync(dirname(dir), { recursive: true });
   try {
     git(['-c', 'advice.detachedHead=false', '-c', 'core.autocrlf=false', '-c', 'core.eol=lf', 'clone', '--quiet', '--depth', '1', '--branch', tag, '--', source, dir]);
@@ -393,7 +415,7 @@ function ciProblems(ctx, work) {
       if (existsSync(ctx.toolPath) && !readFileSync(ctx.toolPath).equals(theirs)) problems.push(`tool: ${pin.tool.path} differs from ${TOOL_SOURCE} at ${pin.tag}`);
     }
   } finally {
-    rmSync(clone, { recursive: true, force: true });
+    rmSync(clone, RM);
   }
   return problems;
 }
@@ -427,7 +449,7 @@ function localReport(ctx) {
   } catch (e) {
     throw new UsageError(`RUNES_DIR: ${e.message}`);
   }
-  const vendored = listTree(destDir);
+  const vendored = destDir ? listTree(destDir) : { files: [], links: [] };
   for (const l of vendored.links) lines.push(`symlink in the copy: ${l}`);
   const all = [...new Set([...local, ...vendored.files])].sort();
   let same = 0;
@@ -552,7 +574,7 @@ function cmdUpdate(args) {
       if (!existsSync(src) || isLink(src)) throw new Error(`fragment ${frag.name}: ${tag} has no skills/${frag.name}.md as a real file`);
       bodies.set(frag, canonical(readFileSync(src, 'utf8')));
     }
-    if (ctx.toolPath && isLink(join(clone, TOOL_SOURCE))) throw new Error(`${TOOL_SOURCE} is a symbolic link in ${tag}`);
+    if (ctx.toolPath && (isLink(join(clone, TOOL_SOURCE)) || indexedLinks(clone).has(TOOL_SOURCE))) throw new Error(`${TOOL_SOURCE} is a symbolic link in ${tag}`);
 
     const oldFiles = pin.files ?? {};
     const newFiles = {};
@@ -608,7 +630,7 @@ function cmdUpdate(args) {
     warnings(ctx);
     return EXIT_PASS;
   } finally {
-    rmSync(clone, { recursive: true, force: true });
+    rmSync(clone, RM);
   }
 }
 

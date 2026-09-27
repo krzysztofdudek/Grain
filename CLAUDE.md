@@ -27,7 +27,7 @@ Plugin manifests, and where the version lives:
 cd plugins/grain
 npm install --legacy-peer-deps  # dev dependencies only: the npm-sourced grammars, tree-sitter-cli and the runtime to vendor
 npm run build:grammars      # materialize every grammar pinned in the vendored Runes manifest (engine/vendor/runes/grammars/manifest.json; npm, release asset or source build, sha256-verified) and vendor web-tree-sitter (outputs are committed)
-npm run runes:update -- --tag vX.Y.Z   # move the vendored Runes copy (relations, ast, grammars, the runtime pin check, the grammar manifest) to a Runes release; commit the copy and engine/vendor/runes.pin.json together
+npm run runes:update -- --tag vX.Y.Z   # move the vendored Runes copy (relations, ast, grammars, the runtime pin check, the grammar manifest) and the skill fragment SKILL.md carries between its RUNES markers (mcp-first) to a Runes release; commit the copy, SKILL.md and engine/vendor/runes.pin.json together; never edit a block between the markers by hand
 npm test                    # the Runes gate (the copy byte for byte against its pin, offline), then the whole suite, end to end over the fixture repository
 ```
 

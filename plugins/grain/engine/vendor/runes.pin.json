@@ -12,11 +12,17 @@
   ],
   "tool": {
     "path": "../../scripts/runes.mjs",
-    "sha256": "7e9df7960f59dae09a007ebf0390975896c8e926c0c312d32a54135dca47c534"
+    "sha256": "6c6547e0326a7d2f66348fa72f21d09839095e1324957f06da20461b1ea9ca51"
   },
-  "fragments": [],
-  "tag": "v0.1.1",
-  "commit": "2c62528d98e4b5775ef0ae34f387c377c715c432",
+  "fragments": [
+    {
+      "name": "mcp-first",
+      "target": "../../skills/grain/SKILL.md",
+      "sha256": "ed635d4cd89ef1adfd007aeeb743f4976e37b91d8fd25db7bbac28dee9f0ce0b"
+    }
+  ],
+  "tag": "v0.1.3",
+  "commit": "04e0c97f629a366f1ae34166712d571df15009b9",
   "files": {
     "dist/ast/index.d.mts": "19b0ede6cfdf7ea38efe50fb79e68cdf57b6c79bf5d9ad3a4dcdf1d5b81716b4",
     "dist/ast/index.mjs": "8b785753d299c1cdacd04bed2e10491f8ccff52a9e51c3113b7c7ef0f7d9c3c2",
@@ -26,8 +32,8 @@
     "dist/ast/parser.mjs": "04c96933d777c262f8bc667f61fcea7f64a4331eefd04938b5ea286462d39844",
     "dist/ast/walk.d.mts": "d3b7e7cafe17e379fafa03f4bba089cab8bcce86c7adb2d63071a725dc6ab657",
     "dist/ast/walk.mjs": "3ae7aaf9001e45baa218cb01d6824be6f0552792e79527c732793cebe526a9b7",
-    "dist/grammars/build.d.mts": "dfe709b49c23e88eca0d6ad38f5be6221f4b38ed54ea1771e2ef4694639a171f",
-    "dist/grammars/build.mjs": "4f0633893a9d5584ce8ecd60cbd5c2c23d108ebbcf430b889a0612a01684a1b1",
+    "dist/grammars/build.d.mts": "c14f0b12336e7a5208adbff091f99517bc17fc4839a2bae0217cd77c1087c9fc",
+    "dist/grammars/build.mjs": "fc17d83f0330f1496ecf45ac9e4e79cf642bc69178b19a81ce87879518488c1d",
     "dist/grammars/index.d.mts": "7f23f827731a85abc2b82d87bad1b0e595bcbb8da885361a4b23ecb217ac4966",
     "dist/grammars/index.mjs": "91b1d2b29d7a27ffbbc2fbce355b79c11e517d6e8d5d0c4521c54ab10ad974c0",
     "dist/grammars/installed.d.mts": "25670c2bd600a579add5862cc08b48335566714a6bb82d7b28d801bdd91864de",
@@ -96,7 +102,7 @@
     "dist/relations/symbol-table.mjs": "e721b91096020f777047c2f61e948ddf9effb421511fd868921bbd4a0decfd22",
     "dist/testkit/runtime/index.d.mts": "c0cd37997d4bfcb2d0e54494f1bbaca60c944bafc5e6f4694a8d4ee9e18df323",
     "dist/testkit/runtime/index.mjs": "003aec7c718a880be7979c0b239827c450b41b8fdbadb15c01a380250683f477",
-    "dist/version.mjs": "1e57d647bcb9d484c9f076c1655b207b76e75e5cbc7d5fe6ba246bebba534cbb",
+    "dist/version.mjs": "f2f7a7d2568903b489944cda939d385c4c0dd7193ef641dc8db24e4bcae5f969",
     "grammars/manifest.json": "21e552bae268ed6badd4154c8e4c35233d1a364a5b35de4a9602f0dc6fd8a818",
     "grammars/patches/tree-sitter-typescript-357-using-js-0.25.patch": "bab371c1a43ff8b954a83ddadad93046e2db34bae450b3bdff0a35df367ca834",
     "grammars/patches/tree-sitter-typescript-358-export-type-star.patch": "32842795f7469e300d9854c06fa88263e57dccab645fe794b0d8f0f213aef4eb",
