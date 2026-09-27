@@ -12,7 +12,7 @@ import {
 import { join, relative, resolve, isAbsolute, dirname, basename, dirname as pdirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, HARD_EXCL } from './config.mjs';
+import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, SHIPPED_GRAMMAR_DIR, GRAMMAR_MANIFEST, GRAMMARS, HARD_EXCL } from './config.mjs';
 import { learn, walkFiles, toPosix } from './core.mjs';
 import { loadHistory, headSha, headTree, gitOk, isShallow } from './history.mjs';
 import { createHash } from 'node:crypto';
@@ -161,11 +161,21 @@ export const readJson = p => {
     return null;
   }
 };
+// the pinned bytes, not a version label: a grammar rebuilt at the same version still re-indexes. The shipped set reads
+// the Runes grammar manifest (a grammar is named by its wasm, `tree-sitter-c_sharp.wasm` → c_sharp, as GRAMMARS names
+// it); a GRAIN_GRAMMAR_DIR set brings its own manifest.json or is stamped by its names alone.
 const grammarStamp = () => {
+  if (GRAMMAR_DIR === SHIPPED_GRAMMAR_DIR) {
+    const m = readJson(GRAMMAR_MANIFEST);
+    if (m && Array.isArray(m.grammars))
+      return m.grammars
+        .map(g => g.wasmFile.replace(/^tree-sitter-|\.wasm$/g, '') + '@' + g.sha256.wasm.slice(0, 8))
+        .join(',');
+  }
   const m = readJson(join(GRAMMAR_DIR, 'manifest.json'));
   return m
     ? Object.entries(m)
-        .map(([g, v]) => g + '@' + (v.wasmSha256 ? v.wasmSha256.slice(0, 8) : v.version)) // the pinned bytes, not a version label: a grammar rebuilt at the same version still re-indexes
+        .map(([g, v]) => g + '@' + (v.wasmSha256 ? v.wasmSha256.slice(0, 8) : v.version))
         .join(',')
     : GRAMMARS.join(',');
 };

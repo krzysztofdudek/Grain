@@ -11,7 +11,11 @@ export const MODEL_V = 'm39'; // model schema version — bump when the model ga
 const here = dirname(fileURLToPath(import.meta.url));
 // Grammar assets (`tree-sitter-<g>.wasm` + `tree-sitter-<g>.node-types.json`) live inside the plugin by default;
 // GRAIN_GRAMMAR_DIR overrides (e.g. to point at a larger grammar set).
-export const GRAMMAR_DIR = process.env.GRAIN_GRAMMAR_DIR || join(here, 'grammars');
+export const SHIPPED_GRAMMAR_DIR = join(here, 'grammars');
+export const GRAMMAR_DIR = process.env.GRAIN_GRAMMAR_DIR || SHIPPED_GRAMMAR_DIR;
+// The pins of the shipped grammars: the family's grammar manifest, vendored from Runes with the relation code
+// (engine/vendor/runes.pin.json). Every shipped wasm and node-types.json carries the sha256 it lists.
+export const GRAMMAR_MANIFEST = join(here, 'vendor', 'runes', 'grammars', 'manifest.json');
 
 // The extension→grammar map is the ONLY per-language datum in the product (§6.1). It is filtered at load to the
 // grammars actually present in GRAMMAR_DIR, so dropping a new `tree-sitter-<g>.wasm` + node-types pair in is all it

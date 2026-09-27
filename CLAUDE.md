@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This repository exists so the author can develop and version the grain plugin. The canonical plugin is `plugins/grain/`: `bin/` (the CLI entry), `engine/` (the miner, the model, every answer), `commands/` (one slash command per verb), `hooks/` and `hooks.json` (session start, pre-write, post-edit), `skills/grain/SKILL.md` (what teaches the agent when to ask), `scripts/` (grammar and relation builders whose outputs are committed), and `tests/`. People install it as a Claude Code plugin, a GitHub Copilot CLI plugin, a Codex CLI plugin or a Cursor plugin, or run `bin/grain.mjs` from a terminal. Nothing outside `plugins/grain/` may affect the plugin's behaviour.
+This repository exists so the author can develop and version the grain plugin. The canonical plugin is `plugins/grain/`: `bin/` (the CLI entry), `engine/` (the miner, the model, every answer), `commands/` (one slash command per verb), `hooks/` and `hooks.json` (session start, pre-write, post-edit), `skills/grain/SKILL.md` (what teaches the agent when to ask), `scripts/` (the grammar build, whose outputs are committed, and `runes.mjs`, the Runes vendoring tool and gate), and `tests/`. People install it as a Claude Code plugin, a GitHub Copilot CLI plugin, a Codex CLI plugin or a Cursor plugin, or run `bin/grain.mjs` from a terminal. Nothing outside `plugins/grain/` may affect the plugin's behaviour.
 
 Grain is the second layer of the Yggdrasil family. Yggdrasil enforces an architecture graph; Grain mines the first graph for a repository that has none, out of its own code and full git history, and writes only what Yggdrasil reads (`grain propose` → `yg adopt`). Horde sits above both and uses Grain when it is installed. Grain needs Yggdrasil for the proposal to land anywhere; the agent-facing questions (`where`, `check`, `how`, the hooks) answer on their own. The three disciplines — Ratatoskr, Urd, Researcher — attach to the agent, not to the graph, and Grain's SKILL.md follows the same plain-language rules Ratatoskr sets.
 
@@ -26,7 +26,7 @@ Plugin manifests, and where the version lives:
 ```
 cd plugins/grain
 npm install --legacy-peer-deps  # dev dependencies only: the npm-sourced grammars, tree-sitter-cli and the runtime to vendor
-npm run build:grammars      # materialize every grammar pinned in engine/grammars/manifest.json (npm, release asset or source build, sha256-verified) and vendor web-tree-sitter (outputs are committed)
+npm run build:grammars      # materialize every grammar pinned in the vendored Runes manifest (engine/vendor/runes/grammars/manifest.json; npm, release asset or source build, sha256-verified) and vendor web-tree-sitter (outputs are committed)
 npm test                    # the whole suite, end to end over the fixture repository
 ```
 
