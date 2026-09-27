@@ -191,7 +191,7 @@ before(() => {
   repo = join(tmp, 'fixture');
   execFileSync('node', [BUILDER, repo], { stdio: 'pipe' });
   // copies taken before anything indexes the fixture: a call on one of them has to build the index first
-  for (const name of ['fresh-json', 'fresh-timeout', 'fresh-cancel', 'fresh-close']) execFileSync('cp', ['-R', repo, join(tmp, name)]);
+  for (const name of ['fresh-json', 'fresh-timeout', 'fresh-cancel', 'fresh-close', 'fresh-SIGTERM', 'fresh-SIGINT', 'fresh-SIGHUP', 'fresh-ping']) execFileSync('cp', ['-R', repo, join(tmp, name)]);
   server = startServer(repo);
 });
 after(() => {
@@ -461,6 +461,127 @@ test('when the client closes stdin, the running CLI is stopped and the server ex
   srv.child.stdin.end();
   await exited;
   assert.ok(await until(() => cliFor(dir).length === 0), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
+});
+
+for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'])
+  test(`${sig} to the server stops the running CLI with its process group, and the server exits`, async () => {
+    const dir = join(tmp, `fresh-${sig}`);
+    const srv = startServer(tmp);
+    try {
+      await srv.send('initialize', {});
+      srv.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 'killed', method: 'tools/call', params: { name: 'grain_status', arguments: { repo: dir } } }) + '\n');
+      assert.ok(await until(() => cliFor(dir).length > 0), 'the CLI started');
+      const exited = new Promise(r => srv.child.on('exit', (code, signal) => r({ code, signal })));
+      srv.child.kill(sig);
+      const how = await exited;
+      // at once, not whenever the orphaned CLI would have finished its build on its own
+      assert.ok(await until(() => cliFor(dir).length === 0, 400), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
+      assert.equal(how.signal, null, `the server handled ${sig} and exited on its own, not by the default action: ${JSON.stringify(how)}`);
+    } finally { stopServer(srv); }
+  });
+
+// a raw request with a chosen id, and the one answer to it (or null if none comes within ms)
+function rawCall(srv, id, method, params, ms = 15000) {
+  return new Promise(res => {
+    let buf = '';
+    const t = setTimeout(() => { srv.child.stdout.off('data', on); res(null); }, ms);
+    const on = d => {
+      buf += d.toString();
+      for (const l of buf.split('\n')) {
+        let m; try { m = JSON.parse(l); } catch { continue; }
+        if (m && m.id === id) { clearTimeout(t); srv.child.stdout.off('data', on); res(m); return; }
+      }
+    };
+    srv.child.stdout.on('data', on);
+    srv.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n');
+  });
+}
+
+test('ping and tools/list are answered at once while a tools/call runs, not in turn behind it', async () => {
+  const dir = join(tmp, 'fresh-ping');
+  const srv = startServer(tmp);
+  try {
+    await srv.send('initialize', {});
+    let slowDone = false;
+    const slow = rawCall(srv, 'slow-build', 'tools/call', { name: 'grain_status', arguments: { repo: dir } }, 60000).then(r => { slowDone = true; return r; });
+    assert.ok(await until(() => cliFor(dir).length > 0), 'the CLI started');
+    const ping = await srv.send('ping', {});
+    assert.deepEqual(ping.result, {});
+    const list = await srv.send('tools/list', {});
+    assert.equal(list.result.tools.length, TOOLS.length);
+    assert.equal(slowDone, false, 'ping and tools/list came back before the running call finished');
+    assert.ok(cliFor(dir).length > 0, 'the call was still running when they were answered');
+    assert.equal((await slow).result.isError, false);
+  } finally { stopServer(srv); }
+});
+
+test('a cancel for a request already answered, or never sent, does not drop a later request that reuses its id', async () => {
+  const srv = startServer(tmp);
+  try {
+    await srv.send('initialize', {});
+    const first = await rawCall(srv, 'reused', 'tools/call', { name: 'grain_version', arguments: {} });
+    assert.equal(first.result.isError, false);
+    srv.notify('notifications/cancelled', { requestId: 'reused', reason: 'too late' }); // arrives after the answer
+    srv.notify('notifications/cancelled', { requestId: 'not-yet', reason: 'never in flight' });
+    await srv.send('ping', {});
+    const again = await rawCall(srv, 'reused', 'tools/call', { name: 'grain_version', arguments: {} }, 5000);
+    assert.ok(again, 'the second request with the same id is answered');
+    assert.equal(again.result.isError, false);
+    const later = await rawCall(srv, 'not-yet', 'tools/call', { name: 'grain_version', arguments: {} }, 5000);
+    assert.ok(later, 'a request whose id was cancelled before it was ever sent is answered');
+  } finally { stopServer(srv); }
+});
+
+test('a cancel for a queued tools/call drops it; its id is free again afterwards', async () => {
+  const srv = startServer(repo);
+  let seen = '';
+  srv.child.stdout.on('data', d => { seen += d.toString(); });
+  try {
+    await srv.send('initialize', {});
+    const running = rawCall(srv, 'q-running', 'tools/call', { name: 'grain_status', arguments: { json: true } });
+    srv.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 'q-waiting', method: 'tools/call', params: { name: 'grain_version', arguments: {} } }) + '\n');
+    srv.notify('notifications/cancelled', { requestId: 'q-waiting', reason: 'test' });
+    assert.equal((await running).result.isError, false);
+    await srv.send('tools/call', { name: 'grain_version', arguments: {} }); // behind the dropped one in the queue
+    assert.ok(!seen.includes('"q-waiting"'), `the cancelled queued request is not answered: ${seen}`);
+    const reused = await rawCall(srv, 'q-waiting', 'tools/call', { name: 'grain_version', arguments: {} }, 5000);
+    assert.ok(reused, 'its id, reused, is answered');
+  } finally { stopServer(srv); }
+});
+
+test('grain_export without out answers one parseable JSON block; the stamp on stderr goes to _meta', async () => {
+  const r = await server.send('tools/call', { name: 'grain_export', arguments: { repo, 'max-sites': 2, compact: true } });
+  assert.equal(r.result.isError, false, JSON.stringify(r).slice(0, 500));
+  assert.equal(r.result.content.length, 1, `one block only: ${r.result.content.map(c => c.text.slice(0, 80)).join(' | ')}`);
+  assert.equal(typeof JSON.parse(r.result.content[0].text), 'object');
+  assert.match(r.result._meta?.['grain/stderr'] || '', /as of/);
+  const out = join(tmp, 'export.json');
+  const w = await server.send('tools/call', { name: 'grain_export', arguments: { repo, out, 'max-sites': 2 } });
+  assert.match(w.result.content[0].text, /^export /, 'with out, the answer is the text line naming the file');
+  assert.ok(existsSync(out));
+});
+
+test('every command that prints JSON without a json field is declared so in the table', () => {
+  // export prints its JSON on stdout by default; a command that does the same must say so, or its answer splits in two
+  const declared = Object.entries(COMMANDS).filter(([, s]) => s.stdoutJson).map(([c]) => c);
+  assert.deepEqual(declared, ['export']);
+  assert.equal(mcp.answersJson('export', {}), true);
+  assert.equal(mcp.answersJson('export', { out: '/abs/x.json' }), false);
+  assert.equal(mcp.answersJson('status', { json: true }), true);
+  assert.equal(mcp.answersJson('status', {}), false);
+  assert.equal(mcp.answersJson('propose', { json: '/abs/r.json' }), false, 'propose --json names a file; its stdout stays text');
+});
+
+test('the commands not declared so print text, not JSON, when no json is asked for', async () => {
+  const file = 'src/handlers/order.handler.ts';
+  const calls = { where: { query: 'handler' }, how: { query: 'handler' }, what: { query: 'handler' }, map: {}, obligation: { path: file }, check: { file }, completeness: { files: [file] }, explain: { file }, status: {}, report: { top: 3 }, advise: {}, 'decide list': {}, version: {} };
+  for (const [cmd, input] of Object.entries(calls)) {
+    const r = await mcp.callTool(mcp.toolName(cmd), { ...input, repo });
+    const text = r.content[0].text;
+    let parsed = false;
+    try { JSON.parse(text); parsed = true; } catch { /* text, as expected */ }
+    assert.equal(parsed, false, `${cmd} printed JSON with no json asked for — mark it stdoutJson in the table: ${text.slice(0, 120)}`);
+  }
 });
 
 // The repository open in a dev container: the agent names the repo AND the file by their container

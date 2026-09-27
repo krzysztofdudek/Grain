@@ -163,7 +163,7 @@ each other's suppression state, and each repeats an identical finding no more of
   `missing:` lines. Suppressed by the sorted file list, not the rendered text.
 
 **A host with no `UserPromptSubmit` support gets no `how-hook` behavior** — confirmed for Codex CLI at the time of
-writing, hence its absence from `hooks/codex-hooks.json`; `SKILL.md` tells the agent to call `grain how` itself on
+writing, hence its absence from `hooks/codex-hooks.json`; `SKILL.md` tells the agent to call `grain_how` itself on
 such a host.
 
 Hook payloads arrive on stdin as the host's JSON; paths are canonicalised through the deepest existing ancestor, so
@@ -192,6 +192,9 @@ whole CLI over stdio, for any MCP client — not only Claude Code. Claude Code s
 via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it by hand:
 `node "${CLAUDE_PLUGIN_ROOT}/bin/grain-mcp.mjs"` (or any absolute path to it).
 
+- **The skill**: `SKILL.md` sends the agent to these tools, naming each one and the fields it passes, and keeps the
+  CLI to its closing section for a session with no `grain_*` tools. A test fails when the skill names a tool or a
+  field the server does not have, leaves a tool out, or shows the CLI before that section.
 - **Tools**: one per command, generated from the same command table the CLI parses its flags from. A test fails when
   the dispatcher runs a command, or `decide`/`oracle` a subcommand, that the table lacks (or the reverse); when the
   usage text shows a flag the table lacks (or the reverse); and when the engine reads a flag off the command line
@@ -229,18 +232,21 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
   directory above it); a `repo` two containers mount from different host directories, or that no container mounts,
   is refused with a message saying so, never swapped for another repository.
 - **How a call runs**: the server turns the fields back into the argv the CLI would get and runs `bin/grain.mjs` with
-  it, in the repository it answers for, one call at a time. Each call therefore gets exactly the CLI's answer, and
+  it, in the repository it answers for, one tool call at a time; `initialize`, `ping` and `tools/list` are answered
+  at once, never behind a running call. Each call therefore gets exactly the CLI's answer, and
   each query runs in the CLI's low-memory `--liftoff-only` mode instead of the server holding the optimising
   compiler's memory for the whole session; the cost is starting the CLI on every call, which runs Node twice (the CLI
-  starts itself again in that mode). With `json: true` and a run that succeeds, the answer is one text block holding
-  only the JSON; what the CLI said on stderr goes to the result's `_meta` as `grain/stderr`. Otherwise stdout is the
+  starts itself again in that mode). With `json: true`, or `grain_export` without `out` (which prints its JSON with
+  no `--json`), and a run that succeeds, the answer is one text block holding only the JSON; what the CLI said on stderr goes to the result's `_meta` as `grain/stderr`. Otherwise stdout is the
   first text block and stderr (its refusal, its diagnostics, the last 40 lines of a build's progress) a second one, or
   the only one when stdout is empty. A call that names no `repo` also says which repository it reached, found from
   the server's working directory: a last text block, or `grain/repo` in `_meta` for a JSON answer.
 - **Stopping a run**: each CLI run has a time limit, 10 minutes, and 60 minutes for `propose` and `selftest`, set in
   the server's environment with `GRAIN_MCP_TIMEOUT_MS` and `GRAIN_MCP_LONG_TIMEOUT_MS`. A run past it is stopped and
-  answered with `isError: true`. `notifications/cancelled` stops the run it names, and that request gets no answer.
-  When the client closes stdin, the server stops the running CLI and exits. Stopping kills the CLI's whole process
+  answered with `isError: true`. `notifications/cancelled` stops the run it names, or drops the call if it is still
+  waiting its turn, and that request gets no answer; a cancel for a request already answered, or never sent, is
+  ignored, so a later request that reuses its id is answered. When the client closes stdin, or the server gets
+  `SIGTERM`, `SIGINT` or `SIGHUP`, the server stops the running CLI and exits. Stopping kills the CLI's whole process
   group, since the CLI starts itself again.
 - **Errors**: an unknown tool, an unknown field, a field of the wrong type, a missing argument or a path given the
   wrong way (relative where it must be absolute, or the reverse) is a JSON-RPC protocol error (code `-32602`) and the CLI never runs. A CLI run that exits non-zero (a bad `repo`, a
