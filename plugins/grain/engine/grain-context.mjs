@@ -16,11 +16,11 @@ import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, HARD_EXCL } fro
 import { learn, walkFiles, toPosix } from './core.mjs';
 import { loadHistory, headSha, headTree, gitOk, isShallow } from './history.mjs';
 import { createHash } from 'node:crypto';
-import {  } from './core.mjs';
+import { VALUE_FLAGS, jsonTakesPath } from './grain-commands.mjs';
 
 const PLUGIN_ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 export const BIN = join(PLUGIN_ROOT, 'bin', 'grain.mjs');
-// ----- argv -----
+// ----- argv: which flags take a value comes from the command table (grain-commands.mjs) -----
 export function parseArgv(argv) {
   const opts = {};
   const args = [];
@@ -33,42 +33,11 @@ export function parseArgv(argv) {
     if (a.startsWith('--')) {
       const [k, ...v] = a.slice(2).split('=');
       if (v.length) opts[k] = v.join('=');
-      else if (
-        [
-          'repo',
-          'top',
-          'minbits',
-          'as',
-          'content',
-          'mode',
-          'map-rows',
-          'out',
-          'max-sites',
-          'surfaces',
-          'instead-of',
-          'never-imports',
-          'weight',
-          'topic',
-          'note',
-          'author',
-          'range',
-          'on',
-          'last',
-          'runs',
-          'seed',
-          'holdout',
-          'family-candidates',
-          'graph',
-          'proposal',
-          'name',
-        ].includes(k) &&
-        argv[i + 1] !== undefined &&
-        !argv[i + 1].startsWith('--')
-      )
+      else if (VALUE_FLAGS.has(k) && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--'))
         opts[k] = argv[++i];
       // `--json` is a bare flag on every other command (`grain check --json src/a.ts` must keep its file
       // argument), and the path to write on `propose`, whose report is too big to interleave with its own text
-      else if (k === 'json' && args[0] === 'propose' && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--'))
+      else if (k === 'json' && jsonTakesPath(args[0]) && argv[i + 1] !== undefined && !argv[i + 1].startsWith('--'))
         opts[k] = argv[++i];
       else opts[k] = true;
     } else args.push(a);
