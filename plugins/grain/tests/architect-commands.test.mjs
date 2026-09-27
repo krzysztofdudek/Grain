@@ -21,6 +21,7 @@ import { fileURLToPath } from 'node:url';
 import { typeForbids } from '../engine/advise-rules.mjs';
 import { certifiedPairs, randomCuts, unitAggregates } from '../engine/cochange.mjs';
 import { rng } from '../engine/selftest-null.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -104,9 +105,7 @@ before(() => {
   buildGraph(graphAllow, { law: false });
   buildGraph(graphLaw, { law: true });
 });
-after(() => {
-  try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ }
-});
+after(() => removeTemp(tmp));
 
 // ------------------------------------------------------------------ cochange
 
