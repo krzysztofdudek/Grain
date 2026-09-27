@@ -163,7 +163,7 @@ test('(c) --json carries the documented shape, and MCP grain_how returns the sam
   assert.ok(emptySha, 'fixture sanity: an empty-message commit exists');
   assert.ok(!j.matches.some(m => m.sha === emptySha), 'a commit with no message can never clear the floor for this query');
 
-  const mcp = await mcpCall(repo, 'grain_how', { query: 'add status' });
+  const mcp = await mcpCall(repo, 'grain_how', { query: 'add status', json: true });
   assert.deepEqual(JSON.parse(mcp), j, 'grain_how must return exactly what `how --json` returns');
 });
 

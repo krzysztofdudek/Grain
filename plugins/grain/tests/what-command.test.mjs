@@ -239,7 +239,7 @@ test('(e-json) --json carries the documented shape', () => {
 
 test('(f) MCP grain_what returns exactly what `what --json` returns', async () => {
   const j = JSON.parse(grainIn(repo, ['what', 'status', '--json']).out);
-  const mcp = await mcpCall(repo, 'grain_what', { query: 'status' });
+  const mcp = await mcpCall(repo, 'grain_what', { query: 'status', json: true });
   assert.deepEqual(JSON.parse(mcp), j, 'grain_what must return exactly what `what --json` returns');
 });
 

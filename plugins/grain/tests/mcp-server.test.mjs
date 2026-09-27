@@ -1,16 +1,22 @@
-// The MCP server (`grain-mcp.mjs`) is a thin protocol adapter over the exact `cmd*` functions the CLI already
-// calls — this drives it as a REAL subprocess speaking real newline-delimited JSON-RPC 2.0 over its stdio, the
-// same "spawn it, drive its piped stdio" technique this project's own hook tests already use (check-hook.test.mjs),
-// just speaking the MCP wire format instead of a single hook payload, against the shared deterministic fixture
+// The MCP server (`grain-mcp.mjs`) is the grain CLI over another wire: one tool per command, one field per argument
+// and flag, generated from the CLI's own command table and run by the CLI itself. The first tests hold the table, the
+// usage text, the dispatcher and the tool set together in both directions — a command, a subcommand or a flag that
+// one of them has and another lacks fails here. The rest drive the server as a REAL subprocess speaking
+// newline-delimited JSON-RPC 2.0 over its stdio, against the shared deterministic fixture
 // (tests/fixtures/build-fixture.mjs) other end-to-end tests already build against.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync } from 'node:fs';
+import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
+
+import { COMMANDS, GLOBAL_FLAGS, ALIASES, INTERNAL, VALUE_FLAGS } from '../engine/grain-commands.mjs';
+import { USAGE } from '../engine/grain-usage.mjs';
+import { parseArgv } from '../engine/grain-context.mjs';
+import * as mcp from '../bin/grain-mcp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN_MCP = join(here, '..', 'bin', 'grain-mcp.mjs');
@@ -37,6 +43,128 @@ function startServer(cwd, env = process.env) {
   return { send, notify, child, stderr: () => stderrBuf };
 }
 
+// ----- parity: the table, the usage text, the dispatcher and the tools say the same thing -----
+
+const TOOLS = mcp.buildTools();
+const byName = Object.fromEntries(TOOLS.map(t => [t.name, t]));
+const SRC = f => readFileSync(join(here, '..', 'engine', f), 'utf8');
+
+// the commands the dispatcher runs, read from its source — not from the table the tools are built from
+function dispatched() {
+  const src = SRC('grain.mjs');
+  return new Set([...src.matchAll(/case '([\w-]+)':/g), ...src.matchAll(/if \(cmd === '([\w-]+)'\)/g)].map(m => m[1]));
+}
+
+test('parity: every command the dispatcher runs is in the table, an alias or an internal hook — and nothing else is', () => {
+  const inTable = new Set([...Object.keys(COMMANDS).map(k => k.split(' ')[0]), ...Object.keys(ALIASES), ...Object.keys(INTERNAL)]);
+  const run = dispatched();
+  assert.ok(run.size >= 25, `read ${run.size} commands from the dispatcher`);
+  assert.deepEqual([...run].sort(), [...inTable].sort());
+});
+
+test('parity: the subcommands in the table are the ones decide and oracle accept', () => {
+  const seed = SRC('grain-seed.mjs');
+  const subs = new Set([...seed.matchAll(/sub === '([\w-]+)'/g)].map(m => m[1]));
+  const renamed = Object.fromEntries([...seed.matchAll(/const DECIDE_SUBS = \{([^}]*)\}/g)][0][1].split(',').map(p => p.split(':').map(x => x.trim().replace(/'/g, ''))).filter(p => p[1]).map(([a, b]) => [b, a]));
+  const decide = [...subs].map(s => renamed[s] || s).sort();
+  const table = k => Object.keys(COMMANDS).filter(c => c.startsWith(k + ' ')).map(c => c.slice(k.length + 1)).sort();
+  assert.deepEqual(table('decide'), decide);
+  const oracle = [...SRC('oracle.mjs').matchAll(/sub !== '([\w-]+)'/g)].map(m => m[1]).sort();
+  assert.deepEqual(table('oracle'), oracle);
+});
+
+test('parity: the value flags the CLI parses are exactly the ones it parsed before the table existed', () => {
+  assert.deepEqual([...VALUE_FLAGS].sort(), ['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'never-imports', 'weight', 'topic', 'note', 'author', 'range', 'on', 'last', 'runs', 'seed', 'holdout', 'family-candidates', 'graph', 'proposal', 'name'].sort());
+  assert.deepEqual(parseArgv(['propose', '--json', 'out.json']).opts, { json: 'out.json' });
+  assert.deepEqual(parseArgv(['check', '--json', 'src/a.ts']), { cmd: 'check', args: ['src/a.ts'], opts: { json: true } });
+});
+
+test('parity: every usage line belongs to a command in the table, and every command has one', () => {
+  const lines = USAGE.split('\n');
+  const body = lines.slice(lines.findIndex(l => l.startsWith('usage:')) + 1, lines.findIndex(l => l.startsWith('aliases:')));
+  const keys = Object.keys(COMMANDS);
+  for (const l of body.filter(l => /^ {2}\S/.test(l))) {
+    const syn = l.trim().split(/\s{2,}/)[0];
+    assert.ok(keys.some(k => syn === k || syn.startsWith(k + ' ')), `usage line for a command not in the table: ${l}`);
+  }
+  assert.deepEqual(Object.keys(mcp.usageBlocks()).sort(), [...keys].sort());
+  assert.deepEqual(mcp.usageGlobalFlags().sort(), Object.keys(GLOBAL_FLAGS).sort(), 'the usage: line shows the global flags');
+});
+
+test('parity: each command\'s usage shows exactly the flags the table gives it, both ways', () => {
+  const blocks = mcp.usageBlocks();
+  for (const [cmd, spec] of Object.entries(COMMANDS)) {
+    const shown = new Set([...blocks[cmd].synopsis.matchAll(/--([a-z][a-z-]*)/g)].map(m => m[1]));
+    for (const f of shown) assert.ok(spec.flags[f], `${cmd}: usage shows --${f}, the table does not have it`);
+    for (const f of Object.keys(spec.flags)) assert.ok(shown.has(f), `${cmd}: --${f} is in the table, its usage does not show it`);
+  }
+});
+
+test('parity: the tool set is the one this release documents — adding or removing a tool is a deliberate edit here', () => {
+  assert.deepEqual(TOOLS.map(t => t.name).sort(), [
+    'advise', 'check', 'completeness', 'decide_boundary', 'decide_list', 'decide_rm', 'decide_steer', 'decide_waive',
+    'explain', 'export', 'help', 'how', 'map', 'obligation', 'oracle_record', 'oracle_score', 'propose', 'refresh',
+    'report', 'rules', 'selftest', 'status', 'version', 'what', 'where',
+  ].map(n => 'grain_' + n).sort());
+  assert.deepEqual(TOOLS.map(t => t.name).sort(), [...Object.keys(COMMANDS).map(mcp.toolName), 'grain_help'].sort(), 'one tool per command, and help');
+});
+
+test('parity: each tool has one field per argument and per flag, under the CLI name, and says plainly whether it writes', () => {
+  for (const [cmd, spec] of Object.entries(COMMANDS)) {
+    const t = byName[mcp.toolName(cmd)];
+    const props = t.inputSchema.properties;
+    const args = spec.args.map(mcp.argName);
+    for (const a of args) assert.ok(!spec.flags[a] && !GLOBAL_FLAGS[a], `${cmd}: argument "${a}" clashes with a flag`);
+    assert.deepEqual(Object.keys(props).sort(), [...args, ...Object.keys(spec.flags), ...Object.keys(GLOBAL_FLAGS)].sort(), `${cmd}: fields`);
+    for (const [f, kind] of Object.entries({ ...spec.flags, ...GLOBAL_FLAGS })) assert.equal(props[f].type, kind === 'bool' ? 'boolean' : 'string', `${cmd} --${f}`);
+    assert.equal(t.inputSchema.additionalProperties, false);
+    const writes = !!spec.writes || cmd === 'refresh';
+    assert.equal(t.annotations.readOnlyHint, !writes, cmd);
+    assert.match(t.description, writes ? /^WRITES / : /^Read-only/, `${cmd}: the description says whether it writes`);
+    assert.ok(t.description.includes(`CLI: grain ${cmd}`), `${cmd}: the description carries its usage`);
+  }
+  for (const w of ['grain_propose', 'grain_decide_steer', 'grain_decide_boundary', 'grain_decide_waive', 'grain_decide_rm', 'grain_oracle_record'])
+    assert.match(byName[w].description, /^WRITES /, w);
+});
+
+test('parity: every field reaches the CLI parser as the flag or argument it names', () => {
+  for (const [cmd, spec] of Object.entries(COMMANDS)) {
+    const input = {};
+    const wantArgs = [];
+    for (const a of spec.args) {
+      const n = mcp.argName(a);
+      const v = (spec.paths || []).includes(n) ? '/abs/--' + n : '--' + n + ' value';
+      input[n] = a.endsWith('...') ? [v, v + '2'] : v;
+      wantArgs.push(...[].concat(input[n]));
+    }
+    const wantOpts = {};
+    for (const [f, kind] of Object.entries({ ...spec.flags, ...GLOBAL_FLAGS })) {
+      input[f] = kind === 'bool' ? true : kind === 'path' ? '/abs/--' + f + '=x' : '--v=1';
+      wantOpts[f] = input[f];
+    }
+    const { cmd: c, args, opts } = parseArgv(mcp.argvFor(cmd, input));
+    assert.deepEqual([c, ...args], [...cmd.split(' '), ...wantArgs], `${cmd}: arguments`);
+    assert.deepEqual(opts, wantOpts, `${cmd}: flags`);
+  }
+});
+
+test('invalid input is refused before the CLI runs: unknown field, wrong type, missing or out-of-order argument, relative path', () => {
+  const refuses = (cmd, input, re) => assert.throws(() => mcp.argvFor(cmd, input), e => e.code === -32602 && re.test(e.message), `${cmd} ${JSON.stringify(input)}`);
+  refuses('status', { bogus: 1 }, /unknown field "bogus"/);
+  refuses('status', { json: 'yes' }, /"json" must be true or false/);
+  refuses('where', {}, /"query" is required/);
+  refuses('completeness', { files: [] }, /non-empty list/);
+  refuses('check', { file: '' }, /non-empty string/);
+  refuses('status', { repo: 'relative/repo' }, /"repo" must be an absolute path/);
+  refuses('rules', { out: 'CONVENTIONS.md' }, /"out" must be an absolute path/);
+  refuses('propose', { 'out-dir': 'proposal' }, /"out-dir" must be an absolute path/);
+  refuses('propose', { json: true }, /"json" must be an absolute path/);
+  refuses('oracle score', { 'name-or-dir': 'some/dir' }, /bare name or an absolute path/);
+  assert.deepEqual(mcp.argvFor('oracle score', { 'name-or-dir': 'mine' }), ['oracle', 'score', '--', 'mine']);
+  assert.deepEqual(mcp.argvFor('check', { file: 'src/a.ts' }), ['check', '--', 'src/a.ts'], 'a path inside the repository may be relative to its root');
+  assert.deepEqual(mcp.argvFor('report', { top: 5 }), ['report', '--top=5'], 'a number is taken as its text');
+});
+
 before(() => {
   tmp = mkdtempSync(join(tmpdir(), 'grain-mcp-'));
   repo = join(tmp, 'fixture');
@@ -59,24 +187,44 @@ test('initialize handshake: a valid protocol version, the tools capability, and 
   server.notify('notifications/initialized', {}); // a notification: no response is sent for this, by design — the next request proves the server is still fine with that
 });
 
-test('tools/list returns exactly the six curated tools, each with a valid JSON-Schema inputSchema', async () => {
+test('initialize negotiates the protocol version: a version it speaks comes back as asked, any other gets its own', async () => {
+  const old = await server.send('initialize', { protocolVersion: '2024-11-05', capabilities: {}, clientInfo: { name: 'old', version: '0' } });
+  assert.equal(old.result.protocolVersion, '2024-11-05');
+  const future = await server.send('initialize', { protocolVersion: '2099-01-01', capabilities: {}, clientInfo: { name: 'new', version: '0' } });
+  assert.equal(future.result.protocolVersion, mcp.PROTOCOL_VERSION);
+});
+
+test('a response from the client is not answered, and the server keeps answering', async () => {
+  let seen = '';
+  const watch = d => { seen += d.toString(); }; // a plain listener: closing a second readline would pause the stream
+  server.child.stdout.on('data', watch);
+  server.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 'from-client', result: {} }) + '\n');
+  const r = await server.send('ping', {});
+  server.child.stdout.off('data', watch);
+  const stray = seen.split('\n').find(l => l.includes('"from-client"')) || null;
+  assert.deepEqual(r.result, {});
+  assert.equal(stray, null, `the server answered a client response: ${stray}`);
+});
+
+test('tools/list returns every generated tool, each with a valid JSON-Schema inputSchema; the original six keep their names and fields', async () => {
   const r = await server.send('tools/list', {});
   assert.ok(!r.error, JSON.stringify(r));
   const tools = r.result.tools;
-  assert.deepEqual(tools.map(t => t.name).sort(), ['grain_check', 'grain_how', 'grain_report', 'grain_status', 'grain_what', 'grain_where']); // grain_what joined the set with J3.3
+  assert.equal(tools.length, TOOLS.length);
   for (const t of tools) {
     assert.equal(typeof t.description, 'string'); assert.ok(t.description.length > 10, `${t.name} needs a real description`);
     assert.equal(t.inputSchema.type, 'object');
     assert.equal(typeof t.inputSchema.properties, 'object');
   }
-  assert.deepEqual(tools.find(t => t.name === 'grain_where').inputSchema.required, ['query']);
-  assert.deepEqual(tools.find(t => t.name === 'grain_how').inputSchema.required, ['query']);
-  assert.deepEqual(tools.find(t => t.name === 'grain_what').inputSchema.required, ['query']);
-  assert.equal(tools.find(t => t.name === 'grain_check').inputSchema.required, undefined); // `file` is optional (J1.5)
+  const get = n => tools.find(t => t.name === n);
+  for (const n of ['grain_where', 'grain_how', 'grain_what']) assert.deepEqual(get(n).inputSchema.required, ['query']);
+  assert.equal(get('grain_check').inputSchema.required, undefined); // `file` is optional (J1.5)
+  assert.ok(get('grain_how').inputSchema.properties.top && get('grain_report').inputSchema.properties.top);
+  for (const n of ['grain_where', 'grain_how', 'grain_what', 'grain_check', 'grain_status', 'grain_report']) assert.ok(get(n).inputSchema.properties.repo, n);
 });
 
 test('tools/call grain_where answers a real query the fixture is known to answer', async () => {
-  const r = await server.send('tools/call', { name: 'grain_where', arguments: { query: 'handler' } });
+  const r = await server.send('tools/call', { name: 'grain_where', arguments: { query: 'handler', json: true } });
   assert.ok(!r.error, JSON.stringify(r));
   assert.equal(r.result.isError, false);
   const data = JSON.parse(r.result.content[0].text);
@@ -87,7 +235,7 @@ test('tools/call grain_where answers a real query the fixture is known to answer
 });
 
 test('tools/call grain_check answers valid JSON for a real file', async () => {
-  const r = await server.send('tools/call', { name: 'grain_check', arguments: { file: 'src/handlers/order.handler.ts' } });
+  const r = await server.send('tools/call', { name: 'grain_check', arguments: { file: 'src/handlers/order.handler.ts', json: true } });
   assert.ok(!r.error, JSON.stringify(r));
   assert.equal(r.result.isError, false);
   const data = JSON.parse(r.result.content[0].text);
@@ -96,7 +244,7 @@ test('tools/call grain_check answers valid JSON for a real file', async () => {
 });
 
 test('tools/call grain_check without a "file" argument checks the whole uncommitted change (review --json shape) (J1.5)', async () => {
-  const r = await server.send('tools/call', { name: 'grain_check', arguments: {} });
+  const r = await server.send('tools/call', { name: 'grain_check', arguments: { json: true } });
   assert.ok(!r.error, JSON.stringify(r));
   assert.equal(r.result.isError, false);
   const data = JSON.parse(r.result.content[0].text);
@@ -122,7 +270,7 @@ test('tools/call with a deliberately bad tool name is a protocol-level error, no
   assert.ok(bad.error, JSON.stringify(bad));
   assert.equal(bad.error.code, -32602);
   assert.match(bad.error.message, /grain_bogus_tool/);
-  const again = await server.send('tools/call', { name: 'grain_where', arguments: { query: 'handler' } });
+  const again = await server.send('tools/call', { name: 'grain_where', arguments: { query: 'handler', json: true } });
   assert.ok(!again.error, JSON.stringify(again));
   assert.equal(JSON.parse(again.result.content[0].text).query, 'handler');
 });
@@ -144,10 +292,10 @@ test('tools/call grain_check on a file that does not exist is a tool EXECUTION e
 });
 
 test('tools/call grain_status and grain_report answer valid, well-shaped JSON', async () => {
-  const rs = await server.send('tools/call', { name: 'grain_status', arguments: {} });
+  const rs = await server.send('tools/call', { name: 'grain_status', arguments: { json: true } });
   const ds = JSON.parse(rs.result.content[0].text);
   assert.equal(typeof ds.files, 'number'); assert.ok(Array.isArray(ds.partitions));
-  const rr = await server.send('tools/call', { name: 'grain_report', arguments: { top: 5 } });
+  const rr = await server.send('tools/call', { name: 'grain_report', arguments: { top: 5, json: true } });
   const dr = JSON.parse(rr.result.content[0].text);
   assert.ok(Array.isArray(dr.partitions));
 });
@@ -160,7 +308,7 @@ test('tools/call grain_status with a nonexistent repo is a tool EXECUTION error,
   assert.equal(r.result.isError, true, `expected isError:true for a bad repo, got: ${JSON.stringify(r.result)}`);
   assert.match(r.result.content[0].text, /no such directory/);
   assert.equal(existsSync(bad), false, 'a bad --repo must not fabricate a directory tree on disk');
-  const again = await server.send('tools/call', { name: 'grain_where', arguments: { query: 'handler' } });
+  const again = await server.send('tools/call', { name: 'grain_where', arguments: { query: 'handler', json: true } });
   assert.ok(!again.error, JSON.stringify(again));
 });
 
@@ -176,6 +324,38 @@ test('an unparseable line on stdin gets a JSON-RPC parse error and does not cras
   const r = await server.send('ping', {}); // proves the server is still alive and answering after the bad line
   assert.ok(!r.error, JSON.stringify(r));
   assert.deepEqual(r.result, {});
+});
+
+test('smoke: the default answer is the CLI text; a relative path over the wire is invalid params; a failing CLI run is isError with its message', async () => {
+  const text = await server.send('tools/call', { name: 'grain_status', arguments: {} });
+  assert.equal(text.result.isError, false);
+  assert.match(text.result.content[0].text, /as of [0-9a-f]{7}/, 'the text answer ends with its stamp, as the CLI prints it');
+  const rel = await server.send('tools/call', { name: 'grain_status', arguments: { repo: 'fixture' } });
+  assert.equal(rel.error.code, -32602);
+  const ver = await server.send('tools/call', { name: 'grain_version', arguments: {} });
+  assert.match(ver.result.content[0].text, /^grain \S+ · extractor/);
+  const help = await server.send('tools/call', { name: 'grain_help', arguments: {} });
+  assert.match(help.result.content[0].text, /^grain — ask a repository/);
+});
+
+test('smoke: the writing tools write what the CLI writes — a decision recorded, listed and withdrawn, and rules into an absolute file', async () => {
+  const call = async (name, args) => (await server.send('tools/call', { name, arguments: args })).result;
+  const added = await call('grain_decide_boundary', { from: 'src/handlers', 'never-imports': 'src/db', note: 'handlers go through services', author: 'mcp-test' });
+  assert.equal(added.isError, false, added.content.map(c => c.text).join('\n'));
+  assert.ok(existsSync(join(repo, '.grain', 'seeds.jsonl')), 'the decision lands in .grain/seeds.jsonl');
+  const listed = await call('grain_decide_list', {});
+  const line = listed.content[0].text.split('\n').find(l => l.includes('boundary: src/handlers/ never imports src/db/'));
+  assert.ok(line, listed.content[0].text);
+  const removed = await call('grain_decide_rm', { id: line.split(/\s+/)[0], author: 'mcp-test' });
+  assert.equal(removed.isError, false, removed.content[0].text);
+  assert.doesNotMatch((await call('grain_decide_list', {})).content[0].text, /src\/handlers\/ never imports/);
+  const gone = await call('grain_decide_rm', { id: 'deadbeef' });
+  assert.equal(gone.isError, true, 'a refusal is the CLI\'s non-zero exit');
+  assert.match(gone.content.map(c => c.text).join('\n'), /no seed with id deadbeef/);
+  const out = join(tmp, 'CONVENTIONS.md');
+  const rules = await call('grain_rules', { out, top: 3 });
+  assert.equal(rules.isError, false, rules.content.map(c => c.text).join('\n'));
+  assert.ok(existsSync(out) && readFileSync(out, 'utf8').length > 0, 'rules wrote the file it was given');
 });
 
 // The repository open in a dev container: the agent names the repo AND the file by their container
