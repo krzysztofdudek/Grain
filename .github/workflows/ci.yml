@@ -29,6 +29,29 @@ jobs:
         working-directory: plugins/grain
         run: npm test
 
+  test-windows:
+    # The same suite on Windows: paths with drive letters and backslashes, no process groups, .cmd launchers, CRLF.
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        node: [22, 24]
+    name: tests on windows (node ${{ matrix.node }})
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - name: git identity for test fixtures
+        run: |
+          git config --global user.name ci
+          git config --global user.email ci@invalid
+          git config --global init.defaultBranch main
+      - name: run suite
+        working-directory: plugins/grain
+        run: npm test
+
   seams:
     # The family's seam contracts (ticket 100): Grain's proposal renderer, run through Yggdrasil's REAL binary
     # and Horde's REAL scripts — never a re-implementation of either. This is where the "compat matrix" named in
