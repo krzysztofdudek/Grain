@@ -25,7 +25,7 @@ export const COMMANDS = {
     repoPaths: ['file'],
     flags: { as: 'value', content: 'path', all: 'bool', staged: 'bool', range: 'value', worktree: 'bool', json: 'bool' },
   },
-  completeness: { args: ['files...'], repoPaths: ['files'], flags: {} },
+  completeness: { args: ['files...'], repoPaths: ['files'], flags: { json: 'bool' } },
   explain: { args: ['file'], repoPaths: ['file'], flags: { minbits: 'value', top: 'value' } },
   status: { args: [], flags: { json: 'bool' } },
   report: { args: [], flags: { top: 'value', json: 'bool' } },

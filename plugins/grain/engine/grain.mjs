@@ -28,6 +28,7 @@ import {
   obligationEval,
   statusLines,
   completenessDirectional,
+  completenessData,
   cochangeData,
   mutateTest,
   extractCoverage,
@@ -611,16 +612,14 @@ export async function main(argv) {
       if (args.length) throw new Error('usage: grain refresh [--full] — takes no arguments');
       lines = [...statusLines(model), ...freshnessLines(meta, head, isGit), stamp()];
       break;
-    case 'completeness':
-      lines = [
-        ...completenessDirectional(
-          model,
-          args.map(a => relPath(root, a))
-        ),
-        ...(treeDirty ? [DIRTY_TREE_NOTE] : []),
-        stamp(),
-      ];
+    case 'completeness': {
+      if (!args.length) throw new Error('usage: grain completeness <file…> [--json]');
+      const rels = args.map(a => relPath(root, a));
+      lines = opts.json
+        ? [JSON.stringify({ ...completenessData(model, rels), ...(treeDirty ? { dirtyTree: DIRTY_TREE_NOTE } : {}), asOf: stamp().replace(/^as of /, '') }, null, 1)]
+        : [...completenessDirectional(model, rels), ...(treeDirty ? [DIRTY_TREE_NOTE] : []), stamp()];
       break;
+    }
     // selftest (text) and mutate-test (always JSON, alias kept for the dev harness) are deliberately different
     // formats of the same underlying detection check — this asymmetry is intentional, not an oversight to fix
     case 'mutate-test':

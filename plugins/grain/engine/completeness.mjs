@@ -126,6 +126,25 @@ export function completenessDirectional(model, changed) {
     : [`no file changes with these more often than it changes anyway`];
   return [...out, ...ambientLines(ambient, 5)];
 }
+// `completeness --json`: the same partners the text above names, as data — per input file (each file's own partners,
+// the other inputs excluded as the text excludes them) and merged the way the text merges them. Every list keeps the
+// text's own cap of 5; a partner carries every number the text shows for it.
+export function completenessData(model, changed) {
+  const split = hits => ({
+    partners: hits
+      .filter(h => !h.ambient)
+      .slice(0, 5)
+      .map(h => ({ file: h.file, sup: h.sup, commits: h.commits, bits: h.bits, dead: h.dead })),
+    ambient: hits
+      .filter(h => h.ambient)
+      .slice(0, 5)
+      .map(h => ({ file: h.file, k: h.k, n: h.n, share: h.share, dead: h.dead })),
+  });
+  return {
+    files: changed.map(f => ({ file: f, ...split(cochangeData(model, [f]).filter(h => !changed.includes(h.file))) })),
+    ...split(cochangeData(model, changed)),
+  };
+}
 // the recipe half of `missingLines`: a NEW file's own carried marker (decorator/supertype/return type) or group role
 // borrows exactly the "a new carrier/member comes with" mechanism `whereCmd` already reads off markerImplied/
 // groupImplied (core.mjs, buildCards' marker/group cases) — same companion/registration fields, no new heuristic

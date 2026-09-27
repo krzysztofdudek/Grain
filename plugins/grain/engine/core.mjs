@@ -159,6 +159,7 @@ export {
   cochangeData,
   scopeCochangeLines,
   completenessDirectional,
+  completenessData,
   valueKinGaps,
   missingLines,
 } from './completeness.mjs';

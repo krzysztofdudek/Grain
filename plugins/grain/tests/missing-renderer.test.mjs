@@ -84,6 +84,27 @@ test('completeness <file> standalone command keeps its exact, byte-identical tex
   assert.match(lines[2], /^as of [0-9a-f]{7}/);
 });
 
+test('completeness --json carries the same partners the text names, per input file and merged, with every count the text shows', () => {
+  const { out, code } = grain(['completeness', 'src/pair-a.ts', 'src/handlers/Handler1.ts', '--json']);
+  assert.equal(code, 0, out);
+  const j = JSON.parse(out);
+  assert.match(j.asOf, /^[0-9a-f]{7}/);
+  assert.deepEqual(j.files.map(f => f.file), ['src/pair-a.ts', 'src/handlers/Handler1.ts']);
+  const pairA = j.files[0].partners;
+  assert.equal(pairA.length, 1, out);
+  assert.equal(pairA[0].file, 'src/pair-b.ts');
+  assert.equal(pairA[0].sup, 9); assert.equal(pairA[0].commits, 9); assert.equal(pairA[0].dead, false);
+  assert.equal(typeof pairA[0].bits, 'number');
+  assert.deepEqual(j.files[1].partners, [], 'a file with no partner has an empty list, never a borrowed one');
+  assert.deepEqual(j.partners, pairA, 'the merged list is what the text prints for the two files together');
+  const text = grain(['completeness', 'src/pair-a.ts', 'src/handlers/Handler1.ts']).out;
+  assert.match(text, /^  - src\/pair-b\.ts \(co-changed in 9\/9 commits\)$/m, 'the text names the same partner with the same counts');
+  assert.ok(Array.isArray(j.ambient) && j.files.every(f => Array.isArray(f.ambient)));
+  const both = JSON.parse(grain(['completeness', 'src/pair-a.ts', 'src/pair-b.ts', '--json']).out);
+  assert.deepEqual(both.partners, [], 'a partner already among the inputs is not named, in JSON as in text');
+  assert.deepEqual(both.files[0].partners, []);
+});
+
 // J1.2: single-file `check <file>` gets the same `missing from your change:` block as `review`, but with
 // sources: ['cochange'] ONLY — no 'recipe' — since recipe's "is the companion present in the changed set" test
 // on a one-file changed set ([rel]) would spuriously fire on almost every new file.

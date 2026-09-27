@@ -11,7 +11,7 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
   check [<file>] [--as <path>] [--content <file>] [--all] [--staged | --range <a>..<b> | --worktree] [--json]
                                           <file>: how its worktree version sits against the local norm; no <file>: one
                                           aggregated report over your whole uncommitted change (default: uncommitted + untracked)
-  completeness <file…>                    other files this repo's own commits show reliably changing WITH these — the same line check-hook appends automatically after a matching edit
+  completeness <file…> [--json]           other files this repo's own commits show reliably changing WITH these — the same line check-hook appends automatically after a matching edit; --json gives each file's partners and the merged list, with every count the text shows
   explain <file> [--minbits N] [--top N]  the full local→global convention lattice for one file
   status [--json]                         model overview: size, freshness, health
   report [--top N] [--json]               top conventions with evidence and trends, freshness
