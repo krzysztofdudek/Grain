@@ -8,15 +8,20 @@ import { ENGINE_VERSION, EXTR_V } from './config.mjs';
 import { buildAspects } from './propose-aspects.mjs';
 import {
   BIN,
+  ROOT_PARENT,
+  ROOT_PARENT_SINCE,
   SCHEMA_VERSION,
   gitFiles,
   preambleComment,
   progressiveReference,
+  resolveYg,
+  rootParentSupported,
   say,
   slug,
   uniq,
   write,
   yamlEmit,
+  ygVersion,
 } from './propose-base.mjs';
 import { cutDrills } from './propose-drills.mjs';
 import { partitionLattice, subGate } from './propose-lattice.mjs';
@@ -70,7 +75,7 @@ function validateSeedsFile(repo) {
   });
 }
 // `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
-function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive }) {
+function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive, rootParent = true }) {
   // yg-config.yaml — require nothing. A proposal that turns every unmapped file into a blocking error on day one
   // is a proposal nobody runs twice; `getting-started` §4 says require-nothing is the brownfield default.
   //
@@ -92,6 +97,15 @@ function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerD
   }));
 
   // yg-architecture.yaml
+  // A TYPE WHOSE NODE SITS AT THE TOP OF `model/` NAMES THE TOP AMONG ITS PARENTS. From Yggdrasil 6.1.0 a type
+  // that lists `parents:` may sit at the top level only when the list carries the reserved entry `root`; without
+  // it, every top-level node of a classifying type (`src`, `tests`) and every organizational `module` the
+  // renderer inserts at the head of a directory chain is `parent-type-forbidden`, and `yg adopt` refuses the
+  // proposal. Derived from the nodes this run placed at the top, not chosen: a type none of whose nodes sits
+  // there keeps its parents as they were. For a 6.0.0 CLI, which refuses `root` as an undefined type, nothing is
+  // added (`rootParent` false) — that CLI never checked the top level anyway.
+  const topTypes = new Set(rootParent ? nodes.filter(n => !n.id.includes('/')).map(n => n.type) : []);
+  const parentsOf = (type, list) => (topTypes.has(type) ? [ROOT_PARENT, ...list] : list);
   const nodeTypes = {
     project: { '#e': ev('type', 'project', 'organizational root; no `when`, classifies nothing', { level: 'organizational' }), description: 'Top-level grouping — root of the hierarchy. One per repository.', parents: [] },
     // `module` is the organizational grouping the renderer inserts wherever a directory has to exist as a node
@@ -100,7 +114,7 @@ function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerD
     // from the cut this run actually made, not chosen. Measured: without this, a staged `yg check`
     // on spring-petclinic reported `parent-type-forbidden` — "Node 'src/main' (type 'module') has parent 'src'
     // of type 'src', which is not an allowed parent type" — a blocking error in the proposal's own graph.
-    module: { '#e': ev('type', 'module', 'organizational grouping; no `when`, classifies nothing', { level: 'organizational' }), description: 'Domain grouping — organizes children under shared domain responsibility.', parents: ['project', 'module', ...active.map(a => a.id)] },
+    module: { '#e': ev('type', 'module', 'organizational grouping; no `when`, classifies nothing', { level: 'organizational' }), description: 'Domain grouping — organizes children under shared domain responsibility.', parents: parentsOf('module', ['project', 'module', ...active.map(a => a.id)]) },
   };
   for (const a of active) {
     const targets = uniq([...(rels.uses.get(a.id) || new Map()).keys()]).sort();
@@ -145,7 +159,7 @@ function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerD
       when: a.when,
       // a nested type's node sits under its ancestors' nodes, and Yggdrasil rejects a parent whose type is not
       // listed here (`parent-type-forbidden`) — so every ancestor type is an allowed parent, by construction
-      parents: ['project', 'module', ...active.filter(b => b.dir && a.dir && b.dir !== a.dir && a.dir.startsWith(b.dir + '/')).map(b => b.id)],
+      parents: parentsOf(a.id, ['project', 'module', ...active.filter(b => b.dir && a.dir && b.dir !== a.dir && a.dir.startsWith(b.dir + '/')).map(b => b.id)]),
       ...(Object.keys(relBlock).length ? { relations: relBlock } : {}),
       // Bare ids, deliberately — no explicit `status:` override at this attach site (channel 3). This block is
       // written before an aspect's OWN final status is known (verification runs later, once check.mjs and its
@@ -287,7 +301,14 @@ export async function propose(repo, outDir, opts = {}) {
   // is disclosed in evidence[] rather than silently dropped or crashing the run.
   const { denies: maintainerDenies, skipped: skippedBoundaries } = buildMaintainerDenies(exp, active);
   for (const b of skippedBoundaries) ev('boundary-skipped', b.id, `maintainer decision \`${b.id}\` (\`${b.boundary.from}/\` never imports \`${b.boundary.to}/\`) was not rendered as a deny: ${b.why}`);
-  writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive });
+  // Whether the Yggdrasil this proposal will be checked by knows `root` in `parents:` (6.1.0 and later) — asked
+  // once, of the same CLI the drills below run against; with none resolvable the proposal is written for the
+  // Yggdrasil this Grain ships with.
+  const ygForSchema = resolveYg(opts.ygBin);
+  const ygSchemaVersion = ygVersion(ygForSchema);
+  const rootParent = rootParentSupported(ygSchemaVersion);
+  if (!rootParent) say(opts, `Yggdrasil ${ygSchemaVersion} (${ygForSchema.label}) predates \`${ROOT_PARENT}\` in \`parents:\` (${ROOT_PARENT_SINCE}); top-level types are written without it, which only a CLI older than ${ROOT_PARENT_SINCE} accepts`);
+  writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive, rootParent });
 
   // EVERY CANDIDATE THIS RUN DID NOT ACTIVATE, IN THE AUDIT TRAIL. The active types have carried an
   // `evidence` row since 094; the alternatives were on disk in `alternatives.md` and nowhere in the machine
@@ -397,7 +418,7 @@ export async function propose(repo, outDir, opts = {}) {
     evidence,
   }, null, 1) + '\n');
 
-  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded, progressive };
+  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded, progressive, rootParent, ygSchemaVersion };
 }
 
 // ---- aspect drafting ----

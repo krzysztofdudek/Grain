@@ -65,6 +65,28 @@ export function resolveYg(explicit) {
     ? { have: true, label: found + ' (on PATH)', cmd: found, pre: [] }
     : { have: false, label: null, cmd: null, pre: [] };
 }
+// The version the resolved Yggdrasil CLI reports (`yg --version`), or null when there is none or it prints no
+// version. The graph schema cannot tell two CLIs apart here (6.0.0 and 6.1.0 both read schema 6.0.0), so what a
+// proposal may say that only a newer CLI accepts is gated on this instead.
+export function ygVersion(yg) {
+  if (!yg?.have) return null;
+  const r = spawnSync(yg.cmd, [...yg.pre, '--version'], { encoding: 'utf8', timeout: 30_000 });
+  const m = /(\d+)\.(\d+)\.(\d+)/.exec(`${r.stdout || ''}`);
+  return m ? m[0] : null;
+}
+const semverLt = (a, b) => {
+  const x = a.split('.').map(Number), y = b.split('.').map(Number);
+  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i];
+  return false;
+};
+// `root` in a type's `parents:` is the reserved entry for the top of `model/`. From Yggdrasil 6.1.0 a type
+// that lists parents may sit at the top only when the list names it (`parent-type-forbidden` otherwise); a
+// 6.0.0 CLI checks parents only below the top and refuses `root` as an undefined type (`type-unknown-parent`).
+// So a proposal carries `root` only for a CLI that knows it. With no CLI to ask, it follows the family's
+// one-number policy: this Grain ships with Yggdrasil 6.1.0, so the proposal is written for it.
+export const ROOT_PARENT = 'root';
+export const ROOT_PARENT_SINCE = '6.1.0';
+export const rootParentSupported = version => !version || !semverLt(version, ROOT_PARENT_SINCE);
 // A type is a GROUP of files: one file is a member, not a group. This is the definition of the object being cut, not an
 // admission threshold — a measurement found that 1 vs 2 changed no count on 17 repos, which is why the former
 // MIN_TYPE_FILES knob was removed (ruling `root-fix-accepted-min-type-files-goes`).
