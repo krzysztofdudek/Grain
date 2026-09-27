@@ -8,7 +8,7 @@ import { execFileSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
-import { gini, graphAt, layers, sccs, trajectory } from './stress/trajectory.mjs';
+import { gini, graphAt, layers, readingOf, sccs, trajectory } from './stress/trajectory.mjs';
 import { removeTemp } from './remove-temp.mjs';
 
 let tmp, repo, env;
@@ -72,4 +72,16 @@ test('one row per model commit; a new relation against the previous layering is 
   assert.deepEqual(rows[1].upward.map(u => [u.from, u.to, u.fromLayer, u.toLayer]), [['io', 'cli', 0, 2]]);
   assert.equal(rows[1].dEdges, 1);
   assert.equal(rows[2].upward.length, 0);
+});
+
+test('a jump is read as enforcement or growth by the age of its new relations\' ends', () => {
+  const rows = trajectory(repo);
+  assert.equal(rows[0].reading, null, 'the first commit read has nothing to compare with');
+  assert.equal(rows[1].added, 1);
+  assert.equal(rows[1].betweenOld, 1, 'io and cli both existed a commit earlier');
+  assert.equal(rows[1].reading, 'enforcement');
+  // Yggdrasil's five largest jumps, as a maintainer read them (issue 398)
+  assert.deepEqual([[406, 464], [179, 195], [15, 117], [11, 86], [6, 47]].map(([old, all]) => readingOf(all, old)), ['enforcement', 'enforcement', 'growth', 'growth', 'growth']);
+  assert.equal(readingOf(10, 5), 'mixed');
+  assert.equal(readingOf(0, 0), null);
 });

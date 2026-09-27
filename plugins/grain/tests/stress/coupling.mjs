@@ -15,12 +15,24 @@
 // file a node owns at HEAD; a commit is the set of nodes it touched. A pair is CERTIFIED when either direction
 // passes the cell, with the index cost of the whole pair family (`cochangeIdxCost`, both directions paid).
 //
-// Channel, for a certified pair nothing in the graph joins (`declaredVia` null):
-//   test-of     one node is a test node and its name contains the other's last segment
-//   docs        one node's files are documentation
-//   vocabulary  the two nodes' identifiers overlap (IDF-weighted Jaccard) more than all but 1/λ of the repository's
-//               node pairs do — λ the engine's own posterior bound (CFG.lambda)
-//   none        none of the above
+// A certified pair nothing in the graph joins (`declaredVia` null) is sorted three ways before it is ranked, because
+// a maintainer's label of the top 20 on Yggdrasil (issue 398) found the list as printed architecture-worthy 8 times
+// in 20, every test pair among the 12 that were not:
+//   test pairs  a test node on either side (`isTestPath` of the node id, either side): a test changing with what it
+//               tests is legitimate co-change, not coupling the graph lacks. Counted apart, never ranked.
+//   grab-bag    a node whose own files share no directory and mix kinds with none a majority (a repository's
+//               root configuration: changelog, readme, licence, agent docs, editor settings) pairs with whatever a
+//               release touches. Its pairs are ranked after every other pair, not dropped.
+//   the rest    ranked by bits.
+//
+// Channel, for every undeclared pair:
+//   test-of               one node is a test node and its name contains the other's last segment
+//   parallel-description  one node's files are documentation: two surfaces describing one behaviour, which no
+//                         import can join and the declared graph therefore cannot see (not a benign channel — on
+//                         Yggdrasil these were the strongest real findings)
+//   vocabulary            the two nodes' identifiers overlap (IDF-weighted Jaccard) more than all but 1/λ of the
+//                         repository's node pairs do — λ the engine's own posterior bound (CFG.lambda)
+//   none                  none of the above
 //
 // Three checks come with the count, so the count can be argued with:
 //   null        the same certification on curveball-shuffled commits (selftest-null.mjs: every commit keeps its
@@ -29,7 +41,8 @@
 //   time split  certified on the oldest share of commits `selftest --cochange` learns from (TRAIN_SHARE), scored
 //               on the rest: of the later commits touching one node of a certified pair, how many touched the other,
 //               against a popularity-matched control — the node whose earlier commit count is nearest the
-//               partner's (results.md 153's control)
+//               partner's (results.md 153's control); the ranked list (undeclared, no test side) is scored as its
+//               own arm
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -124,10 +137,37 @@ export function channelOf(g, a, b, vocab, vocabBar) {
     if (seg.length > 2 && names.includes(seg)) return 'test-of';
   }
   const docShare = id => { const fs = [...(g.byId.get(id)?.files || [])]; return fs.length ? fs.filter(f => DOC.test(f)).length / fs.length : 0; };
-  if (docShare(a) > 0.5 || docShare(b) > 0.5) return 'docs';
+  if (docShare(a) > 0.5 || docShare(b) > 0.5) return 'parallel-description';
   const s = vocab.score(a, b);
   if (s != null && s > vocabBar) return 'vocabulary';
   return 'none';
+}
+
+// a test node on either side of a pair
+export const testSide = (a, b) => isTestPath(a) || isTestPath(b);
+
+// a grab-bag node: its own files share no directory, and no file kind (extension, or none) holds a majority of them
+export function isGrabBag(g, id) {
+  const own = [...(g.byId.get(id)?.files || [])].filter(f => !g.ownerOf || g.ownerOf.get(f) === id);
+  if (own.length < 2) return false;
+  if (own.every(f => f.includes('/') && f.split('/')[0] === own[0].split('/')[0])) return false;
+  const kinds = new Map();
+  for (const f of own) {
+    const base = f.split('/').at(-1), dot = base.lastIndexOf('.');
+    const k = dot > 0 ? base.slice(dot + 1).toLowerCase() : '';
+    kinds.set(k, (kinds.get(k) || 0) + 1);
+  }
+  return Math.max(...kinds.values()) * 2 <= own.length;
+}
+
+// the undeclared pairs, split and ordered: test pairs apart, grab-bag pairs after the rest, each by bits
+export function rankUndeclared(g, undeclared) {
+  const byBits = (x, y) => y.bits - x.bits || y.sup - x.sup;
+  const tests = undeclared.filter(p => testSide(p.a, p.b)).sort(byBits);
+  const rest = undeclared.filter(p => !testSide(p.a, p.b));
+  for (const p of rest) p.grabBag = isGrabBag(g, p.a) || isGrabBag(g, p.b);
+  const ranked = [...rest.filter(p => !p.grabBag).sort(byBits), ...rest.filter(p => p.grabBag).sort(byBits)];
+  return { ranked, tests };
 }
 
 export function coupling(repo, { nullRuns = 3 } = {}) {
@@ -150,7 +190,8 @@ export function coupling(repo, { nullRuns = 3 } = {}) {
   }
   const count = (xs, f) => xs.reduce((m, x) => { const k = f(x); m[k] = (m[k] || 0) + 1; return m; }, {});
   const kindOf = p => (isTestPath(p.a) && isTestPath(p.b) ? 'test-test' : isTestPath(p.a) || isTestPath(p.b) ? 'code-test' : 'code-code');
-  const undeclared = certified.filter(p => p.declaredVia === null);
+  const undeclaredAll = certified.filter(p => p.declaredVia === null);
+  const { ranked: undeclared, tests: testPairs } = rankUndeclared(g, undeclaredAll);
   const adviseArm = pairs.filter(p => p.sup >= CFG.cochangeMinSup && p.mutual >= MUTUAL_CONF_FLOOR);
 
   // the null: certified pairs on curveball-shuffled node commits
@@ -188,15 +229,18 @@ export function coupling(repo, { nullRuns = 3 } = {}) {
   const timeSplit = {
     train: train.length, test: test.length,
     certified: score(trCert), certifiedUndeclared: score(trUndeclared),
+    ranked: score(trUndeclared.filter(p => !testSide(p.a, p.b))),
     adviseRule: score(tr.pairs.filter(p => p.sup >= CFG.cochangeMinSup && p.mutual >= MUTUAL_CONF_FLOOR)),
   };
   return {
     commits: N, nodes: g.nodes.length, pairsSeen: pairs.length, certified: certified.length,
-    declaredVia: count(certified, p => String(p.declaredVia)), undeclaredByKind: count(undeclared, kindOf),
+    declaredVia: count(certified, p => String(p.declaredVia)), undeclaredByKind: count(undeclaredAll, kindOf),
     undeclaredByChannel: count(undeclared, p => p.channel), vocabBar: +vocabBar.toFixed(4),
+    testPairs: { count: testPairs.length, byChannel: count(testPairs, p => p.channel) },
+    grabBag: { nodes: g.nodes.map(n => n.id).filter(id => isGrabBag(g, id)).sort(), pairs: undeclared.filter(p => p.grabBag).length },
     adviseRule: { pairs: adviseArm.length, undeclared: adviseArm.filter(p => declaredVia(g, p.a, p.b) === null).length },
     nullCertified: nullCounts, timeSplit,
-    undeclared: undeclared.sort((x, y) => y.bits - x.bits || y.sup - x.sup),
+    undeclared, tests: testPairs,
   };
 }
 
@@ -206,10 +250,11 @@ async function main(argv) {
   if (!repo) { process.stderr.write('usage: coupling.mjs <repo-with-.yggdrasil> [--null-runs <k>] [--top <k>] [--json]\n'); return 2; }
   const r = coupling(repo, { nullRuns: opt('--null-runs', 3) });
   if (rest.includes('--json')) { process.stdout.write(JSON.stringify(r, null, 1) + '\n'); return 0; }
-  const { undeclared, ...summary } = r;
+  const { undeclared, tests, ...summary } = r;
   process.stdout.write(JSON.stringify(summary, null, 1) + '\n');
   for (const p of undeclared.slice(0, opt('--top', 20)))
-    process.stdout.write(`${p.bits.toFixed(1).padStart(7)} bits  ${String(p.sup).padStart(4)} of ${p.commitsA}/${p.commitsB}  ${p.channel.padEnd(10)} vocab ${p.vocab == null ? '—' : p.vocab.toFixed(3)}  ${p.a} ↔ ${p.b}\n`);
+    process.stdout.write(`${p.bits.toFixed(1).padStart(7)} bits  ${String(p.sup).padStart(4)} of ${p.commitsA}/${p.commitsB}  ${p.channel.padEnd(20)} vocab ${p.vocab == null ? '—' : p.vocab.toFixed(3)}  ${p.a} ↔ ${p.b}${p.grabBag ? '  (grab-bag)' : ''}\n`);
+  process.stdout.write(`\n${tests.length} more undeclared pairs have a test node on one side or both; --json lists them\n`);
   return 0;
 }
 if (import.meta.url === pathToFileURL(process.argv[1]).href) process.exitCode = await main(process.argv.slice(2));
