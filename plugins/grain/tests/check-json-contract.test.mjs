@@ -12,10 +12,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -25,7 +26,7 @@ const grain = (args, opts = {}) => { const r = spawnSync('node', [BIN, ...args],
   return { out: (r.stdout || '').replace(/\n$/, ''), err: r.stderr, code: r.status }; };
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-checkjson-')); repo = join(tmp, 'fixture'); execFileSync('node', [BUILDER, repo], { stdio: 'pipe' }); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('check --json on a file with no grammar is parseable JSON carrying noGrammar (red before the fix: plain text, JSON.parse throws)', () => {
   writeFileSync(join(repo, 'weird.zzz'), 'whatever\n');
@@ -52,7 +53,7 @@ test('check --json on a file outside any partition is parseable JSON carrying no
     const j = JSON.parse(out);
     assert.equal(j.file, 'new.ts'); assert.equal(j.noPartition, true); assert.ok(j.reason);
     assert.equal(j.schema, 'grain-check/1', `noPartition shape must carry the published schema marker: ${JSON.stringify(j)}`);
-  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp2); }
 });
 
 test('groovy: a genuine parse failure reads differently from an empty file (red before the fix: identical modulo filename)', () => {

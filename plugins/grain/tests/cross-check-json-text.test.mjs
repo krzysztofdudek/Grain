@@ -35,10 +35,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -94,7 +95,7 @@ before(() => {
   r = grainIn(repo, ['status']); // force one full remine now (seeds.jsonl changed) so every test below hits an already-fresh cache
   assert.equal(r.code, 0, `fixture setup: warm-up grain status failed: ${r.out}\n${r.err}`);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 // ===== GENERIC: every --json command's stdout is ONE parseable JSON document, and exit codes agree with text =====
 const JSON_COMMANDS = [
@@ -290,7 +291,7 @@ test('map --json: `changes` and `edges` â€” both previously absent from --json â
       assert.ok(nodeIds.has(e.to), `edge names module ${e.to} not present in nodes[]: ${JSON.stringify(j.nodes)}`);
     }
   } finally {
-    rmSync(dir2, { recursive: true, force: true });
+    removeTemp(dir2);
   }
 });
 
@@ -445,7 +446,7 @@ test('report --json: modules/edges/cycles/relCoverage agree with what report\'s 
     assert.equal(total, jsonTotal, `map's layers: line implies ${total} modules total (visible + "+K more" tails); JSON layers[] sums to ${jsonTotal}`);
     assert.equal(jsonTotal, j.modules.length, `JSON layers[] total (${jsonTotal}) must account for every module in JSON modules[] (${j.modules.length})`);
   } finally {
-    rmSync(dir3, { recursive: true, force: true });
+    removeTemp(dir3);
   }
 });
 
@@ -520,7 +521,7 @@ test('map: `concepts:`/`changes:` text lines have a --json twin carrying the sam
       assert.equal(jc.label, a.label); assert.equal(jc.n, a.n);
     }
   } finally {
-    rmSync(tmp2, { recursive: true, force: true });
+    removeTemp(tmp2);
   }
 });
 
@@ -557,7 +558,7 @@ test('disclosures: `check --json` on a file with no grammar carries a "no-gramma
     gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'init');
     wIn(r1, 'weird.zzz', 'whatever\n');
     assertDisclosureParity(r1, ['check', 'weird.zzz'], 'no-grammar');
-  } finally { rmSync(t1, { recursive: true, force: true }); }
+  } finally { removeTemp(t1); }
 });
 
 test('disclosures: `check --json` on a file outside any partition carries a "no-partition" entry matching the text sentence', () => {
@@ -568,7 +569,7 @@ test('disclosures: `check --json` on a file outside any partition carries a "no-
     gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'init');
     wIn(r1, 'new.ts', 'export class Foo {}\n'); // untracked, has a grammar: partitionFor still returns null
     assertDisclosureParity(r1, ['check', 'new.ts'], 'no-partition');
-  } finally { rmSync(t1, { recursive: true, force: true }); }
+  } finally { removeTemp(t1); }
 });
 
 test('disclosures: `check --json` on a degraded-but-parseable file carries a "parse-degraded" entry matching the text caveat', () => {
@@ -593,7 +594,7 @@ test('disclosures: `check --json` on a degraded-but-parseable file carries a "pa
     const hit = (entry.disclosures || []).find(d => d.kind === 'parse-degraded');
     assert.ok(hit, `expected a parse-degraded disclosure on review's own entry: ${JSON.stringify(entry)}`);
     assert.ok(rt.out.includes(hit.text), `review's text output does not contain the same parse-degraded sentence as its own --json:\n${rt.out}`);
-  } finally { rmSync(t1, { recursive: true, force: true }); }
+  } finally { removeTemp(t1); }
 });
 
 test('disclosures: `what --json` on a weak, non-empty answer carries a "blind-weak" entry matching the text caveat', () => {
@@ -613,7 +614,7 @@ test('disclosures: `what --json` on a weak, non-empty answer carries a "blind-we
     gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'the weak-answer fixture');
     assert.equal(grainIn(r1, ['status']).code, 0);
     assertDisclosureParity(r1, ['what', 'MAX_CONCURRENT_STREAMS'], 'blind-weak');
-  } finally { rmSync(t1, { recursive: true, force: true }); }
+  } finally { removeTemp(t1); }
 });
 
 test('disclosures: `where --json` on a query with zero lexical overlap, verbatim in an ungrammared file, carries an "ungrammared" entry', () => {
@@ -625,5 +626,5 @@ test('disclosures: `where --json` on a query with zero lexical overlap, verbatim
     gitIn(r1, d1, 'add', '-A'); gitIn(r1, d1, 'commit', '-qm', 'base');
     assert.equal(grainIn(r1, ['status']).code, 0);
     assertDisclosureParity(r1, ['where', 'zzqfrobnicate'], 'ungrammared');
-  } finally { rmSync(t1, { recursive: true, force: true }); }
+  } finally { removeTemp(t1); }
 });

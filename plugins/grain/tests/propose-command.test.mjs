@@ -27,6 +27,7 @@ import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, write
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -48,7 +49,7 @@ before(() => {
   assert.equal(run.status, 0, run.stderr);
   json = JSON.parse(readFileSync(join(tmp, 'report.json'), 'utf8'));
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 // ---------- 1. the out-dir ----------
 test('writes the staging tree to .yggdrasil-proposal/ and never into the repository\'s own .yggdrasil/', () => {

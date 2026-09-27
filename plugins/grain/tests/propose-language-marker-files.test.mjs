@@ -13,11 +13,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isLanguageMarkerFile } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROPOSE = join(here, 'stress', 'propose.mjs');
@@ -60,7 +61,7 @@ before(() => {
   const r = spawnSync('node', [PROPOSE, repo, out, '--no-history', '--quiet'], { encoding: 'utf8', maxBuffer: 1 << 28 });
   assert.equal(r.status, 0, r.stderr);
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 const shapeAspects = () => JSON.parse(readFileSync(join(out, 'proposal.json'), 'utf8'))
   .evidence.filter(e => e.kind === 'aspect' && e.enumerator === 'filenameshape');

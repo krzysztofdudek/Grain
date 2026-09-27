@@ -10,10 +10,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const NAMES = ['User', 'Order', 'Product', 'Invoice', 'Payment'];
@@ -55,7 +56,7 @@ before(() => {
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: repo, env });
 });
 
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 // One `grain propose` run over the tiny repository, into its own out-dir, with no yg in reach.
 function propose(name, extra = []) {

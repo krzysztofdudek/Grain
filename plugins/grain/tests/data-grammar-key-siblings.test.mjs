@@ -31,11 +31,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getParser, bindingFor, extractScopes } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -131,4 +132,4 @@ test('(3) `what` on a once-only YAML service id now names its own container sibl
   // fix keys on the right MAPPING, not "every key anywhere in this file"
   assert.ok(!j.note.siblings.includes('class'), `a nested field name must not appear as a services-level sibling: ${JSON.stringify(j.note.siblings)}`);
 });
-test('teardown: yaml services repo', () => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+test('teardown: yaml services repo', () => { if (tmp) removeTemp(tmp); });

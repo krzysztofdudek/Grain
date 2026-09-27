@@ -5,10 +5,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -31,7 +32,7 @@ before(() => {
   execFileSync(process.execPath, [BUILDER, repos.lf], { stdio: 'pipe' });
   execFileSync(process.execPath, [BUILDER, repos.crlf, '--crlf'], { stdio: 'pipe' });
 });
-after(() => rmSync(tmp, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 }));
+after(() => removeTemp(tmp));
 
 test('the CRLF build really holds CRLF', () => {
   const blob = execFileSync('git', ['-C', repos.crlf, 'show', 'HEAD:src/handlers/refund.handler.ts'], { encoding: 'utf8' });

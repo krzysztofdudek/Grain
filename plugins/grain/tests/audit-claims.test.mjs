@@ -15,11 +15,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkMacroTokenAsName, checkUsedByFileCount, checkNoDeclarationsAnywhere, collectSites } from './stress/audit-claims.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const AUDIT = join(here, 'stress', 'audit-claims.mjs');
@@ -107,7 +108,7 @@ before(() => {
   git('add', '-A');
   git('commit', '-q', '-m', 'planted fabrications');
 });
-after(() => { rmSync(tmp1, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp1); });
 
 test('end-to-end (regression guard for the qualified-heritage fix): `extends lib.Base1` is checked and produces NO fabrication naming `lib`', () => {
   // Before the qualified-heritage fix, grain recorded the NAMESPACE (`lib`) as Foo1/Foo2/Foo3's supertype, and this instrument correctly
@@ -141,7 +142,7 @@ test('end-to-end: an undisclosed no-grammar extension is caught', () => {
 // ---------- fixture 2: the suite's shared clean fixture — real heritage must not be flagged ----------
 let tmp2, clean;
 before(() => { tmp2 = mkdtempSync(join(tmpdir(), 'audit-claims-clean-')); clean = join(tmp2, 'fixture'); execFileSync('node', [BUILDER, clean], { stdio: 'pipe' }); });
-after(() => { rmSync(tmp2, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp2); });
 
 test('end-to-end: the shared clean fixture (real `extends BaseService`/`implements CanActivate`/`extends BaseDto`) produces zero fabrications', () => {
   const out = runAudit(clean);
@@ -195,7 +196,7 @@ test('usedByFileCount: no false positive when the claimed count is within the co
 
 test('noDeclarationsAnywhere: a confident `where` hit that never mentions the term\'s only (no-grammar) file is caught', (t) => {
   const cacheDir = mkdtempSync(join(tmpdir(), 'audit-claims-cache-'));
-  t.after(() => rmSync(cacheDir, { recursive: true, force: true }));
+  t.after(() => removeTemp(cacheDir));
   mkdirSync(join(cacheDir, '.grain', 'cache'), { recursive: true });
   writeFileSync(join(cacheDir, '.grain', 'cache', 'model.json'), JSON.stringify({ filesAll: ['src/a.ts'], pathsAll: ['src/a.ts', 'schema.xml', 'schema2.xml'] }));
   const corpus = { index: new Map([['schemaLocation', new Set(['schema.xml', 'schema2.xml'])]]) }; // ≥2 no-grammar occurrences, per the check's own noise floor
@@ -225,7 +226,7 @@ test('noDeclarationsAnywhere: a confident hit that ALSO carries a matching "ungr
     }));
     assert.equal(res.checked, 1, 'expected the candidate to actually be exercised — disclosure must not skip the check itself');
     assert.equal(res.fabricated, 0, `a disclosed weak/never-parsed answer must not be counted as fabrication: ${JSON.stringify(res)}`);
-  } finally { rmSync(cacheDir, { recursive: true, force: true }); }
+  } finally { removeTemp(cacheDir); }
 });
 
 // a disclosure of an UNRELATED kind (not `ungrammared`) must not launder an otherwise-undisclosed confident-wrong
@@ -242,7 +243,7 @@ test('noDeclarationsAnywhere: a disclosure of a DIFFERENT kind does not suppress
       disclosures: [{ kind: 'weak-answer', text: 'weak match: the best hit covers 31% of the query\'s weight' }],
     }));
     assert.equal(res.fabricated, 1, `an unrelated disclosure kind must not launder a genuine confident-wrong hit: ${JSON.stringify(res)}`);
-  } finally { rmSync(cacheDir, { recursive: true, force: true }); }
+  } finally { removeTemp(cacheDir); }
 });
 
 test('noDeclarationsAnywhere: no false positive when the hit correctly points at the no-grammar file', () => {
@@ -255,7 +256,7 @@ test('noDeclarationsAnywhere: no false positive when the hit correctly points at
       () => ({ hits: [{ type: 'file', label: 'schema.xml', score: 0.9, members: [{ rel: 'schema.xml' }] }] }));
     assert.equal(res.checked, 1, 'expected the candidate to actually be exercised');
     assert.equal(res.fabricated, 0, JSON.stringify(res));
-  } finally { rmSync(cacheDir, { recursive: true, force: true }); }
+  } finally { removeTemp(cacheDir); }
 });
 
 test('noDeclarationsAnywhere: no false positive when `where` returns no confident hit at all', () => {
@@ -267,7 +268,7 @@ test('noDeclarationsAnywhere: no false positive when `where` returns no confiden
     const res = checkNoDeclarationsAnywhere({}, cacheDir, corpus, { whereQueries: 5 }, () => ({ hits: [] }));
     assert.equal(res.checked, 1, 'expected the candidate to actually be exercised');
     assert.equal(res.fabricated, 0, JSON.stringify(res));
-  } finally { rmSync(cacheDir, { recursive: true, force: true }); }
+  } finally { removeTemp(cacheDir); }
 });
 
 test('collectSites: a later (convention) source with a real span widens an earlier (group) source\'s 1-line window', () => {

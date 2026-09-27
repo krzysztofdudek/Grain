@@ -9,6 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo;
@@ -52,7 +53,7 @@ before(() => {
   assert.doesNotMatch(st.stdout, /: 0 conventions/, `sanity: @Handler() must be established: ${st.stdout}`);
 });
 beforeEach(() => reset());
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('git commit -m "x" with a staged deviant surfaces the finding as PreToolUse additionalContext, no permissionDecision', () => {
   w('src/handlers/Handler0.ts', 'export class Handler0Handler {\n  run() {\n    return 0;\n  }\n}\n'); // decorator dropped
@@ -148,5 +149,5 @@ test('no payload and a non-git directory are silence, never an error', () => {
   writeFileSync(join(nogit, 'x.ts'), 'export const x = 1;\n');
   const r2 = hook('git commit -m x', nogit);
   assert.equal(r2.code, 0); assert.equal(r2.out, '');
-  rmSync(nogit, { recursive: true, force: true });
+  removeTemp(nogit);
 });

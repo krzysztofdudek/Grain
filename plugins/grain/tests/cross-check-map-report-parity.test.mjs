@@ -23,10 +23,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -66,7 +67,7 @@ before(() => {
   const r = grainIn(repo, ['status']); // force a re-mine now (seeds.jsonl changed) so every test below hits an already-fresh cache
   assert.equal(r.code, 0, `fixture setup: warm-up grain status failed: ${r.out}\n${r.err}`);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 // ===== fixture soundness =====
 test('fixture soundness: 3 decisions of 3 different kinds, and more than 4 modules in the leaf layer', () => {

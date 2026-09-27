@@ -11,17 +11,18 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadHistory, partialCloneFilter } from '../engine/history.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 let tmp;
 const gitEnv = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x' };
 const gitIn = (repo, ...a) => execFileSync('git', ['-C', repo, ...a], { encoding: 'utf8', env: { ...process.env, ...gitEnv } });
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-partial-clone-')); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 function initRepo(dir) {
   mkdirSync(dir, { recursive: true });

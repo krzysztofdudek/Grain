@@ -39,6 +39,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { pct, scopeLabel } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -100,7 +101,7 @@ before(() => {
   boundaryId = (b.out.match(/recorded boundary ([0-9a-f]{8})/) || [])[1];
   assert.ok(boundaryId, b.out);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 // ===== extractors (renderer text -> a comparable value) — the table's own "extractor" column, made real =====
 const extractHandlerFact = reportText => {
@@ -387,5 +388,5 @@ test('coverage disclosures: a fixture with full relation coverage exports relCov
     assert.equal(r.status, 0, r.stderr);
     const d2 = JSON.parse((r.stdout || '').split('\n').find(l => l.startsWith('{')));
     assert.deepEqual(d2.relCoverage, { n: 0, grammars: [] }, 'a fully-covered fixture must export the honest empty shape, not omit the field or leave it null');
-  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp2); }
 });

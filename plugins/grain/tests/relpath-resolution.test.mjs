@@ -9,10 +9,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync, writeFileSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, writeFileSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -31,7 +32,7 @@ before(() => {
   writeFileSync(join(A, 'src', 'handlers', 'order.handler.ts'), 'export class OrderHandler { handle() { return 1; } }\n');
   Blink = join(tmp, 'B-link'); symlinkSync(B, Blink);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(a) same relative path exists in both cwd and --repo: --repo\'s file is analyzed, not cwd\'s', () => {
   const { out, err, code } = grain(['check', 'src/handlers/order.handler.ts', '--repo', B], A);

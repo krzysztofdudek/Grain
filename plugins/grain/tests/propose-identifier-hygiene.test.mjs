@@ -14,11 +14,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { buildAspects } from './stress/propose.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROPOSE = join(here, 'stress', 'propose.mjs');
@@ -73,7 +74,7 @@ before(() => {
   commit(repo1, GIT_ENV(tmp1));
   sidecar1 = runPropose(repo1, out1);
 });
-after(() => { try { rmSync(tmp1, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp1); } catch { /* best effort */ } });
 
 test('class 1: a STRUCT_PID row (first1/ret/stshape) is dropped, not drafted as prose', () => {
   const aspects = sidecar1.evidence.filter(e => e.kind === 'aspect');
@@ -126,7 +127,7 @@ before(() => {
   commit(repo2, GIT_ENV(tmp2));
   sidecar2 = runPropose(repo2, out2);
 });
-after(() => { try { rmSync(tmp2, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp2); } catch { /* best effort */ } });
 
 test('class 1: a call target that happens to be named like a node type is dropped, not "call `identifier`"', () => {
   const aspects = sidecar2.evidence.filter(e => e.kind === 'aspect');
@@ -166,7 +167,7 @@ before(() => {
   commit(repo3, GIT_ENV(tmp3));
   sidecar3 = runPropose(repo3, out3);
 });
-after(() => { try { rmSync(tmp3, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp3); } catch { /* best effort */ } });
 
 test('class 2: a generic type parameter read as a domain type is dropped (`returns`/`ptype` `T`)', () => {
   const aspects = sidecar3.evidence.filter(e => e.kind === 'aspect');

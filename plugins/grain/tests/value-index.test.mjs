@@ -19,12 +19,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getParser, bindingFor, extractScopes } from '../engine/core.mjs';
 import { CFG } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const gitEnv = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: '2026-01-10T12:00:00Z', GIT_COMMITTER_DATE: '2026-01-10T12:00:00Z' };
@@ -75,7 +76,7 @@ before(() => {
   gitIn(repo, 'add', '-A'); gitIn(repo, 'commit', '-qm', 'the fixture tree');
   statusIn(repo);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(a) the value index carries enum members and string literals with their places', () => {
   const model = modelIn(repo);

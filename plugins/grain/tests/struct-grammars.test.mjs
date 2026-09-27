@@ -14,7 +14,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,6 +22,7 @@ import { getParser, bindingFor, extractScopes, lexicalPreds, mdlCuts } from '../
 import { relSupported } from '../engine/relations.mjs';
 import { loadHistory } from '../engine/history.mjs';
 import { CFG } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -57,7 +58,7 @@ before(() => {
   gitIn(repo, 'add', '-A'); gitIn(repo, 'commit', '-qm', 'the fixture tree');
   statusIn(repo);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(1) two workflow files\' shared top-level keys are a cross-file fact in model.valueIndex', () => {
   const model = modelIn(repo);
@@ -203,7 +204,7 @@ test('(8) a scopeless-grammar (JSON) blob is never parsed by parseBlobs, and its
     const bySha = Object.fromEntries(H.fps.map(fp => [fp.sha, fp]));
     assert.deepEqual(bySha[shaAdd].files.sort(), ['config.json', 'src/a.js']);
     assert.deepEqual(bySha[shaRename].renames, [['config.json', 'config2.json']], 'the gate lives in parseBlobs, not walk() — CODE_RE still covers config paths for rename tracking');
-  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp2); }
 });
 
 // ===========================================================================================================
@@ -268,5 +269,5 @@ test('(10) a repo mixing TS, JSON, YAML and TOML files builds a valid, loadable 
     const rep = spawnSync('node', [BIN, 'report', '--json'], { cwd: dir, encoding: 'utf8' });
     assert.equal(rep.status, 0, rep.stdout + rep.stderr);
     JSON.parse(rep.stdout); // must not throw
-  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp2); }
 });

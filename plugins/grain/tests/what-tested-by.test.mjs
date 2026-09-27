@@ -15,10 +15,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -46,7 +47,7 @@ before(() => {
   gitIn(repoA, 'add', '-A'); gitIn(repoA, 'commit', '-qm', 'add UpdateTodoList and its test');
   const st = grainIn(repoA, ['status']); assert.equal(st.code, 0, st.err);
 });
-after(() => { if (tmpA) rmSync(tmpA, { recursive: true, force: true }); });
+after(() => { if (tmpA) removeTemp(tmpA); });
 
 test('(1) same-stem: `what UpdateTodoList` names the PascalCase-suffix test file', () => {
   const j = JSON.parse(grainIn(repoA, ['what', 'UpdateTodoList', '--json']).out);
@@ -85,7 +86,7 @@ before(() => {
   for (let i = 1; i <= 10; i++) { w(repoB, 'CHANGES.md', `entry ${i}\n`); gitIn(repoB, 'add', '-A'); gitIn(repoB, 'commit', '-qm', `changes ${i}`); }
   const st = grainIn(repoB, ['status']); assert.equal(st.code, 0, st.err);
 });
-after(() => { if (tmpB) rmSync(tmpB, { recursive: true, force: true }); });
+after(() => { if (tmpB) removeTemp(tmpB); });
 
 test('fixture sanity: no same-stem candidate exists for collection.js/spec.collection.js', () => {
   const j = JSON.parse(grainIn(repoB, ['what', 'Collection', '--json']).out);
@@ -119,7 +120,7 @@ before(() => {
   gitIn(repoC, 'add', '-A'); gitIn(repoC, 'commit', '-qm', 'add calculateTotal, no tests anywhere');
   const st = grainIn(repoC, ['status']); assert.equal(st.code, 0, st.err);
 });
-after(() => { if (tmpC) rmSync(tmpC, { recursive: true, force: true }); });
+after(() => { if (tmpC) removeTemp(tmpC); });
 
 test('(3) honest negative: a genuinely untested symbol gets "no test file identified", never a certified absence', () => {
   const j = JSON.parse(grainIn(repoC, ['what', 'calculateTotal', '--json']).out);

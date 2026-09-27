@@ -4,10 +4,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo;
@@ -27,7 +28,7 @@ before(() => {
   git('add', '-A'); git('commit', '-qm', 'base');
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo, encoding: 'utf8' }); assert.equal(st.status, 0, st.stderr);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('the unclustered fleet surfaces as a template, and the catch template keeps the logging call literally', () => {
   const r = spawnSync('node', [BIN, 'report'], { cwd: repo, encoding: 'utf8' });

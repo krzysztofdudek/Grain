@@ -5,11 +5,12 @@
 // one project never reaches a file of another, and an edit that adds a global using is seen at once.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { parseFile } from '../../engine/parse.mjs';
 import { relFactsFor, tableFrom, makeEdgeResolver, compactDecls, hydrateTable } from '../../engine/relations.mjs';
+import { removeTemp } from '../remove-temp.mjs';
 
 const FILES = {
   'src/api/Api.csproj': '<Project Sdk="Microsoft.NET.Sdk"></Project>\n',
@@ -54,6 +55,6 @@ test('check: a global using of one project binds a bare name in that project, ne
     const after = checkResolve(root, model, 'src/worker/SyncJob.cs', fact);
     assert.ok(after.some(e => e.to === 'src/api/models/Customer.cs'), `the edit's own global using is honoured: ${JSON.stringify(after)}`);
   } finally {
-    rmSync(root, { recursive: true, force: true });
+    removeTemp(root);
   }
 });

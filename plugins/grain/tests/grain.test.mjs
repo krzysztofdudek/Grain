@@ -7,6 +7,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync, appendFil
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -22,7 +23,7 @@ const gitEnv = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NA
 const git = (...args) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', env: { ...process.env, ...gitEnv } }).trim();
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-test-')); repo = join(tmp, 'fixture'); execFileSync('node', [BUILDER, repo], { stdio: 'pipe' }); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('first query builds the index from the full history and stamps the answer', () => {
   const { out, err, code } = grain(['status']);
@@ -61,7 +62,7 @@ test('the reported commit count excludes merges and says so, and the excluded me
     assert.ok(m, `status must qualify the commit count as non-merge:\n${r.stdout}`);
     assert.equal(+m[1], 3, 'the merge commit itself must not be in the count');
     assert.ok(+m[1] < totalOneline, 'sanity: the qualified count really is smaller than what plain `git log` reports — that gap is exactly the point of the qualifier');
-  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp2); }
 });
 
 test('report finds the planted conventions', () => {

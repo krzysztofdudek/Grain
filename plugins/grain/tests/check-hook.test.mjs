@@ -9,6 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo;
@@ -28,7 +29,7 @@ before(() => {
   git('add', '-A'); git('commit', '-qm', 'base');
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo, encoding: 'utf8' }); assert.equal(st.status, 0, st.stderr);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('an edit that creates a first module edge makes the hook speak, as PostToolUse additionalContext', () => {
   const orig = readFileSync(join(repo, 'apps/a/main.ts'), 'utf8');

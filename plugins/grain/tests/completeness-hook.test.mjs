@@ -12,6 +12,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo;
@@ -36,7 +37,7 @@ before(() => {
   for (let i = 1; i <= 4; i++) { w('src/solo.ts', `export const s = () => ${i};\n`); git('add', '-A'); git('commit', '-qm', `solo change ${i}`); }
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo, encoding: 'utf8' }); assert.equal(st.status, 0, st.stderr);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('an edit to a file with an established co-change partner gets a capped, single-line finding with counts', () => {
   rmSync(join(repo, '.grain', 'cache', 'hook-seen.json'), { force: true });

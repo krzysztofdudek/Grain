@@ -6,10 +6,11 @@
 import { test, before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const CMDS = ['review', 'check']; // `check` with zero positional args is documented as an alias of `review` (J1.1) — every worktree-resettable test below runs through both
@@ -54,7 +55,7 @@ before(() => {
   assert.doesNotMatch(st.stdout, /: 0 conventions/, `sanity: the @Handler() convention must be established, not just parsed: ${st.stdout}`);
 });
 beforeEach(() => reset());
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 for (const cmd of CMDS) {
   test(`default/--worktree mode: reports a real deviation in changed lines, stays silent on a clean edit, includes an untracked file in scope [${cmd}]`, () => {
@@ -134,7 +135,7 @@ for (const cmd of CMDS) {
     const r = spawnSync('node', [BIN, cmd], { cwd: nogit, encoding: 'utf8' });
     assert.equal(r.status, 0, r.stderr);
     assert.match(r.stdout, /not a git repository/);
-    rmSync(nogit, { recursive: true, force: true });
+    removeTemp(nogit);
   });
 }
 

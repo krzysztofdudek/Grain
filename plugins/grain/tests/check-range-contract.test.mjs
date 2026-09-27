@@ -6,10 +6,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo, a, b;
@@ -26,7 +27,7 @@ before(() => {
   writeFileSync(join(repo, 'a.ts'), 'export const a = 2;\n');
   git('commit', '-qam', 'edit a'); b = git('rev-parse', 'HEAD');
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 // snapshot: any new top-level key added to this shape must be a deliberate decision reflected here, not a silent drift
 const FROZEN_KEYS = ['asOf', 'cochangePartners', 'files', 'findings', 'missing', 'schema'];

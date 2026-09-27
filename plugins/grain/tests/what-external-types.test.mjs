@@ -20,10 +20,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -76,7 +77,7 @@ before(() => {
   gitIn(repo, 'add', '-A'); gitIn(repo, 'commit', '-qm', 'the external-type fixture');
   const st = grainIn(repo, ['status']); assert.equal(st.code, 0, st.err);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(1) an external type with no local declaration: the real N is reported, structurally, and disclosed as a name match', () => {
   const j = JSON.parse(grainIn(repo, ['what', 'MiddlewareInterface', '--json']).out);

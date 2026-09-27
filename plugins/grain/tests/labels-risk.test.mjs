@@ -3,10 +3,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { auc, isTestPath, residual, riskMeasure } from './stress/labels.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 test('AUC counts ties as half and is null without both classes', () => {
   assert.equal(auc([1, 2, 3, 4], [false, false, true, true]), 1);
@@ -61,7 +62,7 @@ before(() => {
   writeFileSync(join(jarl, 'issues', '001-x.md'), '# 001 · x\n\n**Kind:** bug\n**Files:** tool/src/core/a.ts, tool/CHANGELOG.md\n**Repo:** ../tool\n');
   w('.yggdrasil/yg-events.llm.jsonl', JSON.stringify({ ts: '2026-09-12T00:00:00Z', aspectId: 'r', unitKey: 'file:src/io/c.ts', kind: 'llm', disposition: 'refused', hash: 'h' }) + '\n');
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 test('features come from before the loop opened; labels from the loop and the refusals after it', () => {
   const r = riskMeasure(repo, jarl);

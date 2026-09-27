@@ -18,10 +18,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -123,7 +124,7 @@ before(() => {
   buildMergedGraph(mkdirSync(join(tmp, 'merged'), { recursive: true }) || join(tmp, 'merged'));
   buildSplitGraph(mkdirSync(join(tmp, 'split'), { recursive: true }) || join(tmp, 'split'));
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 // ---------- 1. consent ----------
 test('record prints what it would store and where, and writes nothing without --yes', () => {

@@ -26,10 +26,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -77,7 +78,7 @@ before(() => {
   assert.ok(!seen.has('config/deploy.json'), 'premise: the json file must yield zero scopes too');
   assert.ok([...seen].some(f => f.endsWith('.ts')), 'premise: other .ts files DO yield scopes — that is what makes src/settings.ts anomalous');
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(1) the weak-answer disclosure: a weak, non-empty answer that names nothing carries the blind-file caveat', () => {
   const r = grainIn(repo, ['what', 'MAX_CONCURRENT_STREAMS']);
@@ -201,4 +202,4 @@ test('(10) `used by:` names fan-in into the true top declaration files', () => {
   assert.match(usedByLine, /used by: src\//, r.out);
 });
 
-test('teardown: display-cap repo', () => { if (tmp2) rmSync(tmp2, { recursive: true, force: true }); });
+test('teardown: display-cap repo', () => { if (tmp2) removeTemp(tmp2); });

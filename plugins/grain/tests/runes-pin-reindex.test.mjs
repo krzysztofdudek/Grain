@@ -7,11 +7,12 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { runesStamp } from '../engine/grain-context.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -28,7 +29,7 @@ const refresh = repo => {
 const readJ = p => JSON.parse(readFileSync(p, 'utf8'));
 const tmps = [];
 after(() => {
-  for (const d of tmps) rmSync(d, { recursive: true, force: true });
+  for (const d of tmps) removeTemp(d);
 });
 
 test('the index stamp names the pinned Runes tag and commit', () => {

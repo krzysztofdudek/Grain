@@ -4,10 +4,11 @@
 // this node directly. Runs on every OS: the shim is a file this test writes.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { windowsLauncher } from '../engine/propose-base.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 test('an npm .cmd shim runs its script with this node, not through a shell', () => {
   const dir = mkdtempSync(join(tmpdir(), 'grain-winlaunch-'));
@@ -22,7 +23,7 @@ test('an npm .cmd shim runs its script with this node, not through a shell', () 
     assert.equal(got.cmd, process.execPath);
     assert.deepEqual(got.pre, [script]);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTemp(dir);
   }
 });
 
@@ -34,7 +35,7 @@ test('an older shim form ("%~dp0\\…") is read too', () => {
     writeFileSync(shim, '@"%~dp0\\cli.js" %*\r\n');
     assert.deepEqual(windowsLauncher([shim]).pre, [join(dir, 'cli.js')]);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTemp(dir);
   }
 });
 

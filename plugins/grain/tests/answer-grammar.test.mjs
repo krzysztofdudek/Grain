@@ -12,12 +12,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { whereCmd, rulesMarkdown } from '../engine/core.mjs';
 import { cmdCheck } from '../engine/grain.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -36,7 +37,7 @@ before(() => {
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo, encoding: 'utf8' });
   assert.equal(st.status, 0, st.stdout + st.stderr);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 const loadModel = () => JSON.parse(readFileSync(join(repo, '.grain', 'cache', 'model.json'), 'utf8'));
 // the established "types here are annotated with `@Handler`" fact, wherever its partition landed it (MDL cuts may

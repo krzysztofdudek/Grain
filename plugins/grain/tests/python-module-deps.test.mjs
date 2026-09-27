@@ -13,10 +13,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, pyIntra, pyCross, tsCheck;
@@ -64,7 +65,7 @@ before(() => {
     git('add', '-A'); git('commit', '-qm', 'base');
     const r = grain(['status']); assert.equal(r.code, 0, r.err); }
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('relative and absolute intra-package imports both resolve into real file edges (the intra-module disclosure diagnosis: not a resolver bug)', () => {
   const edges = modelOf(pyIntra).edges;

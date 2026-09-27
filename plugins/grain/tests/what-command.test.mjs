@@ -19,11 +19,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync, spawn } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -98,7 +99,7 @@ before(() => {
   for (let i = 1; i <= 5; i++) { w(repoB, 'src/rare/levy.ts', `export const levy = () => ${i};\n`); commitB('refund batch levy'); }
   const stB = grainIn(repoB, ['status']); assert.equal(stB.code, 0, stB.err);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(a) fixture sanity: the model carries the enum, its value index and message affinity this whole file assumes', () => {
   const m = modelIn(repo);

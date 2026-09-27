@@ -39,11 +39,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { partitionFor, skeyR } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -96,7 +97,7 @@ before(() => {
   // not the separate "parse failed" branch) — the exact snippet disclosure-fixtures.test.mjs's check/review parity fixture uses
   wIn(repo, 'src/broken.ts', 'export function util99() { return 99; }\n\nexport function broken(x: <<not valid) {\n  return x\n');
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 // ===== fixture soundness: the two finding/caveat shapes this file exercises for THE PROPERTY are really present,
 // plus confirmation that NewThing.ts genuinely IS the unclassified-only case the characterization test relies on =====

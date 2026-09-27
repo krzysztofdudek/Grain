@@ -48,7 +48,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -58,6 +58,7 @@ import { EXTR_V, HIST_V, MODEL_V } from '../engine/config.mjs';
 // history.json is newline-delimited, not one JSON object — read/written through history.mjs's own
 // (de)serializer everywhere below, never through the generic readJ/writeJ this file uses for every other cache file.
 import { readHistoryState, writeHistoryState } from '../engine/history.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -98,7 +99,7 @@ function trivialNewCommit(repo, tag) {
 const invoiceKeyIn = tree => Object.keys(tree).find(k => k.endsWith('|src/handlers/Invoice.js'));
 
 const tmps = [];
-after(() => { for (const d of tmps) rmSync(d, { recursive: true, force: true }); });
+after(() => { for (const d of tmps) removeTemp(d); });
 
 // ===== EXTR_V — extraction cache: recorded in meta.json (gates tree.json) AND blobs/VERSION (gates blob shards) =====
 test('EXTR_V — extraction cache: sentinel proven live, then erased once the recorded version is stale', async t => {
