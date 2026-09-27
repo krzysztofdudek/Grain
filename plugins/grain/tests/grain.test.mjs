@@ -330,7 +330,7 @@ test('the SessionStart advertisement names exactly the roster it was measured wi
 // the concrete follow-up: `obligation`/`completeness` are named at their own trigger moment in the
 // SessionStart text itself (the surface a measurement found 61 of 63 real calls went to), not merely in a
 // surface an agent rarely reads. Folded as asides on the `where`/`check` lines rather than new bullets, so the
-// the session roster test above and the <=9-line budget (concepts-and-changes-map.test.mjs) are both unaffected.
+// session roster test above and the <=10-line budget (concepts-and-changes-map.test.mjs) are both unaffected.
 test('obligation and completeness are named in the SessionStart text at their own trigger moment', () => {
   const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
   // issue 453: the tool form of the same asides (ruling mcp-parity)

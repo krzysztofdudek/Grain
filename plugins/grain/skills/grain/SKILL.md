@@ -100,7 +100,7 @@ Six hooks run mid-task, all silent on failure, none ever block:
 - **Before your prompt is even read**, grain checks it against the repository's own history of past changes; if it strongly resembles a certified change shape or clearly matches how a recognizable kind of change has been done here before, it injects the certified shape's cells and the places such a change touched — silently, on everything else.
 - **Before a `git commit` runs** (in a Bash tool call), grain reviews the whole staged (or, for `-a`, worktree) change ahead of the commit — the same report `grain_check` with no `file` gives, budget-capped.
 
-The hooks speak in the CLI's words (`grain review`, `grain obligation <path>`); call the matching tool.
+The session-start note names the tools themselves. The other hooks speak in the CLI's words (`grain review`, `grain obligation <path>`); call the matching tool.
 
 **A host with no prompt-submission hook gets none of the `grain_how`-hook behavior above** (confirmed for Codex CLI at the time of writing). Where this integration cannot inject anything before your prompt is read, start every task by calling `grain_how` yourself before writing code.
 

@@ -25,9 +25,12 @@ export function sessionContext({ root, isGit, store, mode }) {
     sig = signal(model);
     state = `${meta.headSha === head ? 'ready' : 'built at ' + short(meta.headSha) + ', HEAD moved to ' + short(head) + ' — the first query refreshes it incrementally'}: ${model.files} files, ${sig.groups} groups, ${sig.facts} conventions in source code (${sig.verdict})`;
   }
-  // The advertised commands below are the grain_* MCP tools (the plugin starts the `grain` MCP server on every
-  // host it installs on, and the skill sends the agent to the same tools — ruling mcp-parity), each written the way
-  // it is called: the tool name and its fields. The roster and its ORDER are the ones measured on agent transcripts
+  // The advertised commands below are the grain_* MCP tools (the skill sends the agent to the same tools — ruling
+  // mcp-parity), each written the way it is called: the tool name and its fields. Not every host starts the server:
+  // Claude Code does (.mcp.json at the plugin root) and Copilot does (the portable plugin.json with mcp.json), but
+  // the Codex and Cursor manifests (.codex-plugin/, .cursor-plugin/) declare no MCP server, so a session there may
+  // have no grain_* tools unless the user added the server themselves — which is what the CLI sentence on the
+  // opening line is for. The roster and its ORDER are the ones measured on agent transcripts
   // (research/command-reachability.md: 61 of 63 agent calls went to a command named in the pre-em-dash segment of
   // these lines) — `where`, `check`, `status | report` — and only their spelling changed from the CLI form to the
   // tool form (issue 453). No advertised line opens with `node` or any runtime name: a real transcript (question-catalog
