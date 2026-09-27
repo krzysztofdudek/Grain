@@ -411,7 +411,7 @@ test('provenanceFor carries status/draftReason/scopeApproximation, additive over
 // These codes mean the graph did not come in at all. Anything else `yg check` says (an uncovered file, a real
 // architectural finding such as a dependency cycle) is a statement ABOUT the repository, not a defect in the
 // proposal, and this test deliberately does not fail on it.
-const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-reviewer-missing|description-missing|type-undefined|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
+const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-rule-source-missing|aspect-reviewer-missing|description-missing|type-undefined|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
 
 test('Yggdrasil loads the proposed graph from a staged copy of the repository', { skip: HAVE_YG ? false : `Yggdrasil CLI not found at ${YG_BIN} (set YG_BIN)` }, () => {
   const stage = join(tmp, 'stage');

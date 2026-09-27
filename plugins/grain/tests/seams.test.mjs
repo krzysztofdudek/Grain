@@ -72,7 +72,7 @@ const FIXTURES = join(YGG_DIR, 'source', 'cli', 'tests', 'fixtures');
 const MONO_FIXTURE = join(FIXTURES, 'family-planted-mono');
 const HAVE_MONO_FIXTURE = HAVE_YG && existsSync(MONO_FIXTURE);
 
-const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-reviewer-missing|description-missing|type-undefined|type-unknown-parent|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
+const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-rule-source-missing|aspect-reviewer-missing|description-missing|type-undefined|type-unknown-parent|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
 
 // What `yg check` refused to load, read from its `yg-check/1` document: every issue's `code`, the ones matching
 // LOAD_FAILURES, and the node count it loaded. Never the text report: that is written for a person, its layout
@@ -84,9 +84,13 @@ function loadFailures(cwd) {
   try { doc = JSON.parse(r.stdout || ''); } catch { /* reported below */ }
   assert.ok(doc && doc.schema === 'yg-check/1', `yg check --json printed no yg-check/1 document — the graph did not load:\n${raw.slice(0, 2000)}`);
   assert.ok(Array.isArray(doc.issues) && doc.project && Number.isInteger(doc.project.nodes), `yg-check/1 document has no issues[] or project.nodes:\n${raw.slice(0, 2000)}`);
+  // A finding under a renamed code carries its former names in `aliases` (Yggdrasil 6.1.0 renamed
+  // aspect-reviewer-missing to aspect-rule-source-missing), so a code counts when `code` or any alias matches.
+  const names = i => [i.code, ...(Array.isArray(i.aliases) ? i.aliases : [])];
   const codes = [...new Set(doc.issues.map(i => i.code))];
-  const fatal = [...new Set(doc.issues.map(i => i.code).filter(c => LOAD_FAILURES.test(c)))];
-  return { nodes: doc.project.nodes, codes, fatal, raw };
+  const fatal = [...new Set(doc.issues.filter(i => names(i).some(c => LOAD_FAILURES.test(c))).map(i => i.code))];
+  const fatalNames = [...new Set(doc.issues.filter(i => names(i).some(c => LOAD_FAILURES.test(c))).flatMap(names))];
+  return { nodes: doc.project.nodes, codes, fatal, fatalNames, raw };
 }
 
 const gitEnv = home => ({
@@ -171,7 +175,7 @@ test('yg check loads the proposal rendered for Yggdrasil itself', { skip: HAVE_Y
 // report's old layout; Yggdrasil 6.1 moved the code into `error[<code>]` and indents `at:`/`why:`/`fix:` there
 // instead, so the scrape read `at, why, fix`, found no LOAD_FAILURES code, and passed a graph Yggdrasil had
 // refused. The node count kept agreeing, because a refused aspect takes no node with it. A graph with one
-// real, valid node and one aspect that has no rule source at all (`aspect-reviewer-missing`) is exactly that
+// real, valid node and one aspect that has no rule source at all (`aspect-rule-source-missing`, formerly `aspect-reviewer-missing`) is exactly that
 // case: the guard must name the code while the node count still reads 1.
 // ============================================================================================================
 test('the load-failure guard catches a real refusal the node count cannot see', { skip: HAVE_YG_BIN ? false : YG_BIN_SKIP }, () => {
@@ -190,7 +194,10 @@ test('the load-failure guard catches a real refusal the node count cannot see', 
   writeFileSync(join(repo, '.yggdrasil', 'aspects', 'planted', 'yg-aspect.yaml'), 'name: Planted\ndescription: A rule with nothing to run.\n');
   const r = loadFailures(repo);
   assert.equal(r.nodes, 1, `the planted node must still load, or the node count alone would catch this:\n${r.raw.slice(0, 2000)}`);
-  assert.deepEqual(r.fatal, ['aspect-reviewer-missing'], `the guard did not see the planted load failure (codes seen: ${r.codes.join(', ') || '(none)'}):\n${r.raw.slice(0, 2000)}`);
+  // One refusal, under the name the running CLI gives it: aspect-rule-source-missing from Yggdrasil 6.1.0
+  // (with aspect-reviewer-missing in its aliases), aspect-reviewer-missing before.
+  assert.equal(r.fatal.length, 1, `the guard must see exactly the planted load failure (codes seen: ${r.codes.join(', ') || '(none)'}):\n${r.raw.slice(0, 2000)}`);
+  assert.ok(r.fatalNames.includes('aspect-reviewer-missing'), `the guard did not see the planted load failure (codes seen: ${r.codes.join(', ') || '(none)'}):\n${r.raw.slice(0, 2000)}`);
 });
 
 // ============================================================================================================
