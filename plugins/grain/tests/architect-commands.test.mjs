@@ -14,7 +14,7 @@ import './git-env.mjs';
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -200,6 +200,12 @@ test('the pair counts and the null are pure functions of the footprints', () => 
   const cut = randomCuts({ x: new Set(['d1/a', 'd1/b', 'd2/c']), y: new Set(['d3/e']) }, rng(1));
   assert.equal(cut.x.size + cut.y.size, 4);
   for (const part of Object.values(cut)) for (const d of ['d1/']) assert.ok([...part].filter(f => f.startsWith(d)).length % 2 === 0, 'a directory is never split between parts');
+  // a large directory dealt first never leaves a later part empty: a random cut has as many parts as the proposed one
+  const big = { x: new Set(['s/a', 'b/a', 'b/b', 'b/c']), y: new Set(['b/d']) };
+  for (let r = 1; r <= 20; r++) {
+    const c = randomCuts(big, rng(r));
+    assert.ok(c.x.size > 0 && c.y.size > 0, `seed ${r}: ${[...c.x]} | ${[...c.y]}`);
+  }
 });
 
 // ------------------------------------------------------------------ measure
@@ -239,8 +245,8 @@ test('measure reuses each end once built, answers text with a stamp, and refuses
 
 test('measure reads each end\'s undeclared dependencies against the graph that commit had', () => {
   const own = join(tmp, 'measure-own-graph');
-  execFileSync('cp', ['-R', repo, own]);
-  execFileSync('cp', ['-R', join(graphAllow, '.yggdrasil'), join(own, '.yggdrasil')]);
+  cpSync(repo, own, { recursive: true });
+  cpSync(join(graphAllow, '.yggdrasil'), join(own, '.yggdrasil'), { recursive: true });
   gitIn(own, 'add', '-A');
   gitIn(own, 'commit', '-q', '-m', 'graph');
   const before = gitIn(own, 'rev-parse', 'HEAD');
@@ -260,7 +266,7 @@ test('measure reads each end\'s undeclared dependencies against the graph that c
 
 test('a boundary decision the architecture does not make law is a `kind: rule` item with its draft and its crossings', () => {
   const own = join(tmp, 'boundary');
-  execFileSync('cp', ['-R', repo, own]);
+  cpSync(repo, own, { recursive: true });
   grain(own, ['decide', 'boundary', 'src/orders', '--never-imports', 'src/util', '--note', 'orders log through billing', '--author', 'test']);
   const doc = json(own, ['advise', '--graph', graphAllow]);
   const rule = doc.items.find(i => i.kind === 'rule' && i.evidence.origin === 'boundary');
@@ -278,7 +284,7 @@ test('a boundary decision the architecture does not make law is a `kind: rule` i
 
 test('once the architecture forbids it the decision is promoted: no item, marked in decide list, and no longer flagged at edit time', () => {
   const own = join(tmp, 'promoted');
-  execFileSync('cp', ['-R', repo, own]);
+  cpSync(repo, own, { recursive: true });
   grain(own, ['decide', 'boundary', 'src/orders', '--never-imports', 'src/util', '--note', 'orders log through billing', '--author', 'test']);
   const doc = json(own, ['advise', '--graph', graphLaw]);
   assert.ok(!doc.items.some(i => i.kind === 'rule' && i.evidence.origin === 'boundary'));
@@ -289,9 +295,26 @@ test('once the architecture forbids it the decision is promoted: no item, marked
     return JSON.stringify(json(own, ['check', 'src/orders/order-extra.ts']));
   };
   assert.match(flagged(), /"kind":"boundary-decision"/);
-  execFileSync('cp', ['-R', join(graphLaw, '.yggdrasil'), join(own, '.yggdrasil')]);
+  cpSync(join(graphLaw, '.yggdrasil'), join(own, '.yggdrasil'), { recursive: true });
   assert.doesNotMatch(flagged(), /"kind":"boundary-decision"/);
   assert.match(grain(own, ['decide', 'list']).stdout, /\[promoted: the architecture forbids it\]/);
+});
+
+test('a boundary between a node and one nested inside it is never promoted: the hierarchy needs no relation', () => {
+  const own = join(tmp, 'nested');
+  cpSync(repo, own, { recursive: true });
+  grain(own, ['decide', 'boundary', 'src/orders', '--never-imports', 'src/util', '--note', 'x', '--author', 'test']);
+  const graph = join(tmp, 'graph-nested');
+  cpSync(graphLaw, graph, { recursive: true });
+  // util moves under orders: the type table still denies lib, but Yggdrasil exempts an import along the hierarchy
+  cpSync(join(graph, '.yggdrasil', 'model', 'util'), join(graph, '.yggdrasil', 'model', 'orders', 'util'), { recursive: true });
+  rmSync(join(graph, '.yggdrasil', 'model', 'util'), { recursive: true, force: true });
+  const doc = json(own, ['advise', '--graph', graph]);
+  assert.equal(doc.survey.rules.boundaries.promoted, 0);
+  const rule = doc.items.find(i => i.kind === 'rule' && i.evidence.origin === 'boundary');
+  assert.ok(rule, JSON.stringify(doc.items.map(i => i.kind)));
+  assert.deepEqual(rule.evidence.nestedNodes, [{ from: 'orders', to: 'orders/util' }]);
+  assert.match(rule.text, /one node inside the other/);
 });
 
 test('the architecture reading: only a deny-default table that lists neither the type nor * forbids it', () => {
@@ -305,7 +328,7 @@ test('the architecture reading: only a deny-default table that lists neither the
 
 test('every `kind: rule` item a consumer reads has what `yg advise import` requires, and convention drafts carry a check', () => {
   const own = join(tmp, 'importable');
-  execFileSync('cp', ['-R', repo, own]);
+  cpSync(repo, own, { recursive: true });
   grain(own, ['decide', 'boundary', 'src/orders', '--never-imports', 'src/util', '--note', 'x', '--author', 'test']);
   const doc = json(own, ['advise', '--graph', graphAllow]);
   assert.ok(doc.items.some(i => i.kind === 'rule'));
@@ -329,7 +352,7 @@ test('every `kind: rule` item a consumer reads has what `yg advise import` requi
 
 test('propose --scope writes a graph over the territory only, and every rule it drafts was measured inside it', () => {
   const own = join(tmp, 'propose-scope');
-  execFileSync('cp', ['-R', repo, own]);
+  cpSync(repo, own, { recursive: true });
   const out = join(tmp, 'proposal-scope');
   grain(own, ['propose', out, '--scope', 'src/orders']);
   const report = JSON.parse(readFileSync(join(out, 'proposal.json'), 'utf8'));

@@ -257,8 +257,12 @@ const partsOfUnit = (files, partOf) => {
   return s;
 };
 // Random cuts of the same files into parts of the same sizes, dealt out one directory at a time: every file of a
-// directory lands in the same part, directories are shuffled, and each part is filled in turn up to its size. The
-// control a proposed cut must beat is a cut that respects the directory tree and knows nothing else.
+// directory lands in the same part and directories are shuffled. Each part first takes one directory, so a random cut
+// has as many parts as the proposed one whenever the files span that many directories; every further directory goes
+// to the part furthest below its size. Filling the parts in turn instead let one large directory overfill the first
+// part and leave a later one empty — a cut into fewer parts, which keeps more commits inside a part for no reason but
+// having fewer edges, and a control no proposed cut could beat. The control a proposed cut must beat is a cut that
+// respects the directory tree and knows nothing else.
 export function randomCuts(parts, rnd) {
   const names = Object.keys(parts);
   const sizes = names.map(n => parts[n].size);
@@ -276,13 +280,18 @@ export function randomCuts(parts, rnd) {
     [dirs[j], dirs[r]] = [dirs[r], dirs[j]];
   }
   const out = Object.fromEntries(names.map(n => [n, new Set()]));
-  let k = 0;
-  for (const d of dirs) {
-    while (k < names.length - 1 && out[names[k]].size >= sizes[k]) k++;
+  dirs.forEach((d, i) => {
+    let k = i;
+    if (i >= names.length) {
+      k = 0;
+      for (let j = 1; j < names.length; j++) if (sizes[j] - out[names[j]].size > sizes[k] - out[names[k]].size) k = j;
+    }
     for (const f of byDir.get(d)) out[names[k]].add(f);
-  }
+  });
   return out;
 }
+// How many directories the partition's files span: fewer than there are parts, and no random cut has every part.
+export const directoriesOf = parts => new Set(Object.values(parts).flatMap(set => [...set].map(f => (f.lastIndexOf('/') < 0 ? '.' : f.slice(0, f.lastIndexOf('/')))))).size;
 export function partitionControl(parts, ctx, { runs, seed }) {
   const scores = [];
   for (let r = 0; r < runs; r++) scores.push(partitionScore(randomCuts(parts, rng(seed + r)), ctx));
@@ -399,6 +408,7 @@ export function cochangeDocument({ model, head, g, H, level, fileEntries, nodeEn
       control: {
         runs: ctl.runs,
         seed: ctl.seed,
+        directories: directoriesOf(parts),
         commitShareMean: ctl.commitShareMean,
         importShareMean: ctl.importShareMean,
         atLeastAsGoodCommitShare: beaten('commitShare'),
@@ -476,6 +486,8 @@ export function cochangeText(doc) {
     const s = doc.partition.score,
       c = doc.partition.control;
     out.push(`The proposed cut into ${doc.partition.parts.length} part${doc.partition.parts.length === 1 ? '' : 's'}:`);
+    if (c.directories < doc.partition.parts.length)
+      out.push(`  (its files sit in ${c.directories} director${c.directories === 1 ? 'y' : 'ies'}, fewer than the parts, so a random cut along the directory tree cannot fill every part: the comparison below favours the random cuts)`);
     if (s.commitShare !== null)
       out.push(`  ${s.commitsInside} of ${s.commitsInside + s.commitsCrossing} commits that touched a part stayed inside one part (random cuts along the directory tree: ${pct(c.commitShareMean)}; ${c.atLeastAsGoodCommitShare} of ${c.runs} did at least as well).`);
     if (s.importShare !== null)

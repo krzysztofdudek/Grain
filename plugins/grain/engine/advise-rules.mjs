@@ -69,17 +69,21 @@ export function boundaryStatus(bd, { g, raw, files, edges, declaredVia }) {
   for (const ft of fromTypes)
     for (const tt of toTypes) if (!ft || !tt || !typeForbids(arch, ft, tt)) allowing.push({ fromType: ft, toType: tt });
   const conflicts = [];
+  // a node and its own ancestor or descendant need no relation between them: Yggdrasil exempts the hierarchy from the
+  // undeclared-dependency check, so no type table can make a boundary between them law
+  const nested = [];
   for (const a of F.nodes)
     for (const b of T.nodes) {
       if (a === b) continue;
       const via = declaredVia(g, a, b);
       if (via === 'relation' || via === 'ancestor-relation') conflicts.push({ from: a, to: b, via });
+      else if (via === 'containment') nested.push({ from: a, to: b });
     }
   const fromSet = new Set(fromFiles),
     toSet = new Set(toFiles);
   const crossing = edges.filter(e => fromSet.has(e.from) && toSet.has(e.to));
   const promoted =
-    F.nodes.length > 0 && T.nodes.length > 0 && F.unowned === 0 && T.unowned === 0 && !allowing.length && !conflicts.length && !F.nodes.some(n => T.nodes.includes(n));
+    F.nodes.length > 0 && T.nodes.length > 0 && F.unowned === 0 && T.unowned === 0 && !allowing.length && !conflicts.length && !nested.length && !F.nodes.some(n => T.nodes.includes(n));
   return {
     fromNodes: F.nodes,
     toNodes: T.nodes,
@@ -89,6 +93,7 @@ export function boundaryStatus(bd, { g, raw, files, edges, declaredVia }) {
     toTypes,
     allowing,
     conflicts,
+    nested,
     violations: crossing.reduce((a, e) => a + (e.n || 1), 0),
     sites: crossing.slice(0, 10).map(e => ({ from: e.from, to: e.to, line: e.line ?? null })),
     promoted,
@@ -134,6 +139,7 @@ export function boundaryRuleItems({ boundaries, g, raw, files, edges, declaredVi
       sharedNodes: shared,
       sameType,
       removeRelations: st.conflicts,
+      nestedNodes: st.nested,
       untypedNodes: [...st.fromNodes, ...st.toNodes].filter(n => !g.byId.get(n)?.type),
     };
     const parts = [];
@@ -141,6 +147,7 @@ export function boundaryRuleItems({ boundaries, g, raw, files, edges, declaredVi
       parts.push(`in the architecture, ${draft.deny.map(d => `type \`${d.type}\` must not reach \`${d.mustNotReach}\``).join('; ')} (a \`relations:\` table with \`default: deny\` that does not list it)`);
     if (shared.length) parts.push(`node(s) ${shared.join(', ')} hold files on both sides, so only a finer cut of ${shared.length === 1 ? 'it' : 'them'} can separate the two`);
     if (sameType.length) parts.push(`both sides are type ${sameType.map(t => `\`${t}\``).join(', ')}, so a type table cannot forbid one without forbidding the type to reach itself — the sides need types of their own`);
+    if (st.nested.length) parts.push(`${st.nested.map(c => `${c.from} and ${c.to}`).join(', ')} are one node inside the other, and a dependency along the hierarchy needs no relation, so no type table refuses it — the sides need nodes that do not contain each other`);
     if (st.conflicts.length) parts.push(`the graph declares ${st.conflicts.map(c => `${c.from} → ${c.to}`).join(', ')}, which the decision forbids`);
     if (st.toNodes.length === 0) parts.push(`no node owns a file under \`${to}/\` yet`);
     if (st.fromUnowned || st.toUnowned) parts.push(`${st.fromUnowned + st.toUnowned} file(s) on the two sides belong to no node, so no type can govern them`);
@@ -166,6 +173,7 @@ export function boundaryRuleItems({ boundaries, g, raw, files, edges, declaredVi
         violations: st.violations,
         violationSites: st.sites,
         declaredConflicts: st.conflicts,
+        nestedNodes: st.nested,
         unownedFiles: st.fromUnowned + st.toUnowned,
         draft,
       },

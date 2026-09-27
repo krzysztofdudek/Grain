@@ -22,10 +22,11 @@
 // The control is the scope's own habit: the same share over as many of the scope's commits just before
 // `--from`, so a reader sees whether the work crossed the edge more than the territory's changes usually do.
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, rmSync, writeFileSync } from 'node:fs';
+import { closeSync, existsSync, mkdirSync, openSync, rmSync } from 'node:fs';
 import { join } from 'node:path';
 import { HARD_EXCL } from './config.mjs';
 import { currentPathOf } from './facts.mjs';
+import { atomicWrite } from './grain-context.mjs';
 import { resolveScope, splitList } from './cochange.mjs';
 
 export const MEASURE_SCHEMA = 'grain-measure/1';
@@ -48,7 +49,13 @@ export async function snapshotAt({ root, sha, store, stamps, learn, headTree, re
     const tarFile = join(dir, `tree-${sha}-${process.pid}.tar`);
     try {
       execFileSync('git', ['-C', root, 'archive', '--format=tar', `--output=${tarFile}`, sha], { stdio: ['ignore', 'ignore', 'pipe'] });
-      execFileSync('tar', ['-xf', tarFile, '-C', work], { stdio: ['ignore', 'ignore', 'pipe'] });
+      // the archive goes to tar on its stdin, not as `-f <path>`: a GNU tar reads `C:\…` as a remote host
+      const fd = openSync(tarFile, 'r');
+      try {
+        execFileSync('tar', ['-x', '-C', work], { stdio: [fd, 'ignore', 'pipe'] });
+      } finally {
+        closeSync(fd);
+      }
     } finally {
       rmSync(tarFile, { force: true });
     }
@@ -80,7 +87,8 @@ export async function snapshotAt({ root, sha, store, stamps, learn, headTree, re
       mined: [...new Set((model.partitions || []).flatMap(p => p.files || []))].sort(),
       graph,
     };
-    writeFileSync(path, JSON.stringify(snap));
+    // written whole or not at all: a second `measure` running at the same time reads a finished end or builds its own
+    atomicWrite(path, JSON.stringify(snap));
     return snap;
   } finally {
     rmSync(work, { recursive: true, force: true });
