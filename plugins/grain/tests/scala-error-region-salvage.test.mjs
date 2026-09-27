@@ -26,11 +26,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getParser, bindingFor, extractScopes, parseFile } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -220,4 +221,4 @@ test('`check` still carries the parse-degraded caveat for this exact file — re
     `the caveat must still fire — HelloController's own constructor is still genuinely unparseable:\n${r.out}`);
 });
 
-test('teardown: e2e repo', () => { if (tmpE2e) rmSync(tmpE2e, { recursive: true, force: true }); });
+test('teardown: e2e repo', () => { if (tmpE2e) removeTemp(tmpE2e); });

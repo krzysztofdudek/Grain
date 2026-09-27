@@ -10,10 +10,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const NAMES = ['User', 'Order', 'Product', 'Invoice', 'Payment'];
@@ -55,7 +56,7 @@ before(() => {
   execFileSync('git', ['commit', '-q', '-m', 'init'], { cwd: repo, env });
 });
 
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 // One `grain propose` run over the tiny repository, into its own out-dir, with no yg in reach.
 function propose(name, extra = []) {
@@ -89,10 +90,10 @@ test('by default the file is written INTO the proposal, beside the graph, and th
   const file = join(out, '.yggdrasil', '.family-candidates.grain.json');
   assert.ok(existsSync(file), `${file} was not written — yg adopt installs .yggdrasil/ from the proposal, so a file beside the proposal never reaches the repository`);
   plantedFamily(JSON.parse(readFileSync(file, 'utf8')));
-  assert.match(r.stdout, /family candidates: 1 group\(s\) of structurally uniform files with no rule of their own — .*\.yggdrasil\/\.family-candidates\.grain\.json/);
+  assert.match(r.stdout, /family candidates: 1 group\(s\) of structurally uniform files with no rule of their own — .*\.yggdrasil[\\/]\.family-candidates\.grain\.json/);
   assert.ok(r.stdout.indexOf('family candidates:') < r.stdout.indexOf('\nnext:'), 'the line sits before the `next:` handshake, which the dry-run summary follows');
   assert.deepEqual(report.familyCandidates, { path: report.familyCandidates.path, families: 1, droppedByFit: { members: 0, families: 0 } });
-  assert.match(report.familyCandidates.path, /\.yggdrasil\/\.family-candidates\.grain\.json$/);
+  assert.match(report.familyCandidates.path, /\.yggdrasil[\\/]\.family-candidates\.grain\.json$/);
 });
 
 test('--family-candidates <path> writes there instead, and the proposal carries no copy', () => {

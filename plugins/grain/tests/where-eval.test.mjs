@@ -14,6 +14,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { whereEval } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -80,7 +81,7 @@ function buildFixture(dir) {
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-whereeval-')); repo = join(tmp, 'repo'); bare = join(tmp, 'bare');
   buildFixture(repo); grain(['status'], repo);
   mkdirSync(bare, { recursive: true }); }); // a directory that is not a git repository at all
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 const json = (args = []) => { const r = grain(['selftest', '--where', '--json', ...args], repo);
   assert.equal(r.code, 0, `selftest --where exited ${r.code}: ${r.err}`);

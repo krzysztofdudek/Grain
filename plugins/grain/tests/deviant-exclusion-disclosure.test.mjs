@@ -29,12 +29,13 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { checkFile, partitionFor } from '../engine/core.mjs';
 import { CFG } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -161,7 +162,7 @@ for (const cfg of LANGS) {
       assert.match(hit.text, new RegExp(`${cfg.memberKeys.length} members`), hit.text);
       assert.match(hit.text, new RegExp(reEsc(cfg.reqPhrase)), hit.text);
     } finally {
-      rmSync(tmp, { recursive: true, force: true });
+      removeTemp(tmp);
     }
   });
 }
@@ -204,7 +205,7 @@ test('(047 narrowing) a certifying fact below the Math.log2(CFG.lambda) bar is n
     assert.match(hit.text, new RegExp(`matched no group \\(best 0\\.00, floor ${CFG.minMemb}\\)`), hit.text);
     assert.doesNotMatch(hit.text, /the nearest certifying group is/, `a bpi-2.5 fact is below Math.log2(CFG.lambda)=3 — must NOT be named: ${hit.text}`);
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    removeTemp(tmp);
   }
 });
 
@@ -239,6 +240,6 @@ test('(047 containment) a directory-scoped fact catches a deviation with zero ro
     const dev = r.msgs.find(m => m.pid === 'auto.extends:Base' && m.scope === 'ExtraLegacyThing');
     assert.ok(dev, `the directory-scoped fact must still catch this deviation regardless of role clustering: ${JSON.stringify(r.msgs)}`);
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    removeTemp(tmp);
   }
 });

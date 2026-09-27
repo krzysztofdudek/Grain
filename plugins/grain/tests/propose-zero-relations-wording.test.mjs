@@ -11,10 +11,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -46,7 +47,7 @@ const propose = repo => {
 const archLine = out => out.split('\n').find(l => l.startsWith('architecture:'));
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'propose-zero-rel-')); });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 // Eight standalone modules that reference nothing but an external package: references ARE extracted (each file
 // has an import), none of them binds to a file in the tree, and so nothing can cross a module boundary. (A Node

@@ -5,10 +5,15 @@
 // answers the two commands Grain asks, for one container mounting a temporary directory at /workspaces/app.
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { chmodSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
+import { delimiter, join } from 'node:path';
 import { hostPathFor, findRoot } from '../engine/grain-context.mjs';
+import { removeTemp } from './remove-temp.mjs';
+
+// The stand-in docker is a shebang script, and Windows runs only an .exe it finds by name. The translation itself is
+// plain string work on the container's POSIX path and runs the same there.
+const NO_STUB = process.platform === 'win32' && 'the stand-in docker is a shebang script; Windows runs only an .exe';
 
 function fakeDocker(tmp, mounts) {
   const bin = join(tmp, 'docker');
@@ -22,7 +27,7 @@ process.exit(1);
   return bin;
 }
 
-test('a container path is translated through the mount that contains it, the longest one first', () => {
+test('a container path is translated through the mount that contains it, the longest one first', { skip: NO_STUB }, () => {
   const tmp = mkdtempSync(join(tmpdir(), 'grain-mounts-'));
   try {
     const host = join(tmp, 'checkout');
@@ -36,26 +41,26 @@ test('a container path is translated through the mount that contains it, the lon
     assert.equal(hostPathFor('/elsewhere/app', { docker }), null, 'a path no container mounts has no host name');
     assert.equal(hostPathFor('/workspaces/app/missing', { docker }), null, 'a host side that does not exist is not an answer');
     assert.equal(hostPathFor('/workspaces/app', { docker: join(tmp, 'no-docker') }), null, 'no docker, no translation');
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
-test('findRoot uses the translation, and refuses in words a path nothing mounts', () => {
+test('findRoot uses the translation, and refuses in words a path nothing mounts', { skip: NO_STUB }, () => {
   const tmp = mkdtempSync(join(tmpdir(), 'grain-mounts-'));
   const savedPath = process.env.PATH;
   try {
     const host = join(tmp, 'checkout');
     mkdirSync(host, { recursive: true });
     fakeDocker(tmp, [{ Type: 'bind', Source: host, Destination: '/workspaces/app' }]);
-    process.env.PATH = `${tmp}:${savedPath}`;
+    process.env.PATH = `${tmp}${delimiter}${savedPath}`;
     assert.equal(findRoot({ repo: '/workspaces/app' }).root, host);
     assert.throws(() => findRoot({ repo: '/workspaces/other' }), /no running container mounts a host directory there/);
   } finally {
     process.env.PATH = savedPath;
-    rmSync(tmp, { recursive: true, force: true });
+    removeTemp(tmp);
   }
 });
 
-test('two containers mounting different checkouts at the same path: no guess, and findRoot names both', () => {
+test('two containers mounting different checkouts at the same path: no guess, and findRoot names both', { skip: NO_STUB }, () => {
   const tmp = mkdtempSync(join(tmpdir(), 'grain-mounts-'));
   const savedPath = process.env.PATH;
   try {
@@ -65,16 +70,16 @@ test('two containers mounting different checkouts at the same path: no guess, an
       { Type: 'bind', Source: a, Destination: '/workspaces/app' },
       { Type: 'bind', Source: b, Destination: '/workspaces/app' },
     ]);
-    process.env.PATH = `${tmp}:${savedPath}`;
+    process.env.PATH = `${tmp}${delimiter}${savedPath}`;
     assert.equal(hostPathFor('/workspaces/app'), null);
     assert.throws(() => findRoot({ repo: '/workspaces/app' }), (e) => /2 different host directories/.test(e.message) && e.message.includes(a) && e.message.includes(b));
   } finally {
     process.env.PATH = savedPath;
-    rmSync(tmp, { recursive: true, force: true });
+    removeTemp(tmp);
   }
 });
 
-test('a .. in the container path cannot walk out of the mount it matched', () => {
+test('a .. in the container path cannot walk out of the mount it matched', { skip: NO_STUB }, () => {
   const tmp = mkdtempSync(join(tmpdir(), 'grain-mounts-'));
   try {
     const host = join(tmp, 'checkout');
@@ -84,5 +89,5 @@ test('a .. in the container path cannot walk out of the mount it matched', () =>
     assert.equal(hostPathFor('/workspaces/app/../secret', { docker }), null, 'normalised to /workspaces/secret, which nothing mounts — never the host directory beside the checkout');
     assert.equal(hostPathFor('/workspaces/app/x/../src', { docker }), join(host, 'src'));
     assert.equal(hostPathFor('workspaces/app', { docker }), null, 'a relative path is no container path');
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });

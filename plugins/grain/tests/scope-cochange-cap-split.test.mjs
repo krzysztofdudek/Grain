@@ -33,6 +33,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadHistory } from '../engine/history.mjs';
 import { CFG } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -109,7 +110,7 @@ before(() => {
   indexIt(small);
 });
 after(() => {
-  if (tmp) rmSync(tmp, { recursive: true, force: true });
+  if (tmp) removeTemp(tmp);
 });
 
 test('a repository that overflows the budget keeps its cross-file pairs — which a single descending cut provably dropped', async () => {

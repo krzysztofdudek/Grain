@@ -21,12 +21,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { TYPE_LEVELS, typeEvidence, levelSentence } from '../engine/propose.mjs';
 import { scoreProposal, propose as runPropose } from './stress/propose.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROPOSE = join(here, 'stress', 'propose.mjs');
@@ -82,7 +83,7 @@ before(() => {
   alternativesMd = readFileSync(join(out, 'alternatives.md'), 'utf8');
   proposalMd = readFileSync(join(out, 'PROPOSAL.md'), 'utf8');
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 const typeRows = () => sidecar.evidence.filter(r => r.kind === 'type' && r.level !== 'organizational');
 const altRows = () => sidecar.evidence.filter(r => r.kind === 'alternative');
@@ -278,7 +279,8 @@ const CLONES = process.env.GRAIN_CORPUS_CLONES;
 
 function stageClone(src, dst) {
   mkdirSync(dst, { recursive: true });
-  const tar = spawnSync('sh', ['-c', `git -C '${src}' archive HEAD | tar -x -C '${dst}'`], { encoding: 'utf8' });
+  // no shell: the archive is handed to tar on its stdin, so it runs the same on Windows
+  const tar = spawnSync('tar', ['-x', '-C', dst], { input: execFileSync('git', ['-C', src, 'archive', 'HEAD'], { maxBuffer: 1 << 30 }), encoding: 'utf8' });
   assert.equal(tar.status, 0, tar.stderr);
   execFileSync('git', ['-C', dst, 'init', '-q', '-b', 'main'], { env });
   execFileSync('git', ['-C', dst, 'add', '-A'], { env });

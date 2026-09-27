@@ -24,12 +24,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { extractCoverage, declCandidateTypes } from '../engine/core.mjs';
 import { GRAMMARS } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -126,7 +127,7 @@ const grain = (args, opts = {}) => { const r = spawnSync('node', [BIN, ...args],
   return { out: (r.stdout || '').replace(/\n$/, ''), err: r.stderr, code: r.status }; };
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-selftest-extract-')); repo = join(tmp, 'fixture'); execFileSync('node', [BUILDER, repo], { stdio: 'pipe' }); });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('CLI: selftest --extract (text) prints one line per grammar plus a total line, ending with the freshness stamp', () => {
   grain(['status']);

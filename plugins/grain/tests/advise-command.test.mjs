@@ -35,6 +35,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { declaredVia, readNodeGraph } from '../engine/grain-advise.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -142,7 +143,7 @@ before(() => {
   gitIn(bareRepo, 'commit', '-q', '-m', 'bare');
 });
 after(() => {
-  try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ }
+  try { removeTemp(tmp); } catch { /* best effort */ }
 });
 
 // ------------------------------------------------------------------ 1. the document

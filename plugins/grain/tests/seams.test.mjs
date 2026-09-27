@@ -39,7 +39,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -48,6 +48,7 @@ import { parseYaml } from '../engine/yggdrasil-graph.mjs';
 import { probeRootParent, resolveYg } from '../engine/propose.mjs';
 import { TOP_LEVEL_TYPES, writeTopLevelRepo } from './fixture-top-level-repo.mjs';
 import { readRunesSeam, runesSeamVerdict, isReleaseRef } from './runes-seam.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const GRAIN_BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -150,7 +151,7 @@ before(() => {
   cpSync(join(yggProposalOut, '.yggdrasil'), join(yggStage, '.yggdrasil'), { recursive: true });
 });
 
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 // ============================================================================================================
 // Seam 1a — `yg check` loads the rendered proposal for a REAL, full-size repository (not the tiny fixture

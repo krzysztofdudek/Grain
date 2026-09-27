@@ -6,10 +6,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -25,7 +26,7 @@ const convCount = json => json.partitions.reduce((a, p) => a + p.conventions, 0)
 const SHALLOW_REASON = 'shallow clone — history unavailable, weights flat';
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-shallow-')); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('unshallowing a clone (same HEAD) invalidates the index and recovers full history', () => {
   const origin = join(tmp, 'origin'); buildFixture(origin);

@@ -42,12 +42,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getParser, bindingFor, extractScopes, hashStr } from '../engine/core.mjs';
 import { CFG } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -89,7 +90,7 @@ before(() => {
   gitIn(repo1, 'add', '-A'); gitIn(repo1, 'commit', '-qm', 'the flagship fixture');
   statusIn(repo1);
 });
-after(() => { if (tmp1) rmSync(tmp1, { recursive: true, force: true }); });
+after(() => { if (tmp1) removeTemp(tmp1); });
 
 test('(1) heterogeneous `scripts` containers across 5 files keep the CORE members as siblings, never the minority one', () => {
   const m = modelIn(repo1);
@@ -128,7 +129,7 @@ before(() => {
   gitIn(repo2, 'add', '-A'); gitIn(repo2, 'commit', '-qm', 'the regression fixture');
   statusIn(repo2);
 });
-after(() => { if (tmp2) rmSync(tmp2, { recursive: true, force: true }); });
+after(() => { if (tmp2) removeTemp(tmp2); });
 
 test('(2) `test` living OUTSIDE `scripts` in most files is never certified as a scripts-container sibling', async () => {
   const m = modelIn(repo2);
@@ -162,7 +163,7 @@ before(() => {
   gitIn(repo3, 'add', '-A'); gitIn(repo3, 'commit', '-qm', 'the enum duplication fixture');
   statusIn(repo3);
 });
-after(() => { if (tmp3) rmSync(tmp3, { recursive: true, force: true }); });
+after(() => { if (tmp3) removeTemp(tmp3); });
 
 test('(3) the duplication fix is general: an enum sharing a member VALUE with an unrelated enum is not falsely certified', () => {
   const m = modelIn(repo3);

@@ -31,6 +31,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { profileOf, twinsOf, skAu } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -69,7 +70,7 @@ before(() => {
   const d1 = dateEnv('2026-01-10T12:00:00Z');
   gitIn(repoA, d1, 'add', '-A'); gitIn(repoA, d1, 'commit', '-qm', 'the twins fixture');
 });
-after(() => { if (tmpA) rmSync(tmpA, { recursive: true, force: true }); });
+after(() => { if (tmpA) removeTemp(tmpA); });
 
 test('(a) the Dto/Record groups (identical skeleton) are reported as twins with namedDifferently', () => {
   const m = modelIn(repoA);
@@ -121,7 +122,7 @@ before(() => {
   const d1 = dateEnv('2026-01-10T12:00:00Z');
   gitIn(repoB, d1, 'add', '-A'); gitIn(repoB, d1, 'commit', '-qm', 'the same-suffix control fixture');
 });
-after(() => { if (tmpB) rmSync(tmpB, { recursive: true, force: true }); });
+after(() => { if (tmpB) removeTemp(tmpB); });
 
 test('(c) namedDifferently is absent when both twinned groups share the same dominant suffix', () => {
   const m = modelIn(repoB);
@@ -144,7 +145,7 @@ before(() => {
   const d1 = dateEnv('2026-01-10T12:00:00Z');
   gitIn(repoC, d1, 'add', '-A'); gitIn(repoC, d1, 'commit', '-qm', 'the dto/model PL_STOP regression fixture');
 });
-after(() => { if (tmpC) rmSync(tmpC, { recursive: true, force: true }); });
+after(() => { if (tmpC) removeTemp(tmpC); });
 
 test('(g) namedDifferently reports the PL_STOP-collision suffix `model` correctly, not an entity-name artifact', () => {
   const m = modelIn(repoC);

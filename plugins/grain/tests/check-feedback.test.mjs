@@ -15,6 +15,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cmdCheck } from '../engine/grain.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -62,7 +63,7 @@ before(() => {
   PARTITION = cj.partition; // whatever MDL cuts landed the @Handler norm on — read back, never hardcoded
   assert.ok(PARTITION, 'sanity: order.handler.ts is governed by a partition');
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('a fresh repo with no check-feedback history: `grain status` prints nothing about check notes', () => {
   resetState();
@@ -184,5 +185,5 @@ test('(f) cmdCheck called without a store does not throw and writes no feedback 
     assert.ok(Array.isArray(lines) && lines.length > 0);
     assert.equal(existsSync(join(repo2, '.grain', 'cache', 'check-pending.json')), false, 'no store means no pending file can be written');
     assert.equal(existsSync(join(repo2, '.grain', 'cache', 'check-outcomes.json')), false, 'no store means no outcomes file can be written');
-  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp2); }
 });

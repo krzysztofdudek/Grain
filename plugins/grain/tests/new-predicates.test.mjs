@@ -23,11 +23,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getParser, bindingFor, extractScopes, lexicalPreds, fileLevelPreds, mine, verbalize, deviationPhrase } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 
@@ -394,5 +395,5 @@ test('(f) determinism — a full build and an incremental rebuild agree byte-for
     run();                                          // incremental: the 12 unchanged blobs come back from tree.json
     const incr = snapshot();
     for (const [k, v] of Object.entries(full)) assert.deepEqual(incr[k], v, `${k} changed between the full build and the incremental rebuild`);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });

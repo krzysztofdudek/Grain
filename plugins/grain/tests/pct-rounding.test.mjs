@@ -6,11 +6,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { report, rulesMarkdown, whereCmd } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -120,7 +121,7 @@ before(() => {
   repoDeviants = join(tmp, 'deviants'); buildHandlerRepo(repoDeviants, { total: 410, deviants: 2 });
   repoPerfect = join(tmp, 'perfect'); buildHandlerRepo(repoPerfect, { total: 20, deviants: 0 });
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(a) grain report on a real repo: share=408/410 prints "99% of 410 established, 2 deviants", never "100%"', () => {
   const out = grainOut(repoDeviants, ['report']);

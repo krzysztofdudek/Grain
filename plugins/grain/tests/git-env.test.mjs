@@ -6,9 +6,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { removeTemp } from './remove-temp.mjs';
 
 test('every git the suite runs has background maintenance and auto gc turned off, even with HOME elsewhere (issue 409)', () => {
   const tmp = mkdtempSync(join(tmpdir(), 'git-env-'));
@@ -19,6 +20,6 @@ test('every git the suite runs has background maintenance and auto gc turned off
     assert.equal(get('maintenance.auto'), 'false', 'run the suite through `npm test`, or `node --import ./tests/git-env.mjs --test …`');
     assert.equal(get('gc.auto'), '0');
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    removeTemp(tmp);
   }
 });

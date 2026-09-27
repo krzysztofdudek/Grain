@@ -10,6 +10,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import assert from 'node:assert/strict';
+import { removeTemp } from '../remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'bin', 'grain.mjs');
 
@@ -25,7 +26,7 @@ export function edgesOf(files) {
   const line = (r.stdout || '').split('\n').find(l => l.startsWith('{'));
   assert.ok(line, 'export printed no JSON: ' + r.stdout + r.stderr);
   const d = JSON.parse(line);
-  return { edges: d.edges || [], moduleGraph: d.moduleGraph, dir, cleanup: () => rmSync(dir, { recursive: true, force: true }) };
+  return { edges: d.edges || [], moduleGraph: d.moduleGraph, dir, cleanup: () => removeTemp(dir) };
 }
 
 export function expectEdge(edges, from, to, kind = null) {

@@ -4,7 +4,6 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  renameSync,
   statSync,
   writeFileSync,
   realpathSync,
@@ -14,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, SHIPPED_GRAMMAR_DIR, GRAMMAR_MANIFEST, RUNES_PIN, GRAMMARS, HARD_EXCL } from './config.mjs';
 import { learn, walkFiles, toPosix } from './core.mjs';
+import { renameOver } from './base.mjs';
 import { loadHistory, headSha, headTree, gitOk, isShallow } from './history.mjs';
 import { createHash } from 'node:crypto';
 import { VALUE_FLAGS, jsonTakesPath } from './grain-commands.mjs';
@@ -107,14 +107,13 @@ export function findRoot(opts) {
     start = host;
   }
   try {
-    return {
-      root: execFileSync('git', ['-C', start, 'rev-parse', '--show-toplevel'], {
-        stdio: ['ignore', 'pipe', 'ignore'],
-      })
-        .toString()
-        .trim(),
-      git: true,
-    };
+    // git answers C:/x/y on Windows; resolve() gives it the separators every other path here has
+    const top = execFileSync('git', ['-C', start, 'rev-parse', '--show-toplevel'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim();
+    return { root: process.platform === 'win32' ? resolve(top) : top, git: true };
   } catch {
     return { root: start, git: false };
   }
@@ -152,7 +151,7 @@ function ensureStore(root, store) {
 export const atomicWrite = (p, d) => {
   const t = p + '.tmp-' + process.pid;
   writeFileSync(t, d);
-  renameSync(t, p);
+  renameOver(t, p);
 };
 export const readJson = p => {
   try {
@@ -389,12 +388,16 @@ export function changedRanges(root, rel, isGit, diffArgs) {
   } // a pure deletion touches the line after its point (the class whose decorator was deleted)
   return ranges;
 }
+// On Windows the native realpath (GetFinalPathNameByHandle): the JS one keeps 8.3 short names (C:\Users\RUNNER~1) and
+// the caller's letter case, while `git rev-parse --show-toplevel` answers with the long, true-case path — a file inside
+// the repository would then look outside it.
+const realpath = process.platform === 'win32' ? realpathSync.native : realpathSync;
 export function canonicalize(p) {
   // realpath through the deepest EXISTING ancestor — handles a path not yet on disk (a
   // pre-write path) and OS symlinks (macOS /tmp -> /private/tmp) that would otherwise put a valid path "outside"
   // its own repository; shared by relPath and check-hook's PreToolUse path resolution
   try {
-    return realpathSync(p);
+    return realpath(p);
   } catch {
     let d2 = p;
     const tail = [];
@@ -405,7 +408,7 @@ export function canonicalize(p) {
       d2 = nd;
     }
     try {
-      return join(realpathSync(d2), ...tail);
+      return join(realpath(d2), ...tail);
     } catch {
       return p;
     }

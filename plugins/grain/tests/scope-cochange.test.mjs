@@ -10,13 +10,14 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { loadHistory } from '../engine/history.mjs';
 import { CFG } from '../engine/config.mjs';
 import { scopeLabel } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const gitEnv = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x' };
 const gitIn = (dir, ...a) => execFileSync('git', ['-C', dir, ...a], { encoding: 'utf8', env: { ...process.env, ...gitEnv } });
@@ -37,7 +38,7 @@ function buildPairFixture(dir, n = 9) {
 
 let tmp;
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-scopecochange-')); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(b1) two scopes touched together across >= cochangeMinSup commits appear in H.scopeCochange with correct sup/commits', async () => {
   const gitdir = join(tmp, 'b1-repo'); buildPairFixture(gitdir);
@@ -156,7 +157,7 @@ before(() => {
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo2, encoding: 'utf8' });
   assert.equal(st.status, 0, st.stdout + st.stderr);
 });
-after(() => { if (tmp2) rmSync(tmp2, { recursive: true, force: true }); });
+after(() => { if (tmp2) removeTemp(tmp2); });
 
 test('(b1-render) `check src/pair-a.ts` prints a co-change (scopes): line naming both scopes', () => {
   const m = JSON.parse(readFileSync(join(repo2, '.grain', 'cache', 'model.json'), 'utf8'));

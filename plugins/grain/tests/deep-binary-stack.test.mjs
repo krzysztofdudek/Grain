@@ -14,11 +14,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getParser, bindingFor, extractScopes } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const DEEP_SRC = 'const x = ' + Array(3000).fill('1').join(' + ') + ';\n';
@@ -61,7 +62,7 @@ before(() => {
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo, encoding: 'utf8' });
   assert.equal(st.status, 0, st.stdout + st.stderr);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(b) CLI `check` on the deep-expression file: exit 0, normal output ending "as of <sha>", not a crash', () => {
   w('src/deep.js', DEEP_SRC);

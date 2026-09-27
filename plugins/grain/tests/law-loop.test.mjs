@@ -21,9 +21,10 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
+import { removeTemp } from './remove-temp.mjs';
 import {
   chooseCut, firstAppearance, bornAfterCut, cutHoldoutCorpus, verifyI10, parseDrill, refusedSet,
   expectedRefusedSet, renderShapeCheck, provenanceFor, CASES_PER_SIDE,
@@ -76,7 +77,7 @@ before(() => {
   cut = { sha: cutSha, date: '2026-02-01', index: 2, total: 4 };
   first = firstAppearance(repo);
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 // ---------- 1. the cut ----------
 test('chooseCut names a commit at the requested fraction of history, with the count behind it', () => {

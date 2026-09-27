@@ -19,10 +19,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const DATE_A = '2026-01-10T12:00:00Z';
@@ -261,6 +262,6 @@ for (const c of cases) {
         for (const pat of cmd.mustNotContain || [])
           assert.doesNotMatch(out, toRegex(pat), `[${c.name}] grain ${cmd.args.join(' ')} — expected output NOT to contain ${pat}\n--- actual ---\n${out}`);
       }
-    } finally { rmSync(tmp, { recursive: true, force: true }); }
+    } finally { removeTemp(tmp); }
   });
 }

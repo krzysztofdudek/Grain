@@ -31,6 +31,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { howCmd } from '../engine/core.mjs';
 import { readHistoryState } from '../engine/history.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -61,7 +62,7 @@ describe('check-hook agrees with `check <file>` — containment on deviations, h
     const st = grainIn(repo, ['status']); assert.equal(st.code, 0, st.err);
     assert.doesNotMatch(st.out, /: 0 conventions/, `sanity: @Handler() must be established: ${st.out}`);
   });
-  after(() => rmSync(tmp, { recursive: true, force: true }));
+  after(() => removeTemp(tmp));
 
   test('a certified deviation: every check-hook finding is a substring-match of a `check <file> --json` deviationsInChange statement', () => {
     resetSeen(repo);
@@ -105,7 +106,7 @@ describe('commit-hook agrees with `review --staged` — containment on a staged 
     wIn(repo, 'NOTES.md', 'notes\n'); gitIn(repo, d2, 'add', 'NOTES.md'); gitIn(repo, d2, 'commit', '-qm', 'notes');
     const st = grainIn(repo, ['status']); assert.equal(st.code, 0, st.err);
   });
-  after(() => rmSync(tmp, { recursive: true, force: true }));
+  after(() => removeTemp(tmp));
 
   test('a staged deviation: every commit-hook finding is a substring-match of `review --staged --json`\'s own deviationsInChange for the SAME file', () => {
     resetSeen(repo);
@@ -139,7 +140,7 @@ describe('edit-hook / check-hook co-change agrees with `completeness <file>`, an
     for (let i = 1; i <= 8; i++) { wIn(repo, 'src/hub.ts', `export const hub = () => ${i};\n`); for (const p of ['p1', 'p2', 'p3', 'p4']) wIn(repo, `src/${p}.ts`, `export const ${p} = () => ${i};\n`); gitIn(repo, {}, 'add', '-A'); gitIn(repo, {}, 'commit', '-qm', `hub change ${i}`); }
     const st = grainIn(repo, ['status']); assert.equal(st.code, 0, st.err);
   });
-  after(() => rmSync(tmp, { recursive: true, force: true }));
+  after(() => removeTemp(tmp));
 
   const partnersFromCompleteness = rel => { const out = grainIn(repo, ['completeness', rel]).out;
     const re = /- (\S+) \(co-changed in (\d+)\/(\d+) commits\)/g; const partners = new Map(); let m;
@@ -254,7 +255,7 @@ describe('how-hook agrees with `how --json` (places/shape); howCmd direct (score
     buildFixture(repo);
     const st = grainIn(repo, ['status']); assert.equal(st.code, 0, st.err);
   });
-  after(() => rmSync(tmp, { recursive: true, force: true }));
+  after(() => removeTemp(tmp));
 
   test('a certified-shape prompt: how-hook\'s certified cells and places all appear in `how --json`\'s own shape/places for the identical query', () => {
     resetSeen(repo);
@@ -312,7 +313,7 @@ describe('session-context agrees with `status`/`report`/`map` on repo-wide count
     gitIn(repo, {}, 'add', '-A'); gitIn(repo, {}, 'commit', '-qm', 'base');
     const st = grainIn(repo, ['status']); assert.equal(st.code, 0, st.err);
   });
-  after(() => rmSync(tmp, { recursive: true, force: true }));
+  after(() => removeTemp(tmp));
 
   test('files/groups/conventions: session-context\'s own ready-state numbers equal `status --json`\'s', () => {
     const h = hookCall('session-context', { cwd: repo }, repo);
@@ -352,6 +353,6 @@ describe('session-context agrees with `status`/`report`/`map` on repo-wide count
       assert.doesNotMatch(text, /Architecture \(measured\)/, 'no module graph — session-context must not claim one');
       const reportOut = grainIn(repo2, ['report']).out;
       assert.doesNotMatch(reportOut, /== architecture —/, 'fixture precondition: report must also have nothing to say about architecture');
-    } finally { rmSync(tmp2, { recursive: true, force: true }); }
+    } finally { removeTemp(tmp2); }
   });
 });

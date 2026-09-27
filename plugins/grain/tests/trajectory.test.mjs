@@ -9,6 +9,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { gini, graphAt, layers, sccs, trajectory } from './stress/trajectory.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 let tmp, repo, env;
 const w = (rel, content) => { const p = join(repo, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
@@ -41,7 +42,7 @@ before(() => {
   w('.yggdrasil/model/io/yg-node.yaml', node([]));
   commit('rename, break the loop');
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 test('the declared graph at a commit is read from git objects, either file spelling, targets that exist only', () => {
   const head = execFileSync('git', ['-C', repo, 'rev-parse', 'HEAD~1'], { encoding: 'utf8' }).trim();

@@ -122,7 +122,7 @@ async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
       action: 'rm',
       id,
       at: new Date().toISOString().slice(0, 10),
-      by: opts.author || process.env.USER || '',
+      by: opts.author || process.env.USER || process.env.USERNAME || '',
     });
     return [`removed seed ${id} — the next query re-mines without it`, stamp()];
   }
@@ -168,7 +168,7 @@ async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
         `--instead-of ${badR.join(', ')}: the exemplar ${r.scope.name} ${r.scope.preds[badR[0]] === undefined ? 'has no such surface' : 'itself carries that value'} — name a surface the exemplar has retired (its value on the exemplar is 'false')`
       );
     const createdAt = new Date().toISOString().slice(0, 10);
-    const author = opts.author || process.env.USER || '';
+    const author = opts.author || process.env.USER || process.env.USERNAME || '';
     const id = createHash('sha256')
       .update([rel, r.scope.name, want.concat(retire).join(','), author, createdAt].join('|'))
       .digest('hex')
@@ -231,7 +231,7 @@ async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
         stamp(),
       ];
     const createdAt = new Date().toISOString().slice(0, 10);
-    const author = opts.author || process.env.USER || '';
+    const author = opts.author || process.env.USER || process.env.USERNAME || '';
     const id = createHash('sha256')
       .update(['waiver', rel, name, pid, author, createdAt].join('|'))
       .digest('hex')
@@ -264,7 +264,7 @@ async function cmdSeed({ model, root, isGit, store, args, opts, stamp }) {
     const fromDir = String(from).replace(/\/$/, ''),
       toDir = String(to).replace(/\/$/, '');
     const createdAt = new Date().toISOString().slice(0, 10);
-    const author = opts.author || process.env.USER || '';
+    const author = opts.author || process.env.USER || process.env.USERNAME || '';
     const id = createHash('sha256')
       .update(['boundary', fromDir, toDir, author, createdAt].join('|'))
       .digest('hex')

@@ -4,10 +4,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -17,7 +18,7 @@ const grain = (args, opts = {}) => { const r = spawnSync('node', [BIN, ...args],
   return { out: (r.stdout || '').replace(/\n$/, ''), err: r.stderr, code: r.status }; };
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-repo-validation-')); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('status --repo <nonexistent nested path>: fails clean and fabricates nothing on disk', () => {
   const bad = join(tmp, 'nope', 'deeper', 'still-not-there');

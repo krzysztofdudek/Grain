@@ -20,7 +20,7 @@ import { createInterface } from 'node:readline';
 import { existsSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, resolve, dirname, basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { spawn } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
 import { constants as osConstants } from 'node:os';
 import { COMMANDS, GLOBAL_FLAGS } from '../engine/grain-commands.mjs';
 import { USAGE } from '../engine/grain-usage.mjs';
@@ -287,18 +287,36 @@ export function timeoutFor(cmd, env = process.env) {
   return Number.isFinite(v) && v > 0 ? v : long ? 60 * 60_000 : 10 * 60_000;
 }
 
+// A Windows process tree, killed from its root: taskkill /T walks the children (bin/grain.mjs's re-exec among them),
+// /F does not ask. Synchronous, so a server that is leaving has killed the tree before it exits.
+export function killTree(pid, { run = spawnSync } = {}) {
+  if (!pid) return;
+  try {
+    run('taskkill', ['/pid', String(pid), '/T', '/F'], { stdio: 'ignore', windowsHide: true });
+  } catch {
+    /* already gone */
+  }
+}
+
 // The CLI, run once: { code, out, err, stopped }. It runs in a process group of its own (bin/grain.mjs starts itself
 // again under --liftoff-only, so the answer comes from a grandchild), and a timeout or a cancellation kills the whole
 // group, never just the parent.
 function runCli(argv, { cwd = process.cwd(), timeoutMs, signal } = {}) {
   return new Promise(res => {
-    const child = spawn(process.execPath, [BIN, ...argv], { cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
+    // Windows has no process groups: `detached` there only opens a new console, so the child stays attached (and
+    // hidden) and a stop kills its whole tree with taskkill /T instead.
+    const win = process.platform === 'win32';
+    const child = spawn(process.execPath, [BIN, ...argv], { cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: !win, windowsHide: true });
     let out = '';
     let err = '';
     let stopped = null;
     const stop = why => {
       if (stopped) return;
       stopped = why;
+      if (win) {
+        killTree(child.pid);
+        return;
+      }
       try {
         process.kill(-child.pid, 'SIGKILL');
       } catch {
@@ -506,11 +524,14 @@ function serve() {
 }
 
 // started as a program (not imported by a test): argv[1] names this file, possibly through a symlink
+// (Windows: the native realpath expands 8.3 short names, and the comparison ignores letter case as the file system does)
 const self = p => {
+  let r;
   try {
-    return realpathSync(p);
+    r = process.platform === 'win32' ? realpathSync.native(p) : realpathSync(p);
   } catch {
-    return resolve(p);
+    r = resolve(p);
   }
+  return process.platform === 'win32' ? r.toLowerCase() : r;
 };
 if (process.argv[1] && self(process.argv[1]) === self(fileURLToPath(import.meta.url))) serve();

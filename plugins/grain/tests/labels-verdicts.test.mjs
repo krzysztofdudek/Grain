@@ -5,10 +5,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { classifyPair, readVerdictEvents, refusalPairs, verdictSummary } from './stress/labels.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 let tmp, repo, env, c1, c2;
 const w = (rel, content) => { const p = join(repo, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
@@ -50,7 +51,7 @@ before(() => {
     { ...ev('2026-07-05T10:00:00Z', 'det', 'node:x', 'approved', 'h8'), kind: 'deterministic' },
   ]));
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 test('committed and local events are read once each, and a local copy lends its reason', () => {
   const evs = readVerdictEvents(repo);
@@ -133,6 +134,6 @@ test('a sealed month file and the current file are both read, oldest first, with
     assert.equal(summary.pairs, 1);
     assert.deepEqual(summary.recoverable, { file: 1 });
   } finally {
-    rmSync(t2, { recursive: true, force: true });
+    removeTemp(t2);
   }
 });

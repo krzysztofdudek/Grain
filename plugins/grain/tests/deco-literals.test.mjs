@@ -4,10 +4,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 
@@ -31,5 +32,5 @@ test('a route word that lives ONLY in a decorator string literal finds the class
     const r = spawnSync('node', [BIN, 'where', 'billing'], { cwd: repo, encoding: 'utf8' });
     assert.match(r.stdout, /src\/handlers\/first\.handler\.ts/);
     assert.doesNotMatch(r.stdout.split('\n').filter(l => l.includes('«')).join('\n'), /h3\.handler/); // an OTHER route's file does not match
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });

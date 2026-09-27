@@ -15,6 +15,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildNodes } from '../engine/propose-nodes.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const type = (id, dir, files) => ({ id, dir, files: new Set(files), why: `type ${id}` });
 const active = [
@@ -118,6 +119,6 @@ test('the node whose relation was cut says so in its own yg-node.yaml, pointing 
     const keptText = readFileSync(join(dir, 'model', 'src/core', 'yg-node.yaml'), 'utf8');
     assert.doesNotMatch(keptText, /left undeclared/);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTemp(dir);
   }
 });

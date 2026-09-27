@@ -7,10 +7,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync, existsSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -22,7 +23,7 @@ const PID = 'auto.deco:@Handler';
 
 let tmp, pristine, n = 0;
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-waive-')); pristine = join(tmp, 'pristine'); execFileSync('node', [BUILDER, pristine], { stdio: 'pipe' }); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 const newRepo = () => { const r = join(tmp, 'r' + (++n)); execFileSync('cp', ['-R', pristine, r]); return r; };
 const grain = (repo, args) => { const r = spawnSync('node', [BIN, ...args], { cwd: repo, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }); return { out: (r.stdout || '').replace(/\n$/, ''), err: r.stderr || '', code: r.status }; };

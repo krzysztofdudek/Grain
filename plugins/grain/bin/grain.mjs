@@ -13,6 +13,7 @@ const FLAG = '--liftoff-only';
 if (!process.execArgv.includes(FLAG) && process.env.GRAIN_V8 !== 'off' && process.argv[2] !== 'refresh') {
   const r = spawnSync(process.execPath, [FLAG, fileURLToPath(import.meta.url), ...process.argv.slice(2)], {
     stdio: 'inherit',
+    windowsHide: true,
     env: { ...process.env, GRAIN_V8: 'off' },
   });
   process.exit(r.status ?? 1);

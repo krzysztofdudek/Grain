@@ -36,6 +36,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { yq, yamlEmit, promoteEnforceableAspects, proposeReport, DRILL_TIMEOUT_MS, SLOWEST_OBSERVED_DRILL_MS } from '../engine/propose.mjs';
 import { parseYaml } from '../engine/yggdrasil-graph.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -72,7 +73,7 @@ test('an out-dir that is a symlink to the repository does not get past the refus
     // the point of the guard: the hand-written graph is still there, byte for byte
     assert.equal(readFileSync(join(repo, '.yggdrasil', 'yg-architecture.yaml'), 'utf8'), 'node_types:' + NL + '  hand: {}' + NL);
     assert.ok(existsSync(join(repo, '.yggdrasil', 'model', 'keep', 'yg-node.yaml')), 'the hand-written node was deleted');
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 test('a symlinked out-dir pointing INTO the repository\'s own .yggdrasil/ is refused too', () => {
@@ -88,7 +89,7 @@ test('a symlinked out-dir pointing INTO the repository\'s own .yggdrasil/ is ref
     assert.notEqual(r.code, 0, `expected a refusal, got exit ${r.code}:${NL}${r.out}${r.err}`);
     assert.match(r.out + r.err, /refusing to write a proposal into/);
     assert.ok(existsSync(join(repo, '.yggdrasil', 'model', 'keep', 'yg-node.yaml')));
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 test('a legitimate out-dir reached through a symlinked parent still works', () => {
@@ -103,11 +104,14 @@ test('a legitimate out-dir reached through a symlinked parent still works', () =
     const r = grainIn(repo, ['propose', join(tmp, 'via', 'out')]);
     assert.equal(r.code, 0, `${r.out}${r.err}`);
     assert.ok(existsSync(join(real, 'out', '.yggdrasil', 'yg-architecture.yaml')));
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 // ---------- 2. a backslash is a filename character, not a separator ----------
-test('a tracked path containing a backslash keeps it: the file is mapped where it actually lives', () => {
+// Windows forbids a backslash and a newline in a file name, so neither hostile name can exist there to be mapped.
+const NO_SUCH_NAME = process.platform === 'win32' && 'Windows file names cannot hold a backslash or a newline';
+
+test('a tracked path containing a backslash keeps it: the file is mapped where it actually lives', { skip: NO_SUCH_NAME }, () => {
   const tmp = mkdtempSync(join(tmpdir(), 'propose-backslash-'));
   try {
     const repo = join(tmp, 'repo');
@@ -130,7 +134,7 @@ test('a tracked path containing a backslash keeps it: the file is mapped where i
     const sizing = JSON.parse(readFileSync(join(tmp, 'out', 'sizing.json'), 'utf8'));
     const total = sizing.proposedNodes.reduce((a, n) => a + n.bytes, 0);
     assert.equal(total, onDisk, `sizing accounts for ${total} bytes of the ${onDisk} actually on disk — a tracked path did not resolve`);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 // ---------- 3. the evidence comment may not carry a newline out of its comment ----------
@@ -147,7 +151,7 @@ test('yamlEmit keeps a multi-line comment value inside the comment, and the docu
   }
 });
 
-test('a repository directory whose name contains a newline cannot inject a key into the proposed architecture', () => {
+test('a repository directory whose name contains a newline cannot inject a key into the proposed architecture', { skip: NO_SUCH_NAME }, () => {
   const tmp = mkdtempSync(join(tmpdir(), 'propose-newline-'));
   try {
     const repo = join(tmp, 'repo');
@@ -164,7 +168,7 @@ test('a repository directory whose name contains a newline cannot inject a key i
     }
     // and no line of any emitted YAML is a bare `injected: true`
     assert.doesNotMatch(arch, /^\s*injected:/m, `the architecture carries an injected key:${NL}${arch.slice(0, 2000)}`);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 // ---------- 4. hostile identifiers through the emitter, reloaded ----------
@@ -257,7 +261,7 @@ test('a drill that never returns is abandoned, its aspect stays unverified, and 
     const line = report.lines.find(l => /given up on/.test(l));
     assert.ok(line, `the report never mentions the abandoned drill:${NL}${report.lines.join(NL)}`);
     assert.match(line, /1\.5s/, `the report does not name the bound that fired: ${line}`);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 test('the drill timeout is a stated multiple of a drill actually measured, not a chosen number', () => {
@@ -291,7 +295,7 @@ test('the export `propose` spawns for itself lands in the disposable cache, and 
     const inGrain = readdirSync(join(repo, '.grain')).sort();
     assert.deepEqual(inGrain, ['.gitignore', 'cache'], `.grain/ gained a generated file: ${JSON.stringify(inGrain)}`);
     assert.ok(existsSync(join(repo, '.grain', 'cache', 'propose-export.json')), 'the export was not written to the cache');
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 // A comment is literal to the end of its line — there is no escape available inside one — so a character YAML
@@ -333,7 +337,7 @@ test('a repository whose git is present but broken still gets a proposal, and th
     assert.match(r.out, /WARNING: .*git ls-files.* failed/, `the report does not disclose the degradation:${NL}${r.out}`);
     const json = JSON.parse(readFileSync(join(tmp, 'report.json'), 'utf8'));
     assert.match(String(json.degraded), /git ls-files/);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 test('a directory with no git at all is the documented case and carries no warning', () => {
@@ -347,7 +351,7 @@ test('a directory with no git at all is the documented case and carries no warni
     assert.doesNotMatch(r.out, /WARNING/, `a repository with no git is not a degradation to warn about:${NL}${r.out}`);
     const json = JSON.parse(readFileSync(join(tmp, 'report.json'), 'utf8'));
     assert.equal(json.degraded, null);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 // ---------- 6. a drill that could not run its cases has judged nothing ----------
@@ -388,7 +392,7 @@ test('a drill whose cases could not run leaves the aspect unverified, never enfo
 
     const ran = run(drill('5 pass · 0 MISS · 0 FALSE-ALARM · 0 unrun · 0 unsupported', 0), 'ran');
     assert.equal(ran.aspect.finalStatus, 'enforced', 'a drill that ran every case and caught is still enforced');
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 // ---------- 7. the drill is read from its `yg-drill/1` document, never its sentence ----------
@@ -446,5 +450,5 @@ test('the drill is read from yg-drill/1 when the CLI prints it, and from the tex
     assert.equal(r60.verify.verified, 1, 'a 6.0.x CLI must still verify through its text footer');
     assert.equal(r60.aspect.finalStatus, 'enforced');
     assert.deepEqual(r60.aspect.drill, { pass: 5, miss: 0, falseAlarm: 0, catches: 3, violates: 3, satisfies: 2 });
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });

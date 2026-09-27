@@ -7,10 +7,11 @@
 import { test, before, beforeEach, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo;
@@ -51,7 +52,7 @@ before(() => {
   assert.doesNotMatch(st.stdout, /: 0 conventions/, `sanity: the @Handler() convention must be established: ${st.stdout}`);
 });
 beforeEach(() => reset());
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('a new marker carrier without its registrar touched gets a missing: block with a recipe: line', () => {
   w('src/handlers/Handler30.ts', handler(30, 30)); // untracked new carrier — index.ts NOT touched, no companion file added

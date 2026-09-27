@@ -7,10 +7,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -23,7 +24,7 @@ const lastSeed = () => JSON.parse(readFileSync(join(repo, '.grain', 'seeds.jsonl
 const today = new Date().toISOString().slice(0, 10);
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-baseline-')); repo = join(tmp, 'fixture'); execFileSync('node', [BUILDER, repo], { stdio: 'pipe' }); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('seed add captures a real baseline from an already-accepted fact, and report/where show it moving after a later commit', () => {
   // independently observe today's @Handler convention BEFORE seeding — report's own fact line, not the steer path

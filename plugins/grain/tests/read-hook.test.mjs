@@ -11,6 +11,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo, tmpEmpty, repoEmpty;
@@ -62,7 +63,7 @@ before(() => {
   const modelEmpty = JSON.parse(readFileSync(join(repoEmpty, '.grain', 'cache', 'model.json'), 'utf8'));
   assert.equal(modelEmpty.partitions.length, 0, 'fixture must have zero partitions');
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); rmSync(tmpEmpty, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); removeTemp(tmpEmpty); });
 
 test('reading a top-5 deviant file names the convention (verbalize, not factLabel) and a conforming sibling, with evidence numbers', () => {
   rmSync(join(repo, '.grain', 'cache', 'hook-seen.json'), { force: true });

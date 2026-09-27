@@ -1,6 +1,7 @@
 // grain engine · learn — the current tree plus history folded into the model every query is answered from
 // Split out of core.mjs: the statements below are the ones that stood there, unchanged.
 import { basename, dirname } from 'node:path/posix';
+import { basename as osBasename } from 'node:path';
 import { S } from './base.mjs';
 import { CFG } from './config.mjs';
 import { refineModOf, sfcRelations } from './relations.mjs';
@@ -129,7 +130,8 @@ export async function learn({
   };
   const devCostCand = []; // { ef, dv, all } per candidate fact — scored once the whole repo's candidate count is known
   const cpCand = []; // { f, cp } per fact with a readable birth sequence — its change point, settled the same way
-  const model = { engine: 'grain', repo: basename(root), pkgs, cuts, generatedAt: 0, partitions: [] };
+  // the OS's own basename: on Windows the root is C:\x\repo
+  const model = { engine: 'grain', repo: osBasename(root), pkgs, cuts, generatedAt: 0, partitions: [] };
   // heritageKind: repo-wide, name → 'ext'/'impl', from every type-kind scope's own supKind (§extractScopes).
   // A name classified the SAME way everywhere it's the target of a heritage clause is trustworthy; one classified
   // BOTH ways (a class and an interface sharing a name in different files — rare, but not impossible) is not, and
