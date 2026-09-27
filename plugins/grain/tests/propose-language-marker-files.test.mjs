@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { existsSync, mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { dirname, join, relative, sep } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { isLanguageMarkerFile } from '../engine/config.mjs';
 
@@ -118,12 +118,13 @@ test('the rendered check does not refuse a name the language fixes', async () =>
 test('CORPUS.md scores the corpus with a plain yg drill, never as an external hold-out', () => {
   let seen = 0;
   const root = join(out, '.yggdrasil', 'aspects');
+  // relative to `root`, with forward slashes on every OS: an aspect id is a path of its own
   const walk = d => readdirSync(d, { withFileTypes: true })
     .flatMap(e => (e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]));
-  for (const corpus of walk(root).filter(p => p.endsWith('/drills/CORPUS.md'))) {
+  for (const corpus of walk(root).map(p => relative(root, p).split(sep).join('/')).filter(p => p.endsWith('/drills/CORPUS.md'))) {
     seen++;
-    const id = corpus.slice(root.length + 1, -'/drills/CORPUS.md'.length);
-    const text = readFileSync(corpus, 'utf8');
+    const id = corpus.slice(0, -'/drills/CORPUS.md'.length);
+    const text = readFileSync(join(root, corpus), 'utf8');
     assert.ok(text.includes(`yg drill --aspect ${id}\n`), text);
     assert.doesNotMatch(text, /yg drill [^\n]*--dir/);
   }

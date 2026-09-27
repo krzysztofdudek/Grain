@@ -107,7 +107,10 @@ test('a legitimate out-dir reached through a symlinked parent still works', () =
 });
 
 // ---------- 2. a backslash is a filename character, not a separator ----------
-test('a tracked path containing a backslash keeps it: the file is mapped where it actually lives', () => {
+// Windows forbids a backslash and a newline in a file name, so neither hostile name can exist there to be mapped.
+const NO_SUCH_NAME = process.platform === 'win32' && 'Windows file names cannot hold a backslash or a newline';
+
+test('a tracked path containing a backslash keeps it: the file is mapped where it actually lives', { skip: NO_SUCH_NAME }, () => {
   const tmp = mkdtempSync(join(tmpdir(), 'propose-backslash-'));
   try {
     const repo = join(tmp, 'repo');
@@ -147,7 +150,7 @@ test('yamlEmit keeps a multi-line comment value inside the comment, and the docu
   }
 });
 
-test('a repository directory whose name contains a newline cannot inject a key into the proposed architecture', () => {
+test('a repository directory whose name contains a newline cannot inject a key into the proposed architecture', { skip: NO_SUCH_NAME }, () => {
   const tmp = mkdtempSync(join(tmpdir(), 'propose-newline-'));
   try {
     const repo = join(tmp, 'repo');

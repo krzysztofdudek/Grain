@@ -15,7 +15,7 @@ import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, dirname } from 'node:path';
+import { delimiter, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
@@ -43,10 +43,12 @@ const sessionContext = (r, { mode = 'claude', PATH } = {}) => {
   // PATH, so a `YG_BIN` set in the environment this suite happens to run under (the full test run sets it to a
   // real built bin.js) would silently defeat every PATH-only scenario below, "yg not on PATH" included.
   const { YG_BIN, ...envWithoutYgBin } = process.env;
-  const res = spawnSync('node', [BIN, 'session-context', '--mode', mode], {
+  // Windows spells it `Path`, and a copy of the environment keeps that spelling: drop every casing before setting it
+  if (PATH) for (const k of Object.keys(envWithoutYgBin)) if (k.toUpperCase() === 'PATH') delete envWithoutYgBin[k];
+  const res = spawnSync(process.execPath, [BIN, 'session-context', '--mode', mode], {
     cwd: r, encoding: 'utf8', env: PATH ? { ...envWithoutYgBin, PATH } : envWithoutYgBin,
   });
-  assert.equal(res.status, 0, res.stderr);
+  assert.equal(res.status, 0, res.stderr || String(res.error));
   return JSON.parse(res.stdout).hookSpecificOutput.additionalContext;
 };
 
@@ -65,6 +67,18 @@ before(() => {
   // (so `which`/`git` still run, but `yg` is genuinely unresolvable); the other adds a stub `yg` ahead of it —
   // `resolveYg` only checks that `which yg` exits 0 and reports a path, it never runs the binary for this code
   // path, so a one-line stub is enough to prove the branch.
+  if (process.platform === 'win32') {
+    // Windows: git's own directory and System32 (for `where`); the stub is what npm installs there, a .cmd naming
+    // the script it runs. The CLI is started with this node directly, so node needs no PATH entry.
+    const gitDir = dirname(execFileSync('where', ['git'], { encoding: 'utf8' }).split(/\r?\n/)[0].trim());
+    const sys = join(process.env.SystemRoot || 'C:\\Windows', 'System32');
+    noYgPath = [gitDir, sys].join(delimiter);
+    const ygDir = join(tmp, 'path-with-yg'); mkdirSync(ygDir);
+    writeFileSync(join(ygDir, 'yg.js'), 'process.exit(0);\n');
+    writeFileSync(join(ygDir, 'yg.cmd'), '@"%~dp0\\yg.js" %*\r\n');
+    ygPath = [ygDir, gitDir, sys].join(delimiter);
+    return;
+  }
   const stdUtilDirs = '/usr/bin:/bin';
   const nodeOnlyDir = join(tmp, 'path-node-only'); mkdirSync(nodeOnlyDir);
   symlinkSync(process.execPath, join(nodeOnlyDir, 'node'));

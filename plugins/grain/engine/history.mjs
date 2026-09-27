@@ -14,7 +14,6 @@ import {
   mkdirSync,
   readFileSync,
   readdirSync,
-  renameSync,
   rmSync,
   writeFileSync,
 } from 'node:fs';
@@ -23,7 +22,7 @@ import { extname, join } from 'node:path';
 import { parseFile, bindingFor, extractScopes, hashStr, CODE_RE, normalizeCR } from './core.mjs';
 import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, FIX_RE } from './config.mjs';
 import { tokenize, normTok, QSTOP, DOC_STOP } from './core.mjs';
-import { langExt, SFC_RE } from './base.mjs';
+import { langExt, renameOver, SFC_RE } from './base.mjs';
 
 const PAIR = '\u0001'; // co-change pair-key separator (a control byte — never inside a path; '' split every pair into characters)
 
@@ -175,7 +174,7 @@ export function headTree(gitdir, { skip = () => false } = {}) {
 function atomicWrite(path, data) {
   const tmp = path + '.tmp-' + process.pid;
   writeFileSync(tmp, data);
-  renameSync(tmp, path);
+  renameOver(tmp, path);
 }
 
 // ----- blob cache: blobs/<SHARD_HEX hex>.json = { "<sha>": scopeRecords[] } -----
@@ -511,7 +510,7 @@ export async function writeHistoryState(path, state) {
       out.once('drain', pump);
     })();
   });
-  renameSync(tmp, path); // same tmp-then-rename atomicity as `atomicWrite`, just over a stream instead of one string
+  renameOver(tmp, path); // same tmp-then-rename atomicity as `atomicWrite`, just over a stream instead of one string
 }
 export async function readHistoryState(path) {
   const state = freshState();

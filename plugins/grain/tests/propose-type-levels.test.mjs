@@ -278,7 +278,8 @@ const CLONES = process.env.GRAIN_CORPUS_CLONES;
 
 function stageClone(src, dst) {
   mkdirSync(dst, { recursive: true });
-  const tar = spawnSync('sh', ['-c', `git -C '${src}' archive HEAD | tar -x -C '${dst}'`], { encoding: 'utf8' });
+  // no shell: the archive is handed to tar on its stdin, so it runs the same on Windows
+  const tar = spawnSync('tar', ['-x', '-C', dst], { input: execFileSync('git', ['-C', src, 'archive', 'HEAD'], { maxBuffer: 1 << 30 }), encoding: 'utf8' });
   assert.equal(tar.status, 0, tar.stderr);
   execFileSync('git', ['-C', dst, 'init', '-q', '-b', 'main'], { env });
   execFileSync('git', ['-C', dst, 'add', '-A'], { env });

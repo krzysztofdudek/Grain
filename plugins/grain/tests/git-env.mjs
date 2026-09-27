@@ -13,7 +13,11 @@
 // housekeeping on it can only race with the test, so it is off for every repository the suite touches. Environment
 // config (GIT_CONFIG_COUNT/KEY/VALUE) outranks every config file, and a test that points HOME at a temporary
 // directory keeps it too.
-const settings = { 'maintenance.auto': 'false', 'gc.auto': '0' };
+//
+// core.autocrlf is off for the same reason (issue 481): Git for Windows turns it on system-wide, so a `git checkout`
+// inside a test rewrote a fixture file with CRLF and the test's own string edit on it no longer matched. What Grain
+// does with CRLF sources is tested on purpose, in crlf.test.mjs.
+const settings = { 'maintenance.auto': 'false', 'gc.auto': '0', 'core.autocrlf': 'false' };
 const count = Number(process.env.GIT_CONFIG_COUNT) || 0;
 const present = new Set(Array.from({ length: count }, (_, i) => process.env[`GIT_CONFIG_KEY_${i}`]));
 let n = count;

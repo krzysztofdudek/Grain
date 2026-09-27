@@ -1,7 +1,7 @@
 // grain engine · proposal writer · the admission constants, the Yggdrasil CLI resolution, the file walk and the YAML emitter
 // Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,14 +57,32 @@ export const SCHEMA_VERSION = '6.0.0'; // CLI_SUPPORTED_SCHEMA in Yggdrasil's co
 // The two forms differ in how they are spawned, so resolution returns the whole invocation rather than a path:
 // a FILE is run as `node <file> …` (a built `dist/bin.js` is not executable on its own), a PATH entry is run as
 // `yg …` (it is already a launcher).
-export function resolveYg(explicit) {
+export function resolveYg(explicit, { platform = process.platform } = {}) {
   const path = explicit || process.env.YG_BIN || null;
-  if (path) return { have: existsSync(path), label: path, cmd: 'node', pre: [path] };
-  const which = spawnSync(process.platform === 'win32' ? 'where' : 'which', ['yg'], { encoding: 'utf8' });
-  const found = which.status === 0 && (which.stdout || '').trim().split(/\r?\n/)[0];
-  return found
-    ? { have: true, label: found + ' (on PATH)', cmd: found, pre: [] }
-    : { have: false, label: null, cmd: null, pre: [] };
+  if (path) return { have: existsSync(path), label: path, cmd: process.execPath, pre: [path] };
+  const which = spawnSync(platform === 'win32' ? 'where' : 'which', ['yg'], { encoding: 'utf8', windowsHide: true });
+  const lines = which.status === 0 ? (which.stdout || '').trim().split(/\r?\n/).filter(Boolean) : [];
+  if (!lines.length) return { have: false, label: null, cmd: null, pre: [] };
+  if (platform !== 'win32') return { have: true, label: lines[0] + ' (on PATH)', cmd: lines[0], pre: [] };
+  return windowsLauncher(lines);
+}
+// On Windows `where yg` lists every match: npm's extensionless sh shim, `yg.cmd`, `yg.ps1`. None of the three can be
+// spawned without a shell (Node refuses a .cmd without one, EINVAL), and a shell would re-parse every argument. npm's
+// .cmd shim names the script it runs, so the script is run directly with this node; an `.exe` runs as it is; a .cmd
+// whose script cannot be read is run through cmd.exe as the last resort.
+export function windowsLauncher(lines, { read = p => readFileSync(p, 'utf8') } = {}) {
+  const exe = lines.find(l => /\.exe$/i.test(l));
+  if (exe) return { have: true, label: exe + ' (on PATH)', cmd: exe, pre: [] };
+  const shim = lines.find(l => /\.cmd$/i.test(l));
+  if (!shim) return { have: false, label: null, cmd: null, pre: [] };
+  let text = '';
+  try { text = read(shim); } catch { /* unreadable: fall through to cmd.exe */ }
+  const m = /"%~?dp0%?[\\/]?([^"%]+\.[cm]?js)"/i.exec(text);
+  if (m) {
+    const script = join(dirname(shim), ...m[1].split(/[\\/]/));
+    if (existsSync(script)) return { have: true, label: shim + ' (on PATH)', cmd: process.execPath, pre: [script] };
+  }
+  return { have: true, label: shim + ' (on PATH)', cmd: process.env.ComSpec || 'cmd.exe', pre: ['/d', '/s', '/c', shim] };
 }
 // `root` in a type's `parents:` is the reserved entry for the top of `model/`. A Yggdrasil that knows it (6.1.0
 // with issue 419) lets a type that lists parents sit at the top only when the list names it

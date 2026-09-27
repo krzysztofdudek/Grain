@@ -3,7 +3,9 @@
 // convention-dense directories (handlers, services, guards, dtos) and a scripted git history whose dates are
 // pinned, so two builds are byte-identical and the engine's answers are reproducible.
 //
-//   node tests/fixtures/build-fixture.mjs <outDir>
+//   node tests/fixtures/build-fixture.mjs <outDir> [--crlf]
+//
+// --crlf writes every file with CRLF line endings (issue 481): the same repository as a Windows checkout would hold it.
 //
 // Conventions planted on purpose (what `where`/`check` must find):
 //   src/handlers/*.handler.ts  — `@Handler()` classes named *Handler, `handle()` calls `validate()` first, import `../core/handler`
@@ -22,7 +24,8 @@ if (existsSync(out)) rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
 const env = { ...process.env, GIT_AUTHOR_NAME: 'Fixture Author', GIT_AUTHOR_EMAIL: 'fixture@example.com', GIT_COMMITTER_NAME: 'Fixture Author', GIT_COMMITTER_EMAIL: 'fixture@example.com', TZ: 'UTC', HOME: out };
 const g = (args, extra = {}) => execFileSync('git', ['-C', out, ...args], { env: { ...env, ...extra }, stdio: ['ignore', 'pipe', 'pipe'] }).toString();
-const w = (rel, content) => { const p = join(out, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, content); };
+const CRLF = process.argv.includes('--crlf');
+const w = (rel, content) => { const p = join(out, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, CRLF ? content.replace(/\r?\n/g, '\r\n') : content); };
 let day = 0; const T0 = Date.UTC(2024, 0, 15, 12, 0, 0);
 function commit(msg, daysLater = 20) { day += daysLater; const d = new Date(T0 + day * 86400000).toISOString();
   g(['add', '-A']); g(['commit', '-q', '-m', msg], { GIT_AUTHOR_DATE: d, GIT_COMMITTER_DATE: d }); }
