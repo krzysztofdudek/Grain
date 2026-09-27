@@ -126,7 +126,7 @@ export function completenessDirectional(model, changed) {
     : [`no file changes with these more often than it changes anyway`];
   return [...out, ...ambientLines(ambient, 5)];
 }
-// `completeness --json`: the same partners the text above names, as data — per input file (each file's own partners,
+// `completeness --json` (schema grain-completeness/1): the same partners the text above names, as data — per input file (each file's own partners,
 // the other inputs excluded as the text excludes them) and merged the way the text merges them. Every list keeps the
 // text's own cap of 5; a partner carries every number the text shows for it.
 export function completenessData(model, changed) {
@@ -141,6 +141,7 @@ export function completenessData(model, changed) {
       .map(h => ({ file: h.file, k: h.k, n: h.n, share: h.share, dead: h.dead })),
   });
   return {
+    schema: 'grain-completeness/1',
     files: changed.map(f => ({ file: f, ...split(cochangeData(model, [f]).filter(h => !changed.includes(h.file))) })),
     ...split(cochangeData(model, changed)),
   };

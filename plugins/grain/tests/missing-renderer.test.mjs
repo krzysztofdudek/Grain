@@ -88,6 +88,7 @@ test('completeness --json carries the same partners the text names, per input fi
   const { out, code } = grain(['completeness', 'src/pair-a.ts', 'src/handlers/Handler1.ts', '--json']);
   assert.equal(code, 0, out);
   const j = JSON.parse(out);
+  assert.equal(j.schema, 'grain-completeness/1');
   assert.match(j.asOf, /^[0-9a-f]{7}/);
   assert.deepEqual(j.files.map(f => f.file), ['src/pair-a.ts', 'src/handlers/Handler1.ts']);
   const pairA = j.files[0].partners;
