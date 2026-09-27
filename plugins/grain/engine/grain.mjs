@@ -41,6 +41,7 @@ import {
   skipLineNote,
 } from './core.mjs';
 import { loadHistory, headSha, headTree, readHistoryState } from './history.mjs';
+import { extractionStamp } from './stamps.mjs';
 import { nullTest } from './selftest-null.mjs';
 import { cochangeEval } from './selftest-cochange.mjs';
 import { createHash } from 'node:crypto';
@@ -410,7 +411,7 @@ export async function main(argv) {
           state = null;
         }
       }
-      if (!state || state.x !== EXTR_V || state.h !== HIST_V || state.lastSha !== head) return 0;
+      if (!state || state.x !== EXTR_V || state.h !== HIST_V || state.g !== extractionStamp() || state.lastSha !== head) return 0;
       const H = { fps: state.fps || [] }; // the only field howCmd ever reads off H
       if (!H.fps.length) return 0;
       const { matches, places, shape } = howCmd({

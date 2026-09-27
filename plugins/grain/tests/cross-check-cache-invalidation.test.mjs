@@ -55,6 +55,7 @@ import { fileURLToPath } from 'node:url';
 // READ-ONLY import: used only to assert a healed cache file was restamped with the LIVE constant, never assigned
 // to, never used to "bump" anything — the whole point of this file is testing a bump from the OUTSIDE.
 import { EXTR_V, HIST_V, MODEL_V } from '../engine/config.mjs';
+import { extractionStamp } from '../engine/stamps.mjs';
 // history.json is newline-delimited, not one JSON object — read/written through history.mjs's own
 // (de)serializer everywhere below, never through the generic readJ/writeJ this file uses for every other cache file.
 import { readHistoryState, writeHistoryState } from '../engine/history.mjs';
@@ -129,7 +130,7 @@ test('EXTR_V — extraction cache: sentinel proven live, then erased once the re
 
   await t.test('blob cache (blobs/VERSION): sentinel survives a full walk when matched, every shard wiped once stale', () => {
     const blobsDir = join(cacheDir(repo), 'blobs'), versionFile = join(blobsDir, 'VERSION');
-    assert.equal(readFileSync(versionFile, 'utf8').trim(), EXTR_V, 'fixture sanity: blobs/VERSION must read the live extractor version');
+    assert.equal(readFileSync(versionFile, 'utf8').trim(), extractionStamp(), 'fixture sanity: blobs/VERSION must read the live extractor version, grammars and Runes');
     let shardFile, sha, original;
     for (const f of jsonShards(blobsDir)) { const shard = readJ(join(blobsDir, f));
       const s = Object.keys(shard).find(k => shard[k].length); if (s) { shardFile = f; sha = s; original = JSON.parse(JSON.stringify(shard[s])); break; } }
@@ -146,7 +147,7 @@ test('EXTR_V — extraction cache: sentinel proven live, then erased once the re
     const survivors = jsonShards(blobsDir).filter(f => readFileSync(join(blobsDir, f), 'utf8').includes('zqTAMPERED'));
     assert.deepEqual(survivors, [], 'INVALIDATION: a stale blobs/VERSION must force every shard wiped and every historical blob reparsed, discarding the sentinel');
     assert.deepEqual(readJ(shardPath)[sha], original, 'the reparsed record must exactly match the original (never-tampered) extraction');
-    assert.equal(readFileSync(versionFile, 'utf8').trim(), EXTR_V, 'grain must restamp blobs/VERSION with the live extractor version'); });
+    assert.equal(readFileSync(versionFile, 'utf8').trim(), extractionStamp(), 'grain must restamp blobs/VERSION with the live extractor version, grammars and Runes'); });
 });
 
 // ===== HIST_V — persisted replay state (history.json field "h"): must rebuild the replay but MAY keep blobs =====
