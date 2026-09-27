@@ -86,3 +86,41 @@ test('against a Yggdrasil that refuses root, though it reports 6.1.0, no type li
   assert.deepEqual(withRoot, []);
   assert.match(stderr, /does not know `root` in `parents:` \(.*type-unknown-parent/);
 });
+
+// The probe's other answers (the review of issue 455): a CLI that never answers, one that prints nothing, and one
+// that answers in text instead of `yg-check/1`. Each stub is a real program answering `check --json` its own way.
+function stubRaw(name, body) {
+  const p = join(tmp, `yg-raw-${name}.mjs`);
+  writeFileSync(p, `const a = process.argv.slice(2);\nif (a[0] === 'check') {\n${body}\n}\nprocess.exit(1);\n`);
+  return { have: true, cmd: 'node', pre: [p] };
+}
+
+test('the probe: a CLI that does not answer in time is stopped, and root is written unprobed, saying why', () => {
+  const t0 = Date.now();
+  const r = probeRootParent(stubRaw('hangs', 'setInterval(() => {}, 1000); await new Promise(() => {});'), { timeoutMs: 500 });
+  assert.ok(Date.now() - t0 < 30_000, 'the probe must not wait on a CLI that never answers');
+  assert.deepEqual([r.root, r.probed], [true, false]);
+  assert.match(r.why, /did not answer within 0\.5 s/);
+});
+
+test('the probe: a CLI that prints nothing leaves root written unprobed', () => {
+  const r = probeRootParent(stubRaw('silent', 'process.exit(0);'));
+  assert.deepEqual([r.root, r.probed], [true, false]);
+  assert.match(r.why, /printed nothing/);
+});
+
+test('the probe: a CLI that answers in text is read as text — refused when it names type-unknown-parent, accepted otherwise', () => {
+  const refused = probeRootParent(stubRaw('text-refuses', "console.log('✗ type-unknown-parent: node type probe lists parent root, which is not defined'); process.exit(1);"));
+  assert.deepEqual([refused.root, refused.probed], [false, true]);
+  const accepted = probeRootParent(stubRaw('text-accepts', "console.log('yg check: 1 node, 0 issues'); process.exit(0);"));
+  assert.deepEqual([accepted.root, accepted.probed], [true, true]);
+});
+
+test('a proposal written with an unprobed root says so in its log', { timeout: 180_000 }, () => {
+  const silent = stubRaw('silent-propose', 'process.exit(0);');
+  const { withRoot, stderr } = propose(silent.pre[0], 'out-silent');
+  assert.deepEqual(withRoot, TOP_LEVEL_TYPES);
+  assert.match(stderr, /`root` is written in `parents:` of top-level types without a probe \(`yg check` printed nothing to read\)/);
+  const knows = propose(stubYg('knows-quiet', true).bin, 'out-knows-quiet');
+  assert.doesNotMatch(knows.stderr, /without a probe/, 'a probed answer is not reported as unprobed');
+});

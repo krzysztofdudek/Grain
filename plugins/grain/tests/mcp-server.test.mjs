@@ -8,7 +8,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync, readFileSync, readdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, constants as osConstants } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
@@ -463,10 +463,33 @@ test('when the client closes stdin, the running CLI is stopped and the server ex
   assert.ok(await until(() => cliFor(dir).length === 0), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
 });
 
+// A CLI that cannot finish on its own (issue 454): a `git` first on the PATH that never returns, so the first git call
+// of the build blocks for as long as nobody kills it. It writes nothing, so it cannot die on a closed pipe either —
+// once the server is gone, the only way this CLI ends is being killed. "Gone" below therefore means "stopped by the
+// server", on a machine of any speed. The server itself runs no git, so only the CLI hangs.
+function hangingGitPath() {
+  const bin = join(tmp, 'hanging-git');
+  if (!existsSync(join(bin, 'git'))) {
+    execFileSync('mkdir', ['-p', bin]);
+    writeFileSync(join(bin, 'git'), '#!/bin/sh\nexec sleep 86400\n');
+    chmodSync(join(bin, 'git'), 0o755);
+  }
+  return `${bin}:${process.env.PATH}`;
+}
+// what a failing run leaves behind: the CLI, its --liftoff-only child and the sleeping git under them — found by
+// ancestry, since a server that never detached the CLI left no process group to kill
+const killLeftovers = dir => {
+  const procs = execFileSync('ps', ['-Ao', 'pid=,ppid=,command='], { encoding: 'utf8' }).split('\n').filter(Boolean)
+    .map(l => { const [pid, ppid, ...cmd] = l.trim().split(/\s+/); return { pid: +pid, ppid: +ppid, cmd: cmd.join(' ') }; });
+  const doomed = new Set(procs.filter(p => p.cmd.includes('grain.mjs') && p.cmd.includes(`--repo=${dir}`)).map(p => p.pid));
+  for (let grew = true; grew; ) { grew = false; for (const p of procs) if (doomed.has(p.ppid) && !doomed.has(p.pid)) { doomed.add(p.pid); grew = true; } }
+  for (const pid of doomed) try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ }
+};
+
 for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'])
   test(`${sig} to the server stops the running CLI with its process group, and the server exits`, async () => {
     const dir = join(tmp, `fresh-${sig}`);
-    const srv = startServer(tmp);
+    const srv = startServer(tmp, { ...process.env, PATH: hangingGitPath() });
     try {
       await srv.send('initialize', {});
       srv.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 'killed', method: 'tools/call', params: { name: 'grain_status', arguments: { repo: dir } } }) + '\n');
@@ -474,10 +497,11 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'])
       const exited = new Promise(r => srv.child.on('exit', (code, signal) => r({ code, signal })));
       srv.child.kill(sig);
       const how = await exited;
-      // at once, not whenever the orphaned CLI would have finished its build on its own
-      assert.ok(await until(() => cliFor(dir).length === 0, 400), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
+      // the CLI is blocked in git and would never end by itself: gone within the deadline means the server killed it
+      assert.ok(await until(() => cliFor(dir).length === 0, 30_000), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
       assert.equal(how.signal, null, `the server handled ${sig} and exited on its own, not by the default action: ${JSON.stringify(how)}`);
-    } finally { stopServer(srv); }
+      assert.equal(how.code, 128 + osConstants.signals[sig], `the server exits as the signal would: ${JSON.stringify(how)}`);
+    } finally { stopServer(srv); killLeftovers(dir); }
   });
 
 // a raw request with a chosen id, and the one answer to it (or null if none comes within ms)
@@ -572,12 +596,52 @@ test('every command that prints JSON without a json field is declared so in the 
   assert.equal(mcp.answersJson('propose', { json: '/abs/r.json' }), false, 'propose --json names a file; its stdout stays text');
 });
 
-test('the commands not declared so print text, not JSON, when no json is asked for', async () => {
+// Every command in the table, not a sample (issue 454): a command left out of `calls` fails the test, so a new command
+// must say here how it is called. Each call has to succeed — an error result's text is the refusal, which proves
+// nothing about what the command prints — and none of them may answer JSON when no json was asked for. The writing
+// commands run on their own copy of the indexed fixture, so the shared one is left as the other tests expect it.
+test('every command not declared stdoutJson prints text, not JSON, when no json is asked for — all of them', async () => {
+  const own = join(tmp, 'stdout-json');
+  execFileSync('cp', ['-R', repo, own]);
   const file = 'src/handlers/order.handler.ts';
-  const calls = { where: { query: 'handler' }, how: { query: 'handler' }, what: { query: 'handler' }, map: {}, obligation: { path: file }, check: { file }, completeness: { files: [file] }, explain: { file }, status: {}, report: { top: 3 }, advise: {}, 'decide list': {}, version: {} };
-  for (const [cmd, input] of Object.entries(calls)) {
-    const r = await mcp.callTool(mcp.toolName(cmd), { ...input, repo });
+  const prop = join(tmp, 'stdout-json-proposal');
+  const calls = {
+    where: { query: 'handler' },
+    how: { query: 'handler' },
+    what: { query: 'handler' },
+    map: {},
+    obligation: { path: file },
+    check: { file },
+    completeness: { files: [file] },
+    explain: { file },
+    status: {},
+    report: { top: 3 },
+    rules: { top: 3 },
+    propose: { 'out-dir': prop },
+    advise: {},
+    'oracle record': { proposal: prop, graph: join(prop, '.yggdrasil'), name: 'stdout-json', out: join(tmp, 'stdout-json-oracles'), yes: true },
+    'oracle score': { 'name-or-dir': join(tmp, 'stdout-json-oracles', 'stdout-json') },
+    'decide steer': { target: `${file}#handle`, surfaces: 'auto.call:validate', note: 'handlers validate first', author: 'mcp-test' },
+    'decide boundary': { from: 'src/handlers', 'never-imports': 'src/db', note: 'handlers go through services', author: 'mcp-test' },
+    'decide waive': { target: `${file}#handle`, on: 'auto.arity', note: 'one command object', author: 'mcp-test' },
+    'decide list': {},
+    'decide rm': null, // the id of the boundary recorded above, read off decide list
+    selftest: { how: true, last: 2 },
+    refresh: {},
+    version: {},
+  };
+  const printers = Object.entries(COMMANDS).filter(([, spec]) => !spec.stdoutJson).map(([c]) => c);
+  assert.deepEqual(Object.keys(calls).sort(), printers.sort(), 'every command the table has, and no other, is called here');
+  assert.equal(printers.length + 1, Object.keys(COMMANDS).length, 'with export, every command in the table');
+  for (const [cmd, given] of Object.entries(calls)) {
+    let input = given;
+    if (cmd === 'decide rm') {
+      const listed = (await mcp.callTool(mcp.toolName('decide list'), { repo: own })).content[0].text;
+      input = { id: listed.split('\n').find(l => l.includes('never imports src/db/')).trim().split(/\s+/)[0], author: 'mcp-test' };
+    }
+    const r = await mcp.callTool(mcp.toolName(cmd), { ...input, repo: own });
     const text = r.content[0].text;
+    assert.equal(r.isError, false, `${cmd} failed, so its output proves nothing: ${text.slice(0, 300)}`);
     let parsed = false;
     try { JSON.parse(text); parsed = true; } catch { /* text, as expected */ }
     assert.equal(parsed, false, `${cmd} printed JSON with no json asked for — mark it stdoutJson in the table: ${text.slice(0, 120)}`);

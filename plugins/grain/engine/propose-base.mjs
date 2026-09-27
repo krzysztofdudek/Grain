@@ -77,7 +77,9 @@ export function resolveYg(explicit) {
 // Grain ships with, which knows `root`.
 export const ROOT_PARENT = 'root';
 const rootProbeCache = new Map(); // one probe per CLI invocation, for the life of the process
-export function probeRootParent(yg) {
+// a one-node `yg check` answers in about a second; a CLI that has not answered in a minute is not going to
+export const ROOT_PROBE_TIMEOUT_MS = 60_000;
+export function probeRootParent(yg, { timeoutMs = ROOT_PROBE_TIMEOUT_MS } = {}) {
   if (!yg?.have) return { root: true, probed: false, why: 'no Yggdrasil CLI resolved' };
   const key = [yg.cmd, ...yg.pre].join('\0');
   if (rootProbeCache.has(key)) return rootProbeCache.get(key);
@@ -89,12 +91,14 @@ export function probeRootParent(yg) {
     writeFileSync(join(ygg, 'yg-config.yaml'), `version: "${SCHEMA_VERSION}"\n`);
     writeFileSync(join(ygg, 'yg-architecture.yaml'), `node_types:\n  probe:\n    description: A type that may sit at the top level.\n    parents: [${ROOT_PARENT}]\n`);
     writeFileSync(join(ygg, 'model', 'top', 'yg-node.yaml'), 'name: top\ntype: probe\ndescription: A node at the top level.\n');
-    const r = spawnSync(yg.cmd, [...yg.pre, 'check', '--json'], { cwd: dir, encoding: 'utf8', maxBuffer: 1 << 24, timeout: 60_000 });
+    const r = spawnSync(yg.cmd, [...yg.pre, 'check', '--json'], { cwd: dir, encoding: 'utf8', maxBuffer: 1 << 24, timeout: timeoutMs, killSignal: 'SIGKILL' });
     const text = `${r.stdout || ''}${r.stderr || ''}`;
     let codes = null;
     try { const doc = JSON.parse(r.stdout || ''); if (Array.isArray(doc?.issues)) codes = doc.issues.map(i => i.code); } catch { /* read as text below */ }
     const refused = codes ? codes.includes('type-unknown-parent') : text.includes('type-unknown-parent');
-    answer = refused
+    answer = r.error?.code === 'ETIMEDOUT'
+      ? { root: true, probed: false, why: `\`yg check\` did not answer within ${timeoutMs / 1000} s` }
+      : refused
       ? { root: false, probed: true, why: `\`yg check\` refused \`${ROOT_PARENT}\` in \`parents:\` as an undefined type (type-unknown-parent)` }
       : codes || text.trim()
         ? { root: true, probed: true, why: `\`yg check\` accepted \`${ROOT_PARENT}\` in \`parents:\`` }

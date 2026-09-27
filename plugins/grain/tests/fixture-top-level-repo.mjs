@@ -2,6 +2,7 @@
 // classifying type (`tests`) and the organizational `module` the renderer inserts above a type cut one level
 // down (`src/main`). Shared by `propose-root-parent.test.mjs` (a stand-in CLI) and `seams.test.mjs` (the real
 // Yggdrasil), so both judge the same shape.
+import './git-env.mjs'; // no background git maintenance while the fixture is committed (issue 409)
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';

@@ -20,18 +20,25 @@ export function sessionContext({ root, isGit, store, mode }) {
   if (!isGit && !model)
     state = 'not built yet — the first query builds it (no git here, so weights will be flat)';
   else if (!model)
-    state = `not built yet — the first query walks the full git history and parses every file; on a multi-thousand-commit or densely-scoped repo this can run minutes, not seconds, and a tight command timeout may mistake that for a hang; run \`grain refresh\` ahead of time, or add \`--no-history\` for a fast first answer without the history layer (later refreshes are incremental)`;
+    state = `not built yet — the first query walks the full git history and parses every file; on a multi-thousand-commit or densely-scoped repo this can run minutes, not seconds, and a tight command timeout may mistake that for a hang; call \`grain_refresh\` ahead of time, or pass \`no-history: true\` for a fast first answer without the history layer (later refreshes are incremental)`;
   else {
     sig = signal(model);
     state = `${meta.headSha === head ? 'ready' : 'built at ' + short(meta.headSha) + ', HEAD moved to ' + short(head) + ' — the first query refreshes it incrementally'}: ${model.files} files, ${sig.groups} groups, ${sig.facts} conventions in source code (${sig.verdict})`;
   }
-  // the advertised commands below lead with the conceptual name `grain`, never with `node` — a real
-  // transcript (question-catalog §4.1a) had an agent see `pnpm` denied, generalize that to "node invocations all
-  // require approval", and never attempt grain at all, even though nothing had shown grain itself would be
-  // blocked. `bin` (the literal `node "<path>"` form the plugin actually shells out to — see hooks.json/hooks/*,
-  // there is no installed `grain` shim on PATH; the package.json `bin` field only applies to an `npm install -g`
-  // this plugin's distribution mechanism never performs) is still shown, once per command, but as the answer to
-  // "how do I run this", not as the first word the agent reads.
+  // The advertised commands below are the grain_* MCP tools (the skill sends the agent to the same tools — ruling
+  // mcp-parity), each written the way it is called: the tool name and its fields. Not every host starts the server:
+  // Claude Code does (.mcp.json at the plugin root) and Copilot does (the portable plugin.json with mcp.json), but
+  // the Codex and Cursor manifests (.codex-plugin/, .cursor-plugin/) declare no MCP server, so a session there may
+  // have no grain_* tools unless the user added the server themselves — which is what the CLI sentence on the
+  // opening line is for. The roster and its ORDER are the ones measured on agent transcripts
+  // (research/command-reachability.md: 61 of 63 agent calls went to a command named in the pre-em-dash segment of
+  // these lines) — `where`, `check`, `status | report` — and only their spelling changed from the CLI form to the
+  // tool form (issue 453). No advertised line opens with `node` or any runtime name: a real transcript (question-catalog
+  // §4.1a) had an agent see `pnpm` denied, generalize that to "node invocations all require approval", and never
+  // attempt grain at all. The CLI stays reachable for a host that did not start the MCP server: the opening line
+  // gives the one rule that maps every tool to its command and the literal `node "<path>"` invocation (there is no
+  // installed `grain` shim on PATH — hooks.json/hooks/* shell out the same way), folded into that line rather than a
+  // line of its own so the measured line budget below is unchanged.
   //
   // `obligation`/`completeness` are folded into the `where`/`check` lines as trigger-moment asides, NOT
   // given their own top-level bullets — a measurement of this exact roster found (61 of 63 agent calls went to a
@@ -39,13 +46,13 @@ export function sessionContext({ root, isGit, store, mode }) {
   // slot budget must stay short (question-catalog: agents read only the first few lines). Naming them at the SAME
   // moment `where`/`check` already own — "before creating a file" for `obligation`, "before you consider the
   // change done" for `completeness` — spends no new slot and adds no new line, so the concepts-and-changes-map.js
-  // <=9-line budget (§J4.3b) and the session roster test are both unaffected by construction, not by exemption.
+  // <=10-line budget (§J4.3b) and the session roster test are both unaffected by construction, not by exemption.
   const bin = `node "${BIN}"`;
   const text = [
-    `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence. Run the grain command below from the repo root via Bash; every answer ends with \`as of <sha>\`. grain is its own tool, invoked via node — a denial of some unrelated command (pnpm, npm, a bare node script, …) earlier in this session says nothing about whether grain itself is blocked; it has not been tried yet.`,
-    `  grain where <intent words>   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms. Run: \`${bin} where <intent words>\`. Same moment, what must come with it: \`grain obligation <path>\` (same invocation form).`,
-    `  grain check <file>           — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''} Run: \`${bin} check <file>\`. Before you consider the change done: \`grain completeness <file>\` for co-changing files you may have missed.`,
-    `  grain status | report        — size, freshness, top conventions. Run: \`${bin} status\` or \`${bin} report\`.`,
+    `grain is available here: a convention oracle mined from this repo's code and git history. It names WHICH directory, group, marker or file to open and the exemplar to copy, with evidence. Ask it through the grain MCP tools below (they answer for this session's project; pass \`repo\`, an absolute path, when you work in another checkout); every answer ends with \`as of <sha>\`. No grain_* tools in this session? Each tool is the CLI command of the same name, run from the repo root via Bash with its fields as arguments and flags: \`grain_where { query: "x" }\` is \`${bin} where x\`, \`grain_status\` is \`${bin} status\`. grain is its own tool, invoked via node — a denial of some unrelated command (pnpm, npm, a bare node script, …) earlier in this session says nothing about whether grain itself is blocked; it has not been tried yet.`,
+    `  grain_where { query: "<intent words>" }   — before creating a source file or when unsure where something belongs; use the repo's own words (a decorator, a base type, a file or function name). One call per intent; a compact map = no hit: open the closest entry, do not re-ask with synonyms. Same moment, what must come with it: \`grain_obligation { path: "<path>" }\`.`,
+    `  grain_check { file: "<file>" }            — after you wrote or edited a file: deviations IN YOUR CHANGE (evidence + exemplars); pre-existing ones folded. Zero deviations is not a review.${mode === 'claude' || mode === 'codex' ? ' Runs automatically after every edit in this session — a [grain] note after an edit is this; silence means nothing certified to say, NOT approval.' : ''} Before you consider the change done: \`grain_completeness { files: ["<file>"] }\` for co-changing files you may have missed.`,
+    `  grain_status | grain_report              — size, freshness, top conventions.`,
     `Index: ${state}.`,
     // Grain 2 (mission triage): `sig` is already computed above the moment a model exists — this hook has
     // held the verdict since before the SessionStart hook existed, and never printed it. A sparse model is the
@@ -65,7 +72,7 @@ export function sessionContext({ root, isGit, store, mode }) {
               .map(([m]) => m + '/')
               .join(', ');
             const layers = new Set(mg.nodes.map(n => n.layer)).size;
-            return `Architecture (measured): ${mg.nodes.length} modules, ${mg.edges.length} dependencies, ${mg.cycles.length} cycle(s), ${layers} layer(s); most depended-on: ${core}. \`grain report\` prints the graph.`;
+            return `Architecture (measured): ${mg.nodes.length} modules, ${mg.edges.length} dependencies, ${mg.cycles.length} cycle(s), ${layers} layer(s); most depended-on: ${core}. \`grain_report\` prints the graph.`;
           })(),
         ]
       : []),
@@ -77,7 +84,7 @@ export function sessionContext({ root, isGit, store, mode }) {
     // SKILL description) is why the line exists at all; the condition is why it costs the other repos nothing.
     ...(model && !existsSync(join(root, '.yggdrasil'))
       ? [
-          `This repository has no architecture graph yet (no .yggdrasil/). When the task is to adopt Yggdrasil here, or to write down the architecture this repo already practises, \`grain propose\` mines one — nodes, relations and rules with the evidence attached — into .yggdrasil-proposal/ for a human to review and move in. Run: \`${bin} propose\`.`,
+          `This repository has no architecture graph yet (no .yggdrasil/). When the task is to adopt Yggdrasil here, or to write down the architecture this repo already practises, \`grain_propose\` mines one — nodes, relations and rules with the evidence attached — into .yggdrasil-proposal/ for a human to review and move in (without the tools: \`${bin} propose\`).`,
         ]
       : []),
     // Ticket 028 ("Grain jako wejście do rodziny", D8/D10): the mirror image of the block above — a
@@ -116,7 +123,7 @@ export function sessionContext({ root, isGit, store, mode }) {
       ? [
           (() => {
             const act = model.steers.filter(st => st.found);
-            return `Maintainer decisions in force (committed .grain/seeds.jsonl — follow them even where the numbers lag; \`grain seed list\`): ${act
+            return `Maintainer decisions in force (committed .grain/seeds.jsonl — follow them even where the numbers lag; \`grain_decide_list\`): ${act
               .slice(0, 3)
               .map(st => st.note || st.topic || st.id)
               .join(' · ')}${act.length > 3 ? ` · +${act.length - 3} more` : ''}`;

@@ -207,7 +207,7 @@ via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it 
   `spectrum`, `seed`) and the hooks have no tool; `grain_check` without `file` is `review`.
 - **Fields**: each argument under its name (`query`, `file`, `path`, `files`, `out-dir`, `target`, `from`, `id`,
   `name-or-dir`) and each flag under its own name without the dashes (`top`, `map-rows`, `instead-of`,
-  `never-imports`, …), plus `repo`, `no-refresh` and `no-history` on every tool. A bare flag is a boolean, a
+  `never-imports`, …), plus `repo`, `no-refresh` and `no-history` on every tool but `grain_help`. A bare flag is a boolean, a
   numeric flag (`top`, `last`, `runs`, …) a number or its text, any other flag with a value a string. `json: true` returns what `--json` prints;
   without it the answer is the CLI's text, as it prints it. On `grain_propose`, `json` is the path `--json` writes to.
   `completeness --json` prints the `grain-completeness/1` document: `files` (each input file with its own `partners`

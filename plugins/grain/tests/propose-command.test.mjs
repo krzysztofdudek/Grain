@@ -237,20 +237,21 @@ test('with no Yggdrasil CLI resolvable, the report says what `yg adopt` would te
 });
 
 // ---------- 4. reachability ----------
-test('the SessionStart text names `grain propose` exactly where the trigger moment is real', () => {
+test('the SessionStart text names `grain_propose` exactly where the trigger moment is real', () => {
   const ctx = () => JSON.parse(grain(['session-context', '--mode', 'claude']).stdout).hookSpecificOutput.additionalContext;
   const withoutGraph = ctx();
-  const named = withoutGraph.split('\n').filter(l => /grain propose/.test(l));
+  const named = withoutGraph.split('\n').filter(l => /grain_propose/.test(l));
   assert.equal(named.length, 1, `expected exactly one line naming propose:\n${withoutGraph}`);
   assert.match(named[0], /no \.yggdrasil\//, 'the line must say what makes this the moment');
-  assert.match(named[0], /Run: `node "[^"]+grain\.mjs" propose`/, 'the runnable invocation must be given, as every other advertised command gives it');
+  // issue 453: the line names the MCP tool (ruling mcp-parity); the CLI invocation stays as the fallback for a host without it
+  assert.match(named[0], /without the tools: `node "[^"]+grain\.mjs" propose`/, 'the runnable CLI invocation must still be given for a host without the MCP tools');
   // an advertised line never opens with the runtime name
   assert.ok(!/^\s*node\b/.test(named[0]), `advertised line must not open with "node": ${named[0]}`);
 
   mkdirSync(join(repo, '.yggdrasil'), { recursive: true });
   try {
     const withGraph = ctx();
-    assert.ok(!/grain propose/.test(withGraph), `a repository that already has a graph must not be told to propose one:\n${withGraph}`);
+    assert.ok(!/grain_propose/.test(withGraph), `a repository that already has a graph must not be told to propose one:\n${withGraph}`);
     // Ticket 028: a repository WITH a graph no longer sees plain "no propose line" — it sees the mirror-image
     // block instead (`yg prime`, plus an install line when `yg` is not resolvable). Apart from the propose
     // line (removed) and that block (added), the rest of the output must still be byte-identical — same

@@ -1,5 +1,5 @@
 // `grain selftest` — the public, human-readable form of the mutate-test detection harness.
-//   node --test plugins/grain/tests/      (from the repo root)      or      npm test   (inside plugins/grain)
+//   npm test   (inside plugins/grain)   or   node --import ./plugins/grain/tests/git-env.mjs --test 'plugins/grain/tests/**/*.test.mjs'   (from the repo root)
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';

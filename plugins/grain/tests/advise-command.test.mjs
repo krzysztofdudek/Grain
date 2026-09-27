@@ -25,6 +25,7 @@
 // Everything runs against real on-disk repositories with real git history and real hand-written graphs — the
 // fixture here, and the committed oracles under `tests/stress/oracles/` against the corpus clones when they are
 // present. Nothing is fabricated.
+import './git-env.mjs'; // its 35-commit fixture loop is the one background maintenance raced (issue 409)
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';

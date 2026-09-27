@@ -1,5 +1,5 @@
 // End-to-end tests over the CLI against the deterministic fixture repository (tests/fixtures/build-fixture.mjs).
-//   node --test plugins/grain/tests/      (from the repo root)      or      npm test   (inside plugins/grain)
+//   npm test   (inside plugins/grain)   or   node --import ./plugins/grain/tests/git-env.mjs --test 'plugins/grain/tests/**/*.test.mjs'   (from the repo root)
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
@@ -283,15 +283,17 @@ test('session-context prints one JSON envelope per runtime and never rebuilds', 
 // but as a `Run:` aside, never as the line's first word.
 test('no advertised session-context command line opens with the runtime name `node`', () => {
   const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
-  const cmdLines = ctx.split('\n').filter(l => /^\s*(node|grain)\b/.test(l));
+  const cmdLines = ctx.split('\n').filter(l => /^\s*(node\b|grain[\s_])/.test(l));
   assert.ok(cmdLines.length >= 3, `expected at least 3 advertised command lines: ${ctx}`);
   for (const l of cmdLines)
     assert.ok(!/^\s*node\b/.test(l), `advertised line must not open with "node" (pattern-matches other blocked runtimes): ${l}`);
-  assert.match(ctx, /grain where <intent words>/);
-  assert.match(ctx, /grain check <file>/);
-  assert.match(ctx, /grain status \| report/);
-  // the real, runnable invocation must still be present — just not leading the line
-  assert.match(ctx, /Run: `node "[^"]+grain\.mjs" where <intent words>`/);
+  // issue 453: the lines name the grain_* MCP tools, as they are called (ruling mcp-parity)
+  assert.match(ctx, /grain_where \{ query: "<intent words>" \}/);
+  assert.match(ctx, /grain_check \{ file: "<file>" \}/);
+  assert.match(ctx, /grain_status \| grain_report/);
+  // the CLI fallback for a host without the MCP server: the real, runnable invocation is still present — just not leading a line
+  assert.match(ctx, /No grain_\* tools in this session\?/);
+  assert.match(ctx, /`node "[^"]+grain\.mjs" where x`/);
   assert.match(ctx, /grain is its own tool, invoked via node/);
 });
 
@@ -313,10 +315,12 @@ test('the SessionStart advertisement names exactly the roster it was measured wi
   const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
   // a command line is an indented line opening with the conceptual name; everything before the em-dash is the
   // invocation, and `status | report` advertises two commands on one line
+  // issue 453: the lines name the grain_* MCP tools instead of the CLI commands (ruling mcp-parity); only the
+  // spelling changed (`grain where <intent words>` → `grain_where { query: … }`), the roster and its order did not
   const advertised = ctx
     .split('\n')
-    .filter(l => /^\s+grain\s/.test(l))
-    .flatMap(l => l.split('—')[0].split('|').map(seg => seg.trim().replace(/^grain\s+/, '').split(/\s+/)[0]));
+    .filter(l => /^\s+grain_/.test(l))
+    .flatMap(l => l.split('—')[0].split('|').map(seg => seg.trim().replace(/^grain_/, '').split(/[\s{]+/)[0]));
   assert.deepEqual(advertised, ['where', 'check', 'status', 'report'], `roster changed: ${ctx}`);
   // the conditional lines may name more, but never a command absent from the dispatcher
   const known = new Set(['where', 'how', 'what', 'map', 'obligation', 'check', 'review', 'spectrum', 'explain', 'status', 'report', 'rules', 'export', 'propose', 'decide', 'seed', 'refresh', 'completeness', 'selftest']);
@@ -326,17 +330,38 @@ test('the SessionStart advertisement names exactly the roster it was measured wi
 // the concrete follow-up: `obligation`/`completeness` are named at their own trigger moment in the
 // SessionStart text itself (the surface a measurement found 61 of 63 real calls went to), not merely in a
 // surface an agent rarely reads. Folded as asides on the `where`/`check` lines rather than new bullets, so the
-// the session roster test above and the <=9-line budget (concepts-and-changes-map.test.mjs) are both unaffected.
+// session roster test above and the <=10-line budget (concepts-and-changes-map.test.mjs) are both unaffected.
 test('obligation and completeness are named in the SessionStart text at their own trigger moment', () => {
   const ctx = JSON.parse(grain(['session-context', '--mode', 'claude']).out).hookSpecificOutput.additionalContext;
-  const whereLine = ctx.split('\n').find(l => l.includes('grain where <intent words>'));
+  // issue 453: the tool form of the same asides (ruling mcp-parity)
+  const whereLine = ctx.split('\n').find(l => l.includes('grain_where { query: "<intent words>" }'));
   assert.ok(whereLine, `expected a where line: ${ctx}`);
   assert.match(whereLine, /before creating a source file/, `where's own trigger-moment phrasing must still be present: ${whereLine}`);
-  assert.match(whereLine, /`grain obligation <path>`/, `obligation must be named on where's own trigger-moment line: ${whereLine}`);
-  const checkLine = ctx.split('\n').find(l => l.includes('grain check <file>'));
+  assert.match(whereLine, /`grain_obligation \{ path: "<path>" \}`/, `obligation must be named on where's own trigger-moment line: ${whereLine}`);
+  const checkLine = ctx.split('\n').find(l => l.includes('grain_check { file: "<file>" }'));
   assert.ok(checkLine, `expected a check line: ${ctx}`);
   assert.match(checkLine, /before you consider the change done/i, `completeness needs its own trigger-moment phrasing: ${checkLine}`);
-  assert.match(checkLine, /`grain completeness <file>`/, `completeness must be named on that trigger-moment line: ${checkLine}`);
+  assert.match(checkLine, /`grain_completeness \{ files: \["<file>"\] \}`/, `completeness must be named on that trigger-moment line: ${checkLine}`);
+});
+
+// issue 453: the SessionStart text sends the agent to the grain_* MCP tools, the same ones the skill names (ruling
+// mcp-parity) — and every tool it names is one the server actually offers, in every runtime's envelope and in every
+// conditional line (propose, the architecture line, the maintainer-decisions line, the not-built-yet state).
+test('every grain_* tool the SessionStart text names is a tool the MCP server offers', async () => {
+  const { buildTools } = await import('../bin/grain-mcp.mjs');
+  const offered = new Set(buildTools().map(t => t.name));
+  for (const mode of ['claude', 'codex', 'copilot', 'cursor']) {
+    const env = JSON.parse(grain(['session-context', '--mode', mode]).out);
+    const ctx = env.hookSpecificOutput?.additionalContext || env.additionalContext || env.additional_context;
+    const named = [...new Set(ctx.match(/\bgrain_[a-z_]+/g) || [])];
+    for (const n of ['grain_where', 'grain_check', 'grain_status', 'grain_report', 'grain_obligation', 'grain_completeness'])
+      assert.ok(named.includes(n), `${mode}: the SessionStart text must name ${n}: ${ctx}`);
+    for (const n of named) assert.ok(offered.has(n), `${mode}: names ${n}, which the MCP server does not offer`);
+    // no command is advertised in its CLI form outside the one fallback sentence
+    for (const l of ctx.split('\n').slice(1)) assert.doesNotMatch(l, /`grain [a-z]/, `${mode}: a CLI-form command outside the fallback: ${l}`);
+  }
+  const elsewhere = JSON.parse(grain(['session-context'], { cwd: tmp }).out).hookSpecificOutput.additionalContext;
+  for (const n of elsewhere.match(/\bgrain_[a-z_]+/g) || []) assert.ok(offered.has(n), `not built yet: names ${n}, which the MCP server does not offer`);
 });
 
 test('mutation harness: planted deviations are detected, conforming exemplars stay silent', () => {
