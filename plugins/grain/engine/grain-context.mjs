@@ -164,7 +164,7 @@ export const readJson = p => {
 // the pinned bytes, not a version label: a grammar rebuilt at the same version still re-indexes. The shipped set reads
 // the Runes grammar manifest (a grammar is named by its wasm, `tree-sitter-c_sharp.wasm` → c_sharp, as GRAMMARS names
 // it); a GRAIN_GRAMMAR_DIR set brings its own manifest.json or is stamped by its names alone.
-const grammarStamp = () => {
+export const grammarStamp = () => {
   if (GRAMMAR_DIR === SHIPPED_GRAMMAR_DIR) {
     const m = readJson(GRAMMAR_MANIFEST);
     if (m && Array.isArray(m.grammars))
@@ -202,6 +202,8 @@ function treeSig(root) {
   }
   return (h >>> 0).toString(16);
 }
+// every version a built index depends on, in one object: a cache keyed on it is rebuilt whenever the index would be
+export const indexStamps = () => ({ engine: ENGINE_VERSION, extractor: EXTR_V, model: MODEL_V, grammars: grammarStamp(), runes: runesStamp() });
 export const short = sha => (sha ? sha.slice(0, 7) : 'no-git');
 export const log = (...a) => console.error('[grain]', ...a);
 /**

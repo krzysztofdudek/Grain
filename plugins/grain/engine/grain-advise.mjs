@@ -53,6 +53,7 @@ import { CFG } from './config.mjs';
 import { MIN_PROMOTE_FILES, underDir } from './propose-base.mjs';
 import { typeEvidence, purityOf } from './propose-levels.mjs';
 import { expandMapping, readGraph } from './yggdrasil-graph.mjs';
+import { boundaryRuleItems, conventionRuleItems } from './advise-rules.mjs';
 
 export const ADVICE_SCHEMA = 'grain-advice/1';
 // The node-level co-change floor: a third of a witness pair's commits, applied to BOTH directions at once. The file-level
@@ -315,13 +316,20 @@ function splitText(g, n, parent, kept) {
 // `survey` is not part of the `grain-advice/1` contract — a consumer reads `schema`, `repo`, `at` and `items`
 // and nothing else. It is here because every number a memo would need about this instrument is a count over the
 // same run, and computing it anywhere else would mean a second implementation that could disagree with this one.
-export function adviceDocument({ model, head, graphRoot, graphLabel }) {
+export function adviceDocument({ model, head, graphRoot, graphLabel, rules = null }) {
   const live = new Set([...(model.pathsAll || []), ...(model.filesAll || [])]);
   const files = [...live].sort();
   const g = readNodeGraph(graphRoot, files);
   if (!g) return null;
   const rel = relationItems(model, g, live);
   const split = splitItems(model, g, files);
+  // `kind: rule` (advise-rules.mjs): the boundary decisions the graph does not make law yet, and — when the caller
+  // built the export they are drafted from — certified conventions no aspect of the graph states
+  const raw = readGraph(graphRoot);
+  const tracked = new Set(files);
+  const edges = (model.edges || []).filter(e => tracked.has(e.from) && tracked.has(e.to));
+  const bRules = boundaryRuleItems({ boundaries: model.boundaries || [], g, raw, files, edges, declaredVia });
+  const cRules = rules && rules.exp ? conventionRuleItems({ exp: rules.exp, model, g, raw, buildAspects: rules.buildAspects, aspectYamlDoc: rules.aspectYamlDoc }) : null;
   const mapped = g.nodes.filter(n => n.files.size).map(n => n.id).sort();
   // THE CONTROL: the declared rate over EVERY pair of mapped nodes, enumerated rather than sampled. A random
   // sample of node pairs is what the ticket asks for; the whole population is the limit of that sample and is
@@ -344,7 +352,7 @@ export function adviceDocument({ model, head, graphRoot, graphLabel }) {
     repo: '.',
     at: head || null,
     graph: graphLabel,
-    items: [...rel, ...split],
+    items: [...rel, ...split, ...bRules.items, ...(cRules ? cRules.items : [])],
     survey: {
       nodes: g.nodes.length,
       nodesWithFiles: mapped.length,
@@ -364,6 +372,7 @@ export function adviceDocument({ model, head, graphRoot, graphLabel }) {
         rate: controlPairs ? +(controlDeclared / controlPairs).toFixed(4) : null,
       },
       splits: split.length,
+      rules: { boundaries: bRules.survey, conventions: cRules ? cRules.survey : null },
     },
   };
 }
@@ -371,12 +380,17 @@ export function adviceDocument({ model, head, graphRoot, graphLabel }) {
 // ==================================================================================================
 // 5. The command.
 // ==================================================================================================
-export async function cmdAdvise({ model, head, root, args, opts, stamp }) {
+//
+// `--graph` reads a hand-written graph held BESIDE the repository — the shape every scoring oracle has.
+// Resolved against the caller's cwd so a relative path means what it looks like it means. Every command that
+// reads the architecture graph (`advise`, `cochange`, `measure`, `propose --scope`) takes it the same way.
+export const graphRootOf = (root, opts) => (opts.graph && opts.graph !== true ? resolve(process.cwd(), String(opts.graph)) : root);
+export async function cmdAdvise({ model, meta, head, root, isGit, args, opts, stamp, store }) {
   if (args.length) throw new Error('usage: grain advise [--json] [--graph <dir>] — takes no arguments');
-  // `--graph` reads a hand-written graph held BESIDE the repository — the shape every scoring oracle has.
-  // Resolved against the caller's cwd so a relative path means what it looks like it means.
-  const graphRoot = opts.graph && opts.graph !== true ? resolve(process.cwd(), String(opts.graph)) : root;
-  const doc = adviceDocument({ model, head, graphRoot, graphLabel: graphRoot === root ? '.yggdrasil' : graphRoot });
+  const graphRoot = graphRootOf(root, opts);
+  // the conventions a rule draft is written from are the export's; it is built only when there is a graph to advise
+  const rules = existsSync(join(graphRoot, '.yggdrasil')) ? await ruleInputs({ model, meta, head, root, isGit, opts, store }) : null;
+  const doc = adviceDocument({ model, head, graphRoot, graphLabel: graphRoot === root ? '.yggdrasil' : graphRoot, rules });
   if (!doc) {
     const note = `no architecture graph to advise on — ${graphRoot === root ? 'this repository has no `.yggdrasil/`' : `no \`.yggdrasil/\` under ${graphRoot}`}. \`grain propose\` writes one from the code.`;
     return opts.json
@@ -410,8 +424,39 @@ export async function cmdAdvise({ model, head, root, args, opts, stamp }) {
     for (const it of split.slice(0, 20)) lines.push(`  - ${it.text}`);
     if (split.length > 20) lines.push(`  … and ${split.length - 20} more.`);
   } else lines.push('No place here is beaten by a finer cut of its own files.');
+  // The rule side is advice too: each item is a draft of law the graph could take on, with its evidence.
+  const drafts = doc.items.filter(i => i.kind === 'rule');
+  const rs = s.rules || {};
+  if (drafts.length) {
+    lines.push(`${drafts.length} rule${drafts.length === 1 ? '' : 's'} the graph could take on:`);
+    for (const it of drafts) lines.push(`  - ${it.text}`);
+  } else lines.push('No rule draft: every boundary decision is already law, and no certified convention inside one node is left unstated.');
+  if (rs.boundaries && rs.boundaries.promoted)
+    lines.push(`  ${rs.boundaries.promoted} boundary decision${rs.boundaries.promoted === 1 ? ' is' : 's are'} already law in the architecture, so grain no longer flags ${rs.boundaries.promoted === 1 ? 'it' : 'them'} at edit time.`);
+  if (rs.conventions && rs.conventions.drafts > rs.conventions.emitted)
+    lines.push(`  ${rs.conventions.drafts - rs.conventions.emitted} more convention draft${rs.conventions.drafts - rs.conventions.emitted === 1 ? '' : 's'} not listed (the strongest ${rs.conventions.emitted} are).`);
   lines.push(stamp());
   return lines;
+}
+// The export and the renderer a convention draft needs, loaded only here so a plain `advise` import stays light.
+async function ruleInputs({ model, meta, head, root, isGit, opts, store }) {
+  const [{ exportModel }, { buildAspects }, { aspectYamlDoc }, { loadScopes, log }, { loadHistory }] = await Promise.all([
+    import('./export.mjs'),
+    import('./propose-aspects.mjs'),
+    import('./propose-status.mjs'),
+    import('./grain-context.mjs'),
+    import('./history.mjs'),
+  ]);
+  const scopesAll = await loadScopes({ root, isGit, store, opts });
+  let H = null;
+  if (isGit && !opts['no-history'])
+    try {
+      H = (await loadHistory({ gitdir: root, store, log })).H;
+    } catch (e) {
+      log('history unavailable for advise: ' + e.message);
+    }
+  const exp = exportModel({ model, root, scopesAll, H, meta, head, maxSites: 100000, anchors: false });
+  return { exp, buildAspects, aspectYamlDoc };
 }
 // THE DISCLOSURE, printed on every run, whatever the numbers are. Measured on four hand-written graphs
 // (maintainer note *node-cochange-measurement*): what the change-together evidence surfaces is either nothing

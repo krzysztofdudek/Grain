@@ -18,6 +18,8 @@ import {
 import { toPosix } from './base.mjs';
 import { kt } from './facts.mjs';
 import { voice } from './mine.mjs';
+import { declaredVia, readNodeGraph } from './grain-advise.mjs';
+import { promotedBoundaryIds } from './advise-rules.mjs';
 
 // established layering norms: a (source, target module) pair is a two-population contrast cell, the same cell the
 // language bridge, the birth obligations and a role cell against `_all:` already decide by (mathematics.md,
@@ -144,7 +146,10 @@ export function computeArchHits({ model, root, effRel, relFact }) {
       for (const e of resolve(effRel, relFact)) {
         const a = refined(effRel),
           b2 = refined(e.to);
+        // a boundary the architecture graph already makes law is `yg check`'s to refuse, not grain's to flag
+        const promoted = (model.boundaries || []).length ? promotedBoundaryIds(root, model, declaredVia, readNodeGraph) : null;
         for (const bd of model.boundaries || []) {
+          if (promoted && promoted.has(bd.id)) continue;
           const inFrom =
             bd.boundary.from === '.'
               ? !effRel.includes('/')

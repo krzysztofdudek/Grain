@@ -44,14 +44,17 @@ import { loadHistory, headSha, headTree, readHistoryState } from './history.mjs'
 import { nullTest } from './selftest-null.mjs';
 import { cochangeEval } from './selftest-cochange.mjs';
 import { createHash } from 'node:crypto';
-import { partitionFor, DIRTY_TREE_NOTE } from './core.mjs';
-import { cmdAdvise } from './grain-advise.mjs';
+import { partitionFor, DIRTY_TREE_NOTE, learn } from './core.mjs';
+import { cmdAdvise, declaredVia, graphRootOf, readNodeGraph } from './grain-advise.mjs';
+import { cmdCochange } from './cochange.mjs';
+import { cmdMeasure } from './measure.mjs';
 import { cmdCheck, cmdReview, reviewFileList } from './grain-check.mjs';
 import {
   canonicalize,
   ensureFresh,
   existsMemo,
   findRoot,
+  indexStamps,
   log,
   parseArgv,
   readJson,
@@ -603,6 +606,12 @@ export async function main(argv) {
       break;
     case 'advise':
       lines = await cmdAdvise(ctx);
+      break;
+    case 'cochange':
+      lines = await cmdCochange(ctx, { readNodeGraph, graphRootOf, loadHistory, readFile: p => readFileSync(p, 'utf8'), log });
+      break;
+    case 'measure':
+      lines = await cmdMeasure(ctx, { readNodeGraph, declaredVia, graphRootOf, loadHistory, learn, headTree, readJson, log, stamps: indexStamps() });
       break;
     case 'decide':
     case 'seed':
