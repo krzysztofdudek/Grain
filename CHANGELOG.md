@@ -17,6 +17,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The skill's passage on calling Grain through its MCP tools first, with the command line as the fallback, is now the wording the family's skills share word for word, and a check keeps it identical. What is Grain's own (its tools, fields, paths and time limits) is written around it.
 - The Grain skill now tells the agent to use the MCP tools (`grain_where`, `grain_check`, `grain_how` and the rest), naming each tool and the fields it takes. The command line stays as the fallback for a session without the tools, in one closing section.
 - When the path the host gives for Grain does not exist where the agent runs, as in VS Code attached to a dev container, the skill now tells the agent how to find the copy that environment has, and to carry on without Grain when there is none.
 - The note Grain adds at the start of a session now names the MCP tools too (`grain_where`, `grain_check`, `grain_status`, `grain_report`, and `grain_obligation`, `grain_completeness` and `grain_propose` at their own moments), in the same order as before, each with the fields it takes. One sentence gives the command line for a session without the tools.

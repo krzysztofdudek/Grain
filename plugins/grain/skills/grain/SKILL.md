@@ -9,7 +9,20 @@ grain has mined this repository's syntax trees and whole git history into a mode
 
 ## Call it through its MCP tools
 
-Installed as a plugin, grain starts an MCP server named `grain` by itself, and every command of the CLI is a tool: `grain_` and the command's name, a subcommand joined with `_`. They are the same commands run by the CLI itself, not a second implementation, so a tool's answer is the CLI's answer. Every tool's description opens by saying whether it writes (`WRITES …`) or not (`Read-only`).
+<!-- RUNES:mcp-first:START -->
+**Call the tool through its MCP tools first, when the session has them.** A tool with an MCP server offers every command of its CLI as an MCP tool named after the tool and the command (`<tool>_<command>`, a subcommand joined with `_`); the server may start by itself (installed as a plugin) or be configured by hand. The tools are generated from the same command table as the CLI and run the same code, with the same checks, so they are not a second implementation and a tool's answer is the CLI's answer. A tool's description starts by saying whether it writes; when the server also offers a help tool, it prints the full usage text.
+
+- A flag is the field of the same name without the dashes; a flag that takes no value is `true`; a repeatable flag is a list, one item per repetition.
+- An argument is the field its usage names, in the usage's order. An argument in brackets may be left out, but not one that comes before another you give.
+- The server does not run in your working directory, so a field naming a file or directory the command would look up from there must be an absolute path; a relative one is refused.
+- `json: true` answers with the JSON document `--json` prints, as exactly one text block; notes ride in `_meta`.
+- Input that does not fit the tool is refused before anything runs (a JSON-RPC -32602 error naming the field). A refusal or a failed check comes back with `isError: true`; where the tool answers a refusal with an error document (`<tool>-error/1`), read its `code`, never its wording.
+- A call that runs past the server's time limit, where it sets one, is stopped with everything it started, and the answer says so and how to allow longer.
+
+**The CLI is the fallback.** When a session has no such tools (a host without MCP, a subagent given none, a server that is not installed or not running), run the same command through the CLI, with the same effect; its help prints the usage.
+<!-- RUNES:mcp-first:END -->
+
+**grain's server.** Installed as a plugin, grain starts an MCP server named `grain` by itself, and every command of the CLI is a tool; a description opens with `WRITES …` or `Read-only`.
 
 - Questions mid-task: `grain_where`, `grain_obligation`, `grain_how`, `grain_what`, `grain_check`, `grain_completeness`.
 - The model and the conventions: `grain_status`, `grain_report`, `grain_rules`, `grain_map`, `grain_export`, `grain_explain`.
@@ -17,18 +30,18 @@ Installed as a plugin, grain starts an MCP server named `grain` by itself, and e
 - Maintainer decisions: `grain_decide_steer`, `grain_decide_boundary`, `grain_decide_waive`, `grain_decide_list`, `grain_decide_rm`.
 - Upkeep and measurement: `grain_refresh`, `grain_selftest`, `grain_version`, and `grain_help`, which returns the CLI's usage text every tool is generated from.
 
-A tool takes the command's arguments and flags as fields:
+The fields grain's tools take, beyond the rules above:
 
 - each argument under its name: `query` (`grain_where`, `grain_how`, `grain_what`), `path` (`grain_obligation`), `file` (`grain_check`, `grain_explain`), `files`, a list (`grain_completeness`), `out-dir` (`grain_propose`), `name-or-dir` (`grain_oracle_score`), `target` (`grain_decide_steer`, `grain_decide_waive`), `from` (`grain_decide_boundary`), `id` (`grain_decide_rm`);
-- each flag under its own name without the dashes (`top`, `map-rows`, `instead-of`, `never-imports`, …); a flag that takes no value is `true`; a number may be given as a number or its text;
-- `json: true` answers with the JSON `--json` prints, as one block (on `grain_propose`, `json` is instead the absolute path the report is written to);
+- flags such as `top`, `map-rows`, `instead-of`, `never-imports`; a number may be given as a number or its text;
+- on `grain_propose`, `json` is not the switch to JSON but the absolute path the report is written to;
 - every tool but `grain_help` takes `repo`, the repository as an absolute path, and `no-refresh` and `no-history`.
 
-Paths: a field the CLI resolves against its working directory (`repo`, `out`, `content`, `graph`, `proposal`, `family-candidates`, `out-dir`, propose's `json`) must be absolute, because the server does not run in your working directory; a relative one is refused. A path inside the repository (`file`, `path`, `files`, a `target`) may be absolute or relative to the repository root. `grain_check`'s `as` and `grain_decide_boundary`'s `from` and `never-imports` are relative to the repository root as written.
+Paths: the fields that must be absolute are the ones the CLI resolves against its working directory: `repo`, `out`, `content`, `graph`, `proposal`, `family-candidates`, `out-dir` and propose's `json`. A path inside the repository (`file`, `path`, `files`, a `target`) may be absolute or relative to the repository root. `grain_check`'s `as` and `grain_decide_boundary`'s `from` and `never-imports` are relative to the repository root as written.
 
 **Which repository a call reaches:** its `repo` field; without it, the one found from the directory the host started the server in — the session's project — and the answer then ends with a block naming it. When you work in another checkout (a worktree, a second repository), pass `repo` on every call.
 
-The answer is the text the CLI prints and ends with `as of <sha>` (the commit the model was computed from); `+dirty` means the file you asked about was read from your uncommitted worktree. What the CLI says on stderr (a build's progress, a refusal) comes as a second block, or in `_meta` when the answer is JSON: with `json: true`, and from `grain_export` without `out`. A refusal the CLI reports (a file that does not exist, a decision it will not record) comes back as an error result with its message; a missing or wrong field is refused before anything runs. A missing or stale index builds or refreshes itself before answering (full history once, incremental afterwards): let a slow first call finish. A call that runs past its limit (10 minutes, 60 for `grain_propose` and `grain_selftest`) is stopped and says so.
+The answer is the text the CLI prints and ends with `as of <sha>` (the commit the model was computed from); `+dirty` means the file you asked about was read from your uncommitted worktree. What the CLI says on stderr (a build's progress, a refusal) comes as a second block, or in `_meta` when the answer is JSON: with `json: true`, and from `grain_export` without `out`. grain has no error document: a refusal (a file that does not exist, a decision it will not record) is an error result carrying its message. A missing or stale index builds or refreshes itself before answering (full history once, incremental afterwards): let a slow first call finish. The time limit is 10 minutes, 60 for `grain_propose` and `grain_selftest`.
 
 A hook or an answer that names a command in its CLI form means the matching tool: `grain obligation <path>` is `grain_obligation { path: "<path>" }`, `grain review` is `grain_check` with no `file`, `grain check <file>` is `grain_check { file: "<file>" }`.
 
@@ -132,7 +145,7 @@ grain informs; it never blocks. No embeddings, no model calls, no network. A con
 
 ## The CLI, when the tools are not there
 
-A session with no `grain_*` tools — the skill copied into an agent's skill directory rather than installed as a plugin, a host without MCP, a subagent its host gave no MCP tools — runs the same commands through the CLI, with the same answers:
+With no `grain_*` tools in the session (the skill copied into an agent's skill directory rather than installed as a plugin, for one), this is the CLI:
 
 ```
 node "${CLAUDE_PLUGIN_ROOT}/bin/grain.mjs" <command> …
