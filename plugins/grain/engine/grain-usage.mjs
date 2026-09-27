@@ -13,7 +13,8 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
                                           aggregated report over your whole uncommitted change (default: uncommitted + untracked)
   completeness <file…>                    other files this repo's own commits show reliably changing WITH these — the same line check-hook appends automatically after a matching edit
   explain <file> [--minbits N] [--top N]  the full local→global convention lattice for one file
-  status | report [--top N] [--json]      model overview / top conventions, freshness
+  status [--json]                         model overview: size, freshness, health
+  report [--top N] [--json]               top conventions with evidence and trends, freshness
   rules [--out <file>] [--top N]          a generated Markdown document of established conventions, stamped with the commit — for a
                                           reader with no terminal or no grain plugin; \`grain rules > CONVENTIONS.md\` also works
   export [--out <file>] [--max-sites N] [--compact] [--no-anchors]  the whole model as JSON: every convention with all its sites, anchors, trends,
@@ -35,16 +36,18 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
                                           store and where is printed first and nothing is written without \`--yes\`
   oracle score <name-or-dir> [--json]     precision and recall of that proposal against the graph you accepted, on the same measures
                                           grain is scored with against hand-written graphs
-  decide steer <path>#<name> --surfaces <pid,…> [--instead-of <pid,…>] [--author <who>] --note "…"   promote a value repo-wide (.grain/seeds.jsonl, committed)
-  decide boundary <from> --never-imports <to> --note "…"     an architecture decision: new imports crossing it are flagged
-  decide waive <path>#<name> --on <pid> --note "…"           excuse ONE scope from ONE convention: check calls its departure deliberate, the counts still report it
-  decide list | decide rm <id>            the decisions in force / withdraw one
+  decide steer <path>#<name> --surfaces <pid,…> [--instead-of <pid,…>] [--weight N] [--topic "…"] [--author <who>] --note "…"   promote a value repo-wide (.grain/seeds.jsonl, committed)
+  decide boundary <from> --never-imports <to> [--author <who>] --note "…"     an architecture decision: new imports crossing it are flagged
+  decide waive <path>#<name> --on <pid> [--author <who>] --note "…"           excuse ONE scope from ONE convention: check calls its departure deliberate, the counts still report it
+  decide list                             the decisions in force
+  decide rm <id> [--author <who>]         withdraw one
   selftest [--json]                       plant synthetic deviations into conforming exemplars and report how many this repo's own model catches
   selftest --how [--last N] [--json]      leave-one-out: how's own precision/recall predicting a past commit's files, vs a grep baseline, over the last N commits
   selftest --where [--last N] [--json]    where's own ranking of the file a past commit ADDED, from that commit's message, vs a path-match baseline, over the last N such commits
   selftest --obligation [--last N] [--json]  leave-one-out: the birth-obligation table's own coverage/precision predicting what a past commit that ADDED a file also touched, over the last N such events
   selftest --extract [--json]             per grammar, what fraction of the declarations a node-types.json-derived oracle sees does extraction actually record as a scope
-  selftest --null [--runs N] [--json]     each claim family re-run on history and edges shuffled so the link it claims is gone: how many claims it still certifies (false certifications), beside the real count
+  selftest --null [--runs N] [--seed N] [--json]     each claim family re-run on history and edges shuffled so the link it claims is gone: how many claims it still certifies (false certifications), beside the real count
+  selftest --cochange [--runs N] [--seed N] [--json]  the co-change partners learned from the oldest commits, scored on the newer ones, beside a busiest-files guess and under shuffled history
   refresh [--full]                        rebuild the index now (every query already auto-refreshes)
   version                                 engine, extractor and grammar versions
 aliases:
