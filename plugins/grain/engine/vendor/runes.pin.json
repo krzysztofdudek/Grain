@@ -12,11 +12,11 @@
   ],
   "tool": {
     "path": "../../scripts/runes.mjs",
-    "sha256": "36376ba2c01353b465fcb087d0b6d35bca81e5837c9cc10b5fba6488eee814a2"
+    "sha256": "7e9df7960f59dae09a007ebf0390975896c8e926c0c312d32a54135dca47c534"
   },
   "fragments": [],
-  "tag": "v0.1.0",
-  "commit": "c353ad55feca43f96358c8fc1356aaf167de6ade",
+  "tag": "v0.1.1",
+  "commit": "2c62528d98e4b5775ef0ae34f387c377c715c432",
   "files": {
     "dist/ast/index.d.mts": "19b0ede6cfdf7ea38efe50fb79e68cdf57b6c79bf5d9ad3a4dcdf1d5b81716b4",
     "dist/ast/index.mjs": "8b785753d299c1cdacd04bed2e10491f8ccff52a9e51c3113b7c7ef0f7d9c3c2",
@@ -96,7 +96,7 @@
     "dist/relations/symbol-table.mjs": "e721b91096020f777047c2f61e948ddf9effb421511fd868921bbd4a0decfd22",
     "dist/testkit/runtime/index.d.mts": "c0cd37997d4bfcb2d0e54494f1bbaca60c944bafc5e6f4694a8d4ee9e18df323",
     "dist/testkit/runtime/index.mjs": "003aec7c718a880be7979c0b239827c450b41b8fdbadb15c01a380250683f477",
-    "dist/version.mjs": "2b8c5f0d66982fba9a701af4c0f4d9c4ac8726e0000a585c16ef1f0d25c8c13a",
+    "dist/version.mjs": "1e57d647bcb9d484c9f076c1655b207b76e75e5cbc7d5fe6ba246bebba534cbb",
     "grammars/manifest.json": "21e552bae268ed6badd4154c8e4c35233d1a364a5b35de4a9602f0dc6fd8a818",
     "grammars/patches/tree-sitter-typescript-357-using-js-0.25.patch": "bab371c1a43ff8b954a83ddadad93046e2db34bae450b3bdff0a35df367ca834",
     "grammars/patches/tree-sitter-typescript-358-export-type-star.patch": "32842795f7469e300d9854c06fa88263e57dccab645fe794b0d8f0f213aef4eb",
