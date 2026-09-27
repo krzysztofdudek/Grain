@@ -17,6 +17,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, chmodSync,
 import { tmpdir } from 'node:os';
 import { delimiter, join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const HERE = dirname(fileURLToPath(import.meta.url));
 const BIN = join(HERE, '..', 'bin', 'grain.mjs');
@@ -89,7 +90,7 @@ before(() => {
   chmodSync(join(ygDir, 'yg'), 0o755);
   ygPath = `${ygDir}:${nodeOnlyDir}:${stdUtilDirs}`;
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('no .yggdrasil/: output is exactly the pre-028 six lines (regression — grain-session.mjs:72-77)', () => {
   rmSync(join(repo, '.yggdrasil'), { recursive: true, force: true });

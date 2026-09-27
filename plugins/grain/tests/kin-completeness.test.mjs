@@ -24,6 +24,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CFG } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -70,7 +71,7 @@ before(() => {
   assert.equal(Object.keys(m.valueSiblings).length, 1, `exactly one candidate container keeps idxCost at 1 bit: ${JSON.stringify(m.valueSiblings)}`);
   assert.deepEqual(Object.values(m.valueSiblings)[0], ['enum:ACTIVE', 'enum:PENDING', 'enum:SUSPENDED']);
 });
-after(() => { if (tmpA) rmSync(tmpA, { recursive: true, force: true }); });
+after(() => { if (tmpA) removeTemp(tmpA); });
 
 // ===== fixture B ("name stems"): two role groups in one partition, paired by stem =====
 // 12 handlers form role A, 11 specs form role B, and 11 of the 12 handlers have a same-`stem0` spec — 0.92 share
@@ -100,7 +101,7 @@ before(() => {
   assert.deepEqual(sizes, [12, 11], `sanity: the fixture must induce a 12-file group and an 11-file group, got ${JSON.stringify([...byRole].map(([r, s]) => [p.medoids[r]?.label, s.size]))}`);
 });
 beforeEach(() => { resetIn(repoA); resetIn(repoB); });
-after(() => { if (tmpB) rmSync(tmpB, { recursive: true, force: true }); });
+after(() => { if (tmpB) removeTemp(tmpB); });
 
 // ===== (a) the "values" half, red → green =====
 test('(a) a new enum member added in one carrier names the complete carriers that did not get it', () => {

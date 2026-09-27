@@ -6,10 +6,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 
@@ -50,7 +51,7 @@ test('with a graph already in the repository, the adopt preview and the next lin
     assert.ok(call.includes('--replace') && call.includes('--dry-run'), `the preview ran \`yg ${call.join(' ')}\``);
     const out = `${r.stdout}${r.stderr}`;
     assert.match(out, /already has a graph, so `yg adopt \S+ --replace --dry-run` previews accepting it/);
-  } finally { rmSync(ctx.tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(ctx.tmp); }
 });
 
 test('with no graph yet, the preview is the plain dry run', () => {
@@ -60,5 +61,5 @@ test('with no graph yet, the preview is the plain dry run', () => {
     assert.equal(r.status, 0, r.stderr);
     const call = adoptCall(ctx.calls);
     assert.ok(call && call.includes('--dry-run') && !call.includes('--replace'), `the preview ran \`yg ${call && call.join(' ')}\``);
-  } finally { rmSync(ctx.tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(ctx.tmp); }
 });

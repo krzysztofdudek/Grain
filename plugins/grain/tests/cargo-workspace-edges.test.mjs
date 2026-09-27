@@ -14,10 +14,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, cargo, npmWs;
@@ -58,7 +59,7 @@ before(() => {
     git('add', '-A'); git('commit', '-qm', 'base');
     const r = grain(['status']); assert.equal(r.code, 0, r.err); }
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 // issue 223: a sibling crate is reached only through a DEPENDENCY the using crate declares (a path dependency, or
 // `{ workspace = true }` inherited from `[workspace.dependencies]`) — Cargo compiles nothing else. A `use` whose root

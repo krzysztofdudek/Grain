@@ -18,11 +18,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { architectureNorms } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 // ===== Part 1: the acceptance math, on hand-built models =====
 
@@ -139,7 +140,7 @@ before(() => {
   const m = model();
   assert.ok((m.archNorms || []).some(n => n.fromKind === 'group' && n.exp === 'false'), `fixture sanity: expected at least one accepted group→module norm: ${JSON.stringify(m.archNorms)}`);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(a4) computeArchHits renders a group-kind note for a file violating an established group→module norm', () => {
   const m = model();

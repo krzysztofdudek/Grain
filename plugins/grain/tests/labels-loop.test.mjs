@@ -3,10 +3,11 @@
 // records when each issue was filed. The reader turns that into (repository, files, kind, filed-at) rows.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loopSummary, readLoopIssues } from './stress/labels.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 let tmp, jarl;
 const issue = (name, fields) => writeFileSync(join(jarl, 'issues', name), `# ${name.slice(0, 3)} · title of ${name}\n\n${Object.entries(fields).map(([k, v]) => `**${k}:** ${v}`).join('\n')}\n\n## What\n\n**Files:** not a header here\n`);
@@ -27,7 +28,7 @@ before(() => {
   issue('003-hub-work.md', { Status: 'open', Kind: 'process', Files: 'notes/x.md', Repo: '..', Since: '2026-09-19 08:00' });
   writeFileSync(join(jarl, 'issues', 'README.txt'), 'not an issue');
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 test('an issue becomes its repository, its files inside it, its kind and the time it was filed', () => {
   const [a, b, c] = readLoopIssues(jarl);

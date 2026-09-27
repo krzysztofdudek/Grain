@@ -41,6 +41,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { factNotes } from '../engine/core.mjs';
 import { LOG_FORMAT } from '../engine/history.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repoA, repoAgent8, repoHuman8, repoNoGit;
@@ -94,7 +95,7 @@ before(() => {
   repoNoGit = join(tmp, 'nogit'); mkdirSync(repoNoGit);
   for (let i = 0; i < 10; i++) w(repoNoGit, `src/Svc${i}.ts`, `@Service()\nexport class Svc${i} {\n  x(): number {\n    return ${i};\n  }\n}\n`);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(a) the true firstborn, clean on every criterion, is ranked exs[0] — not the scope merely encountered first', () => {
   const model = modelIn(repoA);

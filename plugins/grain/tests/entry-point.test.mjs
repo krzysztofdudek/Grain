@@ -23,6 +23,7 @@ import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseYaml } from '../engine/yggdrasil-graph.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -50,7 +51,7 @@ before(() => {
   assert.equal(r.status, 0, r.stderr);
   baselineArch = readFileSync(join(outDir, '.yggdrasil', 'yg-architecture.yaml'), 'utf8');
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('no .grain/seeds.jsonl, no .grain/ at all: the graph is byte-identical to the pre-028 baseline', () => {
   rmSync(join(repo, '.grain', 'seeds.jsonl'), { force: true });

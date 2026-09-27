@@ -6,12 +6,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { cochangeEval } from '../engine/selftest-cochange.mjs';
 import { rng } from '../engine/selftest-null.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 // 400 commits: `src/a.ts` and `test/a.test.ts` always travel together; the other commits touch one or two of 40
 // noise files at random. The pair is real; nothing else is.
@@ -73,7 +74,7 @@ before(() => {
     git('commit', '-qm', `change ${i}`);
   }
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('`grain selftest --cochange --json` reports each arm and one null count per run', () => {
   const r = spawnSync('node', [BIN, 'selftest', '--cochange', '--runs', '2', '--json'], { cwd: repo, encoding: 'utf8' });

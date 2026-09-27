@@ -15,10 +15,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -67,7 +68,7 @@ test('(1) a genuinely absent symbol gets a short, clean "not found" — not verb
   const j = JSON.parse(grainIn(repoAbsent, ['what', 'totallyNonexistentSymbolXyz', '--json']).out);
   assert.deepEqual(j.defined, []); assert.deepEqual(j.values, []);
 });
-test('teardown: absent repo', () => { if (tmpAbsent) rmSync(tmpAbsent, { recursive: true, force: true }); });
+test('teardown: absent repo', () => { if (tmpAbsent) removeTemp(tmpAbsent); });
 
 // ===========================================================================================================
 // repo GATED — case 2: a JSON key that is real, verbatim in the source, appearing in exactly ONE file —
@@ -98,7 +99,7 @@ test('(2) a df-gated value is distinguished from case 1 — seen and why it is n
   assert.match(r.out, /src\/config\.json/, r.out);
   assert.match(r.out, /below the 2-file floor/, r.out);
 });
-test('teardown: gated repo', () => { if (tmpGated) rmSync(tmpGated, { recursive: true, force: true }); });
+test('teardown: gated repo', () => { if (tmpGated) removeTemp(tmpGated); });
 
 // ===========================================================================================================
 // repo BLIND — case 3 (the Rust-macro-body and Go-package-const shape): `src/onlyConsts.ts` parses without error and contributes to
@@ -130,7 +131,7 @@ test('(3) a symbol living only in a zero-scope file is distinguished from case 1
   assert.match(r.out, /src\/onlyConsts\.ts/, r.out);
 });
 
-test('teardown: blind repo', () => { if (tmpBlind) rmSync(tmpBlind, { recursive: true, force: true }); });
+test('teardown: blind repo', () => { if (tmpBlind) removeTemp(tmpBlind); });
 
 // ===========================================================================================================
 // repo REGRESSION — every existing `what` success path (a real symbol, a real multi-place value, its siblings)
@@ -166,4 +167,4 @@ test('(4b) a real df=2 value renders exactly as before — no hedge text leaks i
   assert.match(r.out, /values: `sharedRegion` in 2 places \(key\)/, r.out);
   assert.ok(!r.out.includes('Seen, not absent') && !r.out.includes('cannot see') && !r.out.includes('below the'), r.out);
 });
-test('teardown: regression repo', () => { if (tmpReg) rmSync(tmpReg, { recursive: true, force: true }); });
+test('teardown: regression repo', () => { if (tmpReg) removeTemp(tmpReg); });

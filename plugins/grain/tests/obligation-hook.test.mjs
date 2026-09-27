@@ -10,10 +10,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -76,7 +77,7 @@ before(() => {
   buildFixtureA(repoA);
   assert.equal(grain(['status'], repoA).code, 0, 'fixture precondition: the index must build cleanly');
 });
-after(() => rmSync(tmp, { recursive: true, force: true }));
+after(() => removeTemp(tmp));
 
 test('fires: a NEW file under a class the birth rule certifies gets both labelled sets, unbidden, before the write', () => {
   const r = preHook(repoA, 'd/new7.x'); // does not exist on disk — genuinely pre-write

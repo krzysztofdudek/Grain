@@ -6,13 +6,14 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { aggregatesOf, curveball, permuteEdgeSources, rng } from '../engine/selftest-null.mjs';
 import { architectureNorms } from '../engine/core.mjs';
 import { shuffleFixes, shuffleMembers } from '../engine/learn.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const fps = [];
 {
@@ -96,7 +97,7 @@ before(() => {
     git('commit', '-qm', `add module ${i}`);
   }
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('`grain selftest --null --json` reports, per family, the real count and one null count per run', () => {
   const r = spawnSync('node', [BIN, 'selftest', '--null', '--runs', '2', '--json'], { cwd: repo, encoding: 'utf8' });

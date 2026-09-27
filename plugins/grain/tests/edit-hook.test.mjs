@@ -20,6 +20,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo;
@@ -76,7 +77,7 @@ before(() => {
   execFileSync('git', ['-C', repo, 'commit', '-qm', 'notes'], { encoding: 'utf8', env: { ...process.env, ...dateEnv('2026-03-01T12:00:00Z') } });
   const st = spawnSync('node', [BIN, 'status'], { cwd: repo, encoding: 'utf8' }); assert.equal(st.status, 0, st.stdout + st.stderr);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(1) an Edit on a file with an established co-change partner speaks BEFORE any edit happens, as PreToolUse additionalContext', () => {
   resetSeen();

@@ -23,6 +23,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isBool } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo1, repo2;
@@ -65,7 +66,7 @@ before(() => {
   gitIn(repo2, dateEnv('2026-03-01'), 'add', '-A'); gitIn(repo2, dateEnv('2026-03-01'), 'commit', '-qm', 'notes');
   const st2 = spawnSync('node', [BIN, 'status'], { cwd: repo2, encoding: 'utf8' }); assert.equal(st2.status, 0, st2.stdout + st2.stderr);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('auto.filebirth is categorical, not boolean — it must not be swallowed by isBool', () => {
   assert.equal(isBool('auto.filebirth'), false);

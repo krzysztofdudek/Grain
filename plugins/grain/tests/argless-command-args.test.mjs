@@ -17,10 +17,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let repo;
@@ -35,7 +36,7 @@ before(() => {
   git('add', '-A'); git('commit', '-qm', 'base');
   const r = grain(['status']); assert.equal(r.code, 0, r.err); // prime the cache, same precedent as map-command.test.mjs
 });
-after(() => { rmSync(repo, { recursive: true, force: true }); });
+after(() => { removeTemp(repo); });
 
 test('`grain map <file>` exits non-zero with a usage message naming `explain`', () => {
   const r = grain(['map', 'foo.rs']);

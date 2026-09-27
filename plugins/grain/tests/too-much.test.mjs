@@ -14,12 +14,13 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CFG } from '../engine/config.mjs';
 import { logBin, fitBins, excessBits, fires, entropyBits, responsibilityCut, LAMBDA_BITS } from './stress/too-much.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const TM = join(here, 'stress', 'too-much.mjs');
@@ -73,7 +74,7 @@ before(() => {
   });
 });
 after(() => {
-  try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ }
+  try { removeTemp(tmp); } catch { /* best effort */ }
 });
 
 let cached = null;

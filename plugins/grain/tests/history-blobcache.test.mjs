@@ -15,17 +15,18 @@
 // handful, which is the whole property the width buys. (b)-(f) pin the behaviour that must NOT change.
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
+import { mkdtempSync, existsSync, readFileSync, writeFileSync, readdirSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BlobCache } from '../engine/history.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 let tmp;
 before(() => {
   tmp = mkdtempSync(join(tmpdir(), 'grain-blobcache-'));
 });
 after(() => {
-  rmSync(tmp, { recursive: true, force: true });
+  removeTemp(tmp);
 });
 
 const scopes = n => [{ kind: 'function', name: 'fn' + n, line: n }];

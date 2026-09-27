@@ -30,10 +30,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 import {
   senseOf, senseRate, distribution, hostileContract, aspectsWithoutSites, parseCheckHeader, parseIssueCodes, parseDrill,
   readArchitecture, readNode, drillCounts, LOAD_BLOCKING, walkDirs,
@@ -50,7 +51,7 @@ const gitEnv = {
   GIT_AUTHOR_DATE: '2025-01-01T00:00:00Z', GIT_COMMITTER_DATE: '2025-01-01T00:00:00Z',
 };
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'integration-stress-')); });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 function gitRepo(root, write) {
   mkdirSync(root, { recursive: true });

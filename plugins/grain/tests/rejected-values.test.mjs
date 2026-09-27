@@ -19,6 +19,7 @@ import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CFG } from '../engine/config.mjs';
 import { factNotes } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repoA, repoB, repoC;
@@ -99,7 +100,7 @@ before(() => {
   w(repoC, 'NOTES.md', 'notes\n');
   commit(repoC, day(30), 'chore: notes');
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(a) a decorator tried and reverted on >= CFG.minRaw scopes is named in f.rejected', () => {
   const f = factByPid(modelIn(repoA), 'auto.deco:@Handler');

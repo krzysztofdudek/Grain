@@ -7,7 +7,7 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync, readFileSync, readdirSync, cpSync, mkdirSync } from 'node:fs';
+import { mkdtempSync, existsSync, writeFileSync, chmodSync, readFileSync, readdirSync, cpSync, mkdirSync } from 'node:fs';
 import { tmpdir, constants as osConstants } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -17,6 +17,7 @@ import { COMMANDS, GLOBAL_FLAGS, ALIASES, INTERNAL, VALUE_FLAGS } from '../engin
 import { USAGE } from '../engine/grain-usage.mjs';
 import { parseArgv } from '../engine/grain-context.mjs';
 import * as mcp from '../bin/grain-mcp.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN_MCP = join(here, '..', 'bin', 'grain-mcp.mjs');
@@ -205,7 +206,7 @@ after(async () => {
   try { server.child.kill(); } catch { /* already dead */ }
   await Promise.race([exited, new Promise(res => setTimeout(res, 10_000))]);
   // Windows keeps a directory busy for a moment after the process holding it died: retry for a while
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 });
+  removeTemp(tmp);
 });
 
 test('initialize handshake: a valid protocol version, the tools capability, and server info', async () => {

@@ -13,6 +13,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo, single;
@@ -54,7 +55,7 @@ before(() => {
     git('add', '-A'); git('commit', '-qm', 'base');
     const r = grain(['status']); assert.equal(r.code, 0, r.err); }
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(a) a genuine 3-layer chain: leaf=0, middle=1, top=2 — RED today: no `layer` field at all', () => {
   const nodes = modelOf(repo).moduleGraph.nodes;

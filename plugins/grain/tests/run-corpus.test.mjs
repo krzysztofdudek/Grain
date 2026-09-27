@@ -11,10 +11,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 import {
   classifyFailure,
   parseFlags,
@@ -160,7 +161,7 @@ test('latestResultFile picks the lexically-last dated result file and ignores no
     writeFileSync(join(dir, 'not-a-date-shaped-name.json'), '{}');
     assert.equal(latestResultFile(dir), join(dir, '2026-03-15-bbb2222.json'));
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTemp(dir);
   }
 });
 
@@ -213,7 +214,7 @@ test('CLI --ladder with a --corpus-dir but no --timeout refuses (no baked-in def
     assert.equal(r.status, 2);
     assert.match(r.stderr, /--timeout/);
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTemp(dir);
   }
 });
 
@@ -225,7 +226,7 @@ test('CLI --table against an empty results dir refuses cleanly naming the direct
     assert.match(r.stderr, /no results file found/);
     assert.match(r.stderr, new RegExp(dir.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTemp(dir);
   }
 });
 
@@ -265,6 +266,6 @@ test('CLI --table renders a real result file into the two markdown tables docs/v
     assert.match(r.stdout, /skipped: not present locally/);
     assert.match(r.stdout, /n\/a \(cold build failed\)/, "gin's whole command row must read n/a since its cold build never completed");
   } finally {
-    rmSync(dir, { recursive: true, force: true });
+    removeTemp(dir);
   }
 });

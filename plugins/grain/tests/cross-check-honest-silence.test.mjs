@@ -38,10 +38,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -93,7 +94,7 @@ before(() => {
   gitIn(repo, 'add', '-A'); gitIn(repo, 'commit', '-qm', 'cross-check honest-silence fixture');
   const st = grainIn(repo, ['status']); assert.equal(st.code, 0, st.err);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 // ===========================================================================================================
 // PRECONDITIONS — fixture-soundness proof. These must be GREEN: they establish that the fixture genuinely

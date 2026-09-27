@@ -36,6 +36,7 @@ import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { factNotes } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repoA, repoB, repoC, repoD, repoE;
@@ -118,7 +119,7 @@ before(() => {
   writeAll(repoD, i => (i < 6 || (i >= DEVIANTS && i < DEVIANTS + 6) ? ['note'] : [])); commit(repoD, '2026-02-10', 'fix: guard the null case');
   w(repoD, 'NOTES.md', 'notes\n'); commit(repoD, '2026-03-01', 'chore: notes');
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(a) edits to deviants that were fixes more often are named, with edit counts and the ratio', () => {
   const f = validateFact(modelIn(repoA));
