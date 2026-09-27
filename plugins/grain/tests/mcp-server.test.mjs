@@ -195,11 +195,17 @@ before(() => {
   for (const name of ['fresh-json', 'fresh-timeout', 'fresh-cancel', 'fresh-close', 'fresh-SIGTERM', 'fresh-SIGINT', 'fresh-SIGHUP', 'fresh-ping']) cpSync(repo, join(tmp, name), { recursive: true });
   server = startServer(repo);
 });
-after(() => {
+after(async () => {
+  const exited = server.child.exitCode !== null || server.child.signalCode !== null
+    ? Promise.resolve()
+    : new Promise(res => server.child.once('exit', res));
   try { server.child.stdin.end(); } catch { /* already closed */ }
+  // on Windows `kill` is TerminateProcess of the server alone: a CLI it spawned would keep the fixture open, so the whole tree goes
+  if (process.platform === 'win32') try { execFileSync('taskkill', ['/pid', String(server.child.pid), '/T', '/F'], { stdio: 'ignore' }); } catch { /* already gone */ }
   try { server.child.kill(); } catch { /* already dead */ }
-  // Windows keeps a directory busy while a process that just died still has it open: retry for a while
-  rmSync(tmp, { recursive: true, force: true, maxRetries: 20, retryDelay: 250 });
+  await Promise.race([exited, new Promise(res => setTimeout(res, 10_000))]);
+  // Windows keeps a directory busy for a moment after the process holding it died: retry for a while
+  rmSync(tmp, { recursive: true, force: true, maxRetries: 40, retryDelay: 250 });
 });
 
 test('initialize handshake: a valid protocol version, the tools capability, and server info', async () => {
