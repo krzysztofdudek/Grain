@@ -12,6 +12,7 @@
 //   src/dto/*.dto.ts           — classes extending `BaseDto`
 //   test/handlers/*.test.ts    — co-change partner of the handler it tests
 // One deviant is planted in the last commit: src/handlers/refund.handler.ts lacks `@Handler()` and skips validate().
+import '../../plugins/grain/tests/git-env.mjs'; // no background git maintenance while the fixture is committed (issue 409)
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
 import { join, dirname } from 'node:path';

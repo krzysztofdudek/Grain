@@ -1,6 +1,8 @@
 // Loaded before every test file (`node --import ./tests/git-env.mjs --test …`: package.json's `test` script and CI's
 // direct `node --test` lines), so every git a test runs inherits it — the git that builds a fixture, and every git
-// the grain CLI under test runs in turn.
+// the grain CLI under test runs in turn. The shared fixture builders (tests/fixtures/build-fixture.mjs,
+// fixture-top-level-repo.mjs) and advise-command.test.mjs also import it themselves, so a single file run with a
+// bare `node --test` is covered too. Importing it twice adds nothing: a key already set is left alone.
 //
 // Why (issue 409): a `git commit` starts `git maintenance run --auto` DETACHED, and with git 2.55 that background
 // run packs a fixture's loose objects while the fixture is still being built (the advise fixture: 35 commits in a
