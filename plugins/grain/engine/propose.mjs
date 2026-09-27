@@ -59,6 +59,8 @@ export {
   FAMILY_MIN_MEMBERS,
   SUBGATE_PER_PARTITION,
   resolveYg,
+  ROOT_PARENT,
+  probeRootParent,
   progressiveReference,
   slug,
   yq,

@@ -41,6 +41,9 @@ import { tmpdir } from 'node:os';
 import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readGraph } from './stress/reconstruct.mjs';
+import { parseYaml } from '../engine/yggdrasil-graph.mjs';
+import { probeRootParent, resolveYg } from '../engine/propose.mjs';
+import { TOP_LEVEL_TYPES, writeTopLevelRepo } from './fixture-top-level-repo.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const GRAIN_BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -64,7 +67,7 @@ const FIXTURES = join(YGG_DIR, 'source', 'cli', 'tests', 'fixtures');
 const MONO_FIXTURE = join(FIXTURES, 'family-planted-mono');
 const HAVE_MONO_FIXTURE = HAVE_YG && existsSync(MONO_FIXTURE);
 
-const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-reviewer-missing|description-missing|type-undefined|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
+const LOAD_FAILURES = /architecture-invalid|graph-load|yaml|schema|node-invalid|aspect-invalid|aspect-reviewer-missing|description-missing|type-undefined|type-unknown-parent|parent-type-forbidden|file-duplicate-mapping|mapping-path-missing/;
 
 // What `yg check` refused to load, read from its `yg-check/1` document: every issue's `code`, the ones matching
 // LOAD_FAILURES, and the node count it loaded. Never the text report: that is written for a person, its layout
@@ -183,6 +186,36 @@ test('the load-failure guard catches a real refusal the node count cannot see', 
   const r = loadFailures(repo);
   assert.equal(r.nodes, 1, `the planted node must still load, or the node count alone would catch this:\n${r.raw.slice(0, 2000)}`);
   assert.deepEqual(r.fatal, ['aspect-reviewer-missing'], `the guard did not see the planted load failure (codes seen: ${r.codes.join(', ') || '(none)'}):\n${r.raw.slice(0, 2000)}`);
+});
+
+// ============================================================================================================
+// Seam 1c — `yg adopt` takes the proposal whole, and `yg check` loads what it installed (issue 455). From
+// Yggdrasil 6.1.0 a type that lists `parents:` sits at the top of `model/` only when the list names `root`, and
+// a 6.0.0 CLI refuses `root` as an undefined type — so the proposal has to be written for the CLI that reads it.
+// A small repository puts both kinds of top-level node there: a classifying type (`tests`) and the
+// organizational `module` the renderer inserts above a type cut one level down (`src/main`). The real `yg adopt`
+// (not a copy standing in for it) must accept it, and `yg check` must load it with no parent refusal.
+// ============================================================================================================
+test('yg adopt accepts a proposal with top-level nodes, and yg check loads it', { skip: HAVE_YG_BIN ? false : YG_BIN_SKIP, timeout: 300_000 }, () => {
+  const repo = join(tmp, 'top-level-adopt');
+  const env = gitEnv(repo);
+  writeTopLevelRepo(repo, env);
+
+  const out = join(tmp, 'top-level-proposal');
+  const p = spawnSync('node', [GRAIN_BIN, 'propose', out, '--no-history', '--quiet'], { cwd: repo, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 150_000, env: { ...env, YG_BIN } });
+  assert.equal(p.status, 0, `grain propose failed:\n${p.stderr}`);
+  const probe = probeRootParent(resolveYg(YG_BIN));
+  const version = (spawnSync('node', [YG_BIN, '--version'], { encoding: 'utf8' }).stdout || '').trim();
+  const types = parseYaml(readFileSync(join(out, '.yggdrasil', 'yg-architecture.yaml'), 'utf8')).node_types;
+  const withRoot = Object.keys(types).filter(id => (types[id].parents || []).includes('root')).sort();
+  assert.deepEqual(withRoot, probe.root ? TOP_LEVEL_TYPES : [], `Yggdrasil ${version} (${probe.why}): the types listing root`);
+
+  const a = spawnSync('node', [YG_BIN, 'adopt', out], { cwd: repo, encoding: 'utf8', maxBuffer: 1 << 26, env });
+  assert.equal(a.status, 0, `yg adopt ${version} refused the proposal:\n${a.stdout}${a.stderr}`);
+  const r = loadFailures(repo);
+  assert.deepEqual(r.fatal, [], `yg check ${version} refused the adopted graph:\n${r.raw.slice(0, 4000)}`);
+  assert.equal(r.nodes, readdirSync(join(repo, '.yggdrasil', 'model'), { recursive: true }).filter(f => f.endsWith('yg-node.yaml')).length);
+  console.log(`[seams] yg ${version}: probe says ${probe.why}; adopt and check took a proposal with root on [${withRoot.join(', ')}]`);
 });
 
 // ============================================================================================================
