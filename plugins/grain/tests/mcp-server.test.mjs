@@ -463,10 +463,33 @@ test('when the client closes stdin, the running CLI is stopped and the server ex
   assert.ok(await until(() => cliFor(dir).length === 0), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
 });
 
+// A CLI that cannot finish on its own (issue 454): a `git` first on the PATH that never returns, so the first git call
+// of the build blocks for as long as nobody kills it. It writes nothing, so it cannot die on a closed pipe either —
+// once the server is gone, the only way this CLI ends is being killed. "Gone" below therefore means "stopped by the
+// server", on a machine of any speed. The server itself runs no git, so only the CLI hangs.
+function hangingGitPath() {
+  const bin = join(tmp, 'hanging-git');
+  if (!existsSync(join(bin, 'git'))) {
+    execFileSync('mkdir', ['-p', bin]);
+    writeFileSync(join(bin, 'git'), '#!/bin/sh\nexec sleep 86400\n');
+    chmodSync(join(bin, 'git'), 0o755);
+  }
+  return `${bin}:${process.env.PATH}`;
+}
+// what a failing run leaves behind: the CLI, its --liftoff-only child and the sleeping git under them — found by
+// ancestry, since a server that never detached the CLI left no process group to kill
+const killLeftovers = dir => {
+  const procs = execFileSync('ps', ['-Ao', 'pid=,ppid=,command='], { encoding: 'utf8' }).split('\n').filter(Boolean)
+    .map(l => { const [pid, ppid, ...cmd] = l.trim().split(/\s+/); return { pid: +pid, ppid: +ppid, cmd: cmd.join(' ') }; });
+  const doomed = new Set(procs.filter(p => p.cmd.includes('grain.mjs') && p.cmd.includes(`--repo=${dir}`)).map(p => p.pid));
+  for (let grew = true; grew; ) { grew = false; for (const p of procs) if (doomed.has(p.ppid) && !doomed.has(p.pid)) { doomed.add(p.pid); grew = true; } }
+  for (const pid of doomed) try { process.kill(pid, 'SIGKILL'); } catch { /* gone */ }
+};
+
 for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'])
   test(`${sig} to the server stops the running CLI with its process group, and the server exits`, async () => {
     const dir = join(tmp, `fresh-${sig}`);
-    const srv = startServer(tmp);
+    const srv = startServer(tmp, { ...process.env, PATH: hangingGitPath() });
     try {
       await srv.send('initialize', {});
       srv.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 'killed', method: 'tools/call', params: { name: 'grain_status', arguments: { repo: dir } } }) + '\n');
@@ -474,17 +497,11 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'])
       const exited = new Promise(r => srv.child.on('exit', (code, signal) => r({ code, signal })));
       srv.child.kill(sig);
       const how = await exited;
-      // No race on the machine's speed (issue 454): wait, as long as it takes, for every CLI process on this repository
-      // to be gone — stopped by the server, or, if the server left it orphaned, done with its build on its own — and
-      // only then look at what the build left. The index's last write is meta.json (grain-context.mjs writes
-      // model.json, then the tree cache or scopes, then meta.json), so a build that ran to the end leaves it and a
-      // stopped one does not. (An orphan here also tends to die on its next write to the closed pipe, so it is the
-      // exit assertions below that tell a server without the handler apart, and they hold at any speed.)
-      assert.ok(await until(() => cliFor(dir).length === 0, 120_000), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
-      assert.equal(existsSync(join(dir, '.grain', 'cache', 'meta.json')), false, `the CLI ran its build to the end after ${sig}: it was not stopped`);
+      // the CLI is blocked in git and would never end by itself: gone within the deadline means the server killed it
+      assert.ok(await until(() => cliFor(dir).length === 0, 30_000), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
       assert.equal(how.signal, null, `the server handled ${sig} and exited on its own, not by the default action: ${JSON.stringify(how)}`);
       assert.equal(how.code, 128 + osConstants.signals[sig], `the server exits as the signal would: ${JSON.stringify(how)}`);
-    } finally { stopServer(srv); }
+    } finally { stopServer(srv); killLeftovers(dir); }
   });
 
 // a raw request with a chosen id, and the one answer to it (or null if none comes within ms)
