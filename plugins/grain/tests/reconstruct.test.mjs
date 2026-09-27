@@ -14,10 +14,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync, cpSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 import {
   parseYaml, globToRe, pathMatcher, expandWhen, expandMapping, jaccard, readGraph,
   classifyMiss, aspectLiterals, parseAdviseCycles, compareTypes, grainCandidates, moduleAssigner, bestMatch,
@@ -125,7 +126,7 @@ before(() => {
   mkdirSync(oracleDir, { recursive: true });
   cpSync(join(repoPinned, '.yggdrasil'), join(oracleDir, '.yggdrasil'), { recursive: true });
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 const runRecon = (target, extra = []) => {
   const out = join(tmp, `out-${Math.random().toString(36).slice(2)}.json`);

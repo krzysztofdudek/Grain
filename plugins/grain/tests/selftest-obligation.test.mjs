@@ -7,10 +7,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -35,7 +36,7 @@ function initRepo(dir) {
 
 let tmp;
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-obligation-selftest-')); });
-after(() => rmSync(tmp, { recursive: true, force: true }));
+after(() => removeTemp(tmp));
 
 // ===== test 6: selftest --obligation hides the candidate's own commit =====
 // Order: scaffold, 4 "clean" births (all touching special.txt), 10 noise commits, then ONE FINAL birth — the

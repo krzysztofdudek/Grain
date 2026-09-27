@@ -5,11 +5,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { edgesOf, expectEdge, forbidEdge } from './relations/harness.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 test('a root tsconfig alias with a wildcard resolves, through JSONC comments and a trailing comma', () => {
   const { edges, cleanup } = edgesOf({
@@ -84,5 +85,5 @@ test('the model carries the aliases: `check` flags a NEW aliased import as the f
     w('apps/a/main.ts', "import { db } from '@infra/db';\nexport const a = () => 2 + db();\n");
     const c = spawnSync('node', [BIN, 'check', 'apps/a/main.ts'], { cwd: repo, encoding: 'utf8' });
     assert.match(c.stdout, /\[grain\] architecture: your import of `packages\/infra\/db\.ts` \(line 1\) is the FIRST edge apps\/a → packages\/infra \(0 existing\)/);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });

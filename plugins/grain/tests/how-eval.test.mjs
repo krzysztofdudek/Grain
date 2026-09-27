@@ -15,10 +15,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -83,7 +84,7 @@ function buildFixture(dir) {
 }
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-how-eval-')); repo = join(tmp, 'fixture'); day = 0; buildFixture(repo); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 const shaOf = subject => gitIn(repo, 'log', '--format=%H%x1f%s').trim().split('\n').map(l => l.split('\x1f')).find(([, s]) => s === subject)?.[0];
 

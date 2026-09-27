@@ -10,6 +10,7 @@ import { mkdtempSync, readFileSync, appendFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -31,7 +32,7 @@ function plantCochangePair(dir) {
     git(dir, 'commit', '-qam', `chore: order dto/guard touch ${i}`); } }
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-no-history-')); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(a) --no-history against an otherwise-fresh WITH-history cache answers with zero history-derived facts, in memory only', () => {
   const repo = join(tmp, 'fresh-with-history'); buildFixture(repo); plantCochangePair(repo);

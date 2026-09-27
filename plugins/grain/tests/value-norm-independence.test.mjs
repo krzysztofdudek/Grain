@@ -5,11 +5,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { completeUnderIndependence } from '../engine/learn.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const fm = rows => new Map(rows.map((keys, i) => [`f${i}`, new Set(keys)]));
 
@@ -44,6 +45,6 @@ test('schema furniture: a set every declaring file carries in full certifies no 
     assert.equal(Object.keys(m.valueSiblings).length, 1, 'the container is a candidate');
     assert.deepEqual(m.valueNorms, {}, 'five identical declarations are complete by the marginals alone; the 50/50 coin certified them');
   } finally {
-    rmSync(tmp, { recursive: true, force: true });
+    removeTemp(tmp);
   }
 });

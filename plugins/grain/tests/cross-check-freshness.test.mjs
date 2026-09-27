@@ -46,11 +46,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { partitionFor } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 const dateEnv = iso => ({ GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x', GIT_AUTHOR_DATE: iso, GIT_COMMITTER_DATE: iso });
@@ -87,7 +88,7 @@ before(() => {
   assert.equal(grainIn(repo1, ['status']).code, 0);
   sha1 = gitIn(repo1, {}, 'rev-parse', 'HEAD').slice(0, 7); // matches engine/grain.mjs's own `short()` exactly
 });
-after(() => { if (tmp1) rmSync(tmp1, { recursive: true, force: true }); });
+after(() => { if (tmp1) removeTemp(tmp1); });
 
 // every HEAD-reading command grain ships — none of these reads any specific file's worktree content, so under the
 // ruling above none of them may ever claim +dirty. What they DO owe, on a dirty tree, is SOME distinct, visible
@@ -193,7 +194,7 @@ before(() => {
     suppressedValue: null, denyEligible: false, exemplars: [], deviantsN: 0, deviants: [], altMarker: null });
   saveModel(repo2, model);
 });
-after(() => { if (tmp2) rmSync(tmp2, { recursive: true, force: true }); });
+after(() => { if (tmp2) removeTemp(tmp2); });
 
 test('013 regression guard (must stay GREEN): a CLEAN worktree — explain behaves exactly as today', () => {
   const out1 = grainIn(repo2, ['explain', TARGET_REL, '--no-refresh']).out;

@@ -14,6 +14,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -74,7 +75,7 @@ before(() => {
   repoA = join(tmp, 'a');
   buildFixtureA(repoA);
 });
-after(() => rmSync(tmp, { recursive: true, force: true }));
+after(() => removeTemp(tmp));
 
 // ===== test 1: a fixture where adding under d/ has touched reg.txt 6 of 6 times =====
 test('1) obligation names a certified companion "6 of 6" for a class with 6/6 births touching it', () => {

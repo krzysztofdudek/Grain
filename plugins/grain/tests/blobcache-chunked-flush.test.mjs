@@ -14,10 +14,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { BlobCache, parseBlobs } from '../engine/history.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const N = 800; // ≥ 2 chunks of parseBlobs' 400-per-chunk loop
 let tmp, gitdir, blobExt, firstSha;
@@ -46,7 +47,7 @@ before(() => {
   assert.equal(blobExt.size, N, 'fixture sanity: one distinct blob per file');
   firstSha = [...blobExt.keys()][0]; // definitely in chunk 1 (blobs 0..399)
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 class FailingBlobCache extends BlobCache {
   constructor(dir, failAt) { super(dir); this.calls = 0; this.failAt = failAt; }

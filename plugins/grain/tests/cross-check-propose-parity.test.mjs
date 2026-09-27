@@ -17,10 +17,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -42,7 +43,7 @@ before(() => {
   json = JSON.parse(readFileSync(join(tmp, 'report.json'), 'utf8'));
   assert.ok(json.aspects.total > 10, `fixture sanity: expected the parity comparisons to have aspects to compare, got ${json.aspects.total}`);
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 test('the JSON is one document with a stable schema key and the paths it names exist', () => {
   assert.equal(json.schema, 'grain-propose/1');
@@ -147,5 +148,5 @@ test('on a real repository that grows a sub-gate lattice (Grain\'s own), no enfo
     }
     // no advisory aspect is ever also counted enforced — the two are exclusive by construction
     assert.deepEqual(j2.enforced.map(a => a.id).filter(id => advisoryIds.includes(id)), []);
-  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp2); }
 });

@@ -15,10 +15,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, existsSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { loadHistory, freshState, writeHistoryState, readHistoryState } from '../engine/history.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 let tmp;
 const gitEnv = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x' };
@@ -29,7 +30,7 @@ before(() => {
   tmp = mkdtempSync(join(tmpdir(), 'grain-hist-large-'));
 });
 after(() => {
-  rmSync(tmp, { recursive: true, force: true });
+  removeTemp(tmp);
 });
 
 function initRepo(dir) {

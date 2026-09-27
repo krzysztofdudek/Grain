@@ -28,6 +28,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, repo1, repo2, repo3;
@@ -89,7 +90,7 @@ before(() => {
   gitIn(repo3, dateEnv('2026-03-01', 'Solo', 'solo@x'), 'commit', '-qm', 'notes');
   const st3 = grain(repo3, ['status']); assert.equal(st3.status, 0, st3.stdout + st3.stderr);
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('a scope never rewritten is credited to its sole creator: the class fact (11 single-event Carols + 1 single-event Alice) reads "mostly one author (11 of 12)"', () => {
   const out = grainOut(repo1, ['report']);

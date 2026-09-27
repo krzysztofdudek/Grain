@@ -8,10 +8,11 @@
 import { test, before, after, afterEach } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -82,7 +83,7 @@ before(() => {
 });
 // each test dirties the worktree with an uncommitted change; reset to HEAD before the next one runs
 afterEach(() => { gitIn(repo, 'checkout', '-q', '--', '.'); gitIn(repo, 'clean', '-qfd'); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 const certifiedStatusCells = m => {
   const status = (m.changeArchetypes || []).find(a => a.cells.some(c => c.certified && c.cell === 'm:src/enums'));

@@ -19,13 +19,14 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { getParser, bindingFor, extractScopes } from '../engine/core.mjs';
 import { relSupported } from '../engine/relations.mjs';
 import { loadHistory } from '../engine/history.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -60,7 +61,7 @@ before(() => {
   gitIn(repo, 'add', '-A'); gitIn(repo, 'commit', '-qm', 'spring-shaped fixture');
   statusIn(repo);
 });
-after(() => { if (tmp) rmSync(tmp, { recursive: true, force: true }); });
+after(() => { if (tmp) removeTemp(tmp); });
 
 test('(1) model.files is 15 (3 .properties + 12 .ts) — the arithmetic the df-window assertions below depend on', () => {
   assert.equal(modelIn(repo).files, 15);
@@ -153,7 +154,7 @@ test('(4) a scopeless-grammar (.properties) blob is never parsed by parseBlobs, 
     const bySha = Object.fromEntries(H.fps.map(fp => [fp.sha, fp]));
     assert.deepEqual(bySha[shaAdd].files.sort(), ['application.properties', 'src/a.js']);
     assert.deepEqual(bySha[shaRename].renames, [['application.properties', 'application2.properties']]);
-  } finally { rmSync(tmp2, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp2); }
 });
 
 // ===========================================================================================================

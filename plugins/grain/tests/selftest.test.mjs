@@ -3,10 +3,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -16,7 +17,7 @@ const grain = (args, opts = {}) => { const r = spawnSync('node', [BIN, ...args],
   return { out: (r.stdout || "").replace(/\n$/, ""), err: r.stderr, code: r.status }; };
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-selftest-')); repo = join(tmp, 'fixture'); execFileSync('node', [BUILDER, repo], { stdio: 'pipe' }); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('(a) selftest (text mode) prints one summary line with the expected shape', () => {
   grain(['status']);

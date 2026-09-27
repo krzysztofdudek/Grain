@@ -22,6 +22,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -111,7 +112,7 @@ before(() => {
   for (let i = 0; i < 5; i++) w(plain, `src/filler${i}.ts`, pad(6));
   w(plain, 'src/widget.ts', pad(6));
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 // ===== (a) model.concepts: red -> green =====
 test('(a1) a token shared by a commit message and a code identifier, and nothing else, is the whole of model.concepts', () => {

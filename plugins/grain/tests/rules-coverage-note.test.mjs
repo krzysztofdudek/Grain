@@ -12,10 +12,11 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 let tmp, mixedRepo, pyIntra;
@@ -53,7 +54,7 @@ before(() => {
 
   for (const r of [mixedRepo, pyIntra]) { const s = grainIn(r)(['status']); assert.equal(s.code, 0, s.err); }
 });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 test('`grain rules` carries the same relation-coverage disclosure as `grain report`, for the identical model', () => {
   const grain = grainIn(mixedRepo);

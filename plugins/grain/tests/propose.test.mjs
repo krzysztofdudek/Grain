@@ -27,6 +27,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, nodeDescription, describeRow, progressiveReference, proposeReport, scoreProposal } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const PROPOSE = join(here, 'stress', 'propose.mjs');
@@ -68,7 +69,7 @@ before(() => {
   const r = spawnSync('node', [PROPOSE, repo, out, '--no-history', '--quiet'], { encoding: 'utf8', maxBuffer: 1 << 28 });
   assert.equal(r.status, 0, r.stderr);
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 const sidecar = () => JSON.parse(readFileSync(join(out, 'proposal.json'), 'utf8'));
 
@@ -286,7 +287,7 @@ test('promoteEnforceableAspects earns `enforced` only for a certified-convention
   const evRowAdvisory = evidence.find(e => e.id === 'catches-clean-subgate');
   assert.equal(evRowAdvisory.status, 'advisory');
 
-  rmSync(t2, { recursive: true, force: true });
+  removeTemp(t2);
 });
 
 // ---------- an aspect's `name` is the whole statement, never a prefix cut mid-word ----------
@@ -638,7 +639,7 @@ test('promotion rewrites the check.mjs header, so a promoted check never says th
     assert.match(headerOf(id), /`errs: under` is the contract this template keeps/, id);
   }
 
-  rmSync(t3, { recursive: true, force: true });
+  removeTemp(t3);
 });
 
 // ---------- 15. the sentence a rule states about itself (dry run 112) ----------
@@ -798,7 +799,7 @@ test('progressiveReference prefers the remote default branch, then the current b
   const none = progressiveReference(bare);
   assert.equal(none.reference, null);
   assert.match(none.why, /\S/, 'a missing reference must say why it is missing');
-  rmSync(t, { recursive: true, force: true });
+  removeTemp(t);
 });
 
 // The number itself, on the two surfaces an adopter reads: the per-aspect record on disk and the report the
@@ -830,5 +831,5 @@ test('an enforced aspect carries existingViolations, and the report says what ha
     'with no progressive reference the report must say plainly that the first check is red');
   assert.equal(withoutProgressive.json.progressive.reference, null);
   assert.equal(withProgressive.includes('undefined'), false);
-  rmSync(t, { recursive: true, force: true });
+  removeTemp(t);
 });

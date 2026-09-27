@@ -26,10 +26,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readdirSync, readFileSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { basename, dirname, join, resolve, sep } from 'node:path';
 import { cutDrills, slug } from '../engine/propose.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const NL = String.fromCharCode(10);
 const gitEnv = {
@@ -74,7 +75,7 @@ test('a tracked symlink cannot hand the proposal a file the repository does not 
     const cut = kept.satisfies.map(c => c.rel).sort();
     assert.deepEqual(cut, ['src/honest.ts'], `a symlinked site was cut as a drill case: ${JSON.stringify(cut)}`);
     for (const c of kept.satisfies) assert.doesNotMatch(c.content, new RegExp(SECRET), `${c.rel} carries content from outside the repository`);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 test('a site path that resolves outside the repository is not cut, however it is spelled', () => {
@@ -94,7 +95,7 @@ test('a site path that resolves outside the repository is not cut, however it is
     // the control, in the same call shape: an ordinary site is still cut
     const { kept } = cutDrills(repo, { drills: { satisfies: [{ rel: 'src/honest.ts' }], violates: [] } });
     assert.equal(kept.satisfies.length, 1);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 test('every drill case a hostile repository can produce lands inside the aspect it belongs to', () => {
@@ -113,7 +114,7 @@ test('every drill case a hostile repository can produce lands inside the aspect 
       const dest = resolve(join(drills, `satisfies-${slug(c.rel)}`, c.rel));
       assert.ok(dest.startsWith(resolve(drills) + sep), `a drill case would be written outside its own corpus: ${dest}`);
     }
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });
 
 // The reason the OTHER write sites need no containment check of their own: everything repository-derived that
@@ -158,5 +159,5 @@ test('the hostile fixture is a real repository whose secret really does sit outs
     assert.deepEqual(tracked, ['src/honest.ts', 'src/link.ts']);
     assert.ok(!readdirSync(repo).includes('outside'), 'the secret is inside the repository, so the test proves nothing');
     assert.match(readFileSync(join(tmp, 'outside', 'stolen.ts'), 'utf8'), new RegExp(SECRET));
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });

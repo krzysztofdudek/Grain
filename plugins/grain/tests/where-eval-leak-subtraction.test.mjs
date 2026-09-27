@@ -14,11 +14,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { loadHistory } from '../engine/history.mjs';
 import { leakSubtractedH } from '../engine/core.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 let tmp;
 const gitEnv = { GIT_AUTHOR_NAME: 'T', GIT_AUTHOR_EMAIL: 't@x', GIT_COMMITTER_NAME: 'T', GIT_COMMITTER_EMAIL: 't@x' };
@@ -29,7 +30,7 @@ function freshStore(dir) { const store = { dir: join(dir, 'cache'), historyPath:
   mkdirSync(store.dir, { recursive: true }); return store; }
 
 before(() => { tmp = mkdtempSync(join(tmpdir(), 'grain-where-leak-')); });
-after(() => { rmSync(tmp, { recursive: true, force: true }); });
+after(() => { removeTemp(tmp); });
 
 // commit-message affinity, minimal and constant-free, in the exact shape §3/§4.4 of the research doc describes:
 // for a query token, what share of the commits SAYING that token also touched a file in directory `dir`. Built

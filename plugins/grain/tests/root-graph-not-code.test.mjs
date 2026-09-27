@@ -5,11 +5,12 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { HARD_EXCL } from '../engine/config.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const BIN = join(dirname(fileURLToPath(import.meta.url)), '..', 'bin', 'grain.mjs');
 
@@ -37,5 +38,5 @@ test('drill-corpus copies under the adopted graph are never mined as code', () =
     assert.equal(r.status, 0, r.stderr);
     const modules = (JSON.parse(r.stdout).moduleGraph?.nodes || []).map((n) => [n.id, n.files]);
     assert.deepEqual(modules, [['src', 6]], `mined modules: ${JSON.stringify(modules)}`);
-  } finally { rmSync(tmp, { recursive: true, force: true }); }
+  } finally { removeTemp(tmp); }
 });

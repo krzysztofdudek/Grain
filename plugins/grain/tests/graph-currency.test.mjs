@@ -7,11 +7,12 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync, readFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { waveCloseReport, compareModuleOwnership } from './stress/graph-currency.mjs';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const CURRENCY = join(here, 'stress', 'graph-currency.mjs');
@@ -70,7 +71,7 @@ before(() => {
   };
   buildFixture(repo);
 });
-after(() => { try { rmSync(tmp, { recursive: true, force: true }); } catch { /* best effort */ } });
+after(() => { try { removeTemp(tmp); } catch { /* best effort */ } });
 
 // ---------- 1. the planted graph-debt row is classified (b), through the library function ----------
 test('a declared relation with no code backing at all is classified as graph debt (b)', async () => {

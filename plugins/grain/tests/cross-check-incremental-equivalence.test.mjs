@@ -59,6 +59,7 @@ import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'nod
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -152,7 +153,7 @@ before(() => {
   ctlBuild2 = captureAll(ctlRepo);
   ctlModel2 = readModel(ctlRepo);
 });
-after(() => { if (ctlTmp) rmSync(ctlTmp, { recursive: true, force: true }); });
+after(() => { if (ctlTmp) removeTemp(ctlTmp); });
 
 for (const c of CMDS) {
   test(`[control] two from-scratch builds at the same HEAD produce byte-identical \`grain ${c.name}\` (modulo the named volatile fields)`, () => {
@@ -206,7 +207,7 @@ before(() => {
   coldCapture = captureAll(walkRepo);
   coldModel = readModel(walkRepo);
 });
-after(() => { if (walkTmp) rmSync(walkTmp, { recursive: true, force: true }); });
+after(() => { if (walkTmp) removeTemp(walkTmp); });
 
 test('[walk sanity] every step past the cold build at K actually took the INCREMENTAL path, not a hidden full rebuild', () => {
   const full = walkStepModes.filter(s => !s.incremental);
