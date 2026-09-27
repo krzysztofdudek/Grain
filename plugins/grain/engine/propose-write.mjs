@@ -30,6 +30,12 @@ import { computeSizing } from './propose-sizing.mjs';
 import { aspectYamlDoc, certifiedWithCasesCount, promoteEnforceableAspects } from './propose-status.mjs';
 import { buildTypes } from './propose-types.mjs';
 
+// the two shapes `grain propose --shape` writes; `nodes` is the default
+export const PROPOSE_SHAPES = ['nodes', 'types'];
+// The types that need a node in the `types` shape: those whose directory sits inside another type's, so that every
+// file under it matches two `when`s and only a node can say which type it is.
+export const typesNeedingNodes = active => active.filter(a => a.dir && active.some(b => b !== a && b.dir && a.dir.startsWith(b.dir + '/')));
+
 // The inputs: the tracked files, the export (reused when the caller already has one, spawned otherwise), the
 // model cache when there is one, and the predicate-expansion context every `when` is measured against.
 function loadInputs(repo, opts) {
@@ -73,7 +79,7 @@ function validateSeedsFile(repo) {
   });
 }
 // `yg-config.yaml` and `yg-architecture.yaml`: what a repository requires (nothing) and the node types.
-function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive, rootParent = true }) {
+function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive, rootParent = true, shape = 'nodes' }) {
   // yg-config.yaml — require nothing. A proposal that turns every unmapped file into a blocking error on day one
   // is a proposal nobody runs twice; `getting-started` §4 says require-nothing is the brownfield default.
   //
@@ -85,7 +91,9 @@ function writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerD
   // derive — a block that names no reference is refused by Yggdrasil rather than silently ignored.
   write(join(ygg, 'yg-config.yaml'), preambleComment() + yamlEmit({
     version: SCHEMA_VERSION,
-    coverage: { required: [], excluded: [] },
+    // `--shape types`: most files have no node, so they are covered by the one type whose `when` matches them — the
+    // switch Yggdrasil reads for that is `coverage.type_level`; the node shape keeps the file-only coverage it had
+    coverage: { required: [], excluded: [], ...(shape === 'types' ? { type_level: true } : {}) },
     auto_approve: false,
     quality: { max_direct_relations: Math.max(10, ...nodes.map(n => n.relations.length)) },
     ...(progressive?.reference ? {
@@ -277,7 +285,16 @@ export async function propose(repo, outDir, opts = {}) {
   for (const a of byDepth) for (const f of a.files) typeOfFile.set(f, a.id);
   const rels = buildRelations(exp, typeOfFile, active);
   const nestedRoots = nestedProjectRoots(files);
-  const { nodes, cycles: nodeCycles, unbroken } = buildNodes(active, exp, nestedRoots);
+  // `--shape types` (issue 494, design D13: the type is the default unit, a node is optional and first-class): the
+  // types, their `when`, their relations and their rules are the same as the node shape's, and a node is written
+  // only where a place needs its own identity. Here that place is a type nested inside another type: every file
+  // under the inner directory matches both `when`s, which Yggdrasil refuses as `ambiguous-node-type` unless a
+  // node claims the file. Every other file is covered by the one type that matches it (`coverage.type_level`).
+  const shape = opts.shape || 'nodes';
+  if (!PROPOSE_SHAPES.includes(shape)) throw new Error(`--shape: \`${shape}\` is not a shape; use ${PROPOSE_SHAPES.map(s => `\`${s}\``).join(' or ')}`);
+  const nodeTypes = shape === 'types' ? typesNeedingNodes(active) : active;
+  const { nodes, cycles: nodeCycles, unbroken } = buildNodes(nodeTypes, exp, nestedRoots);
+  if (shape === 'types') say(opts, `shape: types — ${nodes.filter(n => !n.organizational).length} of ${active.length} types get a node, each nested inside another type; every other file is covered by its type alone`);
   say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycle(s) in the code, each broken in the proposed node graph at its weakest edge (left undeclared and named in REFACTOR-BACKLOG.md)`);
   if (unbroken) say(opts, `WARNING: a dependency loop in the proposed node graph was not broken (${unbroken.join(' → ')}); yg adopt will refuse this proposal on structural-cycle`);
 
@@ -327,7 +344,7 @@ export async function propose(repo, outDir, opts = {}) {
   // a `root` written without asking is said as such, never passed off as the CLI's answer (the review of issue 455)
   if (!rootProbe.probed) say(opts, `\`${ROOT_PARENT}\` is written in \`parents:\` of top-level types without a probe (${rootProbe.why}): the proposal assumes the Yggdrasil this Grain ships with, which knows it`);
   if (!rootParent) say(opts, `the Yggdrasil at ${ygForSchema.label} does not know \`${ROOT_PARENT}\` in \`parents:\` (${rootProbe.why}); top-level types are written without it, which only a Yggdrasil that checks parents below the top alone accepts`);
-  writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive, rootParent });
+  writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive, rootParent, shape });
 
   // EVERY CANDIDATE THIS RUN DID NOT ACTIVATE, IN THE AUDIT TRAIL. The active types have carried an
   // `evidence` row since 094; the alternatives were on disk in `alternatives.md` and nowhere in the machine
@@ -372,7 +389,7 @@ export async function propose(repo, outDir, opts = {}) {
   for (const k of rels.pairs.keys()) { const [a, b] = k.split('|'); typesInRelations.add(a); typesInRelations.add(b); }
   const typesWithNoLaw = active.filter(a => (a.aspectIds || []).length === 0 && !typesInRelations.has(a.id));
   const counts = {
-    types: active.length, alternatives: alternatives.length, nodes: nodes.length,
+    shape, types: active.length, alternatives: alternatives.length, nodes: nodes.length,
     // the cut, by the level each active type was cut at, and the candidates by the level each was offered at
     // — `typesByLevel` sums to `types` and `alternativesByLevel` to `alternatives`
     typesByLevel: countBy(active, a => a.source), alternativesByLevel: countBy(alternatives, a => a.level),
@@ -424,7 +441,7 @@ export async function propose(repo, outDir, opts = {}) {
       evidence:
         'one row per emitted element (`kind`: `type` | `alternative` | `relations` | `deny` | `node` | `aspect`), `id` names the element, `evidence` is the exact prose a human reads on the file itself (a `# evidence:` YAML comment, or the corresponding line in the rendered .md); everything else on the row is `kind`-specific structured detail (e.g. an `aspect` row carries `enumerator`/`identifier`/`expected`/`host`, plus `status` (`enforced` | `advisory` | `draft`, the same values Yggdrasil\'s own `yg-aspect.yaml` takes) and `draftReason` (`prose-unenforceable-keyless` | `absence-not-forbiddance` | `file-scope-approximation-fa` | `no-catch` | `null`) matching the aspect\'s own `provenance.json`). This is the full audit trail: every element this renderer wrote has exactly one row here. Ticket 110, additive: a `type` row carries `level` (the cut it came from) and `levels` (every level that independently named the same directory), and an `alternative` row — one per candidate the run did NOT activate, previously present only in `alternatives.md` — carries `level`, `form` (`content` | `path` | `list`), `of` (the active type it would be carved out of), `selects`, `fidelity` and `viable`. Both kinds carry `intrinsic`: the oracle-free evidence for that cut — `files`, `importsInside`/`importsCrossing` (resolved imports touching the set, split by whether both endpoints are in it), `cochangeInside`/`cochangeCrossing`, `nameShape`/`nameShapeFiles` (the modal file-name shape and how many files carry it), `mined` (how many of the files grain parsed at all) and `rules` (mined conventions every one of whose sites lies inside the set).',
       counts:
-        'summary tallies over the SAME run this proposal.json describes — `typesByLevel`/`alternativesByLevel` split `types` and `alternatives` by the level each was cut or offered at (`partition` | `module` | `directory` | `domain` | `role group` | `layout`); `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsAdvisory`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (three-way since 107 — see `provenance.json`\'s own `status`/`draftReason`): `aspectsActive` counts `status: enforced` (a certified-convention origin that cleared a real drill — nothing stands between the maintainer and turning it on), `aspectsAdvisory` counts `status: advisory` (a sub-gate-lattice origin that cleared the SAME drill but sits below grain\'s own certification bound — a refactor decision, not law; these are the report\'s `candidates`), `aspectsDraft` is everything that never cleared the drill at all. `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified).',
+        'summary tallies over the SAME run this proposal.json describes — `shape` is the `--shape` it was written in (`nodes`, a node per type, or `types`, a node only for a type nested inside another and every other file covered by its type); `typesByLevel`/`alternativesByLevel` split `types` and `alternatives` by the level each was cut or offered at (`partition` | `module` | `directory` | `domain` | `role group` | `layout`); `aspects` = every drafted aspect (certified-convention + sub-gate-lattice combined), `aspectsRenderedAsCheck`/`aspectsProse` partition it by reviewer kind, `aspectsActive`/`aspectsAdvisory`/`aspectsDraft`/`aspectsByDraftReason` partition it by earned status (three-way since 107 — see `provenance.json`\'s own `status`/`draftReason`): `aspectsActive` counts `status: enforced` (a certified-convention origin that cleared a real drill — nothing stands between the maintainer and turning it on), `aspectsAdvisory` counts `status: advisory` (a sub-gate-lattice origin that cleared the SAME drill but sits below grain\'s own certification bound — a refactor decision, not law; these are the report\'s `candidates`), `aspectsDraft` is everything that never cleared the drill at all. `aspectsVerified`/`aspectsVerifiedAgainst` say how many deterministic aspects a real `yg drill` actually judged this run and against which Yggdrasil binary (`null` when `YG_BIN` was not resolvable — every aspect then ships draft, unverified).',
       provenance:
         'NOT inlined here — each `.yggdrasil/aspects/<id>/provenance.json` (same field set as law-loop.mjs: aspectId, conventionId, origin, enumeratorClass, identifier, expected, partition, share, n, deviating, asOf, cutSha, cutDate, repo, reviewer, note — PLUS `status`/`draftReason`/`scopeApproximation` and `existingViolations` (the count of sites that break the rule at `asOf` — the same number as `deviating`, named for what it costs on the day the graph is switched on), additive fields law-loop.mjs\'s own replay provenance does not carry) is the per-aspect record; this file\'s `evidence` rows are the prose summary, provenance.json is the structured one a machine reads.',
       sizing:
@@ -437,7 +454,7 @@ export async function propose(repo, outDir, opts = {}) {
     evidence,
   }, null, 1) + '\n');
 
-  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded, progressive, rootParent, rootProbe };
+  return { outDir, shape, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded, progressive, rootParent, rootProbe };
 }
 
 // ---- aspect drafting ----

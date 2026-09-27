@@ -27,6 +27,7 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { shapeToRegex, contentRegexFor, renderableDirection, slug, yamlEmit, nodePathFor, nestedProjectRoots, PREAMBLE, computeSizing, promoteEnforceableAspects, provenanceFor, buildAspects, nodeDescription, describeRow, progressiveReference, proposeReport, scoreProposal } from './stress/propose.mjs';
 import { parseYaml } from './stress/reconstruct.mjs';
+import { typesNeedingNodes } from '../engine/propose.mjs';
 import { removeTemp } from './remove-temp.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
@@ -832,4 +833,52 @@ test('an enforced aspect carries existingViolations, and the report says what ha
   assert.equal(withoutProgressive.json.progressive.reference, null);
   assert.equal(withProgressive.includes('undefined'), false);
   removeTemp(t);
+});
+
+// ---------- `--shape types` (issue 494): types with `when`, rules on types, a node only where a place needs one ----------
+test('the types shape gives a node only to a type nested inside another type', () => {
+  const t = (id, dir) => ({ id, dir });
+  const active = [t('src', 'src'), t('src-api', 'src/api'), t('src-api-v2', 'src/api/v2'), t('docs', 'docs'), t('repo-root-file', null), t('srcx', 'srcx')];
+  assert.deepEqual(typesNeedingNodes(active).map(a => a.id), ['src-api', 'src-api-v2'], 'a sibling that only shares a prefix (`srcx`) is not nested');
+});
+
+test('--shape types writes the same types and rules, covers files by type, and Yggdrasil adopts it', () => {
+  const outT = join(tmp, 'proposal-types');
+  const r = spawnSync('node', [PROPOSE, repo, outT, '--no-history', '--quiet', '--shape', 'types'], { encoding: 'utf8', maxBuffer: 1 << 28, env: { ...process.env, ...(HAVE_YG ? { YG_BIN } : {}) } });
+  assert.equal(r.status, 0, r.stderr);
+  const nodesArch = readFileSync(join(out, '.yggdrasil', 'yg-architecture.yaml'), 'utf8');
+  const typesArch = readFileSync(join(outT, '.yggdrasil', 'yg-architecture.yaml'), 'utf8');
+  const kinds = text => Object.keys(parseYaml(text).node_types).sort();
+  assert.deepEqual(kinds(typesArch), kinds(nodesArch), 'the same node types, with the same `when`s and rules');
+  const cfg = parseYaml(readFileSync(join(outT, '.yggdrasil', 'yg-config.yaml'), 'utf8'));
+  assert.equal(cfg.coverage.type_level, true, 'files without a node are covered by their type');
+  assert.equal(parseYaml(readFileSync(join(out, '.yggdrasil', 'yg-config.yaml'), 'utf8')).coverage.type_level, undefined, 'the default shape is unchanged');
+  const j = JSON.parse(readFileSync(join(outT, 'proposal.json'), 'utf8'));
+  assert.equal(j.counts.shape, 'types');
+  assert.equal(sidecar().counts.shape, 'nodes');
+  assert.equal(j.counts.nodes, 0, 'the fixture\'s two types sit side by side, so neither needs a node');
+  assert.ok(sidecar().counts.nodes >= 2);
+  if (!HAVE_YG) return;
+  const stage = join(tmp, 'stage-types');
+  mkdirSync(stage, { recursive: true });
+  for (const rel of execFileSync('git', ['-C', repo, 'ls-files', '-z'], { encoding: 'utf8' }).split('\0').filter(Boolean)) {
+    mkdirSync(dirname(join(stage, rel)), { recursive: true });
+    cpSync(join(repo, rel), join(stage, rel));
+  }
+  execFileSync('git', ['-C', stage, 'init', '-q', '-b', 'main']);
+  execFileSync('git', ['-C', stage, 'add', '-A']);
+  execFileSync('git', ['-C', stage, '-c', 'user.name=T', '-c', 'user.email=t@x', 'commit', '-q', '-m', 'stage']);
+  const adopt = spawnSync('node', [YG_BIN, 'adopt', outT], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
+  assert.equal(adopt.status, 0, `yg adopt refused the types shape:\n${adopt.stdout}${adopt.stderr}`);
+  const check = spawnSync('node', [YG_BIN, 'check'], { cwd: stage, encoding: 'utf8', maxBuffer: 1 << 26 });
+  const text = check.stdout + check.stderr;
+  assert.equal(check.status, 0, text.slice(0, 3000));
+  assert.match(text, /\d+ type-covered/, 'the source files are covered by their types');
+});
+
+test('grain propose refuses a shape it does not know, before it mines anything', () => {
+  const r = spawnSync('node', [join(here, '..', 'bin', 'grain.mjs'), 'propose', join(tmp, 'out-bad-shape'), '--no-history', '--shape', 'graph'], { cwd: repo, encoding: 'utf8', timeout: 60_000 });
+  assert.notEqual(r.status, 0);
+  assert.match(r.stderr + r.stdout, /--shape nodes\|types/);
+  assert.ok(!existsSync(join(tmp, 'out-bad-shape')), 'nothing is written');
 });

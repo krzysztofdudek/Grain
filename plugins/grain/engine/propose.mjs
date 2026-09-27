@@ -97,7 +97,7 @@ export { RENDERABLE, isAbsenceRow, renderableDirection, WHY_PROSE } from './prop
 // proposal writer · sizing.json — what the graph costs to review
 export { computeSizing } from './propose-sizing.mjs';
 // proposal writer · the render pipeline: read the model, write the staging tree
-export { propose, nodeDescription } from './propose-write.mjs';
+export { propose, nodeDescription, PROPOSE_SHAPES, typesNeedingNodes } from './propose-write.mjs';
 // proposal writer · the obligation form and the aspect drafts
 export {
   unitOne,

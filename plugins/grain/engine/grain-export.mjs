@@ -57,11 +57,13 @@ export async function cmdExport({ model, meta, head, root, isGit, args, opts, st
 // function's header for what is in it and why.
 export async function cmdPropose({ root, args, opts, stamp }) {
   if (args.length > 1)
-    throw new Error('usage: grain propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--scope <id|path,…>] [--family-candidates <path> | --no-family-candidates] — at most one out-dir');
+    throw new Error('usage: grain propose [<out-dir>] [--full] [--json <path>] [--holdout <YYYY-MM-DD>] [--scope <id|path,…>] [--shape nodes|types] [--family-candidates <path> | --no-family-candidates] — at most one out-dir');
   if (opts.json === true)
     throw new Error('usage: grain propose --json <path> — `--json` names the file to write the report to; the text report always goes to stdout');
   if (opts.holdout !== undefined && !/^\d{4}-\d{2}-\d{2}$/.test(String(opts.holdout)))
     throw new Error('usage: grain propose --holdout <YYYY-MM-DD> — a calendar date, so drill corpora keep only sites first seen after it');
+  if (opts.shape !== undefined && !['nodes', 'types'].includes(opts.shape))
+    throw new Error('usage: grain propose --shape nodes|types — `nodes` (the default) writes a node for every type, `types` writes a node only where a type sits inside another and covers every other file by its type');
   if (opts['family-candidates'] === true)
     throw new Error('usage: grain propose --family-candidates <path> — the file to write the family candidates to (a directory gets `.family-candidates.grain.json` inside it); by default it goes to <out-dir>/.yggdrasil/.family-candidates.grain.json, beside the graph `yg adopt` installs');
   if (opts['no-family-candidates'] && opts['family-candidates'] !== undefined)
@@ -92,7 +94,7 @@ export async function cmdPropose({ root, args, opts, stamp }) {
     if (r.unknown.length) throw new Error(`--scope: nothing tracked matches ${r.unknown.map(e => `\`${e}\``).join(', ')}`);
     scopeFiles = r.files;
   }
-  const r = await propose(root, outDir, { noHistory: !!opts['no-history'], holdout: opts.holdout, scopeFiles });
+  const r = await propose(root, outDir, { noHistory: !!opts['no-history'], holdout: opts.holdout, scopeFiles, shape: opts.shape });
   // The family-without-law signal `yg advise` reads (`.yggdrasil/.family-candidates.grain.json`). It goes INTO the
   // proposal, beside the graph, so `yg adopt` installs both in one move and an adopter never copies a file by
   // hand; `--family-candidates <path>` writes it somewhere else instead (a repository that adopted earlier
