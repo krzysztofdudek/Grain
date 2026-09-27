@@ -13,7 +13,9 @@
   },
   "scripts": {
     "build:grammars": "node scripts/build-grammars.mjs",
-    "test": "node --import ./tests/git-env.mjs --test tests/*.test.mjs tests/relations/*.test.mjs tests/relations/e2e/*.test.mjs tests/relations/e2e-cli/*.test.mjs"
+    "runes:check": "node scripts/runes.mjs check --offline --pin engine/vendor/runes.pin.json",
+    "runes:update": "node scripts/runes.mjs update --pin engine/vendor/runes.pin.json",
+    "test": "npm run --silent runes:check && node --import ./tests/git-env.mjs --test tests/*.test.mjs tests/relations/*.test.mjs tests/relations/e2e/*.test.mjs tests/relations/e2e-cli/*.test.mjs"
   },
   "devDependencies": {
     "@tree-sitter-grammars/tree-sitter-zig": "1.1.2",

@@ -1,5 +1,5 @@
 # The gate: the full conformance suite (engine + relations + CLI e2e + hooks) on every push and PR.
-# Tests need no npm install — the tree-sitter runtime and grammars are vendored; the suite drives the real CLI.
+# Tests need no npm install — the tree-sitter runtime, the grammars and Runes are vendored; the suite drives the real CLI.
 name: ci
 on:
   push:
@@ -25,6 +25,10 @@ jobs:
           git config --global user.name ci
           git config --global user.email ci@invalid
           git config --global init.defaultBranch main
+      # The vendored Runes copy, byte for byte against a fresh clone of its pinned tag (npm test runs the offline half).
+      - name: runes gate
+        working-directory: plugins/grain
+        run: node scripts/runes.mjs check --ci --pin engine/vendor/runes.pin.json
       - name: run suite
         working-directory: plugins/grain
         run: npm test
@@ -116,6 +120,7 @@ jobs:
           YG_BIN: ${{ github.workspace }}/yggdrasil/source/cli/dist/bin.js
           YGG_DIR: ${{ github.workspace }}/yggdrasil
           HORDE_DIR: ${{ github.workspace }}/horde
+        # GITHUB_REF_NAME / GITHUB_BASE_REF tell seam 6 whether a Runes mismatch warns (a working branch) or fails (release/*)
         run: node --import ./tests/git-env.mjs --test tests/seams.test.mjs
       - name: run the reconstruction and advice guards against the hand oracles
         working-directory: grain/plugins/grain
