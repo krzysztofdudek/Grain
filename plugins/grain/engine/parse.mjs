@@ -356,6 +356,10 @@ async function parserForGrammar(g) {
   }
   return parsers[g];
 }
+// a fresh parser of this runtime, for the relation extractors (Runes' ParsedFile.newParser): the Kotlin extractor
+// re-parses spans of a damaged file with it, setting the tree's own language; the caller deletes it. Injected, so the
+// vendored relation code never imports a second copy of web-tree-sitter by value.
+export const newParser = () => new Parser();
 export async function getParser(ext) {
   const g = EXT2GRAMMAR[ext];
   if (!g) throw new Error(`no grammar for extension "${ext}"`);

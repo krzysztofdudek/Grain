@@ -322,8 +322,8 @@ the directory tree by the same compression criterion — the deleted test/exampl
 mathematics on the measurement corpus (express: `examples/ · lib/ · test/`; flask: `docs/ · examples/ · src/ ·
 tests/`). Manifests (`package.json`, `go.mod`) are read for *resolution* — workspaces, the module graph — never as a
 statistical prior. Cross-file references are bound the same way: per-language extractors and a tri-state resolver
-(resolved / ambiguous / absent: silence instead of a false edge), vendored from the battle-tested Yggdrasil relation
-machinery (same author, MIT; regenerate with `npm run build:relations`).
+(resolved / ambiguous / absent: silence instead of a false edge), the same relation code Yggdrasil runs: both take it
+from Runes, the family's shared code (same author, MIT), which Grain vendors at a pinned release.
 
 There are no model calls anywhere in the engine, no API keys, and no network access at runtime. Your code stays on your
 machine. Nothing about a language, a framework or a coding style is written down in the product: the language bindings

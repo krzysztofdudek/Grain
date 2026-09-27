@@ -27,7 +27,6 @@ Plugin manifests, and where the version lives:
 cd plugins/grain
 npm install --legacy-peer-deps  # dev dependencies only: the npm-sourced grammars, tree-sitter-cli and the runtime to vendor
 npm run build:grammars      # materialize every grammar pinned in engine/grammars/manifest.json (npm, release asset or source build, sha256-verified) and vendor web-tree-sitter (outputs are committed)
-npm run build:relations     # refresh the per-language relation resolvers (outputs are committed)
 npm test                    # the whole suite, end to end over the fixture repository
 ```
 
