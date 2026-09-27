@@ -48,7 +48,7 @@ const sessionContext = (r, { mode = 'claude', PATH } = {}) => {
   const res = spawnSync(process.execPath, [BIN, 'session-context', '--mode', mode], {
     cwd: r, encoding: 'utf8', env: PATH ? { ...envWithoutYgBin, PATH } : envWithoutYgBin,
   });
-  assert.equal(res.status, 0, res.stderr);
+  assert.equal(res.status, 0, res.stderr || String(res.error));
   return JSON.parse(res.stdout).hookSpecificOutput.additionalContext;
 };
 

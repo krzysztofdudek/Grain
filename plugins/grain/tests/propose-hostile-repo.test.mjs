@@ -28,7 +28,7 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { mkdirSync, mkdtempSync, readdirSync, readFileSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { basename, dirname, join, resolve } from 'node:path';
+import { basename, dirname, join, resolve, sep } from 'node:path';
 import { cutDrills, slug } from '../engine/propose.mjs';
 
 const NL = String.fromCharCode(10);
@@ -111,7 +111,7 @@ test('every drill case a hostile repository can produce lands inside the aspect 
     const { kept } = cutDrills(repo, { drills: { satisfies: sites.map(rel => ({ rel })), violates: [] } });
     for (const c of kept.satisfies) {
       const dest = resolve(join(drills, `satisfies-${slug(c.rel)}`, c.rel));
-      assert.ok(dest.startsWith(resolve(drills) + '/'), `a drill case would be written outside its own corpus: ${dest}`);
+      assert.ok(dest.startsWith(resolve(drills) + sep), `a drill case would be written outside its own corpus: ${dest}`);
     }
   } finally { rmSync(tmp, { recursive: true, force: true }); }
 });

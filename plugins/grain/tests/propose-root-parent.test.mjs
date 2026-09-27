@@ -10,9 +10,9 @@
 import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { dirname, join } from 'node:path';
+import { basename, dirname, join, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseYaml } from '../engine/yggdrasil-graph.mjs';
 import { probeRootParent } from '../engine/propose.mjs';
@@ -54,8 +54,10 @@ function propose(ygBin, name) {
   const types = parseYaml(readFileSync(join(out, '.yggdrasil', 'yg-architecture.yaml'), 'utf8')).node_types;
   const withRoot = Object.keys(types).filter(id => (types[id].parents || []).includes('root')).sort();
   for (const id of withRoot) assert.equal(types[id].parents[0], 'root', `type '${id}' lists root, but not first`);
-  const nodes = execFileSync('find', [join(out, '.yggdrasil', 'model'), '-name', 'yg-node.yaml'], { encoding: 'utf8' }).trim().split('\n')
-    .map(f => ({ path: dirname(f).slice(join(out, '.yggdrasil', 'model').length + 1), type: parseYaml(readFileSync(f, 'utf8')).type }));
+  // every yg-node.yaml under model/, its directory relative to model/ with forward slashes (no `find`: Windows has none)
+  const model = join(out, '.yggdrasil', 'model');
+  const nodes = readdirSync(model, { recursive: true }).map(String).filter(f => basename(f) === 'yg-node.yaml')
+    .map(f => ({ path: dirname(f).split(sep).join('/'), type: parseYaml(readFileSync(join(model, f), 'utf8')).type }));
   return { withRoot, nodes, stderr: r.stderr };
 }
 
