@@ -26,14 +26,22 @@ export function isReleaseRef(env = process.env) {
 }
 
 /**
- * { kind: 'skip' | 'match' | 'warn' | 'fail', text }. Yggdrasil without a Runes dependency is a skip with a note,
- * not a pass: there is nothing to compare yet. A spec that is not the exact version Grain pins (a range, another
+ * { kind: 'skip' | 'match' | 'warn' | 'fail', text, loud? }. Yggdrasil without a Runes dependency is a skip with a note,
+ * not a pass: there is nothing to compare yet; on a release branch the skip is `loud` (see below). A spec that is not the exact version Grain pins (a range, another
  * version) is a mismatch.
  */
 export function runesSeamVerdict({ grain, yggdrasil, release }) {
   if (grain === null) return { kind: 'fail', text: 'Grain\'s Runes pin names no tag; run scripts/runes.mjs update' };
-  if (yggdrasil === null)
-    return { kind: 'skip', text: `Yggdrasil does not depend on ${RUNES_PACKAGE} yet, so there is no Runes version to compare with Grain's pin (${grain})` };
+  // On release/* this should fail, but Yggdrasil's own move onto Runes (its issue 469) lands in the same release and
+  // has not landed yet, so a failure here would turn every release/6.1.0 run red for a step outside this repository.
+  // It stays a skip until then, marked `loud` so the seam prints it as a warning a reader cannot miss. Once Yggdrasil
+  // depends on Runes this branch is unreachable, and a missing dependency on release/* should become a 'fail'.
+  if (yggdrasil === null) {
+    const text = `Yggdrasil does not depend on ${RUNES_PACKAGE} yet, so there is no Runes version to compare with Grain's pin (${grain})`;
+    return release
+      ? { kind: 'skip', loud: true, text: `${text}. On a release branch this is expected to FAIL once Yggdrasil moves onto Runes (issue 469); until then it is skipped` }
+      : { kind: 'skip', text };
+  }
   if (yggdrasil === grain) return { kind: 'match', text: `Grain's Runes pin and Yggdrasil's ${RUNES_PACKAGE} are both ${grain}` };
   const text = `Grain vendors Runes ${grain}, but Yggdrasil depends on ${RUNES_PACKAGE} ${yggdrasil}: the two tools would extract relations with different Runes releases`;
   return { kind: release ? 'fail' : 'warn', text };

@@ -25,7 +25,8 @@
 //      so it is the only place that can hold the page to all three: every schema id Horde's scripts name, and
 //      every one Grain's engine writes, must have a row. Pure file reads — no binary is run.
 //   6. ONE RUNES UNDER BOTH. The Runes tag in Grain's pin equals the `@chrisdudek/runes` version Yggdrasil depends
-//      on: a warning on a working branch, a failure on `release/*`, a skip while Yggdrasil has no Runes dependency.
+//      on: a warning on a working branch, a failure on `release/*`, a skip while Yggdrasil has no Runes dependency
+//      (on `release/*` a loud one, since it should fail there once Yggdrasil moves onto Runes).
 //
 // Every seam skips itself, with a stated reason, when its neighbour binary/checkout is not present — never a
 // silent pass and never a hard failure of the whole suite. Point `YG_BIN` at Yggdrasil's built `bin.js` (its
@@ -568,7 +569,13 @@ test('Grain\'s Runes pin and Yggdrasil\'s Runes dependency name the same release
   assert.ok(havePackage, `Yggdrasil's CLI package.json not found at ${pkgPath}`);
   const verdict = runesSeamVerdict({ grain, yggdrasil, release: isReleaseRef() });
   console.log(`[seams] runes: ${verdict.text}`);
-  if (verdict.kind === 'skip') return t.skip(verdict.text);
+  if (verdict.kind === 'skip') {
+    if (verdict.loud) {
+      console.warn(`\n[seams] !!! RUNES SEAM NOT ENFORCED ON A RELEASE BRANCH !!!\n[seams] ${verdict.text}\n`);
+      if (process.env.GITHUB_ACTIONS) console.log(`::warning title=Runes seam not enforced::${verdict.text}`);
+    }
+    return t.skip(verdict.text);
+  }
   if (verdict.kind === 'warn') {
     t.diagnostic(`WARNING: ${verdict.text} (blocks on release/*)`);
     if (process.env.GITHUB_ACTIONS) console.log(`::warning title=Runes seam::${verdict.text}`);

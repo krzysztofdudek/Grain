@@ -24,7 +24,13 @@ test('a release branch is the pushed ref or either side of a pull request', () =
 });
 
 test('no Runes dependency in Yggdrasil skips with a note; the same version matches', () => {
-  assert.equal(runesSeamVerdict({ grain: '0.1.0', yggdrasil: null, release: true }).kind, 'skip');
+  assert.equal(runesSeamVerdict({ grain: '0.1.0', yggdrasil: null, release: false }).kind, 'skip');
+  assert.equal(runesSeamVerdict({ grain: '0.1.0', yggdrasil: null, release: false }).loud, undefined);
+  // on release/* the missing dependency is a loud skip until Yggdrasil moves onto Runes, never a silent one
+  const onRelease = runesSeamVerdict({ grain: '0.1.0', yggdrasil: null, release: true });
+  assert.equal(onRelease.kind, 'skip');
+  assert.equal(onRelease.loud, true);
+  assert.match(onRelease.text, /expected to FAIL/);
   assert.equal(runesSeamVerdict({ grain: '0.1.0', yggdrasil: '0.1.0', release: true }).kind, 'match');
 });
 
