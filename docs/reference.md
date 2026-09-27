@@ -163,7 +163,7 @@ each other's suppression state, and each repeats an identical finding no more of
   `missing:` lines. Suppressed by the sorted file list, not the rendered text.
 
 **A host with no `UserPromptSubmit` support gets no `how-hook` behavior** — confirmed for Codex CLI at the time of
-writing, hence its absence from `hooks/codex-hooks.json`; `SKILL.md` tells the agent to call `grain how` itself on
+writing, hence its absence from `hooks/codex-hooks.json`; `SKILL.md` tells the agent to call `grain_how` itself on
 such a host.
 
 Hook payloads arrive on stdin as the host's JSON; paths are canonicalised through the deepest existing ancestor, so
@@ -192,6 +192,9 @@ whole CLI over stdio, for any MCP client — not only Claude Code. Claude Code s
 via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it by hand:
 `node "${CLAUDE_PLUGIN_ROOT}/bin/grain-mcp.mjs"` (or any absolute path to it).
 
+- **The skill**: `SKILL.md` sends the agent to these tools, naming each one and the fields it passes, and keeps the
+  CLI to its closing section for a session with no `grain_*` tools. A test fails when the skill names a tool or a
+  field the server does not have, leaves a tool out, or shows the CLI before that section.
 - **Tools**: one per command, generated from the same command table the CLI parses its flags from. A test fails when
   the dispatcher runs a command, or `decide`/`oracle` a subcommand, that the table lacks (or the reverse); when the
   usage text shows a flag the table lacks (or the reverse); and when the engine reads a flag off the command line
