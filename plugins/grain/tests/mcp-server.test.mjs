@@ -169,6 +169,8 @@ before(() => {
   tmp = mkdtempSync(join(tmpdir(), 'grain-mcp-'));
   repo = join(tmp, 'fixture');
   execFileSync('node', [BUILDER, repo], { stdio: 'pipe' });
+  // copies taken before anything indexes the fixture: a call on one of them has to build the index first
+  for (const name of ['fresh-json', 'fresh-timeout', 'fresh-cancel', 'fresh-close']) execFileSync('cp', ['-R', repo, join(tmp, name)]);
   server = startServer(repo);
 });
 after(() => {
@@ -356,6 +358,58 @@ test('smoke: the writing tools write what the CLI writes — a decision recorded
   const rules = await call('grain_rules', { out, top: 3 });
   assert.equal(rules.isError, false, rules.content.map(c => c.text).join('\n'));
   assert.ok(existsSync(out) && readFileSync(out, 'utf8').length > 0, 'rules wrote the file it was given');
+});
+
+// ----- stopping a CLI run: timeout, cancellation, the client going away -----
+
+// the CLI processes still running for one repository (its --repo=<dir> is on their command line, parent and the
+// --liftoff-only grandchild alike)
+const cliFor = dir => execFileSync('ps', ['-Ao', 'command'], { encoding: 'utf8' }).split('\n').filter(l => l.includes('grain.mjs') && l.includes(`--repo=${dir}`));
+const until = async (cond, ms = 5000) => { const end = Date.now() + ms; while (Date.now() < end) { if (cond()) return true; await new Promise(r => setTimeout(r, 50)); } return cond(); };
+const stopServer = srv => { try { srv.child.stdin.end(); } catch { /* closed */ } try { srv.child.kill(); } catch { /* dead */ } };
+
+test('a CLI run past its timeout is stopped with its whole process group, answered as isError, and the server keeps answering', async () => {
+  const dir = join(tmp, 'fresh-timeout');
+  const srv = startServer(tmp, { ...process.env, GRAIN_MCP_TIMEOUT_MS: '400' });
+  try {
+    await srv.send('initialize', {});
+    const r = await srv.send('tools/call', { name: 'grain_status', arguments: { repo: dir } });
+    assert.equal(r.result.isError, true, JSON.stringify(r));
+    assert.match(r.result.content[0].text, /did not finish within 0 s and was stopped.*GRAIN_MCP_TIMEOUT_MS/);
+    assert.ok(await until(() => cliFor(dir).length === 0), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
+    assert.deepEqual((await srv.send('ping', {})).result, {});
+  } finally { stopServer(srv); }
+  assert.equal(mcp.timeoutFor('where', {}), 600_000);
+  assert.equal(mcp.timeoutFor('propose', {}), 3_600_000);
+  assert.equal(mcp.timeoutFor('selftest', { GRAIN_MCP_LONG_TIMEOUT_MS: '5' }), 5);
+});
+
+test('notifications/cancelled stops the running CLI with its process group, and the cancelled request gets no answer', async () => {
+  const dir = join(tmp, 'fresh-cancel');
+  const srv = startServer(tmp);
+  let seen = '';
+  srv.child.stdout.on('data', d => { seen += d.toString(); });
+  try {
+    await srv.send('initialize', {});
+    srv.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 'slow', method: 'tools/call', params: { name: 'grain_status', arguments: { repo: dir } } }) + '\n');
+    assert.ok(await until(() => cliFor(dir).length > 0), 'the CLI started');
+    srv.notify('notifications/cancelled', { requestId: 'slow', reason: 'test' });
+    assert.ok(await until(() => cliFor(dir).length === 0), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
+    assert.deepEqual((await srv.send('ping', {})).result, {});
+    assert.ok(!seen.includes('"slow"'), `a cancelled request is not answered: ${seen}`);
+  } finally { stopServer(srv); }
+});
+
+test('when the client closes stdin, the running CLI is stopped and the server exits', async () => {
+  const dir = join(tmp, 'fresh-close');
+  const srv = startServer(tmp);
+  await srv.send('initialize', {});
+  srv.child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id: 'left', method: 'tools/call', params: { name: 'grain_status', arguments: { repo: dir } } }) + '\n');
+  assert.ok(await until(() => cliFor(dir).length > 0), 'the CLI started');
+  const exited = new Promise(r => srv.child.on('exit', r));
+  srv.child.stdin.end();
+  await exited;
+  assert.ok(await until(() => cliFor(dir).length === 0), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
 });
 
 // The repository open in a dev container: the agent names the repo AND the file by their container

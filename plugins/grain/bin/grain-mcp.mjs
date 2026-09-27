@@ -227,27 +227,67 @@ export function argvFor(cmd, input = {}) {
   return argv;
 }
 
-// The CLI, run once: { code, out, err }.
-function runCli(argv, cwd = process.cwd()) {
+// How long one CLI run may take before it is stopped. A query that has to build the index first can take minutes on a
+// large repository; propose and selftest rebuild the model on purpose and take longer still. Both can be overridden
+// from the server's environment, in milliseconds.
+export function timeoutFor(cmd, env = process.env) {
+  const long = cmd === 'propose' || cmd === 'selftest';
+  const v = Number(long ? env.GRAIN_MCP_LONG_TIMEOUT_MS : env.GRAIN_MCP_TIMEOUT_MS);
+  return Number.isFinite(v) && v > 0 ? v : long ? 60 * 60_000 : 10 * 60_000;
+}
+
+// The CLI, run once: { code, out, err, stopped }. It runs in a process group of its own (bin/grain.mjs starts itself
+// again under --liftoff-only, so the answer comes from a grandchild), and a timeout or a cancellation kills the whole
+// group, never just the parent.
+function runCli(argv, { cwd = process.cwd(), timeoutMs, signal } = {}) {
   return new Promise(res => {
-    const child = spawn(process.execPath, [BIN, ...argv], { cwd, stdio: ['ignore', 'pipe', 'pipe'] });
+    const child = spawn(process.execPath, [BIN, ...argv], { cwd, stdio: ['ignore', 'pipe', 'pipe'], detached: true });
     let out = '';
     let err = '';
+    let stopped = null;
+    const stop = why => {
+      if (stopped) return;
+      stopped = why;
+      try {
+        process.kill(-child.pid, 'SIGKILL');
+      } catch {
+        try {
+          child.kill('SIGKILL');
+        } catch {
+          /* already gone */
+        }
+      }
+    };
+    const timer = setTimeout(() => stop('timeout'), timeoutMs);
+    const onAbort = () => stop('cancelled');
+    if (signal) signal.aborted ? onAbort() : signal.addEventListener('abort', onAbort, { once: true });
+    const done = r => {
+      clearTimeout(timer);
+      signal?.removeEventListener('abort', onAbort);
+      res({ ...r, stopped });
+    };
     child.stdout.setEncoding('utf8').on('data', d => (out += d));
     child.stderr.setEncoding('utf8').on('data', d => (err += d));
-    child.on('error', e => res({ code: 1, out, err: err + (e?.message || String(e)) }));
-    child.on('close', (code, signal) => res({ code: code ?? 1, out, err: err + (signal ? `\n[grain-mcp] the CLI was stopped by ${signal}` : '') }));
+    child.on('error', e => done({ code: 1, out, err: err + (e?.message || String(e)) }));
+    child.on('close', (code, sig) => done({ code: code ?? 1, out, err: err + (sig && !stopped ? `\n[grain-mcp] the CLI was stopped by ${sig}` : '') }));
   });
 }
 
 // One tool call: { content, isError } as MCP returns it. Invalid fields throw a ProtocolError (a JSON-RPC error);
 // everything the CLI prints — its answer, its diagnostics, its refusal — comes back as the result.
-export async function callTool(name, input = {}) {
+export async function callTool(name, input = {}, { signal, env = process.env } = {}) {
   if (name === toolName('help')) return { content: [{ type: 'text', text: USAGE }], isError: false };
   const cmd = Object.keys(COMMANDS).find(c => toolName(c) === name);
   if (!cmd) throw invalid(`Unknown tool: ${name}`);
   const argv = argvFor(cmd, input);
-  const r = await runCli(argv);
+  const timeoutMs = timeoutFor(cmd, env);
+  const r = await runCli(argv, { timeoutMs, signal });
+  if (r.stopped === 'timeout')
+    return {
+      content: [{ type: 'text', text: `grain ${cmd} did not finish within ${Math.round(timeoutMs / 1000)} s and was stopped. Set ${cmd === 'propose' || cmd === 'selftest' ? 'GRAIN_MCP_LONG_TIMEOUT_MS' : 'GRAIN_MCP_TIMEOUT_MS'} in the server's environment to allow longer, or run it from a terminal.` }],
+      isError: true,
+    };
+  if (r.stopped === 'cancelled') return { content: [{ type: 'text', text: `grain ${cmd} was cancelled and stopped.` }], isError: true };
   // the answer first; what the CLI said on stderr (its refusal, its diagnostics) after it, or alone when it printed nothing else
   const content = [];
   const out = r.out.replace(/\n$/, '');
@@ -263,7 +303,7 @@ export async function callTool(name, input = {}) {
 }
 
 // ----- JSON-RPC / MCP -----
-export async function handle(msg, tools) {
+export async function handle(msg, tools, signal) {
   const { id, method, params } = msg;
   const ok = result => ({ jsonrpc: '2.0', id, result });
   const err = (code, message) => ({ jsonrpc: '2.0', id, error: { code, message } });
@@ -279,7 +319,7 @@ export async function handle(msg, tools) {
   if (method === 'tools/list') return ok({ tools });
   if (method === 'tools/call') {
     try {
-      return ok(await callTool(params?.name, params?.arguments || {}));
+      return ok(await callTool(params?.name, params?.arguments || {}, { signal }));
     } catch (e) {
       if (e instanceof ProtocolError) return err(e.code, e.message);
       return err(-32603, e?.message || String(e));
@@ -291,13 +331,22 @@ export async function handle(msg, tools) {
 function serve() {
   const tools = buildTools();
   const send = m => process.stdout.write(JSON.stringify(m) + '\n'); // one compact line: JSON.stringify never emits a raw newline
-  async function onLine(line) {
+  // Requests the client cancelled (notifications/cancelled), and the running call's way to stop its CLI. A cancel is
+  // read the moment it arrives, not in turn behind the call it cancels; a cancelled request is never answered.
+  const cancelled = new Set();
+  const running = new Map(); // request id → AbortController
+  const key = id => JSON.stringify(id);
+  function parse(line) {
     const t = line.trim();
-    if (!t) return;
-    let msg;
+    if (!t) return { skip: true };
     try {
-      msg = JSON.parse(t);
+      return { msg: JSON.parse(t) };
     } catch {
+      return { bad: true };
+    }
+  }
+  async function onMessage({ msg, bad }) {
+    if (bad) {
       send({ jsonrpc: '2.0', id: null, error: { code: -32700, message: 'Parse error' } });
       return;
     }
@@ -309,20 +358,43 @@ function serve() {
       return;
     }
     if (!hasId) return; // a notification (initialized, cancelled): nothing to answer
+    if (cancelled.delete(key(msg.id))) return; // cancelled while it waited its turn
+    const ctrl = new AbortController();
+    running.set(key(msg.id), ctrl);
+    let reply;
     try {
-      send(await handle(msg, tools));
+      reply = await handle(msg, tools, ctrl.signal);
     } catch (e) {
-      send({ jsonrpc: '2.0', id: msg.id, error: { code: -32603, message: e?.message || String(e) } });
+      reply = { jsonrpc: '2.0', id: msg.id, error: { code: -32603, message: e?.message || String(e) } };
+    } finally {
+      running.delete(key(msg.id));
     }
+    if (ctrl.signal.aborted) {
+      cancelled.delete(key(msg.id));
+      return;
+    }
+    send(reply);
   }
-  // one message at a time, in order: two calls rebuilding the same index at once is not a risk worth taking
+  // one call at a time, in order: two calls rebuilding the same index at once is not a risk worth taking
   let queue = Promise.resolve();
   const rl = createInterface({ input: process.stdin, crlfDelay: Infinity });
   rl.on('line', line => {
-    queue = queue.then(() => onLine(line)).catch(e => console.error('[grain-mcp]', e?.stack || e));
+    const p = parse(line);
+    if (p.skip) return;
+    if (p.msg?.method === 'notifications/cancelled') {
+      const id = p.msg.params?.requestId;
+      if (id === undefined) return;
+      const ctrl = running.get(key(id));
+      if (ctrl) ctrl.abort();
+      else cancelled.add(key(id));
+      return;
+    }
+    queue = queue.then(() => onMessage(p)).catch(e => console.error('[grain-mcp]', e?.stack || e));
   });
+  // the client is gone: stop whatever is running and leave, answering nothing more
   rl.on('close', () => {
-    queue.finally(() => process.stdout.write('', () => process.exit(0)));
+    for (const ctrl of running.values()) ctrl.abort();
+    process.stdout.write('', () => process.exit(0));
   });
   process.on('uncaughtException', e => console.error('[grain-mcp] uncaught:', e?.stack || e));
   process.on('unhandledRejection', e => console.error('[grain-mcp] unhandled rejection:', e?.stack || e));
