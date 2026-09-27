@@ -322,8 +322,8 @@ the directory tree by the same compression criterion — the deleted test/exampl
 mathematics on the measurement corpus (express: `examples/ · lib/ · test/`; flask: `docs/ · examples/ · src/ ·
 tests/`). Manifests (`package.json`, `go.mod`) are read for *resolution* — workspaces, the module graph — never as a
 statistical prior. Cross-file references are bound the same way: per-language extractors and a tri-state resolver
-(resolved / ambiguous / absent: silence instead of a false edge), vendored from the battle-tested Yggdrasil relation
-machinery (same author, MIT; regenerate with `npm run build:relations`).
+(resolved / ambiguous / absent: silence instead of a false edge), the same relation code Yggdrasil runs: both take it
+from Runes, the family's shared code (same author, MIT), which Grain vendors at a pinned release.
 
 There are no model calls anywhere in the engine, no API keys, and no network access at runtime. Your code stays on your
 machine. Nothing about a language, a framework or a coding style is written down in the product: the language bindings
@@ -432,9 +432,14 @@ Four add-ons attach to the agent rather than to the graph, and each works alone.
 ```
 cd plugins/grain
 npm install                 # dev dependencies only: the grammar packages and the runtime to vendor
-npm run build:grammars      # refresh engine/grammars/ and engine/vendor/ from node_modules (outputs are committed)
-npm test                    # end-to-end tests over the deterministic fixture repository
+npm run build:grammars      # refresh engine/grammars/ and engine/vendor/web-tree-sitter/ with the Runes recipe (outputs are committed)
+npm run runes:update -- --tag vX.Y.Z   # move the vendored Runes copy to a Runes release; commit it with its pin
+npm test                    # the Runes gate (the copy byte for byte against its pin), then end-to-end tests over the fixture repository
 ```
+
+The relation code, the parser helpers and the grammar pins are vendored from [Runes](https://github.com/krzysztofdudek/Runes)
+under `plugins/grain/engine/vendor/runes/`, pinned by `engine/vendor/runes.pin.json`. The copy is never edited by hand:
+`npm test` fails on any byte that differs from the pinned tag, and CI also compares it with a fresh clone of that tag.
 
 `node tests/fixtures/build-fixture.mjs <dir>` builds the fixture repository the tests use; its history is pinned, so two
 builds are byte-identical.

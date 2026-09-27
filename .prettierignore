@@ -2,3 +2,5 @@ plugins/grain/engine/grammars/
 plugins/grain/tests/fixtures/
 *.json
 *.md
+plugins/grain/engine/vendor/runes/
+plugins/grain/scripts/runes.mjs
