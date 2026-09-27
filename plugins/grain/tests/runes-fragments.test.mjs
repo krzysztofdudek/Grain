@@ -4,10 +4,11 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { cpSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { cpSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { removeTemp } from './remove-temp.mjs';
 
 const PLUGIN = fileURLToPath(new URL('..', import.meta.url));
 const check = plugin =>
@@ -15,7 +16,7 @@ const check = plugin =>
 
 const tmps = [];
 after(() => {
-  for (const d of tmps) rmSync(d, { recursive: true, force: true });
+  for (const d of tmps) removeTemp(d);
 });
 
 // A throwaway repository holding what the pin covers, at the same paths: the copy, the tool and SKILL.md.
