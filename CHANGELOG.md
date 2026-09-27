@@ -18,6 +18,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ### Changed
 
 - The Grain skill now tells the agent to use the MCP tools (`grain_where`, `grain_check`, `grain_how` and the rest), naming each tool and the fields it takes. The command line stays as the fallback for a session without the tools, in one closing section.
+- When the path the host gives for Grain does not exist where the agent runs, as in VS Code attached to a dev container, the skill now tells the agent how to find the copy that environment has, and to carry on without Grain when there is none.
 - The note Grain adds at the start of a session now names the MCP tools too (`grain_where`, `grain_check`, `grain_status`, `grain_report`, and `grain_obligation`, `grain_completeness` and `grain_propose` at their own moments), in the same order as before, each with the fields it takes. One sentence gives the command line for a session without the tools.
 - `grain completeness` with no file now prints how to use it and fails, instead of answering that nothing changes with no files.
 - The six MCP tools that already existed keep their names and fields, but now answer with the same text the command line prints. Pass `json: true` for the JSON they used to return; it comes back as a single block. `grain_how` and `grain_report` take `top` as text or a number. Each call now runs the command line itself, so an answer over MCP is the command line's answer, and a failure the command line reports comes back marked as an error with its message.

@@ -8,7 +8,7 @@ import { test, before, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawn } from 'node:child_process';
 import { mkdtempSync, rmSync, existsSync, writeFileSync, chmodSync, readFileSync, readdirSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { tmpdir, constants as osConstants } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createInterface } from 'node:readline';
@@ -474,9 +474,16 @@ for (const sig of ['SIGTERM', 'SIGINT', 'SIGHUP'])
       const exited = new Promise(r => srv.child.on('exit', (code, signal) => r({ code, signal })));
       srv.child.kill(sig);
       const how = await exited;
-      // at once, not whenever the orphaned CLI would have finished its build on its own
-      assert.ok(await until(() => cliFor(dir).length === 0, 400), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
+      // No race on the machine's speed (issue 454): wait, as long as it takes, for every CLI process on this repository
+      // to be gone — stopped by the server, or, if the server left it orphaned, done with its build on its own — and
+      // only then look at what the build left. The index's last write is meta.json (grain-context.mjs writes
+      // model.json, then the tree cache or scopes, then meta.json), so a build that ran to the end leaves it and a
+      // stopped one does not. (An orphan here also tends to die on its next write to the closed pipe, so it is the
+      // exit assertions below that tell a server without the handler apart, and they hold at any speed.)
+      assert.ok(await until(() => cliFor(dir).length === 0, 120_000), `the CLI and its --liftoff-only child are gone: ${cliFor(dir).join('\n')}`);
+      assert.equal(existsSync(join(dir, '.grain', 'cache', 'meta.json')), false, `the CLI ran its build to the end after ${sig}: it was not stopped`);
       assert.equal(how.signal, null, `the server handled ${sig} and exited on its own, not by the default action: ${JSON.stringify(how)}`);
+      assert.equal(how.code, 128 + osConstants.signals[sig], `the server exits as the signal would: ${JSON.stringify(how)}`);
     } finally { stopServer(srv); }
   });
 
@@ -572,12 +579,52 @@ test('every command that prints JSON without a json field is declared so in the 
   assert.equal(mcp.answersJson('propose', { json: '/abs/r.json' }), false, 'propose --json names a file; its stdout stays text');
 });
 
-test('the commands not declared so print text, not JSON, when no json is asked for', async () => {
+// Every command in the table, not a sample (issue 454): a command left out of `calls` fails the test, so a new command
+// must say here how it is called. Each call has to succeed — an error result's text is the refusal, which proves
+// nothing about what the command prints — and none of them may answer JSON when no json was asked for. The writing
+// commands run on their own copy of the indexed fixture, so the shared one is left as the other tests expect it.
+test('every command not declared stdoutJson prints text, not JSON, when no json is asked for — all of them', async () => {
+  const own = join(tmp, 'stdout-json');
+  execFileSync('cp', ['-R', repo, own]);
   const file = 'src/handlers/order.handler.ts';
-  const calls = { where: { query: 'handler' }, how: { query: 'handler' }, what: { query: 'handler' }, map: {}, obligation: { path: file }, check: { file }, completeness: { files: [file] }, explain: { file }, status: {}, report: { top: 3 }, advise: {}, 'decide list': {}, version: {} };
-  for (const [cmd, input] of Object.entries(calls)) {
-    const r = await mcp.callTool(mcp.toolName(cmd), { ...input, repo });
+  const prop = join(tmp, 'stdout-json-proposal');
+  const calls = {
+    where: { query: 'handler' },
+    how: { query: 'handler' },
+    what: { query: 'handler' },
+    map: {},
+    obligation: { path: file },
+    check: { file },
+    completeness: { files: [file] },
+    explain: { file },
+    status: {},
+    report: { top: 3 },
+    rules: { top: 3 },
+    propose: { 'out-dir': prop },
+    advise: {},
+    'oracle record': { proposal: prop, graph: join(prop, '.yggdrasil'), name: 'stdout-json', out: join(tmp, 'stdout-json-oracles'), yes: true },
+    'oracle score': { 'name-or-dir': join(tmp, 'stdout-json-oracles', 'stdout-json') },
+    'decide steer': { target: `${file}#handle`, surfaces: 'auto.call:validate', note: 'handlers validate first', author: 'mcp-test' },
+    'decide boundary': { from: 'src/handlers', 'never-imports': 'src/db', note: 'handlers go through services', author: 'mcp-test' },
+    'decide waive': { target: `${file}#handle`, on: 'auto.arity', note: 'one command object', author: 'mcp-test' },
+    'decide list': {},
+    'decide rm': null, // the id of the boundary recorded above, read off decide list
+    selftest: { how: true, last: 2 },
+    refresh: {},
+    version: {},
+  };
+  const printers = Object.entries(COMMANDS).filter(([, spec]) => !spec.stdoutJson).map(([c]) => c);
+  assert.deepEqual(Object.keys(calls).sort(), printers.sort(), 'every command the table has, and no other, is called here');
+  assert.equal(printers.length + 1, Object.keys(COMMANDS).length, 'with export, every command in the table');
+  for (const [cmd, given] of Object.entries(calls)) {
+    let input = given;
+    if (cmd === 'decide rm') {
+      const listed = (await mcp.callTool(mcp.toolName('decide list'), { repo: own })).content[0].text;
+      input = { id: listed.split('\n').find(l => l.includes('never imports src/db/')).trim().split(/\s+/)[0], author: 'mcp-test' };
+    }
+    const r = await mcp.callTool(mcp.toolName(cmd), { ...input, repo: own });
     const text = r.content[0].text;
+    assert.equal(r.isError, false, `${cmd} failed, so its output proves nothing: ${text.slice(0, 300)}`);
     let parsed = false;
     try { JSON.parse(text); parsed = true; } catch { /* text, as expected */ }
     assert.equal(parsed, false, `${cmd} printed JSON with no json asked for — mark it stdoutJson in the table: ${text.slice(0, 120)}`);
