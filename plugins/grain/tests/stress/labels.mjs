@@ -6,11 +6,12 @@
 // (results.md 155 and 157: a delivery label "needs an issue tracker or the evidence layer, not history", and
 // labels must be ones "the house makes itself").
 //
-//   verdicts   Yggdrasil's verdict history. `.yggdrasil/yg-events.llm.jsonl` (committed, LLM verdicts only) and
-//              `.yggdrasil/.yg-events.jsonl*` (local, gitignored, rotated; deterministic verdicts too, and the
-//              reviewer's `reason` on a refusal). A refusal of a (rule, unit) followed by an approval of the same
-//              unit on a different content hash is a REFUSAL-TO-FIX pair: the rule's own verdict, before and
-//              after a change that satisfied it.
+//   verdicts   Yggdrasil's verdict history. `.yggdrasil/yg-events.llm.jsonl` (committed, LLM verdicts only,
+//              sealed by month into `yg-events.llm.<YYYY-MM>.jsonl` as it goes — every sealed month is read too,
+//              oldest first, then the current file) and `.yggdrasil/.yg-events.jsonl*` (local, gitignored,
+//              rotated; deterministic verdicts too, and the reviewer's `reason` on a refusal). A refusal of a
+//              (rule, unit) followed by an approval of the same unit on a different content hash is a
+//              REFUSAL-TO-FIX pair: the rule's own verdict, before and after a change that satisfied it.
 //   loop       A Jarl issue loop (`.jarl/issues/*.md` and `.jarl/log.md`). Each issue carries **Kind:**, **Repo:**
 //              and **Files:** (each file prefixed with its repository's directory name), and the log says when it
 //              was filed. An issue of kind `bug` names the files a found defect was fixed in.
@@ -37,11 +38,28 @@ const gitOr = (repo, args, dflt = null) => { try { return git(repo, args).trim()
 // ---------------------------------------------------------------------------------------------------------------
 const jsonl = p => (existsSync(p) ? readFileSync(p, 'utf8').split('\n').filter(Boolean).flatMap(l => { try { return [JSON.parse(l)]; } catch { return []; } }) : []);
 
-// every verdict event the repository still holds, committed and local, once each; a local copy of a committed
-// event lends it the `reason` the committed stream leaves out
+// the committed verdict stream's filenames under `.yggdrasil/`: the current file plus any sealed month
+// (`yg-events.llm.<YYYY-MM>.jsonl`, Yggdrasil 379/6.1.0). A plain sort already reads oldest month first, then the
+// current file: a digit sorts before the 'j' of "jsonl", so "yg-events.llm.2026-07.jsonl" < "yg-events.llm.jsonl".
+const COMMITTED_EVENTS_RE = /^yg-events\.llm(\.\d{4}-\d{2})?\.jsonl$/;
+const committedEventFiles = dir => (existsSync(dir) ? readdirSync(dir).filter(f => COMMITTED_EVENTS_RE.test(f)).sort() : []);
+
+// every verdict event the repository still holds, committed (current file plus every sealed month, oldest
+// first, deduplicated by full line — a `merge=union` can leave the same line in two files, including a line two
+// branches each sealed into the same month) and local, once each; a local copy of a committed event lends it the
+// `reason` the committed stream leaves out
 export function readVerdictEvents(repo) {
   const dir = join(repo, '.yggdrasil');
-  const committed = jsonl(join(dir, 'yg-events.llm.jsonl')).map(e => ({ ...e, committed: true }));
+  const seenLines = new Set();
+  const committed = [];
+  for (const f of committedEventFiles(dir)) {
+    const p = join(dir, f);
+    for (const line of readFileSync(p, 'utf8').split('\n')) {
+      if (!line || seenLines.has(line)) continue;
+      seenLines.add(line);
+      try { committed.push({ ...JSON.parse(line), committed: true }); } catch { /* not a verdict line */ }
+    }
+  }
   const local = existsSync(dir) ? readdirSync(dir).filter(f => /^\.yg-events\.jsonl(\.\d+)?$/.test(f)).sort().flatMap(f => jsonl(join(dir, f))) : [];
   const key = e => [e.ts, e.aspectId, e.unitKey, e.disposition, e.hash || ''].join('\x00');
   const byKey = new Map();
