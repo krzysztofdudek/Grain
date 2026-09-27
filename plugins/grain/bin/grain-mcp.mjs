@@ -17,13 +17,13 @@
 //
 // Wire format: newline-delimited JSON-RPC 2.0 on stdin/stdout (MCP stdio transport); stderr is for diagnostics.
 import { createInterface } from 'node:readline';
-import { existsSync, realpathSync } from 'node:fs';
+import { existsSync, realpathSync, statSync } from 'node:fs';
 import { isAbsolute, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawn } from 'node:child_process';
 import { COMMANDS, GLOBAL_FLAGS } from '../engine/grain-commands.mjs';
 import { USAGE } from '../engine/grain-usage.mjs';
-import { hostPathFor } from '../engine/grain-context.mjs';
+import { hostPathFor, findRoot } from '../engine/grain-context.mjs';
 import { ENGINE_VERSION } from '../engine/config.mjs';
 
 export const PROTOCOL_VERSION = '2025-06-18';
@@ -176,6 +176,13 @@ function need(cond, msg) {
 const scalar = v => (typeof v === 'string' && v !== '') || (typeof v === 'number' && Number.isFinite(v));
 // a path inside the repository, from inside a dev container: the host path a running container mounts there
 const hostSide = p => (isAbsolute(p) && !existsSync(p) ? (hostPathFor(p) ?? p) : p);
+const isDir = p => {
+  try {
+    return statSync(p).isDirectory();
+  } catch {
+    return false;
+  }
+};
 
 // A tool call back into the argv the CLI would be given: the command words, every flag inline (--name=value, so a
 // value that starts with -- is never read as a flag), then a bare -- and the arguments in order. The CLI's parseArgv
@@ -281,24 +288,42 @@ export async function callTool(name, input = {}, { signal, env = process.env } =
   if (!cmd) throw invalid(`Unknown tool: ${name}`);
   const argv = argvFor(cmd, input);
   const timeoutMs = timeoutFor(cmd, env);
-  const r = await runCli(argv, { timeoutMs, signal });
+  // The CLI runs in the repository it answers for, so what it resolves against its working directory (a bare oracle
+  // name, say) resolves there and not wherever the server was started. With no repo given, that is the server's
+  // working directory, and the answer says which repository that turned out to be.
+  let cwd = process.cwd();
+  let note = null;
+  if (typeof input.repo === 'string') {
+    const dir = hostSide(input.repo);
+    if (isDir(dir)) cwd = dir;
+  } else if (cmd !== 'version') {
+    note = `repo: ${findRoot({}).root} (no repo given — found from the server's working directory ${process.cwd()})`;
+  }
+  const r = await runCli(argv, { cwd, timeoutMs, signal });
   if (r.stopped === 'timeout')
     return {
       content: [{ type: 'text', text: `grain ${cmd} did not finish within ${Math.round(timeoutMs / 1000)} s and was stopped. Set ${cmd === 'propose' || cmd === 'selftest' ? 'GRAIN_MCP_LONG_TIMEOUT_MS' : 'GRAIN_MCP_TIMEOUT_MS'} in the server's environment to allow longer, or run it from a terminal.` }],
       isError: true,
     };
   if (r.stopped === 'cancelled') return { content: [{ type: 'text', text: `grain ${cmd} was cancelled and stopped.` }], isError: true };
-  // the answer first; what the CLI said on stderr (its refusal, its diagnostics) after it, or alone when it printed nothing else
-  const content = [];
   const out = r.out.replace(/\n$/, '');
+  const errLines = r.err.trim() ? r.err.trim().split('\n') : [];
+  const err = errLines.length
+    ? (errLines.length > STDERR_LINES ? [`(${errLines.length - STDERR_LINES} earlier lines of stderr left out)`, ...errLines.slice(-STDERR_LINES)] : errLines).join('\n')
+    : null;
+  // A JSON answer is one block a client can parse as it comes: what the CLI said on stderr and which repository was
+  // meant go to _meta, never into a second text block.
+  if (input.json === true && r.code === 0) {
+    const meta = { ...(err ? { 'grain/stderr': err } : {}), ...(note ? { 'grain/repo': note } : {}) };
+    return { content: [{ type: 'text', text: out }], isError: false, ...(Object.keys(meta).length ? { _meta: meta } : {}) };
+  }
+  // text: the answer first; what the CLI said on stderr (its refusal, its diagnostics) after it, or alone when it
+  // printed nothing else; then which repository was meant, when the call did not say
+  const content = [];
   if (out) content.push({ type: 'text', text: out });
-  const err = r.err.trim() ? r.err.trim().split('\n') : [];
-  if (err.length)
-    content.push({
-      type: 'text',
-      text: (err.length > STDERR_LINES ? [`(${err.length - STDERR_LINES} earlier lines of stderr left out)`, ...err.slice(-STDERR_LINES)] : err).join('\n'),
-    });
+  if (err) content.push({ type: 'text', text: err });
   if (!content.length) content.push({ type: 'text', text: r.code === 0 ? '' : `grain exited with ${r.code} and said nothing` });
+  if (note) content.push({ type: 'text', text: note });
   return { content, isError: r.code !== 0 };
 }
 

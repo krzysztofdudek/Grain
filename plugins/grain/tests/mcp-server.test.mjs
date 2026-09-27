@@ -360,6 +360,36 @@ test('smoke: the writing tools write what the CLI writes — a decision recorded
   assert.ok(existsSync(out) && readFileSync(out, 'utf8').length > 0, 'rules wrote the file it was given');
 });
 
+test('json: true on a fresh repository whose index gets built: the answer is one parseable block, the build log goes to _meta', async () => {
+  const dir = join(tmp, 'fresh-json');
+  const r = await server.send('tools/call', { name: 'grain_status', arguments: { repo: dir, json: true } });
+  assert.equal(r.result.isError, false, JSON.stringify(r));
+  assert.equal(r.result.content.length, 1, `one block only: ${JSON.stringify(r.result.content)}`);
+  assert.equal(typeof JSON.parse(r.result.content[0].text).files, 'number');
+  assert.equal(typeof r.result._meta?.['grain/stderr'], 'string', 'the build said something on stderr, and it is kept in _meta');
+});
+
+test('with no repo given the answer names the repository found from the server\'s working directory; with one given it does not', async () => {
+  const text = await server.send('tools/call', { name: 'grain_status', arguments: {} });
+  const last = text.result.content.at(-1).text;
+  assert.match(last, /^repo: .*fixture \(no repo given — found from the server's working directory /);
+  const json = await server.send('tools/call', { name: 'grain_status', arguments: { json: true } });
+  assert.equal(json.result.content.length, 1);
+  assert.match(json.result._meta['grain/repo'], /no repo given/);
+  const given = await server.send('tools/call', { name: 'grain_status', arguments: { repo } });
+  assert.ok(!given.result.content.some(c => /no repo given/.test(c.text)));
+});
+
+test('a bare oracle name resolves in the repository, not where the server was started', async () => {
+  const srv = startServer(tmp);
+  try {
+    await srv.send('initialize', {});
+    const r = await srv.send('tools/call', { name: 'grain_oracle_score', arguments: { 'name-or-dir': 'no-such-oracle', repo } });
+    assert.equal(r.result.isError, true);
+    assert.ok(r.result.content.map(c => c.text).join('\n').includes(join(repo, 'no-such-oracle')), JSON.stringify(r.result.content));
+  } finally { try { srv.child.stdin.end(); } catch { /* closed */ } }
+});
+
 // ----- stopping a CLI run: timeout, cancellation, the client going away -----
 
 // the CLI processes still running for one repository (its --repo=<dir> is on their command line, parent and the
