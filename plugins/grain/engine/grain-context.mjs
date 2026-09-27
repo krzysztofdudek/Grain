@@ -4,7 +4,6 @@ import {
   existsSync,
   mkdirSync,
   readFileSync,
-  renameSync,
   statSync,
   writeFileSync,
   realpathSync,
@@ -14,6 +13,7 @@ import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, GRAMMARS, HARD_EXCL } from './config.mjs';
 import { learn, walkFiles, toPosix } from './core.mjs';
+import { renameOver } from './base.mjs';
 import { loadHistory, headSha, headTree, gitOk, isShallow } from './history.mjs';
 import { createHash } from 'node:crypto';
 import { VALUE_FLAGS, jsonTakesPath } from './grain-commands.mjs';
@@ -151,7 +151,7 @@ function ensureStore(root, store) {
 export const atomicWrite = (p, d) => {
   const t = p + '.tmp-' + process.pid;
   writeFileSync(t, d);
-  renameSync(t, p);
+  renameOver(t, p);
 };
 export const readJson = p => {
   try {
