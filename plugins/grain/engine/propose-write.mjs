@@ -9,19 +9,17 @@ import { buildAspects } from './propose-aspects.mjs';
 import {
   BIN,
   ROOT_PARENT,
-  ROOT_PARENT_SINCE,
   SCHEMA_VERSION,
   gitFiles,
   preambleComment,
   progressiveReference,
+  probeRootParent,
   resolveYg,
-  rootParentSupported,
   say,
   slug,
   uniq,
   write,
   yamlEmit,
-  ygVersion,
 } from './propose-base.mjs';
 import { cutDrills } from './propose-drills.mjs';
 import { partitionLattice, subGate } from './propose-lattice.mjs';
@@ -301,13 +299,13 @@ export async function propose(repo, outDir, opts = {}) {
   // is disclosed in evidence[] rather than silently dropped or crashing the run.
   const { denies: maintainerDenies, skipped: skippedBoundaries } = buildMaintainerDenies(exp, active);
   for (const b of skippedBoundaries) ev('boundary-skipped', b.id, `maintainer decision \`${b.id}\` (\`${b.boundary.from}/\` never imports \`${b.boundary.to}/\`) was not rendered as a deny: ${b.why}`);
-  // Whether the Yggdrasil this proposal will be checked by knows `root` in `parents:` (6.1.0 and later) — asked
-  // once, of the same CLI the drills below run against; with none resolvable the proposal is written for the
-  // Yggdrasil this Grain ships with.
+  // Whether the Yggdrasil this proposal will be checked by knows `root` in `parents:` — asked of the same CLI
+  // the drills below run against, by a one-shot `yg check` on a throwaway graph (`probeRootParent`); with none
+  // resolvable the proposal is written for the Yggdrasil this Grain ships with.
   const ygForSchema = resolveYg(opts.ygBin);
-  const ygSchemaVersion = ygVersion(ygForSchema);
-  const rootParent = rootParentSupported(ygSchemaVersion);
-  if (!rootParent) say(opts, `Yggdrasil ${ygSchemaVersion} (${ygForSchema.label}) predates \`${ROOT_PARENT}\` in \`parents:\` (${ROOT_PARENT_SINCE}); top-level types are written without it, which only a CLI older than ${ROOT_PARENT_SINCE} accepts`);
+  const rootProbe = probeRootParent(ygForSchema);
+  const rootParent = rootProbe.root;
+  if (!rootParent) say(opts, `the Yggdrasil at ${ygForSchema.label} does not know \`${ROOT_PARENT}\` in \`parents:\` (${rootProbe.why}); top-level types are written without it, which only a Yggdrasil that checks parents below the top alone accepts`);
   writeArchitecture(ygg, { active, alternatives, nodes, rels, maintainerDenies, files, ev, progressive, rootParent });
 
   // EVERY CANDIDATE THIS RUN DID NOT ACTIVATE, IN THE AUDIT TRAIL. The active types have carried an
@@ -418,7 +416,7 @@ export async function propose(repo, outDir, opts = {}) {
     evidence,
   }, null, 1) + '\n');
 
-  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded, progressive, rootParent, ygSchemaVersion };
+  return { outDir, active, alternatives, nodes, aspects, rels, sub, lat, evidence, files, exp, counts, nodeCycles, sizing, loc, verify, degraded, progressive, rootParent, rootProbe };
 }
 
 // ---- aspect drafting ----

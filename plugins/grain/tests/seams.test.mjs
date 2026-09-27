@@ -42,7 +42,8 @@ import { dirname, join, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { readGraph } from './stress/reconstruct.mjs';
 import { parseYaml } from '../engine/yggdrasil-graph.mjs';
-import { resolveYg, rootParentSupported, ygVersion } from '../engine/propose.mjs';
+import { probeRootParent, resolveYg } from '../engine/propose.mjs';
+import { TOP_LEVEL_TYPES, writeTopLevelRepo } from './fixture-top-level-repo.mjs';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const GRAIN_BIN = join(here, '..', 'bin', 'grain.mjs');
@@ -197,32 +198,24 @@ test('the load-failure guard catches a real refusal the node count cannot see', 
 // ============================================================================================================
 test('yg adopt accepts a proposal with top-level nodes, and yg check loads it', { skip: HAVE_YG_BIN ? false : YG_BIN_SKIP, timeout: 300_000 }, () => {
   const repo = join(tmp, 'top-level-adopt');
-  const w = (rel, s) => { const p = join(repo, rel); mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, s); };
-  for (const n of ['alpha', 'beta', 'gamma', 'delta']) {
-    w(`src/main/api/${n}-handler.ts`, `import { normalise } from '../util/${n}-helper';\nexport function handle${n}(x: string): string { return normalise(x); }\n`);
-    w(`src/main/util/${n}-helper.ts`, 'export function normalise(v: string): string { return v.trim(); }\n');
-    w(`tests/${n}.test.ts`, `import { handle${n} } from '../src/main/api/${n}-handler';\nexport function t${n}(): string { return handle${n}(' a '); }\n`);
-  }
-  w('README.md', '# fixture\n');
   const env = gitEnv(repo);
-  execFileSync('git', ['-C', repo, 'init', '-q', '-b', 'main'], { env });
-  execFileSync('git', ['-C', repo, 'add', '-A'], { env });
-  execFileSync('git', ['-C', repo, 'commit', '-q', '-m', 'fixture'], { env });
+  writeTopLevelRepo(repo, env);
 
   const out = join(tmp, 'top-level-proposal');
   const p = spawnSync('node', [GRAIN_BIN, 'propose', out, '--no-history', '--quiet'], { cwd: repo, encoding: 'utf8', maxBuffer: 1 << 26, timeout: 150_000, env: { ...env, YG_BIN } });
   assert.equal(p.status, 0, `grain propose failed:\n${p.stderr}`);
-  const version = ygVersion(resolveYg(YG_BIN));
+  const probe = probeRootParent(resolveYg(YG_BIN));
+  const version = (spawnSync('node', [YG_BIN, '--version'], { encoding: 'utf8' }).stdout || '').trim();
   const types = parseYaml(readFileSync(join(out, '.yggdrasil', 'yg-architecture.yaml'), 'utf8')).node_types;
   const withRoot = Object.keys(types).filter(id => (types[id].parents || []).includes('root')).sort();
-  assert.deepEqual(withRoot, rootParentSupported(version) ? ['module', 'tests'] : [], `Yggdrasil ${version}: the types listing root`);
+  assert.deepEqual(withRoot, probe.root ? TOP_LEVEL_TYPES : [], `Yggdrasil ${version} (${probe.why}): the types listing root`);
 
   const a = spawnSync('node', [YG_BIN, 'adopt', out], { cwd: repo, encoding: 'utf8', maxBuffer: 1 << 26, env });
   assert.equal(a.status, 0, `yg adopt ${version} refused the proposal:\n${a.stdout}${a.stderr}`);
   const r = loadFailures(repo);
   assert.deepEqual(r.fatal, [], `yg check ${version} refused the adopted graph:\n${r.raw.slice(0, 4000)}`);
   assert.equal(r.nodes, readdirSync(join(repo, '.yggdrasil', 'model'), { recursive: true }).filter(f => f.endsWith('yg-node.yaml')).length);
-  console.log(`[seams] yg ${version}: adopt and check took a proposal with root on [${withRoot.join(', ')}]`);
+  console.log(`[seams] yg ${version}: probe says ${probe.why}; adopt and check took a proposal with root on [${withRoot.join(', ')}]`);
 });
 
 // ============================================================================================================

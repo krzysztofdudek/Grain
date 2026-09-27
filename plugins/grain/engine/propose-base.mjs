@@ -1,7 +1,8 @@
 // grain engine · proposal writer · the admission constants, the Yggdrasil CLI resolution, the file walk and the YAML emitter
 // Split out of propose.mjs: the statements below are the ones that stood there, unchanged.
 import { execFileSync, spawnSync } from 'node:child_process';
-import { existsSync, mkdirSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { CFG, HARD_EXCL } from './config.mjs';
@@ -65,28 +66,45 @@ export function resolveYg(explicit) {
     ? { have: true, label: found + ' (on PATH)', cmd: found, pre: [] }
     : { have: false, label: null, cmd: null, pre: [] };
 }
-// The version the resolved Yggdrasil CLI reports (`yg --version`), or null when there is none or it prints no
-// version. The graph schema cannot tell two CLIs apart here (6.0.0 and 6.1.0 both read schema 6.0.0), so what a
-// proposal may say that only a newer CLI accepts is gated on this instead.
-export function ygVersion(yg) {
-  if (!yg?.have) return null;
-  const r = spawnSync(yg.cmd, [...yg.pre, '--version'], { encoding: 'utf8', timeout: 30_000 });
-  const m = /(\d+)\.(\d+)\.(\d+)/.exec(`${r.stdout || ''}`);
-  return m ? m[0] : null;
-}
-const semverLt = (a, b) => {
-  const x = a.split('.').map(Number), y = b.split('.').map(Number);
-  for (let i = 0; i < 3; i++) if (x[i] !== y[i]) return x[i] < y[i];
-  return false;
-};
-// `root` in a type's `parents:` is the reserved entry for the top of `model/`. From Yggdrasil 6.1.0 a type
-// that lists parents may sit at the top only when the list names it (`parent-type-forbidden` otherwise); a
-// 6.0.0 CLI checks parents only below the top and refuses `root` as an undefined type (`type-unknown-parent`).
-// So a proposal carries `root` only for a CLI that knows it. With no CLI to ask, it follows the family's
-// one-number policy: this Grain ships with Yggdrasil 6.1.0, so the proposal is written for it.
+// `root` in a type's `parents:` is the reserved entry for the top of `model/`. A Yggdrasil that knows it (6.1.0
+// with issue 419) lets a type that lists parents sit at the top only when the list names it
+// (`parent-type-forbidden` otherwise); one that does not (6.0.0, and a 6.1.0 build from before 419) checks
+// parents only below the top and refuses `root` as an undefined type (`type-unknown-parent`). The version
+// number cannot tell the two apart — a prerelease or a stale build reports 6.1.0 either way — so the CLI is
+// ASKED: `probeRootParent` runs its `yg check --json` once on a throwaway graph of one top-level node whose
+// type lists `parents: [root]`, and `root` is written iff that check does not report `type-unknown-parent`.
+// With no CLI to ask, or a probe that printed nothing to read, the proposal is written for the Yggdrasil this
+// Grain ships with, which knows `root`.
 export const ROOT_PARENT = 'root';
-export const ROOT_PARENT_SINCE = '6.1.0';
-export const rootParentSupported = version => !version || !semverLt(version, ROOT_PARENT_SINCE);
+const rootProbeCache = new Map(); // one probe per CLI invocation, for the life of the process
+export function probeRootParent(yg) {
+  if (!yg?.have) return { root: true, probed: false, why: 'no Yggdrasil CLI resolved' };
+  const key = [yg.cmd, ...yg.pre].join('\0');
+  if (rootProbeCache.has(key)) return rootProbeCache.get(key);
+  const dir = mkdtempSync(join(tmpdir(), 'grain-root-probe-'));
+  let answer;
+  try {
+    const ygg = join(dir, '.yggdrasil');
+    mkdirSync(join(ygg, 'model', 'top'), { recursive: true });
+    writeFileSync(join(ygg, 'yg-config.yaml'), `version: "${SCHEMA_VERSION}"\n`);
+    writeFileSync(join(ygg, 'yg-architecture.yaml'), `node_types:\n  probe:\n    description: A type that may sit at the top level.\n    parents: [${ROOT_PARENT}]\n`);
+    writeFileSync(join(ygg, 'model', 'top', 'yg-node.yaml'), 'name: top\ntype: probe\ndescription: A node at the top level.\n');
+    const r = spawnSync(yg.cmd, [...yg.pre, 'check', '--json'], { cwd: dir, encoding: 'utf8', maxBuffer: 1 << 24, timeout: 60_000 });
+    const text = `${r.stdout || ''}${r.stderr || ''}`;
+    let codes = null;
+    try { const doc = JSON.parse(r.stdout || ''); if (Array.isArray(doc?.issues)) codes = doc.issues.map(i => i.code); } catch { /* read as text below */ }
+    const refused = codes ? codes.includes('type-unknown-parent') : text.includes('type-unknown-parent');
+    answer = refused
+      ? { root: false, probed: true, why: `\`yg check\` refused \`${ROOT_PARENT}\` in \`parents:\` as an undefined type (type-unknown-parent)` }
+      : codes || text.trim()
+        ? { root: true, probed: true, why: `\`yg check\` accepted \`${ROOT_PARENT}\` in \`parents:\`` }
+        : { root: true, probed: false, why: '`yg check` printed nothing to read' };
+  } finally {
+    rmSync(dir, { recursive: true, force: true });
+  }
+  rootProbeCache.set(key, answer);
+  return answer;
+}
 // A type is a GROUP of files: one file is a member, not a group. This is the definition of the object being cut, not an
 // admission threshold — a measurement found that 1 vs 2 changed no count on 17 repos, which is why the former
 // MIN_TYPE_FILES knob was removed (ruling `root-fix-accepted-min-type-files-goes`).
