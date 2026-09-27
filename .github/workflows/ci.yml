@@ -50,15 +50,24 @@ jobs:
       # Yggdrasil and Horde default to their own main below. When this workflow run is itself on a
       # branch that also exists in each sibling — the three repos moving together for a joint
       # release — the seam should compare that branch against itself in all three, not silently
-      # fall back to main in the two it does not own.
+      # fall back to main in the two it does not own. A pull request tries its head branch first, then the branch it
+      # targets (a PR from a worker branch into release/* compares against the siblings' release/* when they have no
+      # branch of that worker's name), and only then main.
       - name: resolve sibling branches
         id: sibling-branches
         run: |
-          branch="${{ github.head_ref || github.ref_name }}"
           for repo in Yggdrasil Horde; do
             slug=$(echo "$repo" | tr '[:upper:]' '[:lower:]')
-            if git ls-remote --exit-code --heads "https://github.com/krzysztofdudek/${repo}.git" "$branch" >/dev/null 2>&1; then
-              echo "${slug}-ref=${branch}" >> "$GITHUB_OUTPUT"
+            found=""
+            for branch in "${{ github.head_ref || github.ref_name }}" "${{ github.base_ref }}"; do
+              [ -n "$branch" ] || continue
+              if git ls-remote --exit-code --heads "https://github.com/krzysztofdudek/${repo}.git" "$branch" >/dev/null 2>&1; then
+                found="$branch"
+                break
+              fi
+            done
+            if [ -n "$found" ]; then
+              echo "${slug}-ref=${found}" >> "$GITHUB_OUTPUT"
             else
               echo "${slug}-ref=main" >> "$GITHUB_OUTPUT"
             fi
