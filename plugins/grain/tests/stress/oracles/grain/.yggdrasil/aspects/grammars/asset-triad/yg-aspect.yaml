@@ -1,7 +1,8 @@
 name: GrammarAssetTriad
 description: >-
-  Every shipped grammar is a complete triad: a compiled parser, its node-type metadata, and a manifest
-  entry naming the package and version it was built from. No orphan in any of the three directions.
+  Every shipped grammar is a complete triad: a compiled parser, its node-type metadata, and an entry in
+  the Runes grammar manifest (vendored with the Runes copy) naming where it was built from. No orphan in
+  any of the three directions.
 
   The metadata file is not optional decoration — it is the file every per-language binding in the
   product is derived from. There is no per-language code anywhere; what a "scope", an "import", a

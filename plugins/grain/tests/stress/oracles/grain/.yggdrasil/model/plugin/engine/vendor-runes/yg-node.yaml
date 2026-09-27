@@ -1,0 +1,11 @@
+name: Vendored Runes Copy
+type: vendored-runes
+description: >-
+  The relation extractors, symbol table, resolver and path resolvers, the AST helpers, the grammar
+  manifest and build recipe, the command table and MCP adapter, and the test kit's parts, copied byte for
+  byte from a tagged Runes release (same licence, same author) and pinned file by file in runes.pin.json.
+  Moved only by `npm run runes:update`, never edited by hand: a hand fix is a file whose hash the pin does
+  not list, and the next update destroys it.
+mapping:
+  - plugins/grain/engine/vendor/runes/
+  - plugins/grain/engine/vendor/runes.pin.json

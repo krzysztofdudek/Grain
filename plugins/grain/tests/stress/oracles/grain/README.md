@@ -62,6 +62,8 @@ figure back off a real fill's recorded `promptChars`; it aborted before any revi
 `repo/docs` deterministic refusal unrelated to this ticket — which is why the number here comes from
 reproducing the assembly function directly instead.)
 
+**2026-09-28 — the relation code comes from Runes.** Grain stopped generating its relation machinery from a Yggdrasil checkout and vendors a tagged Runes release instead, byte for byte, under `plugins/grain/engine/vendor/runes/` with every file's sha256 in `plugins/grain/engine/vendor/runes.pin.json`; the grammar manifest moved into that copy (`vendor/runes/grammars/manifest.json`), the per-construct relation unit catalogue and its harness left for Runes, and `scripts/build-relations.mjs` became the Runes vendoring tool `scripts/runes.mjs`. The graph followed the files: the `vendored-relations` type became `vendored-runes` (the copy and its pin), and the `Vendored Relation Machinery` node became `Vendored Runes Copy` (`plugin/engine/vendor-runes`). `vendor/generated-banner` is gone, because the copy is the release's own output and carries no banner; `vendor/copy-matches-pin` states the same protection the way the copy actually has it (every file is listed in the pin with the hash its bytes have, and every listed file is there), with no drills, since it reads the whole copy at once. The copy does not carry the engine's subprocess and network bans (it ships the grammar build, the MCP adapter's process runner and the test kit's client, none of which the query path reaches). `grammars/asset-triad` reads the Runes manifest (`runes-grammars/1`, one `grammars[]` entry per `wasmFile`) through a new `uses` relation from `Grammar Assets` to the copy. `test-relations-unit` now names the two relation cases that stayed (`plugins/grain/tests/relations/*.test.mjs`), `test-harness` names `harness.mjs` alone, and the MCP server, the regeneration scripts and the conformance suite each declare their edge to the copy. Drills drop from 30 cases in 11 aspects to 27 in 10. A staged `yg check --approve --only-deterministic` with Yggdrasil 6.1.0 before and after: the refused triad, the `vendor-relations` mapping mismatch, the missing unit glob and 110 unmapped files are gone (576 → 686 of 713 files covered), and every script rule on the copy and the grammars passes; what is still red there is older drift this update did not touch (the director nodes, engine modules added since, prompt sizes).
+
 **Every number below, and every number in the 108 measurement, was produced against the graph as of
 `3d249bf`** — before these updates. They stay attributable to that graph; a re-measurement against the
 updated one has not been run.
@@ -119,7 +121,7 @@ about command reachability. Both informed rules below. Neither came from the min
 ### The 33 classifying types
 
 Product runtime: `entry-cli`, `entry-mcp`, `cli-dispatch`, `mining-core`, `engine-config`,
-`engine-history`, `engine-module`, `proposal-writer`, `vendored-relations`, `vendored-runtime`,
+`engine-history`, `engine-module`, `proposal-writer`, `vendored-runes`, `vendored-runtime`,
 `grammar-asset`, `build-script`.
 
 Agent surface: `agent-command`, `agent-skill`, `hook-config`, `plugin-manifest`,
@@ -154,7 +156,7 @@ Deterministic (22) — free, keyless, and what a push could gate on today:
 | `engine/no-test-or-instrument-import` | enforced | under | yes |
 | `engine/file-size-budget` | enforced | exact | yes (since 124; promoted 123) |
 | `source/no-raw-control-bytes` | **advisory** | under | **no — 3 files** |
-| `vendor/generated-banner` | enforced | under | yes |
+| `vendor/copy-matches-pin` | enforced | exact | yes (replaced `vendor/generated-banner` in the Runes update) |
 | `vendor/network-calls-are-browser-only` | **advisory** | over | 5 sites, all browser-only |
 | `grammars/asset-triad` | enforced | exact | yes |
 | `grammars/extension-map-bijection` | enforced | exact | yes |

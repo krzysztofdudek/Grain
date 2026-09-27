@@ -1,10 +1,12 @@
 name: Asset Regeneration
 type: build-script
 description: >-
-  Two maintainer-run scripts that rewrite committed assets: one refreshes the grammar set from the
-  dev-only grammar packages and records in its own source why each rejected language was left out, the
-  other re-vendors the relation machinery from a sibling checkout, erasing its types and cutting the
-  parts coupled to that project's own model. Their outputs are committed, so an install needs no build
-  step and no network.
+  Two maintainer-run scripts that rewrite committed assets: one builds the grammar set every pin in the
+  vendored Runes grammar manifest names, with the Runes recipe, the other is the Runes vendoring tool
+  that moves the vendored copy to a release and checks it byte for byte against its pin. Their outputs
+  are committed, so an install needs no build step and no network.
+relations:
+  - target: plugin/engine/vendor-runes
+    type: calls
 mapping:
   - plugins/grain/scripts/

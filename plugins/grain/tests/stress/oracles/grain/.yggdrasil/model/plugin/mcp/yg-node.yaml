@@ -12,5 +12,7 @@ relations:
   - target: plugin/engine/config
     type: calls
     consumes: [constants]
+  - target: plugin/engine/vendor-runes
+    type: calls
 mapping:
   - plugins/grain/bin/grain-mcp.mjs

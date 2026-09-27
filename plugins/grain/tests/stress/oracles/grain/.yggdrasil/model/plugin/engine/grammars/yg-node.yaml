@@ -2,8 +2,8 @@ name: Grammar Assets
 type: grammar-asset
 description: >-
   Twenty-three prebuilt grammars, each a triad: the compiled parser, the node-type metadata every
-  per-language binding is derived from, and a manifest entry recording the package and version it was
-  built from. Adding a language is dropping a triad in; there is no per-language code to write. A
+  per-language binding is derived from, and an entry in the Runes grammar manifest (vendored with the
+  Runes copy) recording where it was built from and the sha256 of both files. Adding a language is dropping a triad in; there is no per-language code to write. A
   grammar whose parser or metadata is missing disappears from the extension map in silence, which is
   exactly why the triad is checked here instead of at runtime.
 relations:
@@ -11,5 +11,8 @@ relations:
   - target: plugin/engine/config
     type: uses
     consumes: [constants]
+  # Declared so the triad check may read the grammar manifest, which lives in the vendored Runes copy.
+  - target: plugin/engine/vendor-runes
+    type: uses
 mapping:
   - plugins/grain/engine/grammars/

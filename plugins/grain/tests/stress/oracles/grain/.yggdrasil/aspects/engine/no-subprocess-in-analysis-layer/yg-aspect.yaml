@@ -1,8 +1,7 @@
 name: NoSubprocessInAnalysisLayer
 description: >-
-  The analysis layer never spawns a process. No module of type mining-core, engine-config,
-  engine-module or vendored-relations may import `node:child_process` or reach a spawn, exec or fork
-  function through it.
+  The analysis layer never spawns a process. No module of type mining-core, engine-config or
+  engine-module may import `node:child_process` or reach a spawn, exec or fork function through it.
 
   Three modules in the product legitimately do spawn: the dispatcher and the history layer, both to talk
   to git, and the proposal writer, which drills each rule it drafts against real code. Each of those has

@@ -1,16 +1,18 @@
-name: Relation Unit Cases
+name: Relation Seam Cases
 type: test-relations-unit
 description: >-
-  Eight hundred and twenty-five numbered cases, grouped by language, each pinning what one extractor or
-  one resolver returns for one construct. White-box on purpose: no command-line output can pin down
-  whether a grouped import block emits one hint per specifier, or whether a nested type's dotted use
-  resolves through the symbol table. Each language also carries a name-resolution matrix directory.
+  The relation cases that stayed when the per-construct catalogue left for Runes: white-box checks of
+  Grain's own seam with the vendored extractors, one file per seam — the project scope a C# file is
+  resolved in, and the parser a damaged Kotlin file is re-read with. Each goes through Grain's parse and
+  relation pass, and the Kotlin one also end to end through the harness.
 relations:
   - target: plugin/tests/relations/harness
     type: uses
-  - target: plugin/engine/vendor-relations
+  - target: plugin/engine/vendor-runes
     type: calls
-  - target: plugin/engine/core
+  - target: plugin/engine/mining
+    type: calls
+  - target: plugin/engine/relations
     type: calls
 mapping:
-  - plugins/grain/tests/relations/unit/**/*.test.mjs
+  - plugins/grain/tests/relations/*.test.mjs

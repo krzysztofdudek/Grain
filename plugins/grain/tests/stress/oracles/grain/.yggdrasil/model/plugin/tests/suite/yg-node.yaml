@@ -24,5 +24,8 @@ relations:
   - target: plugin/engine/config
     type: calls
     consumes: [constants]
+  # The Runes gate, the grammar pins and the MCP parity read the vendored copy directly.
+  - target: plugin/engine/vendor-runes
+    type: uses
 mapping:
   - plugins/grain/tests/*.test.mjs
