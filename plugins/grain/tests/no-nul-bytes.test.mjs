@@ -37,16 +37,19 @@ const EXCLUDE_FILES = new Set([
   join(ROOT, 'tests/stress/oracles/grain/.yggdrasil/aspects/source/no-raw-control-bytes/drills/violates-raw-soh/raw.mjs'),
 ]);
 
-// Nothing under plugins/grain is a generated/vendored `.mjs` file today (the vendored relation extractors
-// and parser runtime under `engine/vendor/` are hand-maintained plain JS, not code-generated), and the
-// generated grammar assets (`engine/grammars/*.json`, `*.wasm`) are not `.mjs` files at all, so neither
-// needs an extension- or path-based carve-out here. If a future vendoring step ever regenerates an `.mjs`
-// file mechanically, add its path to EXCLUDE_FILES with a comment — never hand-edit it to pass this test.
+// The Runes copy under `engine/vendor/runes/` is exempt: it is Runes' build output, held byte for byte to its pin
+// by `scripts/runes.mjs check`, so a byte in it is fixed in Runes and arrives by `runes:update`, never by an edit
+// here (Runes' own suite owns its source). The generated grammar assets (`engine/grammars/*.json`, `*.wasm`) are
+// not `.mjs` files at all. If another vendoring step ever copies `.mjs` files mechanically, add its directory to
+// EXCLUDE_DIRS with a comment — never hand-edit a copy to pass this test.
+const EXCLUDE_DIRS = new Set([join(ROOT, 'engine', 'vendor', 'runes')]);
 function walkMjs(dir, acc = []) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     if (entry.name === 'node_modules' || entry.name === '.git') continue;
     const p = join(dir, entry.name);
-    if (entry.isDirectory()) walkMjs(p, acc);
+    if (entry.isDirectory()) {
+      if (!EXCLUDE_DIRS.has(p)) walkMjs(p, acc);
+    }
     else if (entry.isSymbolicLink()) continue;
     else if (entry.name.endsWith('.mjs') && !EXCLUDE_FILES.has(p)) acc.push(p);
   }

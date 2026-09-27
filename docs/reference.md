@@ -297,7 +297,8 @@ From `.env.example` and the engine:
 | `GRAIN_DBG=<substr>` | mining debug: print candidate cells whose surface id contains the substring |
 | `GRAIN_GRAMMAR_DIR` | override the grammar directory |
 | `GRAIN_HOOK_TTL_MS` | repeat suppression window for hook notes (default 15 minutes) |
-| `GRAIN_PLUGIN_DIR`, `GRAIN_TRIAL_SETTINGS`, `GRAIN_YGG_DIR` | stress and vendoring tooling only |
+| `GRAIN_PLUGIN_DIR`, `GRAIN_TRIAL_SETTINGS` | stress tooling only |
+| `RUNES_DIR` | the Runes vendoring tool's `check --local` report against a Runes working tree |
 
 ## Cache version keys
 

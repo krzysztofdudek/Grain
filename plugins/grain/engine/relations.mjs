@@ -32,7 +32,7 @@ const LANG = { c_sharp: 'csharp' }; // grain grammar name (the wasm's own name) 
 export const relLanguage = g => (g ? LANG[g] || g : null);
 export const relSupported = g => !!extractorForLanguage(relLanguage(g));
 // issue 041: `relSupported` alone answers "is ANY extractor registered", which is true for c/cpp — but c.mjs/cpp.mjs
-// (both vendored from Yggdrasil) are the only REL_LANGS extractors whose entire `uses` IS the shared `includeUses`
+// (both vendored from Runes) are the only REL_LANGS extractors whose entire `uses` IS the shared `includeUses`
 // walker (c-cpp-shared.mjs): the `#include` lines of the live preprocessor branches, nothing else. Every other
 // language's `uses` also resolves call/type-ref/extends/implements/construct references through the symbol table.
 // Since issue 223 an include resolves next to the includer, then under the repository's include roots (a

@@ -432,9 +432,14 @@ Four add-ons attach to the agent rather than to the graph, and each works alone.
 ```
 cd plugins/grain
 npm install                 # dev dependencies only: the grammar packages and the runtime to vendor
-npm run build:grammars      # refresh engine/grammars/ and engine/vendor/ from node_modules (outputs are committed)
-npm test                    # end-to-end tests over the deterministic fixture repository
+npm run build:grammars      # refresh engine/grammars/ and engine/vendor/web-tree-sitter/ with the Runes recipe (outputs are committed)
+npm run runes:update -- --tag vX.Y.Z   # move the vendored Runes copy to a Runes release; commit it with its pin
+npm test                    # the Runes gate (the copy byte for byte against its pin), then end-to-end tests over the fixture repository
 ```
+
+The relation code, the parser helpers and the grammar pins are vendored from [Runes](https://github.com/krzysztofdudek/Runes)
+under `plugins/grain/engine/vendor/runes/`, pinned by `engine/vendor/runes.pin.json`. The copy is never edited by hand:
+`npm test` fails on any byte that differs from the pinned tag, and CI also compares it with a fresh clone of that tag.
 
 `node tests/fixtures/build-fixture.mjs <dir>` builds the fixture repository the tests use; its history is pinned, so two
 builds are byte-identical.
