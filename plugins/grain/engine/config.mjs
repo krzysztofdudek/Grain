@@ -16,6 +16,10 @@ export const GRAMMAR_DIR = process.env.GRAIN_GRAMMAR_DIR || SHIPPED_GRAMMAR_DIR;
 // The pins of the shipped grammars: the family's grammar manifest, vendored from Runes with the relation code
 // (engine/vendor/runes.pin.json). Every shipped wasm and node-types.json carries the sha256 it lists.
 export const GRAMMAR_MANIFEST = join(here, 'vendor', 'runes', 'grammars', 'manifest.json');
+// The Runes release the relation code, the parser helpers and the grammar pins come from. A pin moved by
+// `runes:update` can change every file's relation facts, which ride the tree cache, so its tag and commit are part of
+// the index stamp (grain-context.mjs `runesStamp`): a store built under another Runes re-indexes.
+export const RUNES_PIN = join(here, 'vendor', 'runes.pin.json');
 
 // The extension→grammar map is the ONLY per-language datum in the product (§6.1). It is filtered at load to the
 // grammars actually present in GRAMMAR_DIR, so dropping a new `tree-sitter-<g>.wasm` + node-types pair in is all it

@@ -23,7 +23,7 @@ export function freshnessLines(meta, head, isGit) {
     );
   if (meta)
     l.push(
-      `index: engine ${meta.engine} · extractor ${meta.extractor} · grammars ${meta.grammars} · built ${meta.builtAt} in ${meta.buildMs}ms`
+      `index: engine ${meta.engine} · extractor ${meta.extractor} · grammars ${meta.grammars} · runes ${meta.runes || '?'} · built ${meta.builtAt} in ${meta.buildMs}ms`
     );
   return l;
 }

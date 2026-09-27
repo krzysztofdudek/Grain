@@ -12,7 +12,7 @@ import {
 import { join, relative, resolve, isAbsolute, dirname, basename, dirname as pdirname, posix } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
-import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, SHIPPED_GRAMMAR_DIR, GRAMMAR_MANIFEST, GRAMMARS, HARD_EXCL } from './config.mjs';
+import { ENGINE_VERSION, EXTR_V, MODEL_V, GRAMMAR_DIR, SHIPPED_GRAMMAR_DIR, GRAMMAR_MANIFEST, RUNES_PIN, GRAMMARS, HARD_EXCL } from './config.mjs';
 import { learn, walkFiles, toPosix } from './core.mjs';
 import { loadHistory, headSha, headTree, gitOk, isShallow } from './history.mjs';
 import { createHash } from 'node:crypto';
@@ -179,6 +179,12 @@ const grammarStamp = () => {
         .join(',')
     : GRAMMARS.join(',');
 };
+// the vendored Runes release, `<tag>@<commit>`: relation facts are Runes' extractors' output and ride the tree cache,
+// so a moved pin is an extraction change exactly like an EXTR_V bump (an unreadable pin stamps as `none`)
+export const runesStamp = () => {
+  const pin = readJson(RUNES_PIN);
+  return pin && pin.tag && pin.commit ? pin.tag + '@' + String(pin.commit).slice(0, 12) : 'none';
+};
 // cheap signature of the tree for repositories without git: (path,size,mtime) of every code file
 function treeSig(root) {
   let h = 2166136261;
@@ -208,12 +214,16 @@ export async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }
   const head = isGit ? headSha(root) : null;
   const meta = readJson(store.metaPath);
   const model = existsSync(store.modelPath) ? readJson(store.modelPath) : null;
-  // extractOk gates the tree/blob extraction cache alone (engine+extractor+grammars — never MODEL_V: model schema
+  // extractOk gates the tree/blob extraction cache alone (engine+extractor+grammars+runes — never MODEL_V: model schema
   // is a pure downstream reading of already-extracted scopes); versionOk additionally requires the model
   // schema to match, and gates the "no work at all" fast path plus the STALE banner — a MODEL_V-only staleness
   // must still force a real relearn, it just gets to reuse a version-current tree cache while doing it.
   const extractOk =
-    meta && meta.engine === ENGINE_VERSION && meta.extractor === EXTR_V && meta.grammars === grammarStamp();
+    meta &&
+    meta.engine === ENGINE_VERSION &&
+    meta.extractor === EXTR_V &&
+    meta.grammars === grammarStamp() &&
+    meta.runes === runesStamp();
   const versionOk = extractOk && (meta.model || '') === MODEL_V;
   const { seeds, boundaries, waivers } = readSeeds(store);
   const seedsHash = hashSeeds({ seeds, boundaries, waivers });
@@ -300,6 +310,7 @@ export async function ensureFresh({ root, isGit, store, opts, want = 'refresh' }
     extractor: EXTR_V,
     model: MODEL_V,
     grammars: grammarStamp(),
+    runes: runesStamp(),
     headSha: head,
     treeSig: sig,
     seedsHash,
