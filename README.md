@@ -141,8 +141,8 @@ That gives you:
   `/grain:decide`, and `/grain:steer`, which is the slash name for the CLI verb `decide steer` under its original
   name `seed add`;
 - an **MCP server** (started automatically via `.mcp.json`), for any MCP-speaking tool, not only Claude Code:
-  `where`/`check`/`status`/`report` as JSON-RPC tools over stdio — see
-  [docs/reference.md](docs/reference.md#mcp-server).
+  every command as a tool (`grain_where`, `grain_check`, `grain_propose`, `grain_decide_steer`, …), with the
+  command's own flags as its fields, over stdio — see [docs/reference.md](docs/reference.md#mcp-server).
 
 Update with `claude plugin update grain@grain-marketplace` and restart the session to apply.
 

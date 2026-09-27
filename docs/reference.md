@@ -21,7 +21,7 @@ worktree.
 | `obligation <path>` | `--top N`, `--json` | what a NEW file under this path's (module, extension) class has historically come with, and separately, which of the named companions are merely ambient (touched by almost every commit regardless) — `<path>` need not exist |
 | `check [<file>]` | `--as <path>`, `--content <file>`, `--all`, `--staged`, `--range <a>..<b>`, `--worktree`, `--json` | with a file: deviations in your change with evidence and exemplars, pre-existing ones folded (`--all` lists), maintainer decisions departed from or waived, architecture notes, a placement note for a file the tree does not know, a `missing:` block (co-change only — see below). Without a file: the same aggregated over your whole uncommitted change, with the full `missing:` block (co-change, recipe, kin, change shape) for the whole set (alias `review`). `--as` judges content as if it lived at another path; `--content` reads the body from elsewhere |
 | `review` | `--staged`, `--range <a>..<b>`, `--worktree`, `--json` | alias of bare `check` — one aggregated report over every file in the whole change (default: every uncommitted change plus untracked new files) — the same per-file findings as `check`, restricted to each file's own changed lines, plus one `missing:` block for the whole set |
-| `completeness <file…>` | | files this repo's own commit history shows reliably changing together with the ones given, above a real directional confidence (`co-changed in N/M commits`) — the same co-change evidence `check`/`how`'s `missing:` block and the co-change hooks already surface for an active change, standalone for a file list that is not one |
+| `completeness <file…>` | `--json` | files this repo's own commit history shows reliably changing together with the ones given, above a real directional confidence (`co-changed in N/M commits`) — the same co-change evidence `check`/`how`'s `missing:` block and the co-change hooks already surface for an active change, standalone for a file list that is not one |
 | `explain <file>` | `--minbits N`, `--top N` | the full local to global lattice around one file, accepted NORM rows and below gate obs rows (alias `spectrum`) |
 | `status` | `--json` | model size, signal verdict, freshness, history mode, placement/check feedback rates |
 | `report` | `--top N`, `--json` | top conventions with trends and ages, templates of the unclustered residue, drift, the module graph with cycles and, for each, the smallest set of module dependencies that breaks it (with the file references behind them; `cycleCuts` in `--json`), boundaries, and a `== health ==` section of conventions worth a decision |
@@ -187,41 +187,52 @@ a+i (x%)` once any outcome exists; `report`'s health section names conventions w
 
 ## MCP server
 
-`bin/grain-mcp.mjs` is a long-lived [Model Context Protocol](https://modelcontextprotocol.io) server: the same
-answers `where`/`how`/`what`/`check`/`status`/`report --json` already give, over stdio, for any MCP client — not
-only Claude Code. It calls the same `cmd*` functions the CLI does, in-process, so it pays Node's startup cost once
-for the whole session rather than once per call; unlike `bin/grain.mjs`, it is not re-exec'd under
-`--liftoff-only` — a server answering many calls over its lifetime is better served by V8's optimising compiler
-than by the low-memory single-shot mode a one-query-then-exit CLI invocation uses.
+`bin/grain-mcp.mjs` is a long-lived [Model Context Protocol](https://modelcontextprotocol.io) server that offers the
+whole CLI over stdio, for any MCP client — not only Claude Code. Claude Code starts it automatically for this plugin
+via `.mcp.json` at the plugin root; any other MCP-speaking client can launch it by hand:
+`node "${CLAUDE_PLUGIN_ROOT}/bin/grain-mcp.mjs"` (or any absolute path to it).
 
-Launch it directly: `node "${CLAUDE_PLUGIN_ROOT}/bin/grain-mcp.mjs"` (or any absolute path to it). Claude Code
-starts it automatically for this plugin via `.mcp.json` at the plugin root; any other MCP-speaking client can point
-at the same binary by hand.
-
-- **Transport**: stdio, newline-delimited JSON-RPC 2.0 — one message per line, none containing an embedded newline
-  (MCP's stdio framing; not the `Content-Length`-prefixed framing LSP uses). Diagnostics go to stderr only; stdout
-  carries protocol messages exclusively.
-- **Protocol version**: `2025-06-18`.
-- **Tools** (all read-only, all `{ repo?: string }`-scoped to default to the server's own working directory). A `repo`
-  (or `grain_check`'s absolute `file`) that does not exist where the server runs — a path from inside a dev container,
-  handed to a server VS Code started on the host — is translated through the running containers' mounts (`docker ps`,
-  `docker inspect`: the longest mount containing the normalised path); a path two containers mount from different
-  host directories, or that no container mounts, is refused with a message saying so, never swapped for another
-  repository:
-  - `grain_where { query: string, repo? }` — same as `where <query> --json`
-  - `grain_how { query: string, top?: number, repo? }` — same as `how <query> --json`
-  - `grain_what { query: string, repo? }` — same as `what <query> --json`
-  - `grain_check { file?: string, repo? }` — same as `check <file> --json`; omit `file` for the whole uncommitted change (`review --json`)
-  - `grain_status { repo? }` — same as `status --json`
-  - `grain_report { repo?, top?: number }` — same as `report --top <top> --json`
-- **Errors**: an unknown tool name or a missing/invalid required argument is a JSON-RPC protocol error (code
-  `-32602`); a failure while answering (a bad `repo` path, a file that does not exist) comes back as a normal
-  result with `isError: true` so the calling model can see and react to it. Neither kind ever crashes the server —
-  it keeps answering later calls.
-- Mutating commands (`decide`/`seed`, `refresh`, `propose` — which writes a whole staging tree) and
-  `map`/`explain`/`selftest` (not part of the four-question read surface `where`/`how`/`what`/`check` answers) are
-  deliberately not exposed; this is a read-only query surface over the questions an agent asks mid-task, not the
-  whole CLI.
+- **Tools**: one per command, generated from the same command table the CLI parses its flags from, so the two cannot
+  drift apart (a test fails when a command, a subcommand or a flag is in one and not the other). A command becomes
+  `grain_<command>`, a subcommand joins with `_`: `grain_where`, `grain_how`, `grain_what`, `grain_map`,
+  `grain_obligation`, `grain_check`, `grain_completeness`, `grain_explain`, `grain_status`, `grain_report`,
+  `grain_rules`, `grain_export`, `grain_propose`, `grain_advise`, `grain_oracle_record`, `grain_oracle_score`,
+  `grain_decide_steer`, `grain_decide_boundary`, `grain_decide_waive`, `grain_decide_list`, `grain_decide_rm`,
+  `grain_selftest`, `grain_refresh`, `grain_version`, and `grain_help` (the usage text). The aliases (`review`,
+  `spectrum`, `seed`) and the hooks have no tool; `grain_check` without `file` is `review`.
+- **Fields**: each argument under its name (`query`, `file`, `path`, `files`, `out-dir`, `target`, `from`, `id`,
+  `name-or-dir`) and each flag under its own name without the dashes (`top`, `map-rows`, `instead-of`,
+  `never-imports`, `no-refresh`, …), plus `repo`, `no-refresh` and `no-history` on every tool. A bare flag is a
+  boolean, a flag with a value a string (a number is taken as its text). `json: true` returns what `--json` prints;
+  without it the answer is the CLI's text, as it prints it. On `grain_propose`, `json` is the path `--json` writes to.
+- **Writes**: every description opens with what the tool writes. `grain_propose` writes the proposal directory;
+  `grain_decide_steer`, `grain_decide_boundary`, `grain_decide_waive` and `grain_decide_rm` write
+  `.grain/seeds.jsonl` and `.grain/decisions.jsonl`; `grain_oracle_record` writes only with `yes: true`;
+  `grain_rules` and `grain_export` write only when `out` is given; `grain_refresh` rebuilds the index. The rest write
+  nothing beyond Grain's own disposable index, which every query refreshes as needed.
+- **Paths**: a field the CLI resolves against its working directory (`repo`, `out`, `content`, `graph`,
+  `proposal`, `family-candidates`, propose's `out-dir` and `json`) must be absolute, because the server does not run
+  in the caller's directory; a relative one is refused. `oracle score`'s `name-or-dir` is a bare name or an absolute
+  path. A path inside the repository (`check`'s `file`, `obligation`'s `path`, `completeness`'s `files`,
+  `explain`'s `file`) may be absolute or relative to the repository root. A `repo`, or an absolute path inside it,
+  that does not exist where the server runs — a path from inside a dev container, handed to a server VS Code started
+  on the host — is translated through the running containers' mounts (`docker ps`, `docker inspect`: the longest mount
+  containing the normalised path); a path two containers mount from different host directories, or that no container
+  mounts, is refused with a message saying so, never swapped for another repository.
+- **How a call runs**: the server turns the fields back into the argv the CLI would get and runs `bin/grain.mjs` with
+  it, one call at a time. Each call therefore gets exactly the CLI's answer, and each query runs in the CLI's
+  low-memory `--liftoff-only` mode instead of the server holding the optimising compiler's memory for the whole
+  session; the cost is one Node start per call. What the CLI prints on stdout is the first text block; what it says
+  on stderr (its refusal, its diagnostics, the last 40 lines of a build's progress) is a second one, or the only one
+  when stdout is empty.
+- **Errors**: an unknown tool, an unknown field, a field of the wrong type, a missing argument or a relative path is
+  a JSON-RPC protocol error (code `-32602`) and the CLI never runs. A CLI run that exits non-zero (a bad `repo`, a
+  file that does not exist, a refused decision) comes back as a normal result with `isError: true`, so the calling
+  model can see it and react. Neither kind ever stops the server.
+- **Transport**: stdio, newline-delimited JSON-RPC 2.0 — one message per line (MCP's stdio framing; not the
+  `Content-Length`-prefixed framing LSP uses). Diagnostics go to stderr only; stdout carries protocol messages
+  exclusively. A response sent by the client is ignored; a notification is never answered.
+- **Protocol version**: `2025-06-18`, and `2025-03-26` or `2024-11-05` when the client asks for one of them.
 
 ## The store
 
