@@ -133,14 +133,15 @@ test('parity: each tool has one field per argument and per flag, under the CLI n
     assert.deepEqual(Object.keys(props).sort(), [...args, ...Object.keys(spec.flags), ...Object.keys(GLOBAL_FLAGS)].sort(), `${cmd}: fields`);
     for (const [f, kind] of Object.entries({ ...spec.flags, ...GLOBAL_FLAGS }))
       assert.deepEqual(props[f].type, kind === 'bool' ? 'boolean' : kind === 'number' ? ['number', 'string'] : 'string', `${cmd} --${f}`);
-    assert.equal(t.annotations.destructiveHint, mcp.DESTRUCTIVE.has(cmd), `${cmd}: destructiveHint`);
-    assert.equal(t.inputSchema.additionalProperties, false);
+    // Runes 1.0.0 writes only the annotations that differ from the MCP defaults (destructiveHint defaults to true for a tool that writes and means nothing for one that does not), and no additionalProperties (the server refuses an unknown field itself).
+    assert.equal(t.annotations.readOnlyHint !== true && t.annotations.destructiveHint !== false, mcp.DESTRUCTIVE.has(cmd), `${cmd}: destructiveHint`);
+    assert.equal(t.inputSchema.additionalProperties, undefined);
     const writes = !!spec.writes || cmd === 'refresh';
-    assert.equal(t.annotations.readOnlyHint, !writes, cmd);
+    assert.equal(t.annotations.readOnlyHint === true, !writes, cmd);
     assert.match(t.description, writes ? /^WRITES / : /^Read-only/, `${cmd}: the description says whether it writes`);
     assert.ok(t.description.includes(`CLI: grain ${cmd}`), `${cmd}: the description carries its usage`);
   }
-  for (const d of ['grain_propose', 'grain_rules', 'grain_export', 'grain_decide_rm']) assert.equal(byName[d].annotations.destructiveHint, true, d);
+  for (const d of ['grain_propose', 'grain_rules', 'grain_export', 'grain_decide_rm']) assert.ok(byName[d].annotations.readOnlyHint !== true && byName[d].annotations.destructiveHint !== false, d);
   for (const w of ['grain_propose', 'grain_decide_steer', 'grain_decide_boundary', 'grain_decide_waive', 'grain_decide_rm', 'grain_oracle_record'])
     assert.match(byName[w].description, /^WRITES /, w);
 });
