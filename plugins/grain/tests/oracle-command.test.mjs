@@ -206,6 +206,11 @@ test('score prints precision and recall in both directions, on the same J >= 0.5
   assert.equal(j.relations.matched, j.relations.acceptedPairs, 'the one declared relation survives into the proposal');
   assert.equal(j.rules.acceptedWithLiterals, 1);
   assert.deepEqual(j.correction.nodes.counts.merged, 0);
+  // ownership units (issue 509): each side is read under its own recorded coverage.type_level — neither graph here
+  // turns it on, so the units are the nodes' own files and the two cuts agree
+  assert.match(r.out, /units\s+recall \d+\/2 = [\d.]+/);
+  assert.deepEqual(j.units.typeLevel, { proposal: false, accepted: false });
+  assert.equal(j.units.recall.hit, 2);
 });
 
 test('the file sets are recorded, so a score needs neither the repository nor a clone of it', () => {

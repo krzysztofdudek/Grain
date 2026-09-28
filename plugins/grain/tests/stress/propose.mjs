@@ -111,7 +111,8 @@ export function scoreProposal(handRepo, outDir, files, contentRoot = handRepo) {
   // one type whose \`when\` matches it (\`coverage.type_level\`), so scoring its nodes alone scores a fraction of what
   // it says. Here a file belongs to the deepest node mapping it, and a file no node maps to the one type that
   // matches it (a file two types match and no node claims belongs to none, as Yggdrasil refuses it). The same
-  // reading applies to both graphs.
+  // reading applies to both graphs, whatever their `coverage.type_level` says — N28's reading. The product score
+  // (`grain oracle score`, engine/oracle-units.mjs, N29) reads each graph under its own switch instead.
   const unitsOf = S => {
     const owner = new Map(), depth = new Map();
     for (const n of S.nodes) {

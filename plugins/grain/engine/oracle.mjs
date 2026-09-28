@@ -37,6 +37,7 @@ import { fileURLToPath } from 'node:url';
 import { ENGINE_VERSION } from './config.mjs';
 import { headSha, originUrl, trackedFiles as gitTrackedFiles } from './history.mjs';
 import { partitionScore, projectedRelations } from './oracle-partition.mjs';
+import { typeRelationTargets, unitsOf } from './oracle-units.mjs';
 import {
   aspectLiterals,
   expandMapping,
@@ -104,7 +105,11 @@ export function distill(graphRoot, files, ctx, side, index) {
     types.push({
       id,
       classifying,
+      // `enforce: strict`: a file only such a type matches is a strict orphan to Yggdrasil, never type-covered (issue 509)
+      strict: t.enforce === 'strict',
       aspects: aspectAttachments(t.aspects),
+      // a type's own `relations:` block, the allowance a type-covered file's owner carries (issue 509)
+      relations: typeRelationTargets(t.relations),
       files: idx(set),
     });
   }
@@ -152,7 +157,9 @@ export function distill(graphRoot, files, ctx, side, index) {
     };
   });
 
-  return { side, root: graphRoot, types, nodes, aspects };
+  // whether Yggdrasil covers a file no node maps by the one type that matches it — the switch the ownership units read
+  const typeLevel = g.config?.coverage?.type_level === true;
+  return { side, root: graphRoot, typeLevel, types, nodes, aspects };
 }
 
 // The proposal's own alternatives — candidate cuts the maintainer chooses FROM. They are a separate stratum in
@@ -403,6 +410,10 @@ export function scoreRecord(record) {
   const aNodes = setsOf(A.nodes.filter(n => n.files.length), files);
   const rel = relationLedger(P, A, files);
   const rules = ruleLedger(P, A);
+  // ownership units (oracle-units.mjs): a node's own files, or the files one type covers alone where that graph
+  // turns type-level coverage on — the same Jaccard, relation, partition and projection measures, read over units
+  const PU = unitsOf(P), AU = unitsOf(A);
+  const pUnits = setsOf(PU.nodes, files), aUnits = setsOf(AU.nodes, files);
   return {
     schema: 'grain-oracle-score/1',
     oracle: record.name,
@@ -421,6 +432,16 @@ export function scoreRecord(record) {
     // partition (oracle-partition.mjs): additive blocks, the Jaccard measures above are unchanged
     partition: partitionScore(P, A),
     relationsProjected: projectedRelations(P, A),
+    units: {
+      typeLevel: { proposal: PU.typeLevel, accepted: AU.typeLevel },
+      filesOwned: { proposal: PU.owned, accepted: AU.owned },
+      typeCovered: { proposal: PU.typeCovered, accepted: AU.typeCovered },
+      recall: direction(aUnits, pUnits, 'accepted unit -> proposed unit (recall; a unit is a node\'s own files, or the files one type covers alone)'),
+      precision: direction(pUnits, aUnits, 'proposed unit -> accepted unit (precision)'),
+      relations: relationLedger(PU, AU, files),
+      partition: partitionScore(PU, AU),
+      relationsProjected: projectedRelations(PU, AU),
+    },
     rules,
     alternatives: alts.length,
   };
@@ -643,6 +664,23 @@ async function recordCmd({ root, args, opts }) {
   ];
 }
 
+// The ownership-unit block of the score, as printed lines. A side recorded before the type-level switch was stored
+// (`typeLevel` null) is read as node-only, and the line says so rather than scoring it as if it had been read.
+export function unitLines(u) {
+  const tl = v => (v === true ? 'on' : v === false ? 'off' : 'not recorded');
+  const ur = u.relations, up = u.partition.leaves, uj = u.relationsProjected;
+  return [
+    `  units        recall ${pct(u.recall.hit, u.recall.n)} · precision ${pct(u.precision.hit, u.precision.n)} · mean J ${u.recall.meanJ}`,
+    `               (a unit is a node's own files, or the files one type covers alone where that graph has coverage.type_level on — proposal ${tl(u.typeLevel.proposal)}, accepted ${tl(u.typeLevel.accepted)}; files owned: proposal ${u.filesOwned.proposal} (${u.typeCovered.proposal} by a type), accepted ${u.filesOwned.accepted} (${u.typeCovered.accepted} by a type))`,
+    ...(u.typeLevel.proposal === null || u.typeLevel.accepted === null
+      ? ['               this record predates the type-level switch, so a side without it is read as node-only: re-record the oracle with this build to count its type-covered files']
+      : []),
+    `  unit rels    recall ${pct(ur.matched, ur.acceptedPairs)} · precision ${pct(ur.matched, ur.proposedPairs)} (a type unit carries its type's relations; ${ur.acceptedRelationsWithAnUnmappedEnd} of ${ur.acceptedDeclared} accepted and ${ur.proposedRelationsWithAnUnmappedEnd} of ${ur.proposedDeclared} proposed have an end outside the ${ur.matchedNodes} matched unit(s))`,
+    `  unit part.   over the ${up.files} files both graphs own: H(P|A) ${up.hPgivenA} · H(A|P) ${up.hAgivenP} bits · NMI ${up.nmi} · ARI ${up.ari}`,
+    `  unit proj.   every accepted unit relation carried onto grain's units by file majority: recall ${pct(uj.overlap, uj.acceptedPairs)} · precision ${pct(uj.overlap, uj.proposedPairs)}`,
+  ];
+}
+
 export function resolveOracleDir(nameOrDir) {
   const direct = isAbsolute(nameOrDir) ? nameOrDir : resolve(process.cwd(), nameOrDir);
   if (existsSync(join(direct, 'oracle.json'))) return direct;
@@ -678,6 +716,7 @@ function scoreCmd({ args, opts }) {
     ...(lo ? [`               read against the accepted tree cut at each depth, the closest match is depth ${lo.depth} (VI ${lo.vi} bits, NMI ${lo.nmi}, ARI ${lo.ari})`] : []),
     `  projected    every accepted relation carried onto grain's nodes by file majority: recall ${pct(rp.overlap, rp.acceptedPairs)} · precision ${pct(rp.overlap, rp.proposedPairs)}`,
     `               (${rp.acceptedCollapsed} of the ${rp.acceptedDeclared} accepted relations fall inside one proposed node, ${rp.acceptedUnmappable} have an end that maps no file)`,
+    ...unitLines(score.units),
     `  rules        ${ru.namedCount}/${ru.acceptedWithLiterals} of the accepted mechanical rules are named by some draft · of ${ru.proposedDrafts} drafts, ${ru.kept.length} kept, ${ru.promoted.length} promoted, ${ru.dropped.length} dropped · ${ru.added.length} rules the adopter wrote themselves`,
     ...(ru.proposedDrafts && !ru.kept.length && !ru.promoted.length && !ru.demoted.length && !ru.edited.length
       ? ['               no draft rule appears in the accepted graph under its own name at all: this graph was not grown from this proposal, so read the rule row as a comparison of two independent sets, never as a review of the drafts']
