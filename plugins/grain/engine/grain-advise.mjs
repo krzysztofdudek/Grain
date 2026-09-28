@@ -381,9 +381,12 @@ export function adviceDocument({ model, head, graphRoot, graphLabel, rules = nul
 // 5. The command.
 // ==================================================================================================
 //
-// `--graph` reads a hand-written graph held BESIDE the repository — the shape every scoring oracle has.
-// Resolved against the caller's cwd so a relative path means what it looks like it means. Every command that
-// reads the architecture graph (`advise`, `cochange`, `measure`, `propose --scope`) takes it the same way.
+// `--graph <dir>` names the directory that HOLDS a `.yggdrasil/` graph — a checkout or worktree of the repository,
+// or a hand-written graph kept beside it (the shape every scoring oracle has) — never `.yggdrasil/` itself; the
+// history and the code stay the repository's own. Resolved against the caller's cwd so a relative path means what
+// it looks like it means. `advise`, `cochange` and `measure` take it through this one function; `propose --scope`
+// reads the repository's own graph and takes no `--graph`, and `oracle record --graph` has its own resolver
+// (oracle.mjs), which accepts `.yggdrasil/` itself too.
 export const graphRootOf = (root, opts) => (opts.graph && opts.graph !== true ? resolve(process.cwd(), String(opts.graph)) : root);
 export async function cmdAdvise({ model, meta, head, root, isGit, args, opts, stamp, store }) {
   if (args.length) throw new Error('usage: grain advise [--json] [--graph <dir>] — takes no arguments');
