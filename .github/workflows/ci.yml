@@ -33,6 +33,21 @@ jobs:
         working-directory: plugins/grain
         run: npm test
 
+  lockfile:
+    # The dev dependencies (grammars, tree-sitter-cli, the runtime to vendor) install from the committed lock exactly.
+    # plugins/grain/.npmrc sets legacy-peer-deps, the only mode in which the grammars' conflicting peer ranges resolve.
+    runs-on: ubuntu-latest
+    name: npm ci from the committed lock
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: npm ci
+        working-directory: plugins/grain
+        run: npm ci
+
   test-windows:
     # The same suite on Windows: paths with drive letters and backslashes, no process groups, .cmd launchers, CRLF.
     runs-on: windows-latest
@@ -159,3 +174,12 @@ jobs:
         env:
           GRAIN_CORPUS_CLONES: ${{ github.workspace }}/corpus
         run: node --import ./tests/git-env.mjs --test tests/reconstruct.test.mjs tests/advise-command.test.mjs
+      # The whole suite again, now with a real Yggdrasil CLI resolvable: the tests that drive `yg adopt --dry-run`
+      # and `yg check` against Grain's output skip in the plain test jobs, which build no Yggdrasil — here they run.
+      - name: run the suite with Yggdrasil's CLI
+        working-directory: grain/plugins/grain
+        env:
+          YG_BIN: ${{ github.workspace }}/yggdrasil/source/cli/dist/bin.js
+          YGG_DIR: ${{ github.workspace }}/yggdrasil
+          HORDE_DIR: ${{ github.workspace }}/horde
+        run: npm test

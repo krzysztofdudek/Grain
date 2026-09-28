@@ -47,6 +47,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Fixed
 
+- A clean `npm ci` in the plugin now installs the development dependencies from the committed lock; it used to stop on a package the lock did not list.
 - The reference now says what `--graph <dir>` on `advise`, `cochange` and `measure` names: the directory that holds a `.yggdrasil/` graph (a checkout, a worktree, or a graph kept beside the repository), not the `.yggdrasil/` directory itself, while the history and the code stay the repository's own.
 - On a case-insensitive file system (the macOS and Windows defaults) a relation no longer points at a file under a name its directory does not list: the path probe found `lib/root.rs` as `lib/Root.rs`, and a Go import or Java wildcard import of `ex.com/m/Pkg` took the files of `pkg/`. Grain now vendors Runes 0.1.4, whose resolver accepts a candidate only under the exact name its directory lists, the same version Yggdrasil depends on (issue 482).
 - A Grain update that changes a language's grammar now re-reads the repository's history under the new grammar. Before, what the history said about each past version of a file was kept from the old grammar until a later release forced a full rebuild. The first run after this update reads the whole history once more, even where no grammar changed, because the history cache it finds was stamped without the grammars; the runs after it resume as before.
