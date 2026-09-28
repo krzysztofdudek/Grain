@@ -38,7 +38,9 @@ usage: grain <command> [args] [--repo <path>] [--no-refresh] [--no-history]
                                           which parts of a set change together more often than chance, counted per file, directory
                                           or graph node, beside how many the same count names on shuffled history; \`--partition\`
                                           scores a proposed cut of the set into parts ({"part": ["path", "node/id"], …}): how many
-                                          commits and imports stayed inside one part, against random cuts along the directory tree
+                                          commits and imports stayed inside one part, against random cuts along the directory tree;
+                                          with \`--level node\` a node in a part is the files it owns (the deepest node mapping a file
+                                          owns it), so a parent and its child may sit in two parts
   measure --from <sha> --to <sha> [--scope <id|path,…>] [--graph <dir>] [--json]
                                           what the work between two commits did to a territory (nodes and paths; the whole repository
                                           by default): its files, the imports inside it and across its edge, the dependencies between
