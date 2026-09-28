@@ -94,13 +94,20 @@ export const nestedProjectRoots = files => {
   }
   return [...roots];
 };
-export function buildNodes(active, exp, nestedRoots = []) {
+// `dirFiles` (the tracked files, passed by `--shape types`): a node then claims every live tracked file under its
+// directory, not only the files its type's evidence names. In that shape the node is there because its directory
+// sits inside another type's, so every file under it matches two or more `when`s; a file the node leaves out is
+// `ambiguous-node-type` in Yggdrasil. A directory mapping claims them all by itself — only the explicit list a nested
+// project forces (below) has to name them (issue 504: Grain's own `tests/stress/results/*.json`). The node shape
+// keeps its type's files: there a file no node claims is only unmapped, which requires nothing.
+export function buildNodes(active, exp, nestedRoots = [], { dirFiles = null } = {}) {
   const live = f => !nestedRoots.some(r => f.startsWith(r + '/'));
+  const under = dir => (dirFiles && dir ? dirFiles.filter(f => f.startsWith(dir + '/')) : []);
   const nodes = active.map(a => ({
     id: nodePathFor(a.dir),
     type: a.id,
     dir: a.dir,
-    files: new Set([...a.files].filter(live)),
+    files: new Set([...a.files, ...under(a.dir)].filter(live)),
     why: a.why,
   })).filter(n => n.files.size > 0);
   // Yggdrasil loads a node only where a `yg-node.yaml` sits, and reads the hierarchy from the directory chain
