@@ -9,6 +9,7 @@ import { resolveRustPath } from './extractors/rust-resolve.mjs';
 import { resolveIncludePath } from './extractors/include-resolve.mjs';
 import { resolveRubyRequireRelative } from './extractors/ruby-resolve.mjs';
 import { makeRepoLayout } from './repo-layout.mjs';
+import { makeExactCaseCheck } from './exact-case.mjs';
 /** Production resolvePathToFile: dispatches by language to the per-language path resolver.
  *  Checks existence against the project's files on disk. Symbol-resolved languages (and
  *  not-yet-implemented ones) return undefined here — they resolve via the SymbolTable.
@@ -37,9 +38,11 @@ import { makeRepoLayout } from './repo-layout.mjs';
  *  Java, still wins the walk), which can silence a real cross-owner dependency reached through
  *  the surviving, non-excluded, fully enforced candidate. */
 export function makeResolvePathToFile(projectRoot, ownerOf, isExcluded) {
-    const exists = (repoRelPosix) => existsSync(path.resolve(projectRoot, repoRelPosix));
-    const goDeps = makeGoResolveDeps(projectRoot, ownerOf, isExcluded);
-    const javaDeps = makeJavaResolveDeps(projectRoot, exists, isExcluded);
+    // A candidate exists only under the name its directory lists: on a case-insensitive file system existsSync would also find lib/root.rs as lib/Root.rs (issue 482).
+    const exactCase = makeExactCaseCheck(projectRoot);
+    const exists = (repoRelPosix) => existsSync(path.resolve(projectRoot, repoRelPosix)) && exactCase(repoRelPosix);
+    const goDeps = makeGoResolveDeps(projectRoot, ownerOf, isExcluded, exactCase);
+    const javaDeps = makeJavaResolveDeps(projectRoot, exists, isExcluded, exactCase);
     const layout = makeRepoLayout(projectRoot, isExcluded);
     const phpDeps = makePhpResolveDeps(projectRoot, exists, isExcluded, layout.composerMaps);
     const rustDeps = makeRustResolveDeps(projectRoot, exists);
@@ -48,7 +51,7 @@ export function makeResolvePathToFile(projectRoot, ownerOf, isExcluded) {
     // non-relative specifiers read tsconfig `paths`/`baseUrl` and in-repo package.json files.
     const isFile = (repoRelPosix) => {
         try {
-            return statSync(path.resolve(projectRoot, repoRelPosix)).isFile();
+            return statSync(path.resolve(projectRoot, repoRelPosix)).isFile() && exactCase(repoRelPosix);
         }
         catch {
             return false;
@@ -494,7 +497,7 @@ function makePythonProjectRoots(projectRoot, isExcluded) {
  * NOTE: makeResolvePathToFile's deps are pure filesystem access;
  * reading go.mod + readdirSync is fine there — it lists/reads files, it does not parse.
  */
-function makeGoResolveDeps(projectRoot, ownerOf, isExcluded) {
+function makeGoResolveDeps(projectRoot, ownerOf, isExcluded, exactCase = () => true) {
     // Cache: go.mod directory (repo-rel POSIX, '' = root) → module path or undefined.
     const moduleByDir = new Map();
     /** Read the `module <path>` declaration from a go.mod at the given repo-rel dir, or undefined. */
@@ -606,13 +609,16 @@ function makeGoResolveDeps(projectRoot, ownerOf, isExcluded) {
     function dirExists(repoRelDir) {
         const abs = path.resolve(projectRoot, repoRelDir);
         try {
-            return statSync(abs).isDirectory();
+            // The package directory exists only under the name its parent lists (issue 482).
+            return statSync(abs).isDirectory() && exactCase(repoRelDir);
         }
         catch {
             return false;
         }
     }
     function goFilesIn(repoRelDir) {
+        if (!exactCase(repoRelDir))
+            return [];
         const abs = path.resolve(projectRoot, repoRelDir);
         let entries;
         try {
@@ -723,8 +729,11 @@ export function parseGoWorkUses(text) {
  * NOTE: makeResolvePathToFile's deps are pure filesystem access;
  * readdirSync is fine there — it lists files, it does not parse.
  */
-function makeJavaResolveDeps(projectRoot, exists, isExcluded) {
+function makeJavaResolveDeps(projectRoot, exists, isExcluded, exactCase = () => true) {
     function javaFilesIn(repoRelDir) {
+        // A package directory listed under another spelling is not the package (issue 482).
+        if (!exactCase(repoRelDir))
+            return [];
         const abs = path.resolve(projectRoot, repoRelDir);
         let entries;
         try {
