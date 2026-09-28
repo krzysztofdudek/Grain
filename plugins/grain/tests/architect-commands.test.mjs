@@ -242,6 +242,30 @@ test('measure reuses each end once built, answers text with a stamp, and refuses
   assert.match(r3.stderr, /usage: grain measure --from/);
 });
 
+// On Windows the tar first on PATH is the one the shell brings: Git for Windows' bash puts its GNU tar ahead of
+// System32's bsdtar, and a GNU tar reads any `D:\…` argument as a remote host. `measure` must work under either, so
+// this runs it with Git's GNU tar first on PATH. Elsewhere there is no drive letter to misread, and nothing to run.
+test('measure extracts each end under the GNU tar Git for Windows puts first on PATH', { skip: process.platform !== 'win32' && 'a drive-letter path exists only on Windows' }, (t) => {
+  const exec = execFileSync('git', ['--exec-path'], { encoding: 'utf8' }).trim();
+  let gnuTarDir = null;
+  for (let dir = exec, i = 0; i < 4 && !gnuTarDir; i++) {
+    dir = dirname(dir);
+    if (existsSync(join(dir, 'usr', 'bin', 'tar.exe'))) gnuTarDir = join(dir, 'usr', 'bin');
+  }
+  if (!gnuTarDir) { t.skip('no GNU tar under this Git for Windows'); return; }
+  const own = join(tmp, 'measure-gnu-tar');
+  cpSync(repo, own, { recursive: true });
+  rmSync(join(own, '.grain'), { recursive: true, force: true });
+  const pathKey = Object.keys(env).find(k => k.toLowerCase() === 'path') || 'PATH';
+  const r = spawnSync('node', [BIN, 'measure', '--from', mid, '--to', 'HEAD', '--scope', 'src/report', '--json'], {
+    cwd: own, encoding: 'utf8', maxBuffer: 1 << 28, env: { ...env, [pathKey]: `${gnuTarDir};${env[pathKey] || ''}` },
+  });
+  assert.equal(r.status, 0, r.stderr);
+  const doc = JSON.parse(r.stdout);
+  assert.equal(doc.schema, 'grain-measure/1');
+  assert.equal(doc.to.files - doc.from.files, 1, 'the one report file the range added');
+});
+
 test('measure reads each end\'s undeclared dependencies against the graph that commit had', () => {
   const own = join(tmp, 'measure-own-graph');
   cpSync(repo, own, { recursive: true });
