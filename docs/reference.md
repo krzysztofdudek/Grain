@@ -47,6 +47,8 @@ worktree.
 | `refresh` | `--full` | rebuild now (queries auto-refresh anyway); `--full` re-walks the whole history |
 | `version` | | engine, extractor and grammar versions |
 
+**`--graph <dir>`** (on `advise`, `cochange` and `measure`) names the directory that **holds** a `.yggdrasil/` graph — a checkout or a worktree of the repository, or a hand-written graph kept beside it — not the `.yggdrasil/` directory itself: `--graph ../trunk` reads `../trunk/.yggdrasil/`. A relative path is resolved from the directory the command is run in. The history and the code are still the repository's own, the one the command runs in; only the graph is read from there. Without the flag the repository's own `.yggdrasil/` is read. `oracle record --graph` accepts either form, the holding directory or the `.yggdrasil/` itself.
+
 Grain does not tell who wrote the code. Every commit counts the same when conventions are learned, whether a person or an agent made it, and no command reports an agent-authored share. The history walk reads each commit's author only as an identity, for the note that one author holds most of a convention.
 
 A type name can legitimately appear at more than one declaration in the same file where a language allows arity- or
