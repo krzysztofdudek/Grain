@@ -41,6 +41,21 @@ test('a node beats a type, the deepest node beats its parent, and a file two typ
   assert.equal(u.owned, 8);
 });
 
+test('a file only a strict type matches, and no node maps, is a strict orphan: Yggdrasil covers it by no type, so no unit owns it', () => {
+  const strict = (id, files) => ({ ...type(id, files), strict: true });
+  const u = unitsOf({
+    typeLevel: true,
+    nodes: [node('core', [0, 1], { type: 'engine' })],
+    types: [strict('engine', range(0, 4)), type('doc', [5, 6]), type('any', [3, 6])],
+  });
+  const byId = new Map(u.nodes.map(x => [x.id, x.files]));
+  assert.deepEqual(byId.get('node:core'), [0, 1], 'a node of the strict type still owns what it maps');
+  assert.equal(byId.has('type:engine'), false, 'files 2 and 3 only the strict type claims: orphans, owned by nobody');
+  assert.deepEqual(byId.get('type:doc'), [5], 'file 6 matches two types: ambiguous');
+  assert.equal(u.owned, 3);
+  assert.equal(u.typeCovered, 1);
+});
+
 test("a type unit carries its type's relations, to every unit of the target type; an organizational node target stands for its subtree", () => {
   const u = unitsOf({
     typeLevel: true,

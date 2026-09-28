@@ -37,7 +37,7 @@ rather than being a second scale. Read the lines as they print:
 - **rules** — how many of the accepted graph's mechanical rules some draft named, and what became of the
   drafts. When no draft appears in the accepted graph under its own name, the command says so: that graph was
   not grown from that proposal, and the row is a comparison of two independent sets, not a review.
-- **units**, **unit rels**, **unit part.**, **unit proj.** — the same measures over ownership units: a file belongs to the deepest node that maps it or, where that graph has `coverage.type_level` on, to the one type that matches it. This is the reading that scores a `--shape types` proposal on what it owns; its node lines alone count every type-covered file as unowned. The line says for each side whether the switch is on, and a record made before the switch was stored is read as node-only.
+- **units**, **unit rels**, **unit part.**, **unit proj.** — the same measures over ownership units: a file belongs to the deepest node that maps it or, where that graph has `coverage.type_level` on, to the one type that matches it (a file an `enforce: strict` type matches is an orphan, owned by nobody). This is the reading that scores a `--shape types` proposal on what it owns; its node lines alone count every type-covered file as unowned. The line says for each side whether the switch is on, and a record made before the switch was stored is read as node-only.
 - **correction** — merged, split, renamed, dropped, added. This is the human's own editing, counted.
 
 A low number here is a finding, not a failure to explain away: report it as it stands. `--json` emits the

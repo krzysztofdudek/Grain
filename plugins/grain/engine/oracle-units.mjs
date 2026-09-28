@@ -8,7 +8,9 @@
 //
 //   a file belongs to the DEEPEST node whose mapping selects it (ties as in `ownership`, oracle-partition.mjs);
 //   a file no node maps belongs to the ONE classifying type whose `when` selects it — only when that graph turns
-//   type-level coverage on, and never when two types select it (Yggdrasil refuses that file as ambiguous).
+//   type-level coverage on, and never when two types select it (Yggdrasil refuses that file as ambiguous) or when a
+//   type with `enforce: strict` selects it (Yggdrasil leaves that file to the strict scan, which wants a node of that
+//   type mapping it, and does not count it covered: a strict orphan is owned by nobody).
 //
 // Each graph is read under its OWN `coverage.type_level`: a node-shape graph without the switch gets no type units,
 // because Yggdrasil does not cover those files either. A record written before this field existed carries no switch
@@ -40,12 +42,16 @@ export function unitsOf(side) {
   const owner = new Map([...ownership(side.nodes)].map(([f, id]) => [f, nodeUnit(id)]));
   const typeCovered = new Set();
   if (typeLevel) {
-    const matches = new Map();
+    const matches = new Map(), strictClaimed = new Set();
     for (const t of side.types || []) {
       if (!t.classifying) continue;
-      for (const f of t.files) if (!owner.has(f)) matches.set(f, (matches.get(f) || []).concat(t.id));
+      for (const f of t.files) {
+        if (owner.has(f)) continue;
+        matches.set(f, (matches.get(f) || []).concat(t.id));
+        if (t.strict === true) strictClaimed.add(f);
+      }
     }
-    for (const [f, ts] of matches) if (ts.length === 1) { owner.set(f, typeUnit(ts[0])); typeCovered.add(f); }
+    for (const [f, ts] of matches) if (ts.length === 1 && !strictClaimed.has(f)) { owner.set(f, typeUnit(ts[0])); typeCovered.add(f); }
   }
   const filesOf = new Map();
   for (const [f, u] of owner) (filesOf.get(u) || filesOf.set(u, []).get(u)).push(f);

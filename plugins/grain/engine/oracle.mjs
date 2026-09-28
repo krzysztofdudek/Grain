@@ -105,6 +105,8 @@ export function distill(graphRoot, files, ctx, side, index) {
     types.push({
       id,
       classifying,
+      // `enforce: strict`: a file only such a type matches is a strict orphan to Yggdrasil, never type-covered (issue 509)
+      strict: t.enforce === 'strict',
       aspects: aspectAttachments(t.aspects),
       // a type's own `relations:` block, the allowance a type-covered file's owner carries (issue 509)
       relations: typeRelationTargets(t.relations),
