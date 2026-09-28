@@ -96,25 +96,13 @@ stale), or undecidable without a human — never assumed by default to be Grain'
 The complete measurement record behind every number above, negatives included, is in
 [docs/results.md](docs/results.md).
 
-## Grain, Yggdrasil, Horde
+## Grain in the family
 
-Three jobs, one core, in layers: [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)
-**enforces** — it is what reads `.yggdrasil/` and fails a build when code violates it. Grain (this one) **mines** —
-it produces the graph Yggdrasil enforces, from evidence, for a repository that does not have one yet. [Horde](https://github.com/krzysztofdudek/Horde)
-**executes** — it is what raises more than one agent against an architecture graph and holds every one of them to
-it. They stack rather than stand apart: Grain writes only what Yggdrasil reads, and Horde needs Yggdrasil and
-uses Grain when it is installed. Each layer works without the ones above it, and none of them knows the ones above
-exist. They talk to each other through versioned files on disk rather than a shared codebase: a `grain propose`
-output is a `.yggdrasil/` tree Yggdrasil loads directly, with the node's own description (what lives there) written
-into `yg-node.yaml` — what a charter used to carry beyond that (conventions with exemplars, co-change) is a live
-answer from `grain explain`, `grain where` and `grain completeness`, never a file `grain propose` writes; and
-grain's role groups are also written beside that graph in Yggdrasil's family-candidates shape, as `.family-candidates.grain.json`, so `yg adopt`
-installs it and `yg advise` can nominate families mined by Grain with no code change on Yggdrasil's side at all — verified against a planted
-fixture where all 5 real families were
-nominated 5 of 5. Adopt Grain first — day zero, soft law that drafts and never blocks — keep Yggdrasil as the
-long-term core once hard law, proof and CI are worth having, and when the work needs more hands than one agent,
-pick one of two doors: Horde for a mission held to Yggdrasil's law, or Jarl for an issue loop with no law and no
-landing gate.
+Grain is the survey. [Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil) is the law: it reads `.yggdrasil/` and fails a build when code breaks it. Grain produces the graph Yggdrasil enforces, from evidence, for a repository that does not have one yet, and it measures and never blocks. [Jarl](https://github.com/krzysztofdudek/JarlSkill) is the loop that works through issues, and [Horde](https://github.com/krzysztofdudek/Horde) plans a mission onto the law, on Jarl's loop, with Grain in the architect's hands: Horde requires Grain, because its architect always measures. Grain itself needs none of them, and none of them is built into Grain.
+
+They talk to each other through versioned files on disk rather than a shared codebase. A `grain propose` output is a `.yggdrasil/` tree Yggdrasil loads directly, with the node's own description (what lives there) written into `yg-node.yaml`; what a charter used to carry beyond that (conventions with exemplars, co-change) is a live answer from `grain explain`, `grain where` and `grain completeness`, never a file `grain propose` writes. Grain's role groups are also written beside that graph in Yggdrasil's family-candidates shape, as `.family-candidates.grain.json`, so `yg adopt` installs it and `yg advise` can nominate families mined by Grain with no code change on Yggdrasil's side at all, verified against a planted fixture where all 5 real families were nominated 5 of 5. Horde reads `grain cochange`, `grain measure` and the rule drafts of `grain advise` the same way, as documents.
+
+Where to start follows what hurts, not a ladder. Grain earns its keep the moment you are about to write law: it tells you what your code already keeps, and how many places break it today, before you make any of it binding.
 
 ## Install
 
@@ -407,27 +395,37 @@ contracts.
 6.1.0. The interfaces are stable — the export schema established at 0.1.0 is unbroken, and every new convention
 family added since flows through the same generic per-fact serialization, never a hand-listed schema addition — but
 the objective changed under it: `grain propose` and the brownfield-miner numbers in this file are new since
-2026-09-05; 0.4.0, released 2026-09-07, is the first build that ships them (`grain propose`, the proposal contract, the type levels, the JVM source-root relations, `grain advise` over a graph that already exists, and `grain oracle` for turning an adopter's accepted graph into a scored reference). Grain is the second layer of a three-layer family: it runs on its own, and when Yggdrasil is present it writes only what Yggdrasil reads; [Horde](https://github.com/krzysztofdudek/Horde) sits above both and uses Grain when it is installed. The agent-facing surface (`where`, `check`, `how`, the hooks)
+2026-09-05; 0.4.0, released 2026-09-07, is the first build that ships them (`grain propose`, the proposal contract, the type levels, the JVM source-root relations, `grain advise` over a graph that already exists, and `grain oracle` for turning an adopter's accepted graph into a scored reference). Grain is the survey of the family's core: it runs on its own, and when Yggdrasil is present it writes only what Yggdrasil reads; [Horde](https://github.com/krzysztofdudek/Horde)'s architect measures with it on every mission. The agent-facing surface (`where`, `check`, `how`, the hooks)
 is the earlier objective, unchanged in behaviour, kept because it still works and nothing here has replaced it. Experimental: the numbers in this file and in [docs/results.md](docs/results.md) are the whole claim.
 
 ## The Yggdrasil family
 
-**Three jobs, one core, in layers.** **[Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)** is the law: the architecture graph and the rails that hold every change to it. **Grain** surveys the terrain: it mines that graph from a repository's own code and history, so there is a rule-backed map before anyone writes a rule by hand. **[Horde](https://github.com/krzysztofdudek/Horde)** is the software house that builds on the law: zero standing roles, a worker per ticket and a one-shot architect who rules the whole plan once, each ticket refined onto the graph and given a tick. Adoption runs Grain first — install it day zero for a soft, draft-only law that never blocks — then Yggdrasil as the core you keep long term, hard law with proof and CI. Work too big for one agent has two doors. Horde is the door for a mission held to Yggdrasil's law, and the add-on **[Jarl](https://github.com/krzysztofdudek/JarlSkill)** is the lighter door beside it: an issue loop, a worker per issue and evidence before each merge, with no law and no landing gate. From 6.0.0 the core ships as one version; the add-ons keep their own. In the family, law is raised by whichever agent does the work in its own territory, and only the client — the one person the whole system answers to — lowers or vetoes it. The three core repositories' shared machine contracts are registered on [one page](https://krzysztofdudek.github.io/Yggdrasil/family-contracts).
+**[Jarl](https://github.com/krzysztofdudek/JarlSkill)** is the loop. **[Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)** is the law. **Grain** is the survey. **[Horde](https://github.com/krzysztofdudek/Horde)** plans the mission onto the law before anyone writes, lands every change through a gate no agent can argue with, and turns what the mission learned into law — on Jarl's loop, with Grain in the architect's hands. Those four are the core, and they ship under one version number, Jarl on it from 6.1.0: one set of tools built and tested against each other. Yggdrasil, Grain and Jarl each work alone; Horde is the one built on the other three. Where a repository has a check, the check decides what lands, in a Horde mission and in a Jarl loop alike: a fresh reviewer can only stop a change, never make a failing check pass, and its word is recorded as testimony. A Jarl loop in a repository with no check lands on testimony alone, and says so. Law that stays inside one component is raised freely by the agent working it. Law or decisions that reach a whole type of code are shared vocabulary: the agent proposes them and they run as advice at once, and the client — the one person the whole system answers to — admits them in one batch when the work closes. Only the client lowers or vetoes law. The core's shared machine contracts are registered on [one page](https://krzysztofdudek.github.io/Yggdrasil/family-contracts).
+
+Start where it hurts; there is no ladder to climb first.
+
+| Where it hurts | Start with |
+|---|---|
+| More issues than one agent can hold in its head | **Jarl** |
+| The agent keeps breaking what was agreed | **Yggdrasil** |
+| Nobody knows what was agreed | **Grain**, which earns its keep the moment you are about to write law |
+| A task too big for one head to plan up front, in a repository that already has law | **Horde** |
 
 | Core | What it holds |
 |---|---|
-| **[Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)** | The law. The architecture graph and the rails that hold every change to it, checked before the agent moves on, re-proved in CI without a key. |
-| **Grain** (this one) | The terrain survey. Mines a repository's own code and history into a first graph — components, dependencies, and the rules the code already keeps, each with the count of places that break it today; Yggdrasil accepts it with one command. |
-| **[Horde](https://github.com/krzysztofdudek/Horde)** | The software house on the law. Zero standing roles: a worker per ticket in its own worktree, refined onto the graph and given a tick by a nine-item merge checklist; a one-shot architect rules the whole plan once; the client orders the mission and is the only one who can lower or veto a rule. |
+| **[Jarl](https://github.com/krzysztofdudek/JarlSkill)** | The loop. Everything seen becomes an issue, each issue gets one worker in its own worktree, nothing closes without evidence and a review, and no code closes without a fresh reviewer's word. Rulings keep their history, and a ruling about a whole type of code goes to the client in one batch when the loop closes. |
+| **[Yggdrasil](https://github.com/krzysztofdudek/Yggdrasil)** | The law. The architecture graph, the rules over it and the log of why, checked before the agent moves on and re-proved in CI without a key. A rule that reaches a whole type runs as advice until the client ratifies it. |
+| **Grain** (this one) | The survey. Mines a repository's own code and history into a first graph — components, dependencies, and the rules the code already keeps, each with the count of places that break it today; Yggdrasil accepts it with one command. It measures and never blocks. |
+| **[Horde](https://github.com/krzysztofdudek/Horde)** | The mission on the law. A one-shot architect plans the whole mission onto the graph once, measuring with Grain; a worker per ticket in its own worktree; every change lands through a nine-item gate; what the mission learned becomes law. Its record is a Jarl loop. The client orders the mission and is the only one who can lower or veto a rule. |
 
-Four add-ons attach to the agent rather than to the graph, and each works alone. Horde doesn't assume any of them is installed — it carries its own minimum discipline in each role's law — but uses Ratatoskr, Urd and Researcher when they are, one sentence per row below.
+Four add-ons attach to the agent rather than to the graph; each works alone, depends on nothing in the family and keeps its own version. Horde doesn't assume any of them is installed — it carries its own minimum discipline in each role's law — but uses Ratatoskr, Urd and Researcher when they are, one sentence per row below.
 
 | Add-on | Stage | What it makes the agent prove | In Horde's loop |
 |---|---|---|---|
 | **[Ratatoskr](https://github.com/krzysztofdudek/RatatoskrSkill)** | request → intent | Keeps the agent talking to you in plain words, not code, so you can follow what it's doing. | Keeps the client's plain-language registry open at both ends of a mission. |
 | **[Urd](https://github.com/krzysztofdudek/UrdSkill)** | intent → code | When the spec is ambiguous, it consults the source of truth and asks, it doesn't guess. | The stop a worker hits before it guesses. |
 | **[Researcher](https://github.com/krzysztofdudek/ResearcherSkill)** | code → measured result | Point it at a metric and it runs experiments, hypotheses kept and discarded. | Runs the retrospective's measurement. |
-| **[Jarl](https://github.com/krzysztofdudek/JarlSkill)** | issues → merged branch | The agent directs a crew: it files what it sees as issues, gives each issue a worker in its own worktree, and merges a worker's branch only after a fresh reviewer approves it. | None. Jarl runs beside Horde, for work that needs more hands than one agent and no architecture graph. |
+| **[Skald](https://github.com/krzysztofdudek/SkaldSkill)** | running product → film | A film of your software shows the real running product, never a rebuilt one, and every number and claim on screen traces back to the product's own logs. | None. Horde does not call it. |
 
 ## Developing
 
