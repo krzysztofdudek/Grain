@@ -339,8 +339,14 @@ test('every `kind: rule` item a consumer reads has what `yg advise import` requi
       assert.equal(it.evidence.alsoIn.length, it.nodes.length - 1, 'one draft per node the rule holds in');
       assert.equal(typeof it.evidence.draft.check, 'string');
       assert.equal(it.evidence.draft.attachTo, it.nodes[0]);
+      // the identity a consumer files on names the rule, not the node holding it most strongly (issue 498)
+      const e = it.evidence;
+      assert.equal(e.rule, [e.enumerator, e.argument ?? '', String(e.expected ?? ''), e.rule.split('|').at(-1)].join('|'));
+      assert.ok(!e.rule.includes(e.partition), 'the rule identity does not carry the strongest node\'s partition');
     }
   }
+  const rules = doc.items.filter(i => i.kind === 'rule' && i.evidence.origin === 'convention').map(i => i.evidence.rule);
+  assert.equal(new Set(rules).size, rules.length, 'one item per rule, so no two items share a rule identity');
   assert.ok(!doc.items.some(i => i.kind === 'port'), '`port` stays reserved');
   const c = doc.survey.rules.conventions;
   assert.equal(c.emitted, doc.items.filter(i => i.kind === 'rule' && i.evidence.origin === 'convention').length);

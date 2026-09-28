@@ -8,7 +8,7 @@
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, readdirSync, symlinkSync, copyFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -32,7 +32,14 @@ test('a changed grammar hash re-parses the history instead of reusing the blob c
   tmps.push(tmp);
   const grammars = join(tmp, 'grammars');
   mkdirSync(grammars);
-  for (const f of readdirSync(SHIPPED)) if (f.startsWith('tree-sitter-')) symlinkSync(join(SHIPPED, f), join(grammars, f));
+  // linked where the platform lets a test make a file link, copied where it does not (Windows without developer mode)
+  for (const f of readdirSync(SHIPPED))
+    if (f.startsWith('tree-sitter-'))
+      try {
+        symlinkSync(join(SHIPPED, f), join(grammars, f));
+      } catch {
+        copyFileSync(join(SHIPPED, f), join(grammars, f));
+      }
   const manifest = hash => {
     const m = {};
     for (const f of readdirSync(grammars)) if (f.endsWith('.wasm')) m[f.replace(/^tree-sitter-|\.wasm$/g, '')] = { wasmSha256: hash };
