@@ -55,7 +55,7 @@ export function subtreeFiles(g, id) {
   for (const n of g.nodes) if (n.id === id || n.id.startsWith(id + '/')) for (const f of n.files) out.add(f);
   return out;
 }
-export function resolveScope(entries, { files, g }) {
+export function resolveScope(entries, { files, g, owned = false }) {
   const out = new Set();
   const parts = [];
   const unknown = [];
@@ -63,13 +63,14 @@ export function resolveScope(entries, { files, g }) {
     let sel;
     let kind;
     if (g && g.byId.has(e)) {
-      sel = subtreeFiles(g, e);
+      sel = owned ? new Set(files.filter(f => g.ownerOf.get(f) === e)) : subtreeFiles(g, e);
       kind = 'node';
     } else {
       sel = new Set(e === '.' ? files : files.filter(f => f === e || f.startsWith(e + '/')));
       kind = 'path';
     }
-    if (!sel.size) {
+    // A node every one of whose files a child owns is still a node of the graph: it adds nothing, and is not unknown.
+    if (!sel.size && !(owned && kind === 'node')) {
       unknown.push(e);
       continue;
     }
@@ -337,9 +338,14 @@ export function cochangeDocument({ model, head, g, H, level, fileEntries, nodeEn
     overlap = [];
   if (partition) {
     parts = {};
+    // At `--level node` the unit is the node that owns a file (the deepest one mapping it, as `yg owner` answers), so a
+    // node named in a part is the files it owns, not its whole subtree: a cut that puts a parent in one part and its
+    // child in another is two disjoint parts, as the graph says they are. Paths, and every other level, take the subtree.
+    const owned = level === 'node' && g;
     for (const [name, entries] of Object.entries(partition)) {
-      const r = resolveScope(entries.map(e => e.replace(/^\.\//, '').replace(/\/+$/, '')), { files, g });
+      const r = resolveScope(entries.map(e => e.replace(/^\.\//, '').replace(/\/+$/, '')), { files, g, owned });
       if (r.unknown.length) throw new Error(`--partition: part "${name}": nothing tracked matches ${r.unknown.map(e => `\`${e}\``).join(', ')}`);
+      if (!r.files.size) throw new Error(`--partition: part "${name}" holds no file — every node it names has each of its files owned by a node beneath it`);
       parts[name] = r.files;
       for (const f of r.files) sel.files.add(f);
     }

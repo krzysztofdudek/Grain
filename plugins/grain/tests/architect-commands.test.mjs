@@ -163,6 +163,29 @@ test('a partition that follows the seam scores better than one that cuts it, and
   assert.ok(good.partition.score.importsCrossing > 0);
 });
 
+// A node's files at node level are the files it owns, as `yg owner` says: the deepest node mapping a file. A cut that
+// puts a parent in one part and its child in another is two disjoint parts, and is scored; read as subtrees, the
+// parent's part would hold the child's files too and the same cut would be refused as overlapping.
+test('cochange --partition --level node: a parent and its child in two parts is scored, each part holding what its node owns', () => {
+  const nested = join(tmp, 'graph-parent-child');
+  w(nested, '.yggdrasil/yg-config.yaml', 'version: "6.0.0"\n');
+  w(nested, '.yggdrasil/yg-architecture.yaml', ['node_types:', '  module:', '    description: "A module."', ''].join('\n'));
+  const node = (id, mapping) => w(nested, `.yggdrasil/model/${id}/yg-node.yaml`, [`name: ${id.split('/').pop()}`, 'type: module', `description: "${id}."`, 'aspects: []', 'relations: []', 'mapping:', `  - ${mapping}`, ''].join('\n'));
+  node('app', 'src/');
+  node('app/orders', 'src/orders/');
+  const doc = json(repo, ['cochange', '--graph', nested, '--level', 'node', '--partition', JSON.stringify({ orders: ['app/orders'], rest: ['app'] })]);
+  const parts = Object.fromEntries(doc.partition.parts.map(p => [p.name, p.files]));
+  const orderFiles = readdirSync(join(repo, 'src', 'orders')).length;
+  assert.equal(parts.orders, orderFiles, 'the child\'s part is the child\'s files');
+  const all = gitIn(repo, 'ls-files', 'src').split('\n').filter(Boolean).length;
+  assert.equal(parts.rest, all - orderFiles, 'the parent\'s part is what the parent owns: everything under src/ but the child\'s');
+  assert.ok(doc.partition.score.commitsInside + doc.partition.score.commitsCrossing > 0);
+  // Read as subtrees (any level but node), the same cut is two parts sharing the child's files.
+  const asTrees = grain(repo, ['cochange', '--graph', nested, '--level', 'dir', '--partition', JSON.stringify({ orders: ['app/orders'], rest: ['app'] })], { ok: false });
+  assert.notEqual(asTrees.status, 0);
+  assert.match(asTrees.stderr, /one part only/);
+});
+
 test('a partition can come from a file, and a file in two parts, an unknown node or path, or no set at all is refused', () => {
   const f = join(tmp, 'parts.json');
   writeFileSync(f, JSON.stringify({ a: ['src/orders'], b: ['src/billing'] }));
