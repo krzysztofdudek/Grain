@@ -49,10 +49,12 @@ export async function snapshotAt({ root, sha, store, stamps, learn, headTree, re
     const tarFile = join(dir, `tree-${sha}-${process.pid}.tar`);
     try {
       execFileSync('git', ['-C', root, 'archive', '--format=tar', `--output=${tarFile}`, sha], { stdio: ['ignore', 'ignore', 'pipe'] });
-      // the archive goes to tar on its stdin, not as `-f <path>`: a GNU tar reads `C:\…` as a remote host
+      // the archive goes to tar on its stdin, not as `-f <path>`, and tar runs IN the directory rather than being
+      // told it with `-C <path>`: a GNU tar (the one Git for Windows puts first on PATH in its bash) reads any
+      // `C:\…` argument as a remote host, so no Windows path may reach tar as an argument at all
       const fd = openSync(tarFile, 'r');
       try {
-        execFileSync('tar', ['-x', '-C', work], { stdio: [fd, 'ignore', 'pipe'] });
+        execFileSync('tar', ['-x'], { cwd: work, stdio: [fd, 'ignore', 'pipe'] });
       } finally {
         closeSync(fd);
       }
