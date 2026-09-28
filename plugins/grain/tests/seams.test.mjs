@@ -65,6 +65,7 @@ const YG_SKIP = `Yggdrasil binary/checkout not found (looked for ${YG_BIN} and a
 const HORDE_DIR = process.env.HORDE_DIR || '/home/user/krzysztofdudek/horde';
 const NODE_MJS = join(HORDE_DIR, 'skills', 'horde', 'scripts', 'node.mjs');
 const QUEUE_MJS = join(HORDE_DIR, 'skills', 'horde', 'scripts', 'queue.mjs');
+const HORDE_MJS = join(HORDE_DIR, 'skills', 'horde', 'scripts', 'horde.mjs');
 const HAVE_HORDE = existsSync(NODE_MJS);
 const HORDE_SKIP = `Horde checkout not found (looked for ${NODE_MJS} — set HORDE_DIR)`;
 
@@ -354,7 +355,7 @@ test('yg node <path> --json returns Grain\'s own description, and the proposal h
 // (now adopted-equivalent) repo is handed to a real Horde checkout's `queue.mjs quality --from` — the path
 // `readAdvice`/`parseAdvice` (Horde's `skills/horde/scripts/queue.mjs`) read a `grain-advice/1` document
 // through, whether Horde calls Grain itself (`grainCommand`) or is handed a file grain already wrote. `--from`
-// exercises the file path directly so this seam does not also need a `grainCommand` wired into `.horde/config.json`.
+// exercises the file path directly, so what is proven is the document itself, not the command line that produced it.
 // `--dry-run --all` keeps the run to parsing and matching: no ticket, no queue, no roster file is needed for the
 // document to prove it is the schema Horde expects.
 // ============================================================================================================
@@ -362,15 +363,18 @@ test('grain advise --json parses under Horde\'s queue.mjs quality', {
   skip: !HAVE_YG ? YG_SKIP : !HAVE_HORDE ? HORDE_SKIP : false,
 }, () => {
   assert.ok(!yggProposeError, yggProposeError);
-  // Horde's own state, stapled onto the same staged repo: at least one horde must exist under `.horde/hordes/`
-  // for `resolveHorde` to pick a default, and `config.json` carries only the keys Horde actually reads for this
-  // command (`ygCommand`, so `nodeExists` can resolve `yg node --json`; `base`/`gates` alongside it for a
-  // realistic config, not because this command reads them) — not `nodeSource`, which nothing in Horde reads at
-  // all (audit 2026-09-09).
-  mkdirSync(join(yggStage, '.horde', 'hordes', 'seam'), { recursive: true });
-  writeFileSync(join(yggStage, '.horde', 'config.json'), JSON.stringify({
-    base: 'main', gates: { commit: '', team: '', trunk: '' }, ygCommand: `node ${YG_BIN}`,
-  }, null, 1));
+  // The mission is started the way an operator starts one: Horde's own `horde.mjs init`, run on the staged repo,
+  // never a hand-built copy of Horde's internal files. A hand-built `.horde/` is exactly how this seam drifted
+  // once: Horde 6.1.0 moved a mission's record into a Jarl loop (`.horde/hordes/<h>/.jarl/`) and refuses a
+  // mission laid out the 6.0.x way, so a test that wrote the old layout went red for a reason unrelated to the
+  // document under test. `init` finds the graph the overlay above installed, requires a Grain 6.1.0 or newer —
+  // the Grain under test, named with `--grain` — and writes `ygCommand`/`grainCommand` into `.horde/config.json`
+  // itself, so `queue.mjs` below resolves `yg node --json` through the same build.
+  const init = spawnSync('node', [HORDE_MJS, 'init', 'seam', '--base', 'main',
+    '--yg', `node ${YG_BIN}`, '--grain', `node ${GRAIN_BIN}`, '--json'], {
+    cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 26, env: gitEnv(yggStage),
+  });
+  assert.equal(init.status, 0, `horde.mjs init exited ${init.status}:\n${((init.stdout || '') + (init.stderr || '')).slice(0, 4000)}`);
 
   const advicePath = join(tmp, 'grain-advice.json');
   const g = spawnSync('node', [GRAIN_BIN, 'advise', '--json'], { cwd: yggStage, encoding: 'utf8', maxBuffer: 1 << 26 });
