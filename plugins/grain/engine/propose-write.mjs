@@ -293,7 +293,7 @@ export async function propose(repo, outDir, opts = {}) {
   const shape = opts.shape || 'nodes';
   if (!PROPOSE_SHAPES.includes(shape)) throw new Error(`--shape: \`${shape}\` is not a shape; use ${PROPOSE_SHAPES.map(s => `\`${s}\``).join(' or ')}`);
   const nodeTypes = shape === 'types' ? typesNeedingNodes(active) : active;
-  const { nodes, cycles: nodeCycles, unbroken } = buildNodes(nodeTypes, exp, nestedRoots);
+  const { nodes, cycles: nodeCycles, unbroken } = buildNodes(nodeTypes, exp, nestedRoots, shape === 'types' ? { dirFiles: files } : {});
   if (shape === 'types') say(opts, `shape: types — ${nodes.filter(n => !n.organizational).length} of ${active.length} types get a node, each nested inside another type; every other file is covered by its type alone`);
   say(opts, `types: ${active.length} active · ${alternatives.length} finer alternatives · nodes: ${nodes.length} · ${nodeCycles.length} dependency cycle(s) in the code, each broken in the proposed node graph at its weakest edge (left undeclared and named in REFACTOR-BACKLOG.md)`);
   if (unbroken) say(opts, `WARNING: a dependency loop in the proposed node graph was not broken (${unbroken.join(' → ')}); yg adopt will refuse this proposal on structural-cycle`);
