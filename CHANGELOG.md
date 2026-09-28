@@ -2,7 +2,7 @@
 
 All notable changes to this project will be documented in this file.
 
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the Yggdrasil family's one-number policy, not Semantic Versioning: the core of the family (Yggdrasil, Grain and Horde) ships together under one number, so a release may carry breaking changes under a minor number. Read a release's **Changed** and **Fixed** sections before you upgrade.
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Version numbers follow the Yggdrasil family's one-number policy, not Semantic Versioning: the core of the family (Yggdrasil, Grain, Jarl and Horde) ships together under one number, so a release may carry breaking changes under a minor number. Read a release's **Changed** and **Fixed** sections before you upgrade.
 
 ## [Unreleased]
 
@@ -22,6 +22,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Changed
 
+- The README says how Grain fits the family as of 6.1.0: Jarl joined the core, Horde's architect always measures with Grain (Horde requires it), and where to start follows what hurts, with Grain placed right before law is written, instead of "adopt Grain first". The family section is the family's shared text, as in every family README.
 - Each MCP tool now describes itself in one sentence: what it writes, what it answers and, for the questions you ask mid-task, when to ask. The tool list costs an agent's context about 7,600 tokens instead of 10,500. The full usage, with what each JSON answer holds, is what `grain_help` returns. Every tool keeps its name and its fields. A number field now refuses a value that is not a number instead of passing it on, and a time limit under a second is reported in milliseconds.
 - A boundary recorded with `grain decide boundary` is no longer flagged when you edit, once the architecture graph forbids it: `yg check` refuses that import from then on. `grain decide list` marks such a boundary as promoted.
 - The skill's passage on calling Grain through its MCP tools first, with the command line as the fallback, is now the wording the family's skills share word for word, and a check keeps it identical. What is Grain's own (its tools, fields, paths and time limits) is written around it.
