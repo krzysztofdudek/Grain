@@ -215,7 +215,8 @@ test('with a real Yggdrasil, the report runs `yg adopt --dry-run` on its own out
   const after = run.stdout.split('\n').slice(idx + 1).join('\n');
   assert.match(after, /yg adopt: would accept\s+\S*\.yggdrasil-proposal → \.yggdrasil\/\s*$/m, after.slice(0, 400));
   assert.match(after, /^\s*Graph\s+\d+ components? · \d+ rules? /m, after);
-  assert.match(after, /^\s*Origin\s+mined from this repository by Grain \(grain-proposal\/1\)/m, after);
+  // The Origin line's prose is Yggdrasil's to word; the contract is that it carries the proposal's schema id.
+  assert.match(after, /^\s*Origin\s+.*\(grain-proposal\/1\)/m, after);
   // "Already broken" is the one number nothing else in the report gives — a rule earns its status from how
   // the code is USUALLY written, never from a check that this repository is clean today.
   assert.match(after, /^\s*Already broken\s+/m, after);
