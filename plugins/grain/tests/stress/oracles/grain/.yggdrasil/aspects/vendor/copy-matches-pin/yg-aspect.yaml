@@ -1,0 +1,15 @@
+name: CopyMatchesPin
+description: >-
+  The vendored Runes copy is exactly the release its pin names: every file under the copy is listed in
+  the pin's `files` table with the sha256 its bytes have, and every file the table lists is there.
+
+  The copy is a tagged release's own built output, committed so that an install needs no build step and
+  no network, and moved only by the vendoring tool, which writes the table as it copies. Its files carry
+  no banner — they are the release's `dist/`, byte for byte, and a banner would itself be an edit — so
+  nothing in them tells a reader not to fix them in place. The pin does. A file whose hash the table does
+  not list is a hand edit, and the next `runes:update` destroys it with nothing in the diff to explain
+  where it went; a file the table lists and the copy lacks is a release shipped incomplete. The fix is
+  never to edit the copy: it is to fix Runes and move the pin.
+errs: exact
+status: enforced
+review_by: 2027-06-01

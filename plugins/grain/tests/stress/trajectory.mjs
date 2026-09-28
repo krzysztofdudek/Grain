@@ -20,12 +20,28 @@
 // still legal, so it is a reading, not a verdict). `--top k` (default 5) lists the commits with the largest change
 // in relations and the most upward relations: the turning points a maintainer
 // checks against the CHANGELOG.
+//
+// Each commit's new relations are also split by the age of their ends: `betweenOld` join two nodes that both existed
+// at the previous commit read, the rest touch a node that is new. The share between old nodes names the kind of
+// jump: `enforcement` at or above ENFORCEMENT_SHARE (the checker learning to see dependencies the nodes already
+// had — the declarations catch up with the code), `growth` at or below GROWTH_SHARE (new nodes arriving with their
+// relations), `mixed` between. On Yggdrasil's five largest jumps a maintainer's reading (issue 398) split them
+// 406:58 and 179:16 for the two enforcement commits against 15:102, 11:75 and 6:41 for the three growth ones.
 import { execFileSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import { parseYaml } from '../../engine/yggdrasil-graph.mjs';
 
 const git = (repo, args, input) => execFileSync('git', ['-C', repo, ...args], { encoding: 'utf8', maxBuffer: 1 << 30, input, stdio: [input == null ? 'ignore' : 'pipe', 'pipe', 'ignore'] });
 const NODE_FILE = /^\.yggdrasil\/model\/(.+)\/(yg-node|node)\.yaml$/;
+export const ENFORCEMENT_SHARE = 0.85;
+export const GROWTH_SHARE = 0.15;
+
+// the kind of jump a commit's new relations make, from the share of them between nodes that already existed
+export function readingOf(added, betweenOld) {
+  if (!added) return null;
+  const share = betweenOld / added;
+  return share >= ENFORCEMENT_SHARE ? 'enforcement' : share <= GROWTH_SHARE ? 'growth' : 'mixed';
+}
 
 // the declared graph at one commit: node ids (the directory under model/) and their relation targets
 export function graphAt(repo, sha) {
@@ -117,12 +133,14 @@ export function metrics(g, prev) {
   for (const ts of g.rel.values()) for (const t of ts) fanIn.set(t, fanIn.get(t) + 1);
   const fi = [...fanIn.values()].sort((a, b) => b - a);
   const upward = [];
-  let added = 0;
+  let added = 0, betweenOld = 0;
   if (prev) {
+    const existed = new Set(prev.g.nodes);
     for (const [from, ts] of g.rel)
       for (const to of ts) {
         if ((prev.g.rel.get(from) || []).includes(to)) continue;
         added++;
+        if (existed.has(from) && existed.has(to)) betweenOld++;
         if (prev.layerOf.has(from) && prev.layerOf.has(to) && prev.layerOf.get(from) < prev.layerOf.get(to))
           upward.push({ from, to, fromLayer: prev.layerOf.get(from), toLayer: prev.layerOf.get(to) });
       }
@@ -131,7 +149,7 @@ export function metrics(g, prev) {
     nodes: g.nodes.length, edges, perNode: g.nodes.length ? +(edges / g.nodes.length).toFixed(2) : 0,
     cycles: comps.filter(c => c.length > 1).length, inCycles: comps.filter(c => c.length > 1).reduce((a, c) => a + c.length, 0),
     depth, fanInGini: +gini(fi).toFixed(3), top5FanIn: edges ? +(fi.slice(0, 5).reduce((a, b) => a + b, 0) / edges).toFixed(3) : 0,
-    added, upward, layerOf,
+    added, betweenOld, reading: readingOf(added, betweenOld), upward, layerOf,
   };
 }
 
@@ -155,7 +173,7 @@ async function main(argv) {
   if (!repo) { process.stderr.write('usage: trajectory.mjs <repo-with-.yggdrasil> [--every <k>] [--top <k>] [--json]\n'); return 2; }
   const rows = trajectory(repo, { every: opt('--every', 1) });
   if (rest.includes('--json')) { process.stdout.write(JSON.stringify(rows, null, 1) + '\n'); return 0; }
-  const line = r => `${r.date.slice(0, 10)} ${r.sha.slice(0, 9)}  nodes ${r.nodes} · relations ${r.edges} (${r.dEdges >= 0 ? '+' : ''}${r.dEdges}) · per node ${r.perNode} · depth ${r.depth} · cycles ${r.cycles} (${r.inCycles} nodes) · fan-in Gini ${r.fanInGini} · top-5 share ${r.top5FanIn} · new ${r.added}, upward ${r.upward.length}`;
+  const line = r => `${r.date.slice(0, 10)} ${r.sha.slice(0, 9)}  nodes ${r.nodes} · relations ${r.edges} (${r.dEdges >= 0 ? '+' : ''}${r.dEdges}) · per node ${r.perNode} · depth ${r.depth} · cycles ${r.cycles} (${r.inCycles} nodes) · fan-in Gini ${r.fanInGini} · top-5 share ${r.top5FanIn} · new ${r.added} (${r.betweenOld} between old nodes${r.reading ? `: ${r.reading}` : ''}), upward ${r.upward.length}`;
   const n = rows.length, step = Math.max(1, Math.floor(n / 10));
   process.stdout.write(`${n} commits read\n\nevenly spaced:\n`);
   for (let i = 0; i < n; i += step) process.stdout.write(line(rows[i]) + '\n');

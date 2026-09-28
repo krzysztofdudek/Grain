@@ -8,7 +8,7 @@ description: >-
   edge. It also knows which extractors are include-only and therefore weaker than their mere
   registration suggests, so language coverage can be reported honestly instead of assumed.
 relations:
-  - target: plugin/engine/vendor-relations
+  - target: plugin/engine/vendor-runes
     type: calls
 mapping:
   - plugins/grain/engine/relations.mjs

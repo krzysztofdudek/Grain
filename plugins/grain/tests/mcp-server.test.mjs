@@ -76,7 +76,7 @@ test('parity: the subcommands in the table are the ones decide and oracle accept
 });
 
 test('parity: the value flags the CLI parses are exactly the ones it parsed before the table existed', () => {
-  assert.deepEqual([...VALUE_FLAGS].sort(), ['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'never-imports', 'weight', 'topic', 'note', 'author', 'range', 'on', 'last', 'runs', 'seed', 'holdout', 'family-candidates', 'graph', 'proposal', 'name', 'files', 'nodes', 'level', 'partition', 'from', 'to', 'scope'].sort());
+  assert.deepEqual([...VALUE_FLAGS].sort(), ['repo', 'top', 'minbits', 'as', 'content', 'mode', 'map-rows', 'out', 'max-sites', 'surfaces', 'instead-of', 'never-imports', 'weight', 'topic', 'note', 'author', 'range', 'on', 'last', 'runs', 'seed', 'holdout', 'family-candidates', 'graph', 'proposal', 'name', 'files', 'nodes', 'level', 'partition', 'from', 'to', 'scope', 'shape'].sort());
   assert.deepEqual(parseArgv(['propose', '--json', 'out.json']).opts, { json: 'out.json' });
   assert.deepEqual(parseArgv(['check', '--json', 'src/a.ts']), { cmd: 'check', args: ['src/a.ts'], opts: { json: true } });
 });

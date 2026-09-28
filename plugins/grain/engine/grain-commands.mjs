@@ -47,6 +47,7 @@ export const COMMANDS = {
       json: 'path',
       holdout: 'value',
       scope: 'value',
+      shape: 'value',
       'family-candidates': 'path',
       'no-family-candidates': 'bool',
     },

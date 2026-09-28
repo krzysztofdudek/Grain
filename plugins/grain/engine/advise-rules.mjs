@@ -271,8 +271,11 @@ export function conventionRuleItems({ exp, model, g, raw, buildAspects, aspectYa
   // same "types are PascalCase" eight times reads as eight findings and is one. The item names every node it holds
   // in, strongest first; `draft` is the strongest one's and `alsoIn` carries the others'.
   const groups = new Map();
+  // the rule's identity, the same whichever node holds it most strongly: the aspect id names the strongest node's
+  // partition, so it moves when another node overtakes it, and this does not (`evidence.rule`, what Horde files on)
+  const ruleKey = a => [a.enumerator, a.argument ?? '', String(a.expected ?? ''), a.kind ?? ''].join('|');
   for (const c of cands) {
-    const k = [c.a.enumerator, c.a.argument ?? '', String(c.a.expected ?? ''), c.a.kind ?? ''].join('\x00');
+    const k = ruleKey(c.a);
     if (!groups.has(k)) groups.set(k, []);
     groups.get(k).push(c);
   }
@@ -294,6 +297,7 @@ export function conventionRuleItems({ exp, model, g, raw, buildAspects, aspectYa
       confidence: +(n / Math.max(1, n + dev)).toFixed(3),
       evidence: {
         origin: 'convention',
+        rule: ruleKey(a),
         aspect: a.id,
         name: a.name,
         conforming: n,

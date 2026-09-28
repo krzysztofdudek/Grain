@@ -1,6 +1,6 @@
 // grain history layer — the ENTIRE git history, walked once and then resumed.
 //   · every distinct historical blob is parsed exactly once EVER (content-addressed cache, sharded by the blob
-//     sha's first two hex chars, keyed by extractor version — §13.2)
+//     sha's first hex chars, keyed by extractor version, grammar bytes and Runes release — §13.2)
 //   · the per-scope lifecycle / value-event replay (§13.3) and the co-change accumulation (§13.5) are persisted as
 //     a replay state stamped with the last walked commit, so a later learn walks only `lastSha..HEAD` and parses
 //     only the blobs those commits introduce — "a freshly landed commit costs exactly its new blobs"
@@ -21,6 +21,7 @@ import { createInterface } from 'node:readline';
 import { extname, join } from 'node:path';
 import { parseFile, bindingFor, extractScopes, hashStr, CODE_RE, normalizeCR } from './core.mjs';
 import { HARD_EXCL, EXT2GRAMMAR, CFG, EXTR_V, HIST_V, FIX_RE } from './config.mjs';
+import { extractionStamp } from './stamps.mjs';
 import { tokenize, normTok, QSTOP, DOC_STOP } from './core.mjs';
 import { langExt, renameOver, SFC_RE } from './base.mjs';
 
@@ -200,10 +201,13 @@ export class BlobCache {
     this.dirty = new Set();
     mkdirSync(dir, { recursive: true });
     const vf = join(dir, 'VERSION');
-    if (!existsSync(vf) || readFileSync(vf, 'utf8').trim() !== EXTR_V) {
-      // extractor changed ⇒ the whole cache is invalid by key
+    // keyed on the grammar bytes and the Runes release as well as EXTR_V: a `runes:update` that moves a grammar
+    // changes what a blob parses to, so a cache written under the old ones is as invalid as one from an older extractor
+    const stamp = extractionStamp();
+    if (!existsSync(vf) || readFileSync(vf, 'utf8').trim() !== stamp) {
+      // extractor, grammars or Runes changed ⇒ the whole cache is invalid by key
       for (const f of readdirSync(dir)) if (f.endsWith('.json')) rmSync(join(dir, f));
-      writeFileSync(vf, EXTR_V + '\n');
+      writeFileSync(vf, stamp + '\n');
     } else {
       // a store written at a different shard width is not wrong, just unreadable by key — its entries would all
       // read as misses and be re-parsed while the old files sat there forever. Dropped on sight instead: this is a
@@ -424,6 +428,7 @@ export async function parseBlobs(gitdir, cache, blobExt, log) {
 export const freshState = () => ({
   x: EXTR_V,
   h: HIST_V,
+  g: extractionStamp(), // the grammars and Runes the replayed scopes were parsed under (stamps.mjs)
   lastSha: null,
   commits: 0,
   events: 0,
@@ -454,7 +459,7 @@ export const freshState = () => ({
 // remotely that large — every value here is bounded by a per-commit cap (`CFG.megaCap`/`CFG.scopePairCap`) or is
 // a lifecycle record for one path/scope — so writing and reading ONE JSON value per line, streamed, keeps every
 // string either side of this round-trip ever holds down to the size of one record, however large the file grows.
-const HIST_SCALAR_FIELDS = ['x', 'h', 'lastSha', 'commits', 'events', 'firstTs', 'nonMegaCommits', 'scopeCommitsN'];
+const HIST_SCALAR_FIELDS = ['x', 'h', 'g', 'lastSha', 'commits', 'events', 'firstTs', 'nonMegaCommits', 'scopeCommitsN'];
 const HIST_MAP_FIELDS = [
   'blobShas',
   'msgAff',
@@ -515,6 +520,7 @@ export async function writeHistoryState(path, state) {
 }
 export async function readHistoryState(path) {
   const state = freshState();
+  state.g = null; // a state written before the stamp existed carries no `g` row, and must not read as the live one
   const rl = createInterface({ input: createReadStream(path, { encoding: 'utf8' }), crlfDelay: Infinity });
   for await (const line of rl) {
     if (!line) continue;
@@ -809,7 +815,7 @@ export async function loadHistory({ gitdir, store, log = () => {}, full = false 
   }
   let mode = 'full',
     range = null;
-  if (state && state.x === EXTR_V && state.h === HIST_V && state.lastSha) {
+  if (state && state.x === EXTR_V && state.h === HIST_V && state.g === extractionStamp() && state.lastSha) {
     if (state.lastSha === head) {
       mode = 'unchanged';
     } else if (isAncestor(gitdir, state.lastSha, head)) {

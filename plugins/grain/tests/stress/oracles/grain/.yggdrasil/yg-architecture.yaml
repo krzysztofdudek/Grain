@@ -72,7 +72,8 @@ node_types:
       - answers/degrade-never-crash
     parents: [project, area]
     relations:
-      calls: [cli-dispatch, engine-config]
+      # The command table and the MCP adapter come from the vendored Runes copy.
+      calls: [cli-dispatch, engine-config, vendored-runes]
       default: deny
 
   cli-dispatch:
@@ -219,7 +220,7 @@ node_types:
       - engine/file-size-budget
     parents: [project, area]
     relations:
-      calls: [mining-core, engine-config, vendored-relations]
+      calls: [mining-core, engine-config, vendored-runes]
       default: deny
 
   proposal-writer:
@@ -246,26 +247,33 @@ node_types:
       calls: [mining-core, engine-module, engine-config]
       default: deny
 
-  vendored-relations:
+  vendored-runes:
     description: >-
-      Generated third-party-shaped source — plugins/grain/engine/vendor/relations/**. The relation
-      extractors, symbol table, tri-state resolver and path resolvers, mechanically vendored from
-      Yggdrasil (MIT, same author) by scripts/build-relations.mjs and committed. Never hand-edited:
-      every file carries the generated banner naming the command that rewrites it, and a hand fix here
-      is silently destroyed by the next regeneration.
+      The vendored Runes copy — plugins/grain/engine/vendor/runes/** and its pin,
+      plugins/grain/engine/vendor/runes.pin.json. A byte-for-byte copy of a tagged Runes release's built
+      output (MIT, same author): the relation extractors, symbol table, tri-state resolver and path
+      resolvers, the AST helpers, the grammar manifest with its patches and the build recipe, the
+      command table and MCP adapter the MCP server is built on, and the test kit's parts. Written only by
+      `npm run runes:update` (scripts/runes.mjs), which records every file's sha256 in the pin; `npm run
+      runes:check` compares the copy against it before the suite runs. The files carry no banner of their
+      own — they are the release's own `dist/`, not a transform of it — so what says "do not edit" is the
+      pin: a hand fix here is a file whose hash the pin does not list, and the next update destroys it.
+
+      Deliberately NOT carrying the engine's absolute subprocess and network bans: the copy ships the
+      grammar build (downloads and compiles grammars on a maintainer's machine), the MCP adapter's process
+      runner and the test kit's CLI client, none of which the query path reaches. What it carries instead is
+      that it stays the pinned bytes.
     enforce: strict
     when:
-      path: "plugins/grain/engine/vendor/relations/**"
+      any_of:
+        - path: "plugins/grain/engine/vendor/runes/**"
+        - path: "plugins/grain/engine/vendor/runes.pin.json"
     aspects:
-      - source/no-raw-control-bytes
-      - vendor/generated-banner
+      - vendor/copy-matches-pin
       - engine/no-runtime-dependencies
-      - engine/no-network-at-runtime
-      - engine/no-subprocess-in-analysis-layer
-      - engine/no-test-or-instrument-import
     parents: [project, area]
     relations:
-      calls: [vendored-relations]
+      calls: [vendored-runes]
       default: deny
 
   vendored-runtime:
@@ -291,7 +299,8 @@ node_types:
     description: >-
       A shipped grammar asset — plugins/grain/engine/grammars/**. Each language is a TRIAD: a
       `tree-sitter-<g>.wasm`, a `tree-sitter-<g>.node-types.json` (the file every per-language binding
-      is derived from) and a manifest entry recording the package and version it was built from. The
+      is derived from) and an entry in the Runes grammar manifest (vendored with the Runes copy, not
+      beside the assets) recording where it was built from and the sha256 of both files. The
       extension→grammar map filters itself to grammars whose wasm AND node-types both exist, so a
       half-shipped grammar disappears in silence rather than failing loudly — which is exactly why the
       triad is checked here instead of at runtime.
@@ -303,15 +312,18 @@ node_types:
       - grammars/extension-map-bijection
     parents: [project, area]
     relations:
-      uses: [engine-config]
+      # `uses: vendored-runes` so the triad check may read the grammar manifest, which lives in the copy.
+      uses: [engine-config, vendored-runes]
       default: deny
 
   build-script:
     description: >-
-      A regeneration script — plugins/grain/scripts/*.mjs. Reads dev-only dependencies and rewrites
-      committed assets (the grammar set, the vendored relation machinery). Runs on a maintainer's
-      machine, never at query time, and is therefore outside the runtime bans; it imports no
-      first-party module, so it cannot drag a dev dependency into the shipped surface.
+      A regeneration script — plugins/grain/scripts/*.mjs. Rewrites committed assets: the grammar set,
+      built by the Runes recipe in the vendored copy, and the vendored Runes copy itself, moved to a
+      release and checked against its pin by the Runes vendoring tool (itself pinned by that copy). Runs on
+      a maintainer's machine and in the test gate, never at query time, and is therefore outside the
+      runtime bans; the only first-party code it imports is the vendored copy's grammar build, so it
+      cannot drag a dev dependency into the shipped surface.
     enforce: strict
     when:
       path: "plugins/grain/scripts/*.mjs"
@@ -319,6 +331,7 @@ node_types:
       - source/no-raw-control-bytes
     parents: [project, area]
     relations:
+      calls: [vendored-runes]
       default: deny
 
   # ── The shipped plugin: the agent-facing surface ────────────────────────────────────────────────
@@ -442,13 +455,14 @@ node_types:
 
   test-relations-unit:
     description: >-
-      A relation-extraction unit case — plugins/grain/tests/relations/unit/**/*.test.mjs. One numbered
-      file per identification case, grouped by language, importing the extractor or resolver under test
-      directly through the shared unit harness. White-box on purpose: these assert what one extractor
-      returns for one construct, which no CLI-level output can pin down.
+      A relation case at Grain's own seam — plugins/grain/tests/relations/*.test.mjs. The per-construct
+      unit catalogue left with the relation code for Runes, which owns and tests it; what stays here is
+      white-box on the one thing only Grain can get wrong: how its own parse and its own relation pass
+      hand files to the vendored extractors (a C# project scope, the parser a damaged Kotlin file is
+      re-read with).
     enforce: strict
     when:
-      path: "plugins/grain/tests/relations/unit/**/*.test.mjs"
+      path: "plugins/grain/tests/relations/*.test.mjs"
     aspects:
       - tests/node-test-runner-only
     parents: [project, area]
@@ -492,15 +506,13 @@ node_types:
 
   test-harness:
     description: >-
-      A shared test harness — tests/relations/harness.mjs and tests/relations/unit/_unit-harness.mjs.
+      A shared test harness — tests/relations/harness.mjs.
       The only place a relation test learns how to build a fixture, run the product and read an answer.
       It carries the black-box discipline for the two e2e suites: they reach the product ONLY through
       here, and here it is a spawn of the built binary.
     enforce: strict
     when:
-      any_of:
-        - path: "plugins/grain/tests/relations/harness.mjs"
-        - path: "plugins/grain/tests/relations/unit/_unit-harness.mjs"
+      path: "plugins/grain/tests/relations/harness.mjs"
     aspects:
       - source/no-raw-control-bytes
     parents: [project, area]

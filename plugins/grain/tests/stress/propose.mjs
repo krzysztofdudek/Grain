@@ -23,6 +23,7 @@
 //                     BOTH directions (recall: hand element -> proposed element; precision: proposed -> hand).
 //                     <dir> need not be <repo>: an oracle graph lives beside the code it describes, and the
 //                     repository's own files are always what a `content:` predicate is evaluated against.
+//   --shape <s>       `nodes` (default) or `types`, as `grain propose --shape` (issue 494)
 //   --json <path>     write the run's numbers (and the score, with --score) as JSON
 //   --quiet           no progress on stderr
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
@@ -105,6 +106,26 @@ export function scoreProposal(handRepo, outDir, files, contentRoot = handRepo) {
     return { types, nodes };
   };
   const H = setsOf(hand), P = setsOf(prop);
+  // THE UNITS A FILE BELONGS TO, WHETHER OR NOT A NODE NAMES THEM (issue 494). A graph in the types shape
+  // (`--shape types`) writes a node only where a type is nested inside another and covers every other file by the
+  // one type whose \`when\` matches it (\`coverage.type_level\`), so scoring its nodes alone scores a fraction of what
+  // it says. Here a file belongs to the deepest node mapping it, and a file no node maps to the one type that
+  // matches it (a file two types match and no node claims belongs to none, as Yggdrasil refuses it). The same
+  // reading applies to both graphs.
+  const unitsOf = S => {
+    const owner = new Map(), depth = new Map();
+    for (const n of S.nodes) {
+      const d = n.id.split('/').length;
+      for (const f of n.files) if (!owner.has(f) || d > depth.get(f)) { owner.set(f, `node:${n.id}`); depth.set(f, d); }
+    }
+    const typesOf = new Map();
+    for (const t of S.types) for (const f of t.files) if (!owner.has(f)) (typesOf.get(f) || typesOf.set(f, []).get(f)).push(t.id);
+    for (const [f, ts] of typesOf) if (ts.length === 1) owner.set(f, `type:${ts[0]}`);
+    const units = new Map();
+    for (const [f, u] of owner) (units.get(u) || units.set(u, new Set()).get(u)).add(f);
+    return [...units].map(([id, files]) => ({ id, files }));
+  };
+  const HU = unitsOf(H), PU = unitsOf(P);
   // the proposal's alternatives are candidates the maintainer chooses from, so they are scored as a separate,
   // clearly-labelled stratum — never folded into the active number.
   let alts = [];
@@ -134,6 +155,8 @@ export function scoreProposal(handRepo, outDir, files, contentRoot = handRepo) {
   const typePrecision = direction(P.types, H.types, 'proposed type -> hand type (precision)');
   const nodeRecall = direction(H.nodes, P.nodes, 'hand node -> proposed node (recall)');
   const nodePrecision = direction(P.nodes, H.nodes, 'proposed node -> hand node (precision)');
+  const unitRecall = direction(HU, PU, 'hand unit -> proposed unit (recall; a unit is a node\'s own files, or the files one type covers alone)');
+  const unitPrecision = direction(PU, HU, 'proposed unit -> hand unit (precision)');
 
   // aspects: how many drafts name an identifier a hand-written mechanical rule also names
   const handLits = new Map();
@@ -165,6 +188,7 @@ export function scoreProposal(handRepo, outDir, files, contentRoot = handRepo) {
   return {
     types: { recall: typeRecall, recallWithAlternatives: typeRecallWithAlts, precision: typePrecision },
     nodes: { recall: nodeRecall, precision: nodePrecision },
+    units: { recall: unitRecall, precision: unitPrecision, filesHand: HU.reduce((a, u) => a + u.files.size, 0), filesProposed: PU.reduce((a, u) => a + u.files.size, 0) },
     aspects: { handDeterministic: handLits.size, handWithLiterals: [...handKeyed.values()].filter(s => s.size).length, drafts: prop.aspects.length, named: aspectHits.length, rows: aspectHits },
     alternatives: alts.length,
   };
@@ -184,13 +208,14 @@ function parseArgs(argv) {
     else if (a === '--score') opts.score = resolve(argv[++i]);
     else if (a === '--json') opts.json = resolve(argv[++i]);
     else if (a === '--holdout') opts.holdout = argv[++i];
+    else if (a === '--shape') opts.shape = argv[++i];
     else if (a === '--subgate-per-partition') opts.subGatePerPartition = Number(argv[++i]);
     else if (a === '--family-candidates') opts.familyCandidates = resolve(argv[++i]);
     else if (a.startsWith('--')) throw new Error(`unknown flag ${a}`);
     else pos.push(a);
   }
   if (opts.holdout && !/^\d{4}-\d{2}-\d{2}$/.test(opts.holdout)) throw new Error('--holdout takes a YYYY-MM-DD date');
-  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--score <repo>] [--json <path>] [--family-candidates <out.json>] [--quiet]');
+  if (pos.length !== 2) throw new Error('usage: node propose.mjs <repo> <out-dir> [--export <json>] [--no-history] [--holdout <YYYY-MM-DD>] [--subgate-per-partition <n>] [--shape nodes|types] [--score <repo>] [--json <path>] [--family-candidates <out.json>] [--quiet]');
   return { repo: resolve(pos[0]), outDir: resolve(pos[1]), opts };
 }
 
@@ -219,6 +244,7 @@ if (isMain) {
     const t = out.score.types, n = out.score.nodes;
     say(opts, `types recall ${t.recall.hit}/${t.recall.n} (with alternatives ${t.recallWithAlternatives.hit}/${t.recallWithAlternatives.n}) · precision ${t.precision.hit}/${t.precision.n}`);
     say(opts, `nodes recall ${n.recall.hit}/${n.recall.n} · precision ${n.precision.hit}/${n.precision.n}`);
+    say(opts, `units recall ${out.score.units.recall.hit}/${out.score.units.recall.n} · precision ${out.score.units.precision.hit}/${out.score.units.precision.n} (a node's own files, or the files one type covers alone)`);
     say(opts, `aspects: ${out.score.aspects.named}/${out.score.aspects.handWithLiterals} hand mechanical rules named by some draft`);
   }
   if (opts.json) writeFileSync(opts.json, JSON.stringify(out, null, 1) + '\n');
